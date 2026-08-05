@@ -1,0 +1,127 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void
+    {
+        Schema::create('accounts', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->decimal('balance', 15, 2)->default(0.0);
+            $table->string('hash')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('customers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+            $table->unsignedBigInteger('local_id')->default(0)->comment('Android Room PK for deduplication');
+            $table->string('name');
+            $table->string('phone', 50)->nullable();
+            $table->string('hash')->nullable();
+            $table->timestamps();
+            $table->unique(['account_id', 'local_id']);
+        });
+
+        Schema::create('suppliers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+            $table->unsignedBigInteger('local_id')->default(0);
+            $table->string('name');
+            $table->string('phone', 50)->nullable();
+            $table->string('hash')->nullable();
+            $table->timestamps();
+            $table->unique(['account_id', 'local_id']);
+        });
+
+        Schema::create('transactions', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+            $table->unsignedBigInteger('local_id')->default(0)->comment('Android Room PK for deduplication');
+            $table->string('type', 20);
+            $table->decimal('amount', 15, 2);
+            $table->unsignedBigInteger('timestamp')->nullable();
+            $table->string('hash')->nullable();
+            $table->timestamps();
+            $table->unique(['account_id', 'local_id']);
+        });
+
+        Schema::create('rates', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+            $table->string('currency_pair', 10);
+            $table->decimal('rate', 15, 4);
+            $table->timestamps();
+        });
+
+        Schema::create('safa_api_keys', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->nullable()->constrained('accounts')->onDelete('set null');
+            $table->string('client_name');
+            $table->string('api_key', 128)->unique();
+            $table->string('api_secret', 255); // store hashed in production
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+
+        Schema::create('audit_logs', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable()->index();
+            $table->string('action', 10);
+            $table->string('endpoint', 255);
+            $table->json('payload')->nullable();
+            $table->string('ip_address', 45)->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('app_versions', function (Blueprint $table) {
+            $table->id();
+            $table->string('platform', 20)->default('android');
+            $table->integer('min_version_code');
+            $table->integer('latest_version_code');
+            $table->boolean('force_update')->default(false);
+            $table->string('update_url')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('roles', function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 50)->unique();
+            $table->string('slug', 50)->unique();
+            $table->string('description')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('permissions', function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 50)->unique();
+            $table->string('slug', 50)->unique();
+            $table->timestamps();
+        });
+
+        Schema::create('role_permission', function (Blueprint $table) {
+            $table->foreignId('role_id')->constrained('roles')->onDelete('cascade');
+            $table->foreignId('permission_id')->constrained('permissions')->onDelete('cascade');
+            $table->primary(['role_id', 'permission_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('role_permission');
+        Schema::dropIfExists('permissions');
+        Schema::dropIfExists('roles');
+        Schema::dropIfExists('app_versions');
+        Schema::dropIfExists('audit_logs');
+        Schema::dropIfExists('safa_api_keys');
+        Schema::dropIfExists('rates');
+        Schema::dropIfExists('transactions');
+        Schema::dropIfExists('suppliers');
+        Schema::dropIfExists('customers');
+        Schema::dropIfExists('accounts');
+    }
+};
+

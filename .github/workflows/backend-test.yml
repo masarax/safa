@@ -1,0 +1,132 @@
+name: Laravel Backend API Tests
+
+on:
+  push:
+    branches: [ main, dev ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }} Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.3']
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, sqlite3, mbstring, json, openssl, bcmath
+          coverage: xdebug
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Generate key
+        run: php artisan key:generate
+
+      - name: Set test credentials
+        run: |
+          echo "SAFA_API_KEY=ci_test_key_2026" >> .env
+          echo "SAFA_API_SECRET=ci_test_secret_32byteslong_2026" >> .env
+          echo "DB_CONNECTION=sqlite" >> .env
+
+      - name: Create database
+        run: touch database/database.sqlite
+
+      - name: Run migrations + seed
+        run: php artisan migrate --force && php artisan db:seed
+
+      - name: Run tests
+        run: php artisan test --parallel --coverage-clover coverage.xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: backend/coverage.xml
+        continue-on-error: true
+
+  api-smoke-test:
+    name: API Smoke Test
+    runs-on: ubuntu-latest
+    needs: test
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, sqlite3, mbstring, json, openssl
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Setup and seed
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          echo "SAFA_API_KEY=ci_test_key_2026" >> .env
+          echo "SAFA_API_SECRET=ci_test_secret_32byteslong_2026" >> .env
+          touch database/database.sqlite
+          php artisan migrate --force
+          php artisan db:seed
+
+      - name: Start server
+        run: php artisan serve --host=127.0.0.1 --port=8000 &
+        
+      - name: Wait for server
+        run: sleep 3 && curl -f http://127.0.0.1:8000/up
+
+      - name: Test health endpoint
+        run: curl -f http://127.0.0.1:8000/up
+
+      - name: Test version check (signed)
+        run: |
+          TS=$(date +%s)
+          METHOD="GET"
+          PATH_VAL="/api/version/check"
+          PAYLOAD="${METHOD}${PATH_VAL}${TS}"
+          SIG=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "ci_test_secret_32byteslong_2026" | awk '{print $2}')
+          RESULT=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "X-SAFA-API-KEY: ci_test_key_2026" \
+            -H "X-SAFA-SIGNATURE: $SIG" \
+            -H "X-SAFA-TIMESTAMP: $TS" \
+            "http://127.0.0.1:8000/api/version/check?version_code=1")
+          echo "Version check status: $RESULT"
+          [ "$RESULT" = "200" ] || exit 1
+
+      - name: Test unauthorized returns 401
+        run: |
+          RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/sync/down)
+          echo "Unauth status: $RESULT"
+          [ "$RESULT" = "401" ] || exit 1
