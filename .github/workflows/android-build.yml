@@ -68,7 +68,6 @@ jobs:
           SAFA_API_KEY=${{ secrets.SAFA_API_KEY || 'ci_test_key_2026' }}
           SAFA_API_SECRET=${{ secrets.SAFA_API_SECRET || 'ci_test_secret_32byteslong_2026' }}
           SAFA_BASE_URL=https://api.safa-account.com/api/
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || 'placeholder' }}
           EOF
 
       - name: Grant Gradle execute permission
@@ -116,7 +115,6 @@ jobs:
           SAFA_API_KEY=${{ secrets.SAFA_API_KEY }}
           SAFA_API_SECRET=${{ secrets.SAFA_API_SECRET }}
           SAFA_BASE_URL=https://api.safa-account.com/api/
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || 'placeholder' }}
           EOF
 
       - name: Grant Gradle execute permission

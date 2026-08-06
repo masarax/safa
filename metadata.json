@@ -2,5 +2,5 @@
   "name": "SAFA",
   "description": "মাল্টি-ইউজার হুন্ডি লেনদেন, কাস্টমার এবং সাপ্লায়ার হিসাব ও দৈনিক আয়-ব্যয় ট্র্যাকার আ্যাপ।",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }
