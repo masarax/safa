@@ -10,7 +10,7 @@ class TokenManager(context: Context) {
     companion object {
         private const val KEY_TOKEN = "auth_token"
         private const val KEY_BASE_URL = "base_url"
-        private const val DEFAULT_URL = "http://10.0.2.2:8000/api/"
+        private const val DEFAULT_URL = "http://192.168.100.229:8000/api/"
     }
 
     fun saveToken(token: String) = prefs.edit { putString(KEY_TOKEN, token) }

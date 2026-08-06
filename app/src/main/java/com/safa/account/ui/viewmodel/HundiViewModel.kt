@@ -110,12 +110,28 @@ class HundiViewModel(
     private val _selectedLocalCurrency = MutableStateFlow("BDT")
     val selectedLocalCurrency: StateFlow<String> = _selectedLocalCurrency.asStateFlow()
 
+    // Biometric Security Toggle
+    private val _isBiometricEnabled = MutableStateFlow(false)
+    val isBiometricEnabled: StateFlow<Boolean> = _isBiometricEnabled.asStateFlow()
+
+    fun setBiometricEnabled(enabled: Boolean) {
+        _isBiometricEnabled.value = enabled
+    }
+
     fun updateSelectedForeignCurrency(currency: String) {
         _selectedForeignCurrency.value = currency
     }
 
     fun updateSelectedLocalCurrency(currency: String) {
         _selectedLocalCurrency.value = currency
+    }
+
+    // Dynamic Rate-Based Operational Mode Feature Toggle
+    private val _isRateFeatureEnabled = MutableStateFlow(true)
+    val isRateFeatureEnabled: StateFlow<Boolean> = _isRateFeatureEnabled.asStateFlow()
+
+    fun setRateFeatureEnabled(enabled: Boolean) {
+        _isRateFeatureEnabled.value = enabled
     }
 
     // Dynamic App Name & Logo Customization
@@ -125,12 +141,19 @@ class HundiViewModel(
     private val _customAppLogo = MutableStateFlow("👑")
     val customAppLogo: StateFlow<String> = _customAppLogo.asStateFlow()
 
+    private val _customAppLogoUri = MutableStateFlow<String?>(null)
+    val customAppLogoUri: StateFlow<String?> = _customAppLogoUri.asStateFlow()
+
     fun updateCustomAppName(name: String) {
         _customAppName.value = name
     }
 
     fun updateCustomAppLogo(logo: String) {
         _customAppLogo.value = logo
+    }
+
+    fun updateCustomAppLogoUri(uri: String?) {
+        _customAppLogoUri.value = uri
     }
 
     // Database master reset function
@@ -737,17 +760,21 @@ class HundiViewModel(
                     Customer(name = name, phone = phone, address = address)
                 )
                 onComplete()
+                // Auto Sync with backend
+                syncManager?.syncAll()
             }
         }
     }
 
     suspend fun updateCustomerProfile(customer: Customer) {
         repository.updateCustomer(customer)
+        syncManager?.syncAll()
     }
 
     fun deleteCustomer(id: Int) {
         viewModelScope.launch {
             repository.deleteCustomerById(id)
+            syncManager?.syncAll()
         }
     }
 
@@ -759,6 +786,8 @@ class HundiViewModel(
                     Supplier(name = name, phone = phone, address = address)
                 )
                 onComplete()
+                // Auto Sync with backend
+                syncManager?.syncAll()
             }
         }
     }
@@ -982,6 +1011,9 @@ class HundiViewModel(
                 repository.updateWalletBatch(batch.copy(remainingBdt = newRemaining))
             }
             onComplete()
+
+            // Background Auto Sync with Server (if internet connected)
+            syncManager?.syncAll()
         }
     }
 
@@ -1063,7 +1095,7 @@ class HundiViewModel(
         viewModelScope.launch {
             val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             val updated = DailyRate(
-                dateStr = dateStr,
+                date = dateStr,
                 customerRate = customerRate,
                 supplierRate = supplierRate
             )
@@ -1082,7 +1114,6 @@ class HundiViewModel(
                         username = username,
                         pin = pin,
                         role = role,
-                        permissions = permissions,
                         isActive = true
                     )
                 )

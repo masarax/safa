@@ -19,6 +19,7 @@ class AppRepository(
     val allOperators: Flow<List<OperatorAccount>> = operatorDao.getAll()
     suspend fun insertOperator(op: OperatorAccount) = operatorDao.insert(op)
     suspend fun updateOperator(op: OperatorAccount) = operatorDao.update(op)
+    suspend fun deleteOperator(op: OperatorAccount) = operatorDao.deleteById(op.id)
     suspend fun getOperatorByUsername(username: String) = operatorDao.getByUsername(username)
 
     // ─── Customers ────────────────────────────────────────────────────────────

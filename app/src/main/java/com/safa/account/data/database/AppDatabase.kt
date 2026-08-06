@@ -42,7 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context, @Suppress("UNUSED_PARAMETER") scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val passphrase = SQLiteDatabase.getBytes("safa_db_pass".toCharArray())
+                val passphrase = KeyStoreHelper.getOrGenerateDbPassphrase(context.applicationContext)
                 val factory = SupportFactory(passphrase)
                 Room.databaseBuilder(
                     context.applicationContext,

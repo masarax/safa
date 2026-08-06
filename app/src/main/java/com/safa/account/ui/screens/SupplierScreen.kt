@@ -141,10 +141,10 @@ fun SupplierScreen(
 
         // Sort
         list = when (selectedSortOption) {
-            "Oldest" -> list.sortedBy { it.createdAt }
+            "Oldest" -> list.sortedBy { it.timestamp }
             "A-Z" -> list.sortedBy { it.name.lowercase(java.util.Locale.ROOT) }
             "Balance" -> list.sortedByDescending { Math.abs(getSupplierBdtDue(it.id)) }
-            else -> list.sortedByDescending { it.createdAt } // Newest
+            else -> list.sortedByDescending { it.timestamp } // Newest
         }
 
         list
@@ -927,7 +927,7 @@ fun SupplierProfileView(
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black)
                                     )
                                     Text(
-                                        text = "Joined: ${SimpleDateFormat("MMM d, yyyy", Locale.US).format(Date(supplier.createdAt))}",
+                                        text = "Joined: ${SimpleDateFormat("MMM d, yyyy", Locale.US).format(Date(supplier.timestamp))}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline
                                     )

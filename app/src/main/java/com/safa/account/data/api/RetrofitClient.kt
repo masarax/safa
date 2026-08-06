@@ -33,6 +33,10 @@ object RetrofitClient {
         }
     }
 
+    fun getApiService(baseUrl: String, apiKey: String, apiSecret: String): ApiService {
+        return getInstance(baseUrl, apiKey, apiSecret).create(ApiService::class.java)
+    }
+
     fun clearCache() {
         instance = null
     }

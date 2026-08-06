@@ -116,7 +116,7 @@ fun CustomerScreen(
 
         // Apply sorting
         list = when (selectedSortOption) {
-            "Oldest" -> list.sortedBy { it.createdAt }
+            "Oldest" -> list.sortedBy { it.timestamp }
             "A-Z" -> list.sortedBy { it.name.lowercase(java.util.Locale.ROOT) }
             "Due" -> list.sortedByDescending { customer ->
                 val customerTxs = transactions.filter { it.customerId == customer.id }
@@ -126,7 +126,7 @@ fun CustomerScreen(
                 val customerTxs = transactions.filter { it.customerId == customer.id }
                 customerTxs.sumOf { it.amountSar } - customerTxs.sumOf { it.sarCollected }
             }
-            else -> list.sortedByDescending { it.createdAt } // Newest First
+            else -> list.sortedByDescending { it.timestamp } // Newest First
         }
 
         list
@@ -1209,7 +1209,7 @@ fun CustomerProfileView(
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "Joined: ${SimpleDateFormat("MMM d, yyyy", Locale.US).format(Date(customer.createdAt))}",
+                                        text = "Joined: ${SimpleDateFormat("MMM d, yyyy", Locale.US).format(Date(customer.timestamp))}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
                                         maxLines = 1,

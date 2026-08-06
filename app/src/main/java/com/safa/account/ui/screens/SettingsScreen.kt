@@ -174,6 +174,51 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
         }
 
         item {
+            val isRateEnabled by viewModel.isRateFeatureEnabled.collectAsState()
+            Surface(
+                onClick = { viewModel.setRateFeatureEnabled(!isRateEnabled) },
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Calculate,
+                            contentDescription = "",
+                            tint = if (isRateEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = if (lang == "BN") "রেট ভিত্তিক হিসাব মোড (Rate-Based Mode)" else "Rate-Based Mode",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = if (lang == "BN") "সাপ্লায়ার ক্রয় রেট ও প্রফিট মার্জিন গণনাকারী মোড" else "Calculate supplier buying rates & profit margins",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = isRateEnabled,
+                        onCheckedChange = { viewModel.setRateFeatureEnabled(it) }
+                    )
+                }
+            }
+        }
+
+        item {
             SettingsMenuItem(
                 icon = Icons.Default.MonetizationOn,
                 title = if (lang == "BN") "কারেন্সি ও প্রতীক" else "Currency & Symbols",
@@ -486,6 +531,11 @@ fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     onClick = { 
                         viewModel.updateCustomAppName(tempAppName)
                         viewModel.updateCustomAppLogo(tempAppLogo)
+                        if (tempAppLogo.startsWith("content://") || tempAppLogo.startsWith("file://")) {
+                            viewModel.updateCustomAppLogoUri(tempAppLogo)
+                        } else {
+                            viewModel.updateCustomAppLogoUri(null)
+                        }
                         onBack()
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),

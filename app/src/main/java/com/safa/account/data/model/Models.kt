@@ -10,7 +10,9 @@ data class OperatorAccount(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val username: String,
     val role: String,       // "Owner" | "Staff"
-    val pin: String,        // stored as plain text locally; see security note in ENTERPRISE_SECURITY_AND_CRYPTO_SPEC.md
+    val pin: String,        // stored as plain text locally
+    val permissions: String = "edit,create,delete,update",
+    val isBiometricEnabled: Boolean = false,
     val isActive: Boolean = true
 )
 
@@ -20,6 +22,9 @@ data class Customer(
     val name: String,
     val phone: String,
     val address: String = "",
+    val securityNotes: String = "",
+    val avatarColor: String = "4280391411",
+    val avatarEmoji: String = "👤",
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -29,6 +34,10 @@ data class Supplier(
     val name: String,
     val phone: String = "",
     val address: String = "",
+    val tradeLicense: String = "",
+    val securityNotes: String = "",
+    val avatarColor: String = "4280391411",
+    val avatarEmoji: String = "🏢",
     val timestamp: Long = System.currentTimeMillis()
 )
 

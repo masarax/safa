@@ -58,6 +58,9 @@ class MainActivity : FragmentActivity() {
         val tokenManager = com.safa.account.data.api.TokenManager(applicationContext)
         val factory = HundiViewModelFactory(repository, tokenManager)
 
+        // Schedule periodic background sync when internet is connected
+        com.safa.account.data.network.AutoSyncWorker.schedulePeriodicSync(applicationContext)
+
         enableEdgeToEdge()
 
         setContent {
