@@ -96,18 +96,18 @@ fun DashboardScreen(
     viewModel: HundiViewModel,
     modifier: Modifier = Modifier
 ) {
-    val stats by viewModel.financialStats.collectAsState()
-    val rawRates by viewModel.currentRates.collectAsState()
-    val operator by viewModel.currentOperator.collectAsState()
-    val lang by viewModel.currentLanguage.collectAsState()
-    val customAppName by viewModel.customAppName.collectAsState()
-    val expensesIncomes by viewModel.expensesIncomes.collectAsState()
-    val customers by viewModel.customers.collectAsState()
-    val suppliers by viewModel.suppliers.collectAsState()
-    val supplierDeposits by viewModel.supplierDeposits.collectAsState()
-    val transactions by viewModel.transactions.collectAsState()
-    val foreignCurrency by viewModel.selectedForeignCurrency.collectAsState()
-    val localCurrency by viewModel.selectedLocalCurrency.collectAsState()
+    val stats by viewModel.financialStats.collectAsStateWithLifecycle()
+    val rawRates by viewModel.currentRates.collectAsStateWithLifecycle()
+    val operator by viewModel.currentOperator.collectAsStateWithLifecycle()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
+    val expensesIncomes by viewModel.expensesIncomes.collectAsStateWithLifecycle()
+    val customers by viewModel.customers.collectAsStateWithLifecycle()
+    val suppliers by viewModel.suppliers.collectAsStateWithLifecycle()
+    val supplierDeposits by viewModel.supplierDeposits.collectAsStateWithLifecycle()
+    val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val foreignCurrency by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCurrency by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
 
     val currencyFormatter = remember { DecimalFormat("#,##0") }
 
@@ -293,7 +293,7 @@ fun DashboardScreen(
         }
     }
 
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val screenBgColor = MaterialTheme.colorScheme.background
     val cardBgColor = if (isDarkMode) Color(0xFF1A1F2D) else Color(0xFFFFFFFF)
     val cardBorder = if (isDarkMode) Color(0xFF2E3748) else Color(0xFFE5E7EB) // Light, clean gray card borders
@@ -703,12 +703,12 @@ fun DashboardScreen(
                                 Text(text = viewModel.t("total_sar_received"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "SAR ${currencyFormatter.format(stats.totalSarReceived)}",
+                                    text = "${foreignCurrency} ${currencyFormatter.format(stats.totalSarReceived)}",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(text = "Current Fund Stock BDT", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                Text(text = "Current Fund Stock ${localCurrency}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "৳ ${currencyFormatter.format(stats.totalBoughtPoolBdt)}",
@@ -918,7 +918,7 @@ fun DashboardScreen(
                             report.append("-----------------------------------------\n")
                             report.append("BUSINESS OVERVIEW STATS:\n")
                             report.append("-----------------------------------------\n")
-                            report.append("Total Riyal Recvd:    SAR ${stats.totalSarReceived}\n")
+                            report.append("Total Riyal Recvd:    ${foreignCurrency} ${stats.totalSarReceived}\n")
                             report.append("Total Outstandings:   TK  ${stats.totalBdtPending}\n")
                             report.append("Total Payable Pool:   TK  ${Math.abs(stats.supplierUnsettledBdt)}\n")
                             report.append("Total Active Capital: TK  ${stats.totalBoughtPoolBdt}\n")
@@ -948,9 +948,9 @@ fun DashboardScreen(
                             report.append("PERIOD EXPORT ANALYSIS (${selectedReportPeriod}):\n")
                             report.append("-----------------------------------------\n")
                             report.append("Transactions Found:     ${filteredTxs.size} Items\n")
-                            report.append("Volume Processed (SAR): SAR $totalSentSar\n")
-                            report.append("Customer BDT Paid:      TK  $totalCustomerBdtPaid\n")
-                            report.append("Supplier BDT Value:     TK  $totalSupplierBdtValue\n")
+                            report.append("Volume Processed (${foreignCurrency}): ${foreignCurrency} $totalSentSar\n")
+                            report.append("Customer ${localCurrency} Paid:      TK  $totalCustomerBdtPaid\n")
+                            report.append("Supplier ${localCurrency} Value:     TK  $totalSupplierBdtValue\n")
                             if (profitLossEst >= 0) {
                                 report.append("Estimated Net Profit:   TK  $profitLossEst (EARNINGS)\n")
                             } else {
@@ -1113,7 +1113,7 @@ fun ServiceShortcutGrid(
     viewModel: HundiViewModel,
     onEditRatesClick: () -> Unit
 ) {
-    val lang by viewModel.currentLanguage.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val services = listOf(
         ShortcutItem(
             title = if (lang == "BN") "গ্রাহকগণ" else "Customers",

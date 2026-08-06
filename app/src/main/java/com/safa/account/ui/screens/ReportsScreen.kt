@@ -40,11 +40,13 @@ fun ReportsScreen(
     viewModel: HundiViewModel,
     modifier: Modifier = Modifier
 ) {
-    val lang by viewModel.currentLanguage.collectAsState()
-    val transactions by viewModel.transactions.collectAsState()
-    val expensesIncomes by viewModel.expensesIncomes.collectAsState()
-    val currentOperator by viewModel.currentOperator.collectAsState()
-    val stats by viewModel.financialStats.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val expensesIncomes by viewModel.expensesIncomes.collectAsStateWithLifecycle()
+    val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+    val stats by viewModel.financialStats.collectAsStateWithLifecycle()
+    val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
     
     val context = LocalContext.current
     val currencyFormatter = remember { DecimalFormat("#,##0") }
@@ -85,8 +87,8 @@ fun ReportsScreen(
     // Calculations
     val totalVolumeSar = remember(periodTransactions) { periodTransactions.sumOf { it.amountSar } }
     val totalProfitBdt = remember(periodTransactions) { periodTransactions.sumOf { it.getProfitBdt() } }
-    val totalExpenseBdt = remember(periodExpenses) { periodExpenses.sumOf { if (it.currency == "BDT") it.amount else 0.0 } }
-    val totalExpenseSar = remember(periodExpenses) { periodExpenses.sumOf { if (it.currency == "SAR") it.amount else 0.0 } }
+    val totalExpenseBdt = remember(periodExpenses) { periodExpenses.sumOf { if (it.currency == localCur) it.amount else 0.0 } }
+    val totalExpenseSar = remember(periodExpenses) { periodExpenses.sumOf { if (it.currency == foreignCur) it.amount else 0.0 } }
     val netRevenueBdt = remember(totalProfitBdt, totalExpenseBdt) { totalProfitBdt - totalExpenseBdt }
 
     // Function to generate report file
@@ -106,28 +108,35 @@ fun ReportsScreen(
         report.append("Generated On: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}\n")
         report.append("Export Format: $selectedFormat | System: Safa Hub Pro\n")
         report.append("Auditor: ${currentOperator?.username ?: "Manager"}\n")
-        report.append("P&L Base Currency: BDT\n")
+        report.append("P&L Base Currency: $localCur\n")
+        val isRateBasedMode = viewModel.isRateBasedModeEnabled.value
+        
         report.append("-----------------------------------------\n")
         report.append("1. COMPREHENSIVE OVERVIEW:\n")
         report.append("-----------------------------------------\n")
-        report.append("Total Riyal Handled:  SAR ${currencyFormatter.format(stats.totalSarReceived)}\n")
-        report.append("Customer Due Pool:    TK  ${currencyFormatter.format(stats.totalBdtPending)}\n")
-        report.append("Active Working Pool:  TK  ${currencyFormatter.format(stats.totalBoughtPoolBdt)}\n")
+        report.append("Total Riyal Handled:  ${foreignCur}${currencyFormatter.format(stats.totalSarReceived)}\n")
+        report.append("Customer Due Pool:    $localCur  ${currencyFormatter.format(stats.totalBdtPending)}\n")
+        report.append("Active Working Pool:  $localCur  ${currencyFormatter.format(stats.totalBoughtPoolBdt)}\n")
         report.append("-----------------------------------------\n")
         report.append("2. PERIOD MATCHED INSIGHTS (${selectedPeriod}):\n")
         report.append("-----------------------------------------\n")
         report.append("Settled Transactions: ${periodTransactions.size} Items\n")
-        report.append("Arbitrage Volume:     SAR ${currencyFormatter.format(totalVolumeSar)}\n")
-        report.append("Estimated Profit BDT: TK  ${currencyFormatter.format(totalProfitBdt)}\n")
-        report.append("Period Expenses BDT:  TK  ${currencyFormatter.format(totalExpenseBdt)}\n")
-        report.append("Period Expenses SAR:  SAR ${currencyFormatter.format(totalExpenseSar)}\n")
+        if (isRateBasedMode) {
+            report.append("Arbitrage Volume:     ${foreignCur}${currencyFormatter.format(totalVolumeSar)}\n")
+            report.append("Estimated Profit $localCur: $localCur  ${currencyFormatter.format(totalProfitBdt)}\n")
+        }
+        report.append("Period Expenses $localCur:  $localCur  ${currencyFormatter.format(totalExpenseBdt)}\n")
+        report.append("Period Expenses $foreignCur:  ${foreignCur}${currencyFormatter.format(totalExpenseSar)}\n")
         report.append("-----------------------------------------\n")
-        report.append("3. NET RETAINED BOTTOM-LINE:\n")
-        report.append("-----------------------------------------\n")
-        if (netRevenueBdt >= 0) {
-            report.append("NET INCOME (SURPLUS):  TK  ${currencyFormatter.format(netRevenueBdt)} (PROFITABLE)\n")
-        } else {
-            report.append("NET INCOME (DEFICIT):  TK  ${currencyFormatter.format(Math.abs(netRevenueBdt))} (UNPROFITABLE)\n")
+        
+        if (isRateBasedMode) {
+            report.append("3. NET RETAINED BOTTOM-LINE:\n")
+            report.append("-----------------------------------------\n")
+            if (netRevenueBdt >= 0) {
+                report.append("NET INCOME (SURPLUS):  $localCur  ${currencyFormatter.format(netRevenueBdt)} (PROFITABLE)\n")
+            } else {
+                report.append("NET INCOME (DEFICIT):  TK  ${currencyFormatter.format(Math.abs(netRevenueBdt))} (UNPROFITABLE)\n")
+            }
         }
         report.append("=========================================\n")
         report.append("         END OF COMPREHENSIVE REPORT     \n")
@@ -222,7 +231,7 @@ fun ReportsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // SAR Volume Card
+                        // ${foreignCur}Volume Card
                         Card(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(14.dp),
@@ -248,79 +257,85 @@ fun ReportsScreen(
                         }
 
                         // Gross Profit Card
-                        Card(
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Icon(Icons.Default.TrendingUp, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                        val isRateBasedModeForGross by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+                        if (isRateBasedModeForGross) {
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Icon(Icons.Default.TrendingUp, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                                        Text(
+                                            text = if (lang == "BN") "গ্রস প্রফিট" else "Gross Profit",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = Color(0xFF6B7280)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = if (lang == "BN") "গ্রস প্রফিট" else "Gross Profit",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = Color(0xFF6B7280)
+                                        text = "৳${currencyFormatter.format(totalProfitBdt)}",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = Color(0xFF2E7D32)
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "৳${currencyFormatter.format(totalProfitBdt)}",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color(0xFF2E7D32)
-                                )
                             }
                         }
                     }
 
                     // Net Income Hero Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (netRevenueBdt >= 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                        ),
-                        border = BorderStroke(1.dp, if (netRevenueBdt >= 0) Color(0xFFA5D6A7) else Color(0xFFEF9A9A))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    val isRateBasedMode by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+                    if (isRateBasedMode) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (netRevenueBdt >= 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                            ),
+                            border = BorderStroke(1.dp, if (netRevenueBdt >= 0) Color(0xFFA5D6A7) else Color(0xFFEF9A9A))
                         ) {
-                            Column {
-                                Text(
-                                    text = if (lang == "BN") "নিট প্রফিট মার্জিন" else "Net Revenue",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
-                                    color = if (netRevenueBdt >= 0) Color(0xFF1B5E20) else Color(0xFFC62828)
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "৳${currencyFormatter.format(netRevenueBdt)} BDT",
-                                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                                    color = if (netRevenueBdt >= 0) Color(0xFF2E7D32) else Color(0xFFD32F2F)
-                                )
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = if (netRevenueBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (netRevenueBdt >= 0) Icons.Default.CheckCircle else Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
+                                Column {
                                     Text(
-                                        text = if (netRevenueBdt >= 0) (if (lang == "BN") "লাভজনক" else "Profitable") else (if (lang == "BN") "ঘাটতি" else "Deficit"),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = Color.White
+                                        text = if (lang == "BN") "নিট প্রফিট মার্জিন" else "Net Revenue",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                                        color = if (netRevenueBdt >= 0) Color(0xFF1B5E20) else Color(0xFFC62828)
                                     )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "৳${currencyFormatter.format(netRevenueBdt)} ${localCur}",
+                                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                                        color = if (netRevenueBdt >= 0) Color(0xFF2E7D32) else Color(0xFFD32F2F)
+                                    )
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (netRevenueBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (netRevenueBdt >= 0) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            text = if (netRevenueBdt >= 0) (if (lang == "BN") "লাভজনক" else "Profitable") else (if (lang == "BN") "ঘাটতি" else "Deficit"),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = Color.White
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -330,41 +345,44 @@ fun ReportsScreen(
 
             // Section 3: Visual Profit/Expense Breakdown Bar
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                val isRateBasedMode by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+                if (isRateBasedMode) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
                     ) {
-                        Text(
-                            text = if (lang == "BN") "আয়-ব্যয় অনুপাত (BDT)" else "P&L Ratio",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-
-                        val maxVal = Math.max(totalProfitBdt, totalExpenseBdt).toFloat().coerceAtLeast(1.0f)
-                        val profitRatio = (totalProfitBdt.toFloat() / maxVal).coerceIn(0f, 1f)
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(if (lang == "BN") "প্রফিট: ৳${currencyFormatter.format(totalProfitBdt)}" else "Profit: ৳${currencyFormatter.format(totalProfitBdt)}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF2E7D32))
-                            Text(if (lang == "BN") "ব্যয়: ৳${currencyFormatter.format(totalExpenseBdt)}" else "Expenses: ৳${currencyFormatter.format(totalExpenseBdt)}", style = MaterialTheme.typography.bodySmall, color = Color(0xFFC62828))
-                        }
+                            Text(
+                                text = if (lang == "BN") "আয়-ব্যয় অনুপাত (BDT)" else "P&L Ratio",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                            )
 
-                        LinearProgressIndicator(
-                            progress = { profitRatio },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            color = Color(0xFF2E7D32),
-                            trackColor = Color(0xFFFFEBEE)
-                        )
+                            val maxVal = Math.max(totalProfitBdt, totalExpenseBdt).toFloat().coerceAtLeast(1.0f)
+                            val profitRatio = (totalProfitBdt.toFloat() / maxVal).coerceIn(0f, 1f)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(if (lang == "BN") "প্রফিট: ৳${currencyFormatter.format(totalProfitBdt)}" else "Profit: ৳${currencyFormatter.format(totalProfitBdt)}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF2E7D32))
+                                Text(if (lang == "BN") "ব্যয়: ৳${currencyFormatter.format(totalExpenseBdt)}" else "Expenses: ৳${currencyFormatter.format(totalExpenseBdt)}", style = MaterialTheme.typography.bodySmall, color = Color(0xFFC62828))
+                            }
+
+                            LinearProgressIndicator(
+                                progress = { profitRatio },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = Color(0xFF2E7D32),
+                                trackColor = Color(0xFFFFEBEE)
+                            )
+                        }
                     }
                 }
             }
@@ -468,7 +486,7 @@ fun ReportsScreen(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (lang == "BN") "শেয়ার" else "Share")
+                        Text(if (lang == "BN") "শেয়ার" else "Share", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
 
                     OutlinedButton(
@@ -478,7 +496,7 @@ fun ReportsScreen(
                     ) {
                         Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (lang == "BN") "ডাউনলোড" else "Download")
+                        Text(if (lang == "BN") "ডাউনলোড" else "Download", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
 
                     OutlinedButton(
@@ -494,7 +512,7 @@ fun ReportsScreen(
                     ) {
                         Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (lang == "BN") "প্রিন্ট" else "Print")
+                        Text(if (lang == "BN") "প্রিন্ট" else "Print", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

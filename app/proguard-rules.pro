@@ -14,6 +14,12 @@
 -keep @androidx.room.Entity class *
 -keep @androidx.room.Dao class *
 
+# --- SQLCipher ---
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
+-dontwarn net.sqlcipher.**
+
+
 # --- Retrofit + Moshi ---
 -keepclassmembers class * {
     @com.squareup.moshi.Json <fields>;

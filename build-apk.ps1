@@ -1,27 +1,37 @@
 # SAFA — APK Build & Setup Script for Local Mobile Testing
 
+param (
+    [switch]$Release
+)
+
 $ErrorActionPreference = "Stop"
 
-Write-Host "`n=== SAFA Android Debug APK Builder ===" -ForegroundColor Cyan
+$buildType = if ($Release) { "Release" } else { "Debug" }
+$gradleTask = if ($Release) { "assembleRelease" } else { "assembleDebug" }
+
+Write-Host "`n=== SAFA Android $buildType APK Builder ===" -ForegroundColor Cyan
 
 # 1. Environment variables setup
-$env:JAVA_HOME = "C:\Android\jdk17"
-$env:Path = "C:\Android\jdk17\bin;" + $env:Path
-
-Write-Host "Java JDK 17 Path: $env:JAVA_HOME" -ForegroundColor Green
+if (-not $env:JAVA_HOME) {
+    $env:JAVA_HOME = "C:\Android\jdk17"
+    $env:Path = "$env:JAVA_HOME\bin;" + $env:Path
+}
+Write-Host "Java JDK Home: $env:JAVA_HOME" -ForegroundColor Green
 
 # 2. Setup local.properties
-$localProps = "sdk.dir=C\:\\Android\\sdk"
+$androidHome = if ($env:ANDROID_HOME) { $env:ANDROID_HOME -replace '\\', '\\' -replace ':', '\:' } else { "C\:\\Android\\sdk" }
+$localProps = "sdk.dir=$androidHome"
 Set-Content -Path ".\local.properties" -Value $localProps -Encoding UTF8
-Write-Host "Created local.properties pointing to C:\Android\sdk" -ForegroundColor Green
+Write-Host "Created local.properties pointing to sdk.dir=$androidHome" -ForegroundColor Green
 
-# 3. Build debug APK
-Write-Host "`nBuilding Debug APK (assembleDebug)..." -ForegroundColor Cyan
+# 3. Build APK
+Write-Host "`nBuilding $buildType APK ($gradleTask)..." -ForegroundColor Cyan
 Set-Location $PSScriptRoot
-.\gradlew.bat assembleDebug --stacktrace
+.\gradlew.bat $gradleTask --stacktrace
 
 if ($LASTEXITCODE -eq 0) {
-    $apk = Get-ChildItem ".\app\build\outputs\apk\debug\*.apk" | Select-Object -First 1
+    $apkDir = if ($Release) { "release" } else { "debug" }
+    $apk = Get-ChildItem ".\app\build\outputs\apk\$apkDir\*.apk" | Select-Object -First 1
     if ($apk) {
         Write-Host "`n==========================================" -ForegroundColor Green
         Write-Host " SUCCESS! APK Built Successfully!" -ForegroundColor Green

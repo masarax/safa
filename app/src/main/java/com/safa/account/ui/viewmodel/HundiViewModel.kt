@@ -100,14 +100,14 @@ class HundiViewModel(
     }
 
     // Language Toggle: "BN" (Bengali) or "EN" (English)
-    private val _currentLanguage = MutableStateFlow("BN")
+    private val _currentLanguage = MutableStateFlow(tokenManager?.getLanguage() ?: "BN")
     val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
 
     // Persistent currencies (SAR vs BDT customize settings)
-    private val _selectedForeignCurrency = MutableStateFlow("SAR")
+    private val _selectedForeignCurrency = MutableStateFlow(tokenManager?.getForeignCurrency() ?: "SAR")
     val selectedForeignCurrency: StateFlow<String> = _selectedForeignCurrency.asStateFlow()
 
-    private val _selectedLocalCurrency = MutableStateFlow("BDT")
+    private val _selectedLocalCurrency = MutableStateFlow(tokenManager?.getLocalCurrency() ?: "BDT")
     val selectedLocalCurrency: StateFlow<String> = _selectedLocalCurrency.asStateFlow()
 
     // Biometric Security Toggle
@@ -120,40 +120,62 @@ class HundiViewModel(
 
     fun updateSelectedForeignCurrency(currency: String) {
         _selectedForeignCurrency.value = currency
+        tokenManager?.saveForeignCurrency(currency)
     }
 
     fun updateSelectedLocalCurrency(currency: String) {
         _selectedLocalCurrency.value = currency
+        tokenManager?.saveLocalCurrency(currency)
     }
 
     // Dynamic Rate-Based Operational Mode Feature Toggle
-    private val _isRateFeatureEnabled = MutableStateFlow(true)
-    val isRateFeatureEnabled: StateFlow<Boolean> = _isRateFeatureEnabled.asStateFlow()
+    private val _isRateBasedModeEnabled = MutableStateFlow(tokenManager?.getRateFeatureEnabled() ?: true)
+    val isRateBasedModeEnabled: StateFlow<Boolean> = _isRateBasedModeEnabled.asStateFlow()
 
-    fun setRateFeatureEnabled(enabled: Boolean) {
-        _isRateFeatureEnabled.value = enabled
+    fun setRateBasedModeEnabled(enabled: Boolean) {
+        _isRateBasedModeEnabled.value = enabled
+        tokenManager?.saveRateFeatureEnabled(enabled)
+    }
+
+    private val _isSupplierRateEnabled = MutableStateFlow(tokenManager?.getSupplierRateEnabled() ?: true)
+    val isSupplierRateEnabled: StateFlow<Boolean> = _isSupplierRateEnabled.asStateFlow()
+
+    fun setSupplierRateEnabled(enabled: Boolean) {
+        _isSupplierRateEnabled.value = enabled
+        tokenManager?.saveSupplierRateEnabled(enabled)
+    }
+
+    private val _isWalletRateEnabled = MutableStateFlow(tokenManager?.getWalletRateEnabled() ?: true)
+    val isWalletRateEnabled: StateFlow<Boolean> = _isWalletRateEnabled.asStateFlow()
+
+    fun setWalletRateEnabled(enabled: Boolean) {
+        _isWalletRateEnabled.value = enabled
+        tokenManager?.saveWalletRateEnabled(enabled)
     }
 
     // Dynamic App Name & Logo Customization
-    private val _customAppName = MutableStateFlow("SAFA")
+    private val _customAppName = MutableStateFlow(tokenManager?.getCustomAppName() ?: "SAFA")
     val customAppName: StateFlow<String> = _customAppName.asStateFlow()
 
-    private val _customAppLogo = MutableStateFlow("👑")
+    private val _customAppLogo = MutableStateFlow(tokenManager?.getCustomAppLogo() ?: "👑")
     val customAppLogo: StateFlow<String> = _customAppLogo.asStateFlow()
 
-    private val _customAppLogoUri = MutableStateFlow<String?>(null)
+    private val _customAppLogoUri = MutableStateFlow<String?>(tokenManager?.getCustomAppLogoUri())
     val customAppLogoUri: StateFlow<String?> = _customAppLogoUri.asStateFlow()
 
     fun updateCustomAppName(name: String) {
         _customAppName.value = name
+        tokenManager?.saveCustomAppName(name)
     }
 
     fun updateCustomAppLogo(logo: String) {
         _customAppLogo.value = logo
+        tokenManager?.saveCustomAppLogo(logo)
     }
 
     fun updateCustomAppLogoUri(uri: String?) {
         _customAppLogoUri.value = uri
+        tokenManager?.saveCustomAppLogoUri(uri)
     }
 
     // Database master reset function
@@ -194,6 +216,10 @@ class HundiViewModel(
 
     private val _pinError = MutableStateFlow<String?>(null)
     val pinError: StateFlow<String?> = _pinError.asStateFlow()
+
+    fun setPinError(error: String?) {
+        _pinError.value = error
+    }
 
     // Screen State
     private val _currentScreen = MutableStateFlow(AppScreen.LOCK_SCREEN)
@@ -308,69 +334,79 @@ class HundiViewModel(
         transactions, supplierDeposits, expensesIncomes
     ) { txs, deposits, expenses ->
         
-        var totalSar = 0.0
-        var totalDeliveredBdt = 0.0
-        var totalPendingBdt = 0.0
-        var profitBdt = 0.0
-        var profitSar = 0.0
-        var bdtFromSupplierPoolUsed = 0.0
+        var totalSar = java.math.BigDecimal.ZERO
+        var totalDeliveredBdt = java.math.BigDecimal.ZERO
+        var totalPendingBdt = java.math.BigDecimal.ZERO
+        var profitBdt = java.math.BigDecimal.ZERO
+        var profitSar = java.math.BigDecimal.ZERO
+        var bdtFromSupplierPoolUsed = java.math.BigDecimal.ZERO
 
         for (tx in txs) {
-            totalSar += tx.amountSar
+            val amtSar = java.math.BigDecimal(tx.amountSar.toString())
+            val amtBdt = java.math.BigDecimal(tx.amountBdt.toString())
+            totalSar = totalSar.add(amtSar)
             if (tx.status == "Delivered") {
-                totalDeliveredBdt += tx.amountBdt
+                totalDeliveredBdt = totalDeliveredBdt.add(amtBdt)
             } else if (tx.status == "Pending") {
-                totalPendingBdt += tx.amountBdt
+                totalPendingBdt = totalPendingBdt.add(amtBdt)
             }
             if (tx.status != "Cancelled") {
-                profitBdt += tx.getProfitBdt()
-                profitSar += tx.getProfitSar()
-                bdtFromSupplierPoolUsed += tx.amountBdt
+                profitBdt = profitBdt.add(java.math.BigDecimal(tx.getProfitBdt().toString()))
+                profitSar = profitSar.add(java.math.BigDecimal(tx.getProfitSar().toString()))
+                bdtFromSupplierPoolUsed = bdtFromSupplierPoolUsed.add(amtBdt)
             }
         }
 
-        var totalPaidSupplierSar = 0.0
-        var totalBoughtBdt = 0.0
+        var totalPaidSupplierSar = java.math.BigDecimal.ZERO
+        var totalBoughtBdt = java.math.BigDecimal.ZERO
 
         for (dep in deposits) {
-            if (dep.transactionType == "SAR_DEPOSIT") {
-                totalPaidSupplierSar += dep.amountSar
-                totalBoughtBdt += dep.amountBdt
+            val depAmtSar = java.math.BigDecimal(dep.amountSar.toString())
+            val depAmtBdt = java.math.BigDecimal(dep.amountBdt.toString())
+            if (dep.transactionType == "SAR_DEPOSIT" || dep.transactionType == "SAR_GIVEN") {
+                totalPaidSupplierSar = totalPaidSupplierSar.add(depAmtSar)
+                totalBoughtBdt = totalBoughtBdt.add(depAmtBdt)
             } else if (dep.transactionType == "BDT_WITHDRAW") {
-                totalBoughtBdt -= dep.amountBdt
+                totalBoughtBdt = totalBoughtBdt.subtract(depAmtBdt)
             }
         }
 
-        var totalExp = 0.0
-        var totalInc = 0.0
+        var totalExp = java.math.BigDecimal.ZERO
+        var totalInc = java.math.BigDecimal.ZERO
+        
+        val currentRateVal = _currentRates.value?.supplierRate ?: 32.5
+        val currentRate = java.math.BigDecimal(currentRateVal.toString())
+
         for (item in expenses) {
-            // Convert to BDT for standard bookkeeping
-            val amt = if (item.currency == "SAR") item.amount * 32.5 else item.amount
+            val itemAmt = java.math.BigDecimal(item.amount.toString())
+            val amt = if (item.currency == "SAR") itemAmt.multiply(currentRate) else itemAmt
             if (item.isExpense) {
-                totalExp += amt
+                totalExp = totalExp.add(amt)
             } else {
-                totalInc += amt
+                totalInc = totalInc.add(amt)
             }
         }
 
-        // Supplier outstanding: How much BDT did we contract is processed vs how much we deposited.
-        // If we processed 100,000 BDT via Supplier, but we only deposited 80,000 BDT equivalent, we owe Supplier 20,000 BDT.
-        // Symmetrically in SAR we owe or they owe us.
-        val outstandingBdt = totalBoughtBdt - bdtFromSupplierPoolUsed
-        val outstandingSar = if (outstandingBdt != 0.0) totalPaidSupplierSar - (bdtFromSupplierPoolUsed / 32.5) else 0.0
+        val outstandingBdt = totalBoughtBdt.subtract(bdtFromSupplierPoolUsed)
+        val outstandingSar = if (outstandingBdt.compareTo(java.math.BigDecimal.ZERO) != 0 && currentRate.compareTo(java.math.BigDecimal.ZERO) != 0) {
+            val usedSar = bdtFromSupplierPoolUsed.divide(currentRate, 4, java.math.RoundingMode.HALF_UP)
+            totalPaidSupplierSar.subtract(usedSar)
+        } else {
+            java.math.BigDecimal.ZERO
+        }
 
         FinancialStats(
-            totalSarReceived = totalSar,
-            totalBdtDelivered = totalDeliveredBdt,
-            totalBdtPending = totalPendingBdt,
-            totalProfitBdt = profitBdt,
-            totalProfitSar = profitSar,
-            totalPaidToSuppliersSar = totalPaidSupplierSar,
-            totalBoughtPoolBdt = totalBoughtBdt,
-            totalExpensesBdt = totalExp,
-            totalOtherIncomeBdt = totalInc,
-            supplierUnsettledSar = outstandingSar,
-            supplierUnsettledBdt = outstandingBdt
+            totalSarReceived = totalSar.toDouble(),
+            totalBdtDelivered = totalDeliveredBdt.toDouble(),
+            totalBdtPending = totalPendingBdt.toDouble(),
+            totalProfitBdt = profitBdt.toDouble(),
+            totalProfitSar = profitSar.toDouble(),
+            totalPaidToSuppliersSar = totalPaidSupplierSar.toDouble(),
+            totalBoughtPoolBdt = totalBoughtBdt.toDouble(),
+            totalExpensesBdt = totalExp.toDouble(),
+            totalOtherIncomeBdt = totalInc.toDouble(),
+            supplierUnsettledSar = outstandingSar.toDouble(),
+            supplierUnsettledBdt = outstandingBdt.toDouble()
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialStats())
 
@@ -393,7 +429,7 @@ class HundiViewModel(
                         OperatorAccount(
                             username = "Owner",
                             role = "Owner",
-                            pin = "1234",
+                            pin = com.safa.account.utils.HashUtils.hashPin("1234"),
                             isActive = true
                         )
                     )
@@ -404,7 +440,7 @@ class HundiViewModel(
                         OperatorAccount(
                             username = "Operator Cashier",
                             role = "Staff",
-                            pin = "2580",
+                            pin = com.safa.account.utils.HashUtils.hashPin("2580"),
                             isActive = true
                         )
                     )
@@ -456,15 +492,15 @@ class HundiViewModel(
         "role_staff" to "স্টাফ",
         "operator_blocked" to "অ্যাকাউন্টটি সাময়িকভাবে স্থগিত আছে।",
         
-        "total_sar_received" to "মোট সংগৃহীত রিয়াল (SAR)",
-        "total_bdt_delivered" to "মোট প্রদেয় টাকা BDT (বিতরণকৃত)",
-        "total_bdt_pending" to "মোট প্রদেয় টাকা BDT (অপেক্ষমান)",
+        "total_sar_received" to "মোট সংগৃহীত রিয়াল",
+        "total_bdt_delivered" to "মোট প্রদেয় টাকা (বিতরণকৃত)",
+        "total_bdt_pending" to "মোট প্রদেয় টাকা (অপেক্ষমান)",
         "estimated_profit" to "আজকের মোট মুনাফা",
-        "net_profit_bdt" to "মোট মুনাফা (টাকা)",
-        "net_profit_sar" to "মোট মুনাফা (রিয়াল)",
+        "net_profit_bdt" to "মোট মুনাফা (স্থানীয়)",
+        "net_profit_sar" to "মোট মুনাফা (ফরেন)",
         "daily_operating_rates" to "আজকের বাজার এক্সচেঞ্জ রেট",
-        "customer_sale_rate" to "কাস্টমার বিক্রি রেট (SAR)",
-        "supplier_buy_rate" to "সাপ্লায়ার ক্রয় রেট (SAR)",
+        "customer_sale_rate" to "কাস্টমার বিক্রি রেট",
+        "supplier_buy_rate" to "সাপ্লায়ার ক্রয় রেট",
         
         "customer_mgmt" to "গ্রাহক ব্যবস্থাপনা",
         "add_customer" to "নতুন কাস্টমার যুক্ত করুন",
@@ -478,8 +514,8 @@ class HundiViewModel(
         "add_supplier" to "নতুন সাপ্লায়ার যুক্ত করুন",
         "supplier_name" to "সাপ্লায়ার নাম (Forex Group / Person)",
         "save_supplier" to "সাপ্লায়ার সংরক্ষণ করুন",
-        "buy_bdt_pool" to "সাপ্লায়ার থেকে টাকা কেনা",
-        "amount_sar" to "রিয়াল পরিমাণ (SAR)",
+        "buy_bdt_pool" to "সাপ্লায়ার থেকে ফান্ড কেনা",
+        "amount_sar" to "ফরেন কারেন্সি পরিমাণ",
         "rate_applied" to "রেট (যেমন ৩২.৫০)",
         "purchase_success" to "টাকার ফান্ড সফলভাবে কেনা হয়েছে",
         "total_deposited_sar" to "মোট রিয়াল জমা",
@@ -489,7 +525,7 @@ class HundiViewModel(
         "new_remittance" to "নতুন লেনদেন",
         "select_customer" to "কাস্টমার খুঁজুন",
         "select_supplier" to "বিশ্বরস্ত সাপ্লায়ার ফান্ড",
-        "saudi_amount" to "রিয়াল জমা পরিমাণ (SAR)",
+        "saudi_amount" to "ফরেন কারেন্সি জমা পরিমাণ",
         "customer_assigned_rate" to "কাস্টমার রেট (যেমন ৩২.১০)",
         "supplier_rate_tx" to "সাপ্লায়ার রেট (ব্যবসায়িক ক্রয় রেট)",
         "receiver_bdt_amount" to "প্রাপক পাবে (টাকা)",
@@ -542,12 +578,12 @@ class HundiViewModel(
         "role_staff" to "Staff / Operator",
         "operator_blocked" to "Account is currently suspended.",
         
-        "total_sar_received" to "Total Saudi Riyal (SAR)",
-        "total_bdt_delivered" to "Total BDT Disbursed",
-        "total_bdt_pending" to "Total BDT Pending",
+        "total_sar_received" to "Total Received Foreign",
+        "total_bdt_delivered" to "Total Local Disbursed",
+        "total_bdt_pending" to "Total Local Pending",
         "estimated_profit" to "Total Estimated Profit Today",
-        "net_profit_bdt" to "Net Profit (BDT)",
-        "net_profit_sar" to "Net Profit (SAR)",
+        "net_profit_bdt" to "Net Profit (Local)",
+        "net_profit_sar" to "Net Profit (Foreign)",
         "daily_operating_rates" to "Live Daily Exchange Rates",
         "customer_sale_rate" to "Customer Exchange Rate",
         "supplier_buy_rate" to "Supplier Exchange Rate (Cost)",
@@ -561,24 +597,24 @@ class HundiViewModel(
         "total_customers" to "Total Registered Customers",
         
         "supplier_mgmt" to "Suppliers",
-        "add_supplier" to "Add BDT Supplier Forex",
+        "add_supplier" to "Add Local Supplier Forex",
         "supplier_name" to "Supplier Forex Group Name",
         "save_supplier" to "Save Supplier Detail",
-        "buy_bdt_pool" to "Acquire Bangladesh Taka (SAR Deal)",
-        "amount_sar" to "Debit Riyals Amount (SAR)",
+        "buy_bdt_pool" to "Acquire Local Deal",
+        "amount_sar" to "Debit Foreign Amount",
         "rate_applied" to "Exchange Rate (e.g., 32.50)",
-        "purchase_success" to "BDT Pool successfully processed",
-        "total_deposited_sar" to "Total Deposited SAR",
-        "acquired_bdt" to BdtSymbol() + " Acquired BDT Funds",
+        "purchase_success" to "Local Pool successfully processed",
+        "total_deposited_sar" to "Total Deposited Foreign",
+        "acquired_bdt" to BdtSymbol() + " Acquired Local Funds",
         "pool_balance" to "Supplier Outstanding Funds",
         
         "new_remittance" to "New Transaction",
         "select_customer" to "Search/Select Customer",
-        "select_supplier" to "Select Active BDT Supplier",
-        "saudi_amount" to "Received Riyals (SAR)",
+        "select_supplier" to "Select Active Local Supplier",
+        "saudi_amount" to "Received Foreign Amount",
         "customer_assigned_rate" to "Customer Exchange Rate",
         "supplier_rate_tx" to "Supplier Rate Applied",
-        "receiver_bdt_amount" to "Bangladesh Payout (BDT)",
+        "receiver_bdt_amount" to "Local Payout",
         "receiver_name" to "Receiver Full Name",
         "receiver_phone" to "Receiver Mobile No",
         "payment_method" to "Payout Channel",
@@ -636,7 +672,9 @@ class HundiViewModel(
     }
 
     fun toggleLanguage() {
-        _currentLanguage.value = if (_currentLanguage.value == "BN") "EN" else "BN"
+        val newLang = if (_currentLanguage.value == "BN") "EN" else "BN"
+        _currentLanguage.value = newLang
+        tokenManager?.saveLanguage(newLang)
     }
 
     // --- Screen Navigation Control ---
@@ -716,7 +754,7 @@ class HundiViewModel(
     private fun verifyPin() {
         val operator = _selectedLoginOperator.value
         if (operator != null) {
-            if (operator.pin == _pinBuffer.value) {
+            if (com.safa.account.utils.HashUtils.verifyPin(_pinBuffer.value, operator.pin)) {
                 if (operator.isActive) {
                     _currentOperator.value = operator
                     _pinError.value = null
@@ -729,6 +767,18 @@ class HundiViewModel(
                 _pinError.value = t("pin_incorrect")
                 _pinBuffer.value = ""
             }
+        }
+    }
+
+    fun loginWithBiometric(operator: OperatorAccount) {
+        if (operator.isActive) {
+            _currentOperator.value = operator
+            _pinError.value = null
+            _pinBuffer.value = ""
+            navigateTo(AppScreen.DASHBOARD)
+        } else {
+            _pinError.value = t("operator_blocked")
+            _pinBuffer.value = ""
         }
     }
 
@@ -812,12 +862,13 @@ class HundiViewModel(
     ) {
         viewModelScope.launch {
             if (supplierId > 0 && amountSar > 0 && rate > 0) {
+                val amtBdt = java.math.BigDecimal(amountSar.toString()).multiply(java.math.BigDecimal(rate.toString())).toDouble()
                 val depositId = repository.insertSupplierDeposit(
                     SupplierDeposit(
                         supplierId = supplierId,
                         amountSar = amountSar,
                         rate = rate,
-                        amountBdt = amountSar * rate,
+                        amountBdt = amtBdt,
                         paidBdt = paidBdt,
                         transactionType = transactionType,
                         notes = notes,
@@ -832,8 +883,8 @@ class HundiViewModel(
                         WalletBatch(
                             ledgerId = ledgerId,
                             rate = rate,
-                            initialBdt = amountSar * rate,
-                            remainingBdt = amountSar * rate,
+                            initialBdt = amtBdt,
+                            remainingBdt = amtBdt,
                             supplierId = supplierId,
                             supplierDepositId = depositId.toInt(),
                             notes = "Purchased BDT from $supplierName"
@@ -858,9 +909,9 @@ class HundiViewModel(
             val batches = repository.allWalletBatches.firstOrNull() ?: emptyList()
             val match = batches.find { it.supplierDepositId == deposit.id }
             if (match != null) {
-                val newAmountBdt = deposit.amountSar * deposit.rate
-                val diff = newAmountBdt - match.initialBdt
-                val updatedRemaining = (match.remainingBdt + diff).coerceAtLeast(0.0)
+                val newAmountBdt = java.math.BigDecimal(deposit.amountSar.toString()).multiply(java.math.BigDecimal(deposit.rate.toString())).toDouble()
+                val diff = java.math.BigDecimal(newAmountBdt.toString()).subtract(java.math.BigDecimal(match.initialBdt.toString())).toDouble()
+                val updatedRemaining = java.math.BigDecimal(match.remainingBdt.toString()).add(java.math.BigDecimal(diff.toString())).toDouble().coerceAtLeast(0.0)
                 repository.updateWalletBatch(
                     match.copy(
                         rate = deposit.rate,
@@ -930,12 +981,14 @@ class HundiViewModel(
                 val batches = repository.allWalletBatches.firstOrNull()
                     ?.filter { it.ledgerId == ledgerId && it.remainingBdt > 0.01 }
                     ?.sortedBy { it.timestamp } ?: emptyList()  // Oldest first
-                var remainingToDeduct = amountBdtToDeduct
+                var remainingToDeduct = java.math.BigDecimal(amountBdtToDeduct.toString())
                 for (b in batches) {
-                    if (remainingToDeduct <= 0.0) break
-                    val deductFromThisBatch = minOf(b.remainingBdt, remainingToDeduct)
-                    repository.updateWalletBatch(b.copy(remainingBdt = b.remainingBdt - deductFromThisBatch))
-                    remainingToDeduct -= deductFromThisBatch
+                    if (remainingToDeduct.compareTo(java.math.BigDecimal.ZERO) <= 0) break
+                    val bRemaining = java.math.BigDecimal(b.remainingBdt.toString())
+                    val deductFromThisBatch = if (bRemaining < remainingToDeduct) bRemaining else remainingToDeduct
+                    val newRemaining = bRemaining.subtract(deductFromThisBatch).toDouble()
+                    repository.updateWalletBatch(b.copy(remainingBdt = newRemaining))
+                    remainingToDeduct = remainingToDeduct.subtract(deductFromThisBatch)
                 }
                 onComplete()
             }
@@ -947,7 +1000,8 @@ class HundiViewModel(
             viewModelScope.launch {
                 val batch = repository.getWalletBatchById(batchId)
                 if (batch != null) {
-                    val updatedRemaining = (batch.remainingBdt - amountBdtToDeduct).coerceAtLeast(0.0)
+                    val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(amountBdtToDeduct.toString())).toDouble()
+                    val updatedRemaining = rem.coerceAtLeast(0.0)
                     repository.updateWalletBatch(batch.copy(remainingBdt = updatedRemaining))
                     onComplete()
                 }
@@ -978,7 +1032,7 @@ class HundiViewModel(
             val resolvedSupplierId = batch?.supplierId ?: 0
 
             val operatorId = _currentOperator.value?.id ?: 1
-            val amountBdt = amountSar * customerRate
+            val amountBdt = java.math.BigDecimal(amountSar.toString()).multiply(java.math.BigDecimal(customerRate.toString())).toDouble()
             val actualSarCollected = sarCollected ?: amountSar
             val actualBdtDisbursed = bdtDisbursed ?: amountBdt
             val actualTimestamp = timestamp ?: System.currentTimeMillis()
@@ -1007,7 +1061,8 @@ class HundiViewModel(
 
             // Deduct BDT count from the corresponding batch balance
             if (batch != null) {
-                val newRemaining = (batch.remainingBdt - amountBdt).coerceAtLeast(0.0)
+                val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(amountBdt.toString())).toDouble()
+                val newRemaining = rem.coerceAtLeast(0.0)
                 repository.updateWalletBatch(batch.copy(remainingBdt = newRemaining))
             }
             onComplete()
@@ -1024,7 +1079,8 @@ class HundiViewModel(
                 if (transaction.walletBatchId > 0) {
                     val batch = repository.getWalletBatchById(transaction.walletBatchId)
                     if (batch != null) {
-                        repository.updateWalletBatch(batch.copy(remainingBdt = batch.remainingBdt + transaction.amountBdt))
+                        val newRemaining = java.math.BigDecimal(batch.remainingBdt.toString()).add(java.math.BigDecimal(transaction.amountBdt.toString())).toDouble()
+                        repository.updateWalletBatch(batch.copy(remainingBdt = newRemaining))
                     }
                 }
             } else if (newStatus != "Cancelled" && transaction.status == "Cancelled") {
@@ -1032,7 +1088,8 @@ class HundiViewModel(
                 if (transaction.walletBatchId > 0) {
                     val batch = repository.getWalletBatchById(transaction.walletBatchId)
                     if (batch != null) {
-                        repository.updateWalletBatch(batch.copy(remainingBdt = (batch.remainingBdt - transaction.amountBdt).coerceAtLeast(0.0)))
+                        val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(transaction.amountBdt.toString())).toDouble()
+                        repository.updateWalletBatch(batch.copy(remainingBdt = rem.coerceAtLeast(0.0)))
                     }
                 }
             }
@@ -1050,7 +1107,8 @@ class HundiViewModel(
                 if (tx.status != "Cancelled" && tx.walletBatchId > 0) {
                     val batch = repository.getWalletBatchById(tx.walletBatchId)
                     if (batch != null) {
-                        repository.updateWalletBatch(batch.copy(remainingBdt = batch.remainingBdt + tx.amountBdt))
+                        val newRemaining = java.math.BigDecimal(batch.remainingBdt.toString()).add(java.math.BigDecimal(tx.amountBdt.toString())).toDouble()
+                        repository.updateWalletBatch(batch.copy(remainingBdt = newRemaining))
                     }
                 }
                 repository.deleteTransactionById(id)
@@ -1112,7 +1170,7 @@ class HundiViewModel(
                 repository.insertOperator(
                     OperatorAccount(
                         username = username,
-                        pin = pin,
+                        pin = com.safa.account.utils.HashUtils.hashPin(pin),
                         role = role,
                         isActive = true
                     )
@@ -1134,7 +1192,8 @@ class HundiViewModel(
         viewModelScope.launch {
             val op = _currentOperator.value
             if (op != null && newPin.length == 4 && newPin.all { it.isDigit() }) {
-                val updatedOp = op.copy(pin = newPin)
+                val hashedPin = com.safa.account.utils.HashUtils.hashPin(newPin)
+                val updatedOp = op.copy(pin = hashedPin)
                 repository.updateOperator(updatedOp)
                 _currentOperator.value = updatedOp
                 onComplete()

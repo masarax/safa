@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use App\Models\SafaApiKey;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class CheckApiSecurityKey
 {
@@ -14,14 +15,20 @@ class CheckApiSecurityKey
         $apiKey = $request->header('X-SAFA-API-KEY');
         $signature = $request->header('X-SAFA-SIGNATURE');
         $timestamp = $request->header('X-SAFA-TIMESTAMP');
+        $nonce = $request->header('X-SAFA-NONCE');
 
-        if (!$apiKey || !$signature || !$timestamp) {
+        if (!$apiKey || !$signature || !$timestamp || !$nonce) {
             return response()->json(['message' => 'Unauthorized. Missing security headers.'], 401);
         }
 
         if (abs(time() - $timestamp) > 300) {
             return response()->json(['message' => 'Unauthorized. Request expired.'], 401);
         }
+
+        if (Cache::has('nonce_' . $nonce)) {
+            return response()->json(['message' => 'Unauthorized. Replay attack detected.'], 401);
+        }
+        Cache::put('nonce_' . $nonce, true, 300);
 
         $keyRecord = SafaApiKey::where('api_key', $apiKey)->where('is_active', true)->first();
 
@@ -42,7 +49,7 @@ class CheckApiSecurityKey
         $path = '/' . ltrim($request->path(), '/');
         $body = $request->getContent();
 
-        $payload = $method . $path . $timestamp . $body;
+        $payload = $method . $path . $timestamp . $nonce . $body;
         $expectedSignature = hash_hmac('sha256', $payload, $secret);
 
         if (!hash_equals($expectedSignature, $signature)) {

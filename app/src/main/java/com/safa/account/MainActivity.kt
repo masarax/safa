@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,12 +67,12 @@ class MainActivity : FragmentActivity() {
         setContent {
             val viewModel: HundiViewModel by viewModels { factory }
             
-            val currentLanguage by viewModel.currentLanguage.collectAsState()
-            val currentScreen by viewModel.currentScreen.collectAsState()
-            val currentOperator by viewModel.currentOperator.collectAsState()
-            val isDarkMode by viewModel.isDarkMode.collectAsState()
-            val isSubPageActive by viewModel.isSubPageActive.collectAsState()
-            val navDirection by viewModel.navDirection.collectAsState()
+            val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
+            val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
+            val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+            val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+            val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
+            val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
 
             val isMainScreen = currentScreen in listOf(
                 AppScreen.DASHBOARD,
@@ -235,8 +236,8 @@ fun HundiTopAppBar(
     operatorName: String,
     onLogoutClick: () -> Unit
 ) {
-    val currentLang by viewModel.currentLanguage.collectAsState()
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
 
     // Premium Gold color palette matching TallyKhata Gold header status
     val goldBgColor = if (isDarkMode) Color(0xFF1B1812) else Color(0xFFD7A84B)
@@ -244,7 +245,7 @@ fun HundiTopAppBar(
     val dropdownBgColor = if (isDarkMode) Color(0xFF2B261D) else Color(0xFFFFFFFF)
     val dropdownTextColor = if (isDarkMode) Color(0xFFFFFFFF) else Color(0xFF3E2700)
 
-    val operators by viewModel.operators.collectAsState()
+    val operators by viewModel.operators.collectAsStateWithLifecycle()
     var showAccountMenu by remember { mutableStateOf(false) }
 
     TopAppBar(
@@ -265,12 +266,12 @@ fun HundiTopAppBar(
                             .background(if (isDarkMode) Color(0xFF2D2513) else Color(0xFFFFF6DF)),
                         contentAlignment = Alignment.Center
                     ) {
-                        val customAppLogo by viewModel.customAppLogo.collectAsState()
+                        val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
                         Text(text = customAppLogo, fontSize = 14.sp)
                     }
 
                     Column {
-                        val customAppName by viewModel.customAppName.collectAsState()
+                        val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
                         Text(
                             text = customAppName,
                             style = TextStyle(
@@ -453,7 +454,7 @@ fun HundiBottomNavigationBar(
     viewModel: HundiViewModel,
     currentScreen: AppScreen
 ) {
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
 
     androidx.compose.material3.Surface(
         modifier = Modifier.fillMaxWidth(),

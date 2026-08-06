@@ -18,6 +18,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.biometric.BiometricManager
+
+fun Context.findFragmentActivity(): FragmentActivity? {
+    var currentContext = this
+    while (currentContext is ContextWrapper) {
+        if (currentContext is FragmentActivity) {
+            return currentContext
+        }
+        currentContext = currentContext.baseContext
+    }
+    return null
+}
 
 @Composable
 fun BiometricTriggerButton(
@@ -27,14 +41,19 @@ fun BiometricTriggerButton(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val activity = context as? FragmentActivity
+    val activity = context.findFragmentActivity()
     var isAuthenticating by remember { mutableStateOf(false) }
     
     val triggerBiometric = {
         isAuthenticating = true
         if (activity != null) {
-            val executor = ContextCompat.getMainExecutor(context)
-            val biometricPrompt = BiometricPrompt(
+            val biometricManager = BiometricManager.from(context)
+            val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            val canAuthenticate = biometricManager.canAuthenticate(authenticators)
+            
+            if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
+                val executor = ContextCompat.getMainExecutor(context)
+                val biometricPrompt = BiometricPrompt(
                 activity,
                 executor,
                 object : BiometricPrompt.AuthenticationCallback() {
@@ -67,7 +86,7 @@ fun BiometricTriggerButton(
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
                 .setTitle(if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Verification")
                 .setSubtitle(if (lang == "BN") "ফিঙ্গারপ্রিন্ট বা লক স্ক্রিন ব্যবহার করুন" else "Verify using fingerprint or lock screen")
-                .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                .setAllowedAuthenticators(authenticators)
                 .build()
 
             try {
@@ -75,6 +94,15 @@ fun BiometricTriggerButton(
             } catch (e: Exception) {
                 isAuthenticating = false
                 onError(e.localizedMessage ?: "Biometric authentication unavailable")
+            }
+            } else {
+                isAuthenticating = false
+                when (canAuthenticate) {
+                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> onError("No biometric features available on this device.")
+                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> onError("Biometric features are currently unavailable.")
+                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> onError("No biometric credential enrolled.")
+                    else -> onError("Biometric authentication is not supported.")
+                }
             }
         } else {
             isAuthenticating = false
@@ -100,8 +128,7 @@ fun BiometricTriggerButton(
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                 .clickable { 
-                    // Instant verify on direct button touch!
-                    onSuccess() 
+                    triggerBiometric()
                 },
             contentAlignment = Alignment.Center
         ) {

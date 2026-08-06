@@ -36,8 +36,16 @@ object KeyStoreHelper {
             }
             android.util.Base64.decode(passphraseBase64, android.util.Base64.NO_WRAP)
         } catch (e: Exception) {
-            // Fallback for devices without Hardware KeyStore support
-            "safa_sec_fallback_2026_pass_key".toByteArray()
+            // Fallback for devices without Hardware KeyStore support or on Exception
+            val fallbackPrefs = context.getSharedPreferences("safa_fallback_prefs", Context.MODE_PRIVATE)
+            var fallbackBase64 = fallbackPrefs.getString(KEY_PASSPHRASE, null)
+            if (fallbackBase64 == null) {
+                val randomBytes = ByteArray(32)
+                SecureRandom().nextBytes(randomBytes)
+                fallbackBase64 = android.util.Base64.encodeToString(randomBytes, android.util.Base64.NO_WRAP)
+                fallbackPrefs.edit().putString(KEY_PASSPHRASE, fallbackBase64).apply()
+            }
+            android.util.Base64.decode(fallbackBase64, android.util.Base64.NO_WRAP)
         }
     }
 }

@@ -34,11 +34,11 @@ fun LoginScreen(
     viewModel: HundiViewModel,
     modifier: Modifier = Modifier
 ) {
-    val operators by viewModel.operators.collectAsState()
-    val selectedOperator by viewModel.selectedLoginOperator.collectAsState()
-    val pinBuffer by viewModel.pinBuffer.collectAsState()
-    val pinError by viewModel.pinError.collectAsState()
-    val currentLang by viewModel.currentLanguage.collectAsState()
+    val operators by viewModel.operators.collectAsStateWithLifecycle()
+    val selectedOperator by viewModel.selectedLoginOperator.collectAsStateWithLifecycle()
+    val pinBuffer by viewModel.pinBuffer.collectAsStateWithLifecycle()
+    val pinError by viewModel.pinError.collectAsStateWithLifecycle()
+    val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
 
     var showOpSelector by remember { mutableStateOf(false) }
 
@@ -173,6 +173,14 @@ fun LoginScreen(
                                 )
                         )
                     }
+                }
+
+                if (selectedOperator?.isBiometricEnabled == true) {
+                    com.safa.account.ui.BiometricTriggerButton(
+                        lang = currentLang,
+                        onSuccess = { viewModel.loginWithBiometric(selectedOperator!!) },
+                        onError = { viewModel.setPinError(it) }
+                    )
                 }
 
                 // PIN error feedback

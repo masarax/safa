@@ -34,12 +34,14 @@ fun WalletScreen(
     viewModel: HundiViewModel,
     modifier: Modifier = Modifier
 ) {
-    val lang by viewModel.currentLanguage.collectAsState()
-    val transactions by viewModel.transactions.collectAsState()
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
+    val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
 
-    val walletLedgers by viewModel.walletLedgers.collectAsState()
-    val walletBatches by viewModel.walletBatches.collectAsState()
+    val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
+    val walletBatches by viewModel.walletBatches.collectAsStateWithLifecycle()
 
     val currencyFormatter = remember { DecimalFormat("#,##0.00") }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
@@ -130,8 +132,10 @@ fun WalletScreen(
                     Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (lang == "BN") "নতুন খাতা" else "New Register",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White)
+                        text = if (lang == "BN") "নতুন" else "Add",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -153,7 +157,7 @@ fun WalletScreen(
             }
 
             // Draw Wallet Ledgers list in-between
-            items(walletLedgers) { ledger ->
+            items(walletLedgers, key = { it.id }) { ledger ->
                 val batches = walletBatches.filter { it.ledgerId == ledger.id }
                 val ledgerBalance = batches.sumOf { it.remainingBdt }
                 val isExpanded = expandedLedgerId == ledger.id
@@ -262,7 +266,8 @@ fun WalletScreen(
                                      Text(
                                          text = if (lang == "BN") "ডিপোজিট" else "Deposit", 
                                          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
-                                         maxLines = 1
+                                         maxLines = 1,
+                                         overflow = TextOverflow.Ellipsis
                                      )
                                  }
 
@@ -278,7 +283,8 @@ fun WalletScreen(
                                      Text(
                                          text = if (lang == "BN") "উত্তোলন" else "Withdraw", 
                                          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
-                                         maxLines = 1
+                                         maxLines = 1,
+                                         overflow = TextOverflow.Ellipsis
                                      )
                                  }
                              }
@@ -302,8 +308,10 @@ fun WalletScreen(
                                 Icon(Icons.Default.Delete, contentDescription = "Delete Ledger", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (lang == "BN") "মুছে ফেলুন" else "Delete Ledger Profile", 
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)
+                                    text = if (lang == "BN") "ডিলিট" else "Delete", 
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
 
@@ -642,23 +650,29 @@ fun WalletScreen(
                         OutlinedTextField(
                             value = addFundBdtAmount,
                             onValueChange = { addFundBdtAmount = it },
-                            label = { Text(if (lang == "BN") "টাকার পরিমাণ (BDT)" else "Amount (BDT)") },
+                            label = { Text(if (lang == "BN") "টাকার পরিমাণ ${localCur}" else "Amount ${localCur}") },
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        OutlinedTextField(
-                            value = addFundRate,
-                            onValueChange = { addFundRate = it },
-                            label = { Text(if (lang == "BN") "ক্রয় রেট (ঐচ্ছিক)" else "Cost Rate (Optional)") },
-                            placeholder = { Text("32.5") },
-                            singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        val isRateBasedMode by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+                        val isWalletRateEnabled by viewModel.isWalletRateEnabled.collectAsStateWithLifecycle()
+                        if (isRateBasedMode && isWalletRateEnabled) {
+                            OutlinedTextField(
+                                value = addFundRate,
+                                onValueChange = { addFundRate = it },
+                                label = { Text(if (lang == "BN") "ক্রয় রেট (ঐচ্ছিক)" else "Cost Rate (Optional)") },
+                                placeholder = { Text("32.5") },
+                                singleLine = true,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            LaunchedEffect(Unit) { addFundRate = "1.0" }
+                        }
 
                         OutlinedTextField(
                             value = addFundNotes,
@@ -784,7 +798,7 @@ fun WalletScreen(
                         OutlinedTextField(
                             value = deductFundBdtAmount,
                             onValueChange = { deductFundBdtAmount = it },
-                            label = { Text(if (lang == "BN") "টাকার পরিমাণ (BDT Amount)" else "Amount (BDT)") },
+                            label = { Text(if (lang == "BN") "টাকার পরিমাণ ${localCur} Amount" else "Amount ${localCur}") },
                             singleLine = true,
                             isError = isOverLimit,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),

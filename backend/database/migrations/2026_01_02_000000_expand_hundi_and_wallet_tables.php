@@ -20,6 +20,11 @@ return new class extends Migration {
             $table->string('receiver_account_no', 100)->nullable()->after('receiver_account_type');
             $table->unsignedBigInteger('wallet_batch_id')->default(0)->after('receiver_account_no');
             $table->text('notes')->nullable()->after('wallet_batch_id');
+
+            $table->index('customer_id');
+            $table->index('supplier_id');
+            $table->index('wallet_batch_id');
+            $table->index('timestamp');
         });
 
         Schema::create('wallet_ledgers', function (Blueprint $table) {
@@ -29,6 +34,7 @@ return new class extends Migration {
             $table->string('name');
             $table->unsignedBigInteger('timestamp')->nullable();
             $table->timestamps();
+            $table->unique(['account_id', 'local_id']);
         });
 
         Schema::create('wallet_batches', function (Blueprint $table) {
@@ -44,6 +50,12 @@ return new class extends Migration {
             $table->text('notes')->nullable();
             $table->unsignedBigInteger('timestamp')->nullable();
             $table->timestamps();
+            $table->unique(['account_id', 'local_id']);
+            
+            $table->index('ledger_id');
+            $table->index('supplier_id');
+            $table->index('supplier_deposit_id');
+            $table->index('timestamp');
         });
 
         Schema::create('supplier_deposits', function (Blueprint $table) {
@@ -59,6 +71,10 @@ return new class extends Migration {
             $table->text('notes')->nullable();
             $table->unsignedBigInteger('timestamp')->nullable();
             $table->timestamps();
+            $table->unique(['account_id', 'local_id']);
+            
+            $table->index('supplier_id');
+            $table->index('timestamp');
         });
 
         Schema::create('expenses_incomes', function (Blueprint $table) {
@@ -72,6 +88,7 @@ return new class extends Migration {
             $table->string('category', 50)->default('General');
             $table->unsignedBigInteger('timestamp')->nullable();
             $table->timestamps();
+            $table->unique(['account_id', 'local_id']);
         });
     }
 

@@ -15,6 +15,7 @@ class ApiSecurityInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val timestamp = (System.currentTimeMillis() / 1000).toString()
+        val nonce = java.util.UUID.randomUUID().toString()
         val method = request.method
         val path = request.url.encodedPath
         
@@ -25,13 +26,14 @@ class ApiSecurityInterceptor(
             bodyString = buffer.readUtf8()
         }
 
-        val payload = method + path + timestamp + bodyString
+        val payload = method + path + timestamp + nonce + bodyString
         val signature = generateHmac(payload, apiSecret)
 
         val newRequest = request.newBuilder()
             .addHeader("X-SAFA-API-KEY", apiKey)
             .addHeader("X-SAFA-SIGNATURE", signature)
             .addHeader("X-SAFA-TIMESTAMP", timestamp)
+            .addHeader("X-SAFA-NONCE", nonce)
             .build()
 
         return chain.proceed(newRequest)

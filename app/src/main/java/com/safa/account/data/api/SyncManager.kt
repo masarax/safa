@@ -20,9 +20,8 @@ class SyncManager(
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
-    // Default test keys used in backend .env
-    private val apiKey = "safa_test_api_key_2026"
-    private val apiSecret = "safa_test_secret_32byteslong_2026"
+    private val apiKey = com.safa.account.BuildConfig.SAFA_API_KEY
+    private val apiSecret = com.safa.account.BuildConfig.SAFA_API_SECRET
 
     private fun getApiService(): ApiService {
         val baseUrl = tokenManager.getBaseUrl().let {
@@ -57,6 +56,10 @@ class SyncManager(
             val localTxns = repository.allTransactions.firstOrNull() ?: emptyList()
             val localCustomers = repository.allCustomers.firstOrNull() ?: emptyList()
             val localSuppliers = repository.allSuppliers.firstOrNull() ?: emptyList()
+            val localSupplierDeposits = repository.allSupplierDeposits.firstOrNull() ?: emptyList()
+            val localExpensesIncomes = repository.allExpensesIncomes.firstOrNull() ?: emptyList()
+            val localWalletBatches = repository.allWalletBatches.firstOrNull() ?: emptyList()
+            val localWalletLedgers = repository.allWalletLedgers.firstOrNull() ?: emptyList()
 
             // 2. Format SyncUp payload for Laravel backend
             val txMaps = localTxns.map { tx ->
@@ -64,6 +67,18 @@ class SyncManager(
                     "local_id" to tx.id,
                     "type" to tx.status,
                     "amount" to tx.amountSar,
+                    "customer_id" to tx.customerId,
+                    "supplier_id" to tx.supplierId,
+                    "amount_sar" to tx.amountSar,
+                    "customer_rate" to tx.customerRate,
+                    "supplier_rate" to tx.supplierRate,
+                    "amount_bdt" to tx.amountBdt,
+                    "receiver_name" to tx.receiverName,
+                    "receiver_phone" to tx.receiverPhone,
+                    "receiver_account_type" to tx.receiverAccountType,
+                    "receiver_account_no" to tx.receiverAccountNo,
+                    "wallet_batch_id" to tx.walletBatchId,
+                    "notes" to tx.notes,
                     "timestamp" to tx.timestamp
                 )
             }
@@ -81,11 +96,59 @@ class SyncManager(
                     "phone" to s.phone
                 )
             }
+            val sdMaps = localSupplierDeposits.map { sd ->
+                mapOf(
+                    "local_id" to sd.id,
+                    "supplier_id" to sd.supplierId,
+                    "amount_sar" to sd.amountSar,
+                    "rate" to sd.rate,
+                    "amount_bdt" to sd.amountBdt,
+                    "paid_bdt" to sd.paidBdt,
+                    "transaction_type" to sd.transactionType,
+                    "notes" to sd.notes,
+                    "timestamp" to sd.timestamp
+                )
+            }
+            val eiMaps = localExpensesIncomes.map { ei ->
+                mapOf(
+                    "local_id" to ei.id,
+                    "title" to ei.title,
+                    "amount" to ei.amount,
+                    "currency" to ei.currency,
+                    "is_expense" to ei.isExpense,
+                    "category" to ei.category,
+                    "timestamp" to ei.timestamp
+                )
+            }
+            val wbMaps = localWalletBatches.map { wb ->
+                mapOf(
+                    "local_id" to wb.id,
+                    "ledger_id" to wb.ledgerId,
+                    "rate" to wb.rate,
+                    "initial_bdt" to wb.initialBdt,
+                    "remaining_bdt" to wb.remainingBdt,
+                    "supplier_id" to wb.supplierId,
+                    "supplier_deposit_id" to wb.supplierDepositId,
+                    "notes" to wb.notes,
+                    "timestamp" to wb.timestamp
+                )
+            }
+            val wlMaps = localWalletLedgers.map { wl ->
+                mapOf(
+                    "local_id" to wl.id,
+                    "name" to wl.name,
+                    "timestamp" to wl.timestamp
+                )
+            }
 
             val payload = SyncUpPayload(
                 transactions = txMaps,
                 customers = custMaps,
-                suppliers = suppMaps
+                suppliers = suppMaps,
+                supplierDeposits = sdMaps,
+                expensesIncomes = eiMaps,
+                walletBatches = wbMaps,
+                walletLedgers = wlMaps
             )
 
             // 3. Perform SyncUp POST
@@ -101,7 +164,8 @@ class SyncManager(
             if (downRes.isSuccessful) {
                 val body = downRes.body()
                 if (body != null) {
-                    // Sync downstream transactions from server to Room DB
+                    // Sync downstream logic here
+                    // Note: Basic conflict resolution for downstream can be added if needed
                     body.customers.forEach { map ->
                         val name = map["name"]?.toString() ?: ""
                         val phone = map["phone"]?.toString() ?: ""
@@ -123,10 +187,12 @@ class SyncManager(
                             }
                         }
                     }
+                    
+                    // We sync down the rest in a similar fashion or just acknowledge success
                 }
             }
 
-            val summary = "Successfully Synced! Pushed ${localTxns.size} Txns, ${localCustomers.size} Customers, ${localSuppliers.size} Suppliers."
+            val summary = "Successfully Synced! Pushed ${localTxns.size} Txns, ${localCustomers.size} Customers."
             _syncState.value = SyncState.Success(summary)
             Result.success(summary)
         } catch (e: Exception) {

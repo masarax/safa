@@ -41,7 +41,15 @@ data class Supplier(
     val timestamp: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "transactions")
+@Entity(
+    tableName = "transactions",
+    indices = [
+        androidx.room.Index(value = ["customerId"]),
+        androidx.room.Index(value = ["supplierId"]),
+        androidx.room.Index(value = ["operatorId"]),
+        androidx.room.Index(value = ["walletBatchId"])
+    ]
+)
 data class RemittanceTransaction(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val customerId: Int,
@@ -60,13 +68,27 @@ data class RemittanceTransaction(
     val operatorId: Int = 0,
     val walletBatchId: Int = 0,
     val notes: String = "",
-    val timestamp: Long = System.currentTimeMillis()
 ) {
-    fun getProfitBdt(): Double = (customerRate - supplierRate) * amountSar
-    fun getProfitSar(): Double = amountSar - (amountBdt / customerRate)
+    fun getProfitBdt(): Double {
+        val cr = java.math.BigDecimal(customerRate.toString())
+        val sr = java.math.BigDecimal(supplierRate.toString())
+        val amt = java.math.BigDecimal(amountSar.toString())
+        return cr.subtract(sr).multiply(amt).toDouble()
+    }
+    
+    fun getProfitSar(): Double {
+        if (customerRate <= 0.0) return 0.0
+        val amt = java.math.BigDecimal(amountSar.toString())
+        val bdt = java.math.BigDecimal(amountBdt.toString())
+        val cr = java.math.BigDecimal(customerRate.toString())
+        return amt.subtract(bdt.divide(cr, 4, java.math.RoundingMode.HALF_UP)).toDouble()
+    }
 }
 
-@Entity(tableName = "supplier_deposits")
+@Entity(
+    tableName = "supplier_deposits",
+    indices = [androidx.room.Index(value = ["supplierId"])]
+)
 data class SupplierDeposit(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val supplierId: Int,
@@ -105,7 +127,14 @@ data class WalletLedger(
     val timestamp: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "wallet_batches")
+@Entity(
+    tableName = "wallet_batches",
+    indices = [
+        androidx.room.Index(value = ["ledgerId"]),
+        androidx.room.Index(value = ["supplierId"]),
+        androidx.room.Index(value = ["supplierDepositId"])
+    ]
+)
 data class WalletBatch(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val ledgerId: Int,

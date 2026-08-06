@@ -31,7 +31,7 @@ import com.safa.account.ui.viewmodel.HundiViewModel
 import kotlinx.coroutines.launch
 
 enum class SettingsSubpage {
-    MAIN, CURRENCY, BRANDING, LANGUAGE, USER_MGT, PIN_CHANGE, API_SERVER
+    MAIN, CURRENCY, BRANDING, LANGUAGE, USER_MGT, PIN_CHANGE
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,14 +59,13 @@ fun SettingsScreen(
         SettingsSubpage.LANGUAGE -> LanguagePage(viewModel) { currentPage = SettingsSubpage.MAIN }
         SettingsSubpage.USER_MGT -> UserManagementPage(viewModel) { currentPage = SettingsSubpage.MAIN }
         SettingsSubpage.PIN_CHANGE -> PinChangePage(viewModel) { currentPage = SettingsSubpage.MAIN }
-        SettingsSubpage.API_SERVER -> ApiServerPage(viewModel) { currentPage = SettingsSubpage.MAIN }
     }
 }
 
 @Composable
 fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) -> Unit) {
-    val lang by viewModel.currentLanguage.collectAsState()
-    val activeOperator by viewModel.currentOperator.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val activeOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -174,9 +173,9 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
         }
 
         item {
-            val isRateEnabled by viewModel.isRateFeatureEnabled.collectAsState()
+            val isRateEnabled by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
             Surface(
-                onClick = { viewModel.setRateFeatureEnabled(!isRateEnabled) },
+                onClick = { viewModel.setRateBasedModeEnabled(!isRateEnabled) },
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
@@ -200,7 +199,7 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                         )
                         Column {
                             Text(
-                                text = if (lang == "BN") "রেট ভিত্তিক হিসাব মোড (Rate-Based Mode)" else "Rate-Based Mode",
+                                text = if (lang == "BN") "রেট ভিত্তিক হিসাব মোড" else "Rate-Based Mode",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
@@ -212,8 +211,104 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                     }
                     Switch(
                         checked = isRateEnabled,
-                        onCheckedChange = { viewModel.setRateFeatureEnabled(it) }
+                        onCheckedChange = { viewModel.setRateBasedModeEnabled(it) }
                     )
+                }
+            }
+        }
+        
+        item {
+            val isSupplierRateEnabled by viewModel.isSupplierRateEnabled.collectAsStateWithLifecycle()
+            val isRateEnabled by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+            if (isRateEnabled) {
+                Surface(
+                    onClick = { viewModel.setSupplierRateEnabled(!isSupplierRateEnabled) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Business,
+                                contentDescription = "",
+                                tint = if (isSupplierRateEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = if (lang == "BN") "সাপ্লায়ার রেট" else "Supplier Rate",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = if (lang == "BN") "সাপ্লায়ারদের জন্য কাস্টম রেট" else "Enable supplier custom rates",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = isSupplierRateEnabled,
+                            onCheckedChange = { viewModel.setSupplierRateEnabled(it) }
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            val isWalletRateEnabled by viewModel.isWalletRateEnabled.collectAsStateWithLifecycle()
+            val isRateEnabled by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+            if (isRateEnabled) {
+                Surface(
+                    onClick = { viewModel.setWalletRateEnabled(!isWalletRateEnabled) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = "",
+                                tint = if (isWalletRateEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = if (lang == "BN") "ওয়ালেট রেট" else "Wallet Rate",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = if (lang == "BN") "ওয়ালেট রিচার্জের জন্য কাস্টম রেট" else "Enable wallet custom rates",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = isWalletRateEnabled,
+                            onCheckedChange = { viewModel.setWalletRateEnabled(it) }
+                        )
+                    }
                 }
             }
         }
@@ -243,16 +338,6 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
         }
 
         val isOwnerOrAdmin = activeOperator?.role == "Owner" || activeOperator?.role == "Admin"
-
-        if (isOwnerOrAdmin) {
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.CloudSync,
-                    title = if (lang == "BN") "সার্ভার ও এপিআই সংযোগ (অ্যাডমিন সিকিউরড)" else "Laravel API Connection (Admin Secure)",
-                    onClick = { onNavigate(SettingsSubpage.API_SERVER) }
-                )
-            }
-        }
 
         // Section 2: Security and Accounts Category
         item {
@@ -286,7 +371,7 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
         }
 
         item {
-            val activeOp by viewModel.currentOperator.collectAsState()
+            val activeOp by viewModel.currentOperator.collectAsStateWithLifecycle()
             val isBioEnabled = activeOp?.isBiometricEnabled ?: false
             
             Surface(
@@ -409,9 +494,9 @@ fun SettingsMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrencyPage(viewModel: HundiViewModel, onBack: () -> Unit) {
-    val lang by viewModel.currentLanguage.collectAsState()
-    val baseForeignCurrency by viewModel.selectedForeignCurrency.collectAsState()
-    val baseLocalCurrency by viewModel.selectedLocalCurrency.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val baseForeignCurrency by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val baseLocalCurrency by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
 
     var selectedForeignCurrency by remember { mutableStateOf(baseForeignCurrency) }
     var selectedLocalCurrency by remember { mutableStateOf(baseLocalCurrency) }
@@ -456,9 +541,9 @@ fun CurrencyPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
-    val lang by viewModel.currentLanguage.collectAsState()
-    val customAppName by viewModel.customAppName.collectAsState()
-    val customAppLogo by viewModel.customAppLogo.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
+    val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
 
     var tempAppName by remember { mutableStateOf(customAppName) }
     var tempAppLogo by remember { mutableStateOf(customAppLogo) }
@@ -496,7 +581,11 @@ fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     ) {
                         if (tempAppLogo.startsWith("content://") || tempAppLogo.startsWith("http")) {
                             AsyncImage(
-                                model = tempAppLogo,
+                                model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                    .data(tempAppLogo)
+                                    .crossfade(true)
+                                    .size(256) // limit size to prevent OOM
+                                    .build(),
                                 contentDescription = "Logo",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
@@ -550,7 +639,7 @@ fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 
 @Composable
 fun LanguagePage(viewModel: HundiViewModel, onBack: () -> Unit) {
-    val lang by viewModel.currentLanguage.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
         PageHeader(title = if (lang == "BN") "ভাষা পরিবর্তন" else "Change Language", icon = Icons.Default.Language, onBack = onBack)
@@ -650,8 +739,8 @@ fun PageHeader(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
-    val lang by viewModel.currentLanguage.collectAsState()
-    val operators by viewModel.operators.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val operators by viewModel.operators.collectAsStateWithLifecycle()
     var isAddingOperator by remember { mutableStateOf(false) }
     var expandedOperatorId by remember { mutableStateOf<Int?>(null) }
 
@@ -674,16 +763,16 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(if (lang == "BN") "নতুন ইউজার তৈরি করুন" else "Create New User", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = newUsername, onValueChange = { newUsername = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = newPin, onValueChange = { if (it.length <= 4) newPin = it }, label = { Text("4-Digit PIN") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = newUsername, onValueChange = { newUsername = it }, label = { Text(if (lang == "BN") "ইউজারনেম" else "Username") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = newPin, onValueChange = { if (it.length <= 4) newPin = it }, label = { Text(if (lang == "BN") "৪-ডিজিটের পিন" else "4-Digit PIN") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), modifier = Modifier.fillMaxWidth())
                     
-                    Text("Role", style = MaterialTheme.typography.labelMedium)
+                    Text(if (lang == "BN") "রোল" else "Role", style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = newRole == "Owner", onClick = { newRole = "Owner" }, label = { Text("Owner") })
                         FilterChip(selected = newRole == "Staff", onClick = { newRole = "Staff" }, label = { Text("Staff") })
                     }
 
-                    Text("Permissions", style = MaterialTheme.typography.labelMedium)
+                    Text(if (lang == "BN") "অনুমতি (Permissions)" else "Permissions", style = MaterialTheme.typography.labelMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("create" to "তৈরি করুন (Create)", "edit" to "এডিট করুন (Edit)", "delete" to "ডিলিট করুন (Delete)", "update" to "আপডেট করুন (Update)").forEach { (key, label) ->
                             FilterChip(
@@ -725,7 +814,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
             }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(operators) { op ->
+                items(operators, key = { it.id }) { op ->
                     val isExpanded = expandedOperatorId == op.id
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -756,12 +845,12 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Permissions", style = MaterialTheme.typography.labelMedium)
+                                    Text(if (lang == "BN") "অনুমতিসমূহ" else "Permissions", style = MaterialTheme.typography.labelMedium)
                                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                         IconButton(onClick = { editingOperator = op }) {
                                             Icon(Icons.Default.Edit, contentDescription = "Edit User", tint = MaterialTheme.colorScheme.primary)
                                         }
-                                        val curOp by viewModel.currentOperator.collectAsState()
+                                        val curOp by viewModel.currentOperator.collectAsStateWithLifecycle()
                                         if (op.id != curOp?.id) {
                                             IconButton(onClick = { showDeleteConfirmByOp = op }) {
                                                 Icon(Icons.Default.Delete, contentDescription = "Delete User", tint = MaterialTheme.colorScheme.error)
@@ -794,7 +883,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 
     if (editingOperator != null) {
         var usernameInput by remember(editingOperator) { mutableStateOf(editingOperator!!.username) }
-        var pinInput by remember(editingOperator) { mutableStateOf(editingOperator!!.pin) }
+        var pinInput by remember(editingOperator) { mutableStateOf("") }
         var roleInput by remember(editingOperator) { mutableStateOf(editingOperator!!.role) }
         var permsInput by remember(editingOperator) { mutableStateOf(editingOperator!!.permissions.split(",").map { it.trim() }.toSet()) }
 
@@ -826,7 +915,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                         FilterChip(selected = roleInput == "Owner", onClick = { roleInput = "Owner" }, label = { Text("Owner") })
                         FilterChip(selected = roleInput == "Staff", onClick = { roleInput = "Staff" }, label = { Text("Staff") })
                     }
-                    Text("Permissions", style = MaterialTheme.typography.labelMedium)
+                    Text(if (lang == "BN") "অনুমতিসমূহ" else "Permissions", style = MaterialTheme.typography.labelMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("create" to "Create", "edit" to "Edit", "delete" to "Delete", "update" to "Update").forEach { (key, label) ->
                             FilterChip(
@@ -913,7 +1002,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PinChangePage(viewModel: HundiViewModel, onBack: () -> Unit) {
-    val lang by viewModel.currentLanguage.collectAsState()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     
     var oldPin by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
@@ -954,7 +1043,7 @@ fun PinChangePage(viewModel: HundiViewModel, onBack: () -> Unit) {
                 Button(
                     onClick = { 
                         if (oldPin.length == 4 && newPin.length == 4) {
-                            if (viewModel.currentOperator.value?.pin == oldPin) {
+                            if (com.safa.account.utils.HashUtils.verifyPin(oldPin, viewModel.currentOperator.value?.pin ?: "")) {
                                 viewModel.updateOperatorPin(newPin) {
                                     successMsg = if (lang == "BN") "পিন সফলভাবে পরিবর্তন করা হয়েছে!" else "PIN changed successfully!"
                                     oldPin = ""
@@ -977,183 +1066,4 @@ fun PinChangePage(viewModel: HundiViewModel, onBack: () -> Unit) {
     }
 }
 
-@Composable
-fun ApiServerPage(viewModel: HundiViewModel, onBack: () -> Unit) {
-    val lang by viewModel.currentLanguage.collectAsState()
-    val currentUrl by viewModel.apiBaseUrl.collectAsState()
-    val syncState by viewModel.syncState.collectAsState()
-
-    var inputUrl by remember(currentUrl) { mutableStateOf(currentUrl) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var isSuccessStatus by remember { mutableStateOf(false) }
-    var isTestingConnection by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-            }
-            Text(
-                text = if (lang == "BN") "Laravel API & সার্ভার কনফিগারেশন (অ্যাডমিন)" else "Laravel API & Server Setup (Admin Only)",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    text = if (lang == "BN") 
-                        "সুরক্ষিত এপিআই এন্ডপয়েন্ট। অননুমোদিত পরিবর্তন সংযোগ বিচ্ছিন্ন করতে পারে।" 
-                    else 
-                        "Secured API Endpoint. Unauthorized edits may break connection.",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.CloudSync,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = if (lang == "BN") "সার্ভার সংযোগ ইউআরএল (API Endpoint)" else "API Base Endpoint URL",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-
-                OutlinedTextField(
-                    value = inputUrl,
-                    onValueChange = { inputUrl = it },
-                    label = { Text(if (lang == "BN") "সার্ভার URL" else "Server URL") },
-                    placeholder = { Text("https://api.yourdomain.com/api/v1/") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            viewModel.updateApiBaseUrl(inputUrl)
-                            isTestingConnection = true
-                            viewModel.checkServerHealth { success, msg ->
-                                isTestingConnection = false
-                                isSuccessStatus = success
-                                statusMessage = msg
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = !isTestingConnection
-                    ) {
-                        if (isTestingConnection) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        } else {
-                            Text(if (lang == "BN") "টেস্ট কানেকশন" else "Test Connection")
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.triggerFullSync { success, msg ->
-                                isSuccessStatus = success
-                                statusMessage = msg
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(if (lang == "BN") "সিঙ্ক করুন (Sync)" else "Sync Data Now")
-                    }
-                }
-
-                if (statusMessage != null) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSuccessStatus) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isSuccessStatus) Icons.Default.CheckCircle else Icons.Default.Error,
-                                contentDescription = null,
-                                tint = if (isSuccessStatus) Color(0xFF2E7D32) else Color(0xFFC62828)
-                            )
-                            Text(
-                                text = statusMessage!!,
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                color = if (isSuccessStatus) Color(0xFF2E7D32) else Color(0xFFC62828)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Live Sync State Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = if (lang == "BN") "বর্তমান লাইভ সিঙ্ক স্ট্যাটাস" else "Live Sync Status",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                )
-
-                val syncStateText = when (syncState) {
-                    is com.safa.account.data.api.SyncState.Idle -> if (lang == "BN") "প্রস্তুত (Idle)" else "Idle"
-                    is com.safa.account.data.api.SyncState.Syncing -> if (lang == "BN") "ডাটা সিঙ্ক হচ্ছে..." else "Syncing data..."
-                    is com.safa.account.data.api.SyncState.Success -> (syncState as com.safa.account.data.api.SyncState.Success).message
-                    is com.safa.account.data.api.SyncState.Error -> (syncState as com.safa.account.data.api.SyncState.Error).message
-                }
-
-                Text(
-                    text = syncStateText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
 }

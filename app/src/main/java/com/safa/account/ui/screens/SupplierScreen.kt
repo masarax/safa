@@ -70,15 +70,17 @@ fun SupplierScreen(
     isProfileView: Boolean = false,
     isAddView: Boolean = false
 ) {
-    val suppliers by viewModel.suppliers.collectAsState()
-    val supplierDeposits by viewModel.supplierDeposits.collectAsState()
-    val transactions by viewModel.transactions.collectAsState()
-    val lang by viewModel.currentLanguage.collectAsState()
-    val currentOperator by viewModel.currentOperator.collectAsState()
-    val walletLedgers by viewModel.walletLedgers.collectAsState()
+    val suppliers by viewModel.suppliers.collectAsStateWithLifecycle()
+    val supplierDeposits by viewModel.supplierDeposits.collectAsStateWithLifecycle()
+    val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
+    val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+    val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
 
     // Retrieve global selection profile ID
-    val selectedSupplierIdForProfile by viewModel.selectedSupplierIdForProfile.collectAsState()
+    val selectedSupplierIdForProfile by viewModel.selectedSupplierIdForProfile.collectAsStateWithLifecycle()
 
     var searchQuery by remember { mutableStateOf("") }
     var isCustomizerExpanded by remember { mutableStateOf(false) }
@@ -119,7 +121,7 @@ fun SupplierScreen(
             it.address.contains(searchQuery, ignoreCase = true)
         }
 
-        // Helper to calculate BDT due (Payable is positive, Receivable/prepaid is negative)
+        // Helper to calculate ${localCur}due (Payable is positive, Receivable/prepaid is negative)
         fun getSupplierBdtDue(sId: Int): Double {
             val deposits = supplierDeposits.filter { it.supplierId == sId }
             val totalAcquiredBdt = deposits.filter { it.transactionType == "SAR_GIVEN" || it.transactionType == "SAR_DEPOSIT" }.sumOf { it.amountBdt }
@@ -276,8 +278,10 @@ fun SupplierScreen(
                         Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (lang == "BN") "নতুন সাপ্লায়ার" else "Add",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            text = if (lang == "BN") "নতুন" else "Add",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -588,7 +592,7 @@ fun SupplierScreen(
                                                 color = MaterialTheme.colorScheme.outline
                                             )
                                             Text(
-                                                text = "${currencyFormatter.format(totalDepositedSar)} SAR",
+                                                text = "${currencyFormatter.format(totalDepositedSar)} ${foreignCur}",
                                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -600,7 +604,7 @@ fun SupplierScreen(
                                                 color = MaterialTheme.colorScheme.outline
                                             )
                                             Text(
-                                                text = "৳ ${currencyFormatter.format(totalAcquiredBdt)} BDT",
+                                                text = "৳ ${currencyFormatter.format(totalAcquiredBdt)} ${localCur}",
                                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -640,11 +644,11 @@ fun SupplierProfileView(
         }
     }
 
-    val currentOperator by viewModel.currentOperator.collectAsState()
+    val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
     var isEditing by remember { mutableStateOf(false) }
     var selectedProfileTab by remember { mutableStateOf(0) }
-    val walletLedgers by viewModel.walletLedgers.collectAsState()
-    val walletBatches by viewModel.walletBatches.collectAsState()
+    val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
+    val walletBatches by viewModel.walletBatches.collectAsStateWithLifecycle()
 
     var editName by remember(supplier) { mutableStateOf(supplier.name) }
     var editPhone by remember(supplier) { mutableStateOf(supplier.phone) }
@@ -1217,7 +1221,7 @@ fun SupplierProfileView(
                         }
                     }
                 } else {
-                items(ledgerByDate.entries.toList()) { entry ->
+                items(ledgerByDate.entries.toList(), key = { it.key }) { entry ->
                     val dateStr = entry.key
                     val itemsList = entry.value
                     Column(
@@ -1418,7 +1422,7 @@ fun SupplierProfileView(
                                                                         contentColor = Color(0xFFE65100)
                                                                     ) {
                                                                         Text(
-                                                                            text = if (lang == "BN") "রিয়াল বাকি: SAR ${DecimalFormat("#.##").format(sarDue)}" else "Uncollected: ${DecimalFormat("#.##").format(sarDue)} SAR",
+                                                                            text = if (lang == "BN") "রিয়াল বাকি: ${foreignCur}${DecimalFormat("#.##").format(sarDue)}" else "Uncollected: ${DecimalFormat("#.##").format(sarDue)} ${foreignCur}",
                                                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                                                                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                                                         )
@@ -1484,7 +1488,7 @@ fun SupplierProfileView(
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                             Column {
                                                                 Text(text = if (lang == "BN") "রিয়াল গ্রহণ (SAR):" else "Riyal Collected (SAR):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
-                                                                Text(text = "${tx.sarCollected} / ${tx.amountSar} SAR", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= 0.05) Color(0xFF2E7D32) else Color(0xFFE65100))
+                                                                Text(text = "${tx.sarCollected} / ${tx.amountSar} ${foreignCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= 0.05) Color(0xFF2E7D32) else Color(0xFFE65100))
                                                             }
                                                             if (sarDue > 0.05) {
                                                                 Button(
@@ -1503,7 +1507,7 @@ fun SupplierProfileView(
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                             Column {
                                                                 Text(text = if (lang == "BN") "বিতরণ (BDT):" else "Disbursed BDT:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
-                                                                Text(text = "৳ ${DecimalFormat("#,##0").format(tx.bdtDisbursed)} / ৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} BDT", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (bdtDue <= 0.05) Color(0xFF2E7D32) else Color(0xFF254B8C))
+                                                                Text(text = "৳ ${DecimalFormat("#,##0").format(tx.bdtDisbursed)} / ৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} ${localCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (bdtDue <= 0.05) Color(0xFF2E7D32) else Color(0xFF254B8C))
                                                             }
                                                             if (bdtDue > 0.05) {
                                                                 Button(
@@ -1773,7 +1777,7 @@ fun SupplierProfileView(
     }
 
     if (txToEdit != null) {
-        val suppliersList by viewModel.suppliers.collectAsState(initial = emptyList())
+        val suppliersList by viewModel.suppliers.collectAsStateWithLifecycle(initialValue = emptyList())
         AlertDialog(
             onDismissRequest = { txToEdit = null },
             title = {
@@ -2008,7 +2012,7 @@ fun SupplierProfileView(
                     OutlinedTextField(
                         value = editDepRate,
                         onValueChange = { editDepRate = it },
-                        label = { Text(if (lang == "BN") "রেট BDT" else "Exchange Rate BDT") },
+                        label = { Text(if (lang == "BN") "রেট ${localCur}" else "Exchange Rate ${localCur}") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -2065,7 +2069,7 @@ fun SupplierProfileView(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // Option 1: Buy SAR (নতুন ফান্ড ক্রয়)
+                    // Option 1: Buy ${foreignCur}(নতুন ফান্ড ক্রয়)
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2099,11 +2103,11 @@ fun SupplierProfileView(
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (lang == "BN") "নতুন ফান্ড ক্রয়" else "New SAR Purchase",
+                                    text = if (lang == "BN") "নতুন ফান্ড ক্রয়" else "New ${foreignCur}Purchase",
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                                 Text(
-                                    text = if (lang == "BN") "সাপ্লায়ার থেকে নতুন রিয়াল বা ফান্ড ক্রয় করুন।" else "Purchase new SAR funds from this supplier.",
+                                    text = if (lang == "BN") "সাপ্লায়ার থেকে নতুন রিয়াল বা ফান্ড ক্রয় করুন।" else "Purchase new ${foreignCur}funds from this supplier.",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -2159,7 +2163,7 @@ fun SupplierProfileView(
                                     )
                                     Text(
                                         text = if (isDue) {
-                                            if (lang == "BN") "সাপ্লায়ারের পূর্বের বকেয়া পরিশোধ বা ক্যাশ পেমেন্ট করুন।" else "Clear outstanding BDT payables to this supplier."
+                                            if (lang == "BN") "সাপ্লায়ারের পূর্বের বকেয়া পরিশোধ বা ক্যাশ পেমেন্ট করুন।" else "Clear outstanding ${localCur}payables to this supplier."
                                         } else {
                                             if (lang == "BN") "সাপ্লায়ার থেকে আপনার পাওনা টাকা বুঝে নিন বা ক্যাশ গ্রহণ করুন।" else "Collect or settle your receivable from this supplier."
                                         },

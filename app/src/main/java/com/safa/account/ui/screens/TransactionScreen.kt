@@ -50,20 +50,22 @@ fun TransactionScreen(
     viewModel: HundiViewModel,
     modifier: Modifier = Modifier
 ) {
-    val transactions by viewModel.transactions.collectAsState()
-    val customers by viewModel.customers.collectAsState()
-    val suppliers by viewModel.suppliers.collectAsState()
-    val liveRates by viewModel.currentRates.collectAsState()
-    val lang by viewModel.currentLanguage.collectAsState()
-    val walletBatches by viewModel.walletBatches.collectAsState()
-    val walletLedgers by viewModel.walletLedgers.collectAsState()
-    val currentOperator by viewModel.currentOperator.collectAsState()
+    val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val customers by viewModel.customers.collectAsStateWithLifecycle()
+    val suppliers by viewModel.suppliers.collectAsStateWithLifecycle()
+    val liveRates by viewModel.currentRates.collectAsStateWithLifecycle()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val walletBatches by viewModel.walletBatches.collectAsStateWithLifecycle()
+    val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
+    val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
+    val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
     val operatorPin = currentOperator?.pin ?: ""
 
     // --- Customize state options (User customizable features) ---
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilterStatus by remember { mutableStateOf("All") } // "All", "Pending", "Delivered", "Cancelled"
-    var selectedSortOption by remember { mutableStateOf("Newest") } // "Newest", "Oldest", "Max SAR", "Max Profit"
+    var selectedSortOption by remember { mutableStateOf("Newest") } // "Newest", "Oldest", "Max ${foreignCur}", "Max Profit"
     var selectedDateFilter by remember { mutableStateOf("All") } // "All", "Today", "Week", "Month"
     var isCompactDensity by remember { mutableStateOf(false) } // Luxurious Spacious vs Compact Table style
     var showStatsDashboard by remember { mutableStateOf(true) } // Option to show/hide dynamic KPI cards
@@ -119,7 +121,7 @@ fun TransactionScreen(
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
 
     // Handle pre-select callbacks from other pages
-    val preselectCustomerId by viewModel.newTransactionPreselectCustomerId.collectAsState()
+    val preselectCustomerId by viewModel.newTransactionPreselectCustomerId.collectAsStateWithLifecycle()
 
     LaunchedEffect(showAddDialog, liveRates) {
         if (showAddDialog && liveRates != null) {
@@ -188,8 +190,8 @@ fun TransactionScreen(
         // 4. Sort Options
         list = when (selectedSortOption) {
             "Oldest" -> list.sortedBy { it.timestamp }
-            "Max SAR" -> list.sortedByDescending { it.amountSar }
-            "Min SAR" -> list.sortedBy { it.amountSar }
+            "Max ${foreignCur}" -> list.sortedByDescending { it.amountSar }
+            "Min ${foreignCur}" -> list.sortedBy { it.amountSar }
             "Max Profit" -> list.sortedByDescending { it.getProfitBdt() }
             else -> list.sortedByDescending { it.timestamp } // "Newest"
         }
@@ -273,7 +275,7 @@ fun TransactionScreen(
                         .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // KPI: SAR volume
+                    // KPI: ${foreignCur}volume
                     KpiIndicatorCard(
                         title = if (lang == "BN") "সংগৃহীত রিয়াল" else "Total Received",
                         value = "SAR ${currencyFormatter.format(statsSarTotal)}",
@@ -283,7 +285,7 @@ fun TransactionScreen(
                         textColor = MaterialTheme.colorScheme.primary
                     )
 
-                    // KPI: BDT volume disbursed
+                    // KPI: ${localCur}volume disbursed
                     KpiIndicatorCard(
                         title = if (lang == "BN") "বিতরণকৃত টাকা" else "Total Disbursed",
                         value = "৳${currencyFormatter.format(statsBdtTotal)}",
@@ -402,8 +404,8 @@ fun TransactionScreen(
                                         Text(
                                             text = when (selectedSortOption) {
                                                 "Oldest" -> if (lang == "BN") "পুরাতন থেকে নতুন" else "Oldest First"
-                                                "Max SAR" -> if (lang == "BN") "রিয়াল বেশি" else "Max SAR"
-                                                "Min SAR" -> if (lang == "BN") "রিয়াল কম" else "Min SAR"
+                                                "Max ${foreignCur}" -> if (lang == "BN") "রিয়াল বেশি" else "Max ${foreignCur}"
+                                                "Min ${foreignCur}" -> if (lang == "BN") "রিয়াল কম" else "Min ${foreignCur}"
                                                 "Max Profit" -> if (lang == "BN") "মুনাফা বেশি" else "Max Profit"
                                                 else -> if (lang == "BN") "নতুন থেকে পুরাতন" else "Newest First"
                                             },
@@ -417,14 +419,14 @@ fun TransactionScreen(
                                         expanded = sortMenuExpanded,
                                         onDismissRequest = { sortMenuExpanded = false }
                                     ) {
-                                        listOf("Newest", "Oldest", "Max SAR", "Min SAR", "Max Profit").forEach { option ->
+                                        listOf("Newest", "Oldest", "Max ${foreignCur}", "Min ${foreignCur}", "Max Profit").forEach { option ->
                                             DropdownMenuItem(
                                                 text = {
                                                     Text(
                                                         when (option) {
                                                             "Oldest" -> if (lang == "BN") "পুরাতন থেকে নতুন" else "Oldest First"
-                                                            "Max SAR" -> if (lang == "BN") "সর্বোচ্চ রিয়াল" else "Highest Riyal"
-                                                            "Min SAR" -> if (lang == "BN") "সর্বনিম্ন রিয়াল" else "Lowest Riyal"
+                                                            "Max ${foreignCur}" -> if (lang == "BN") "সর্বোচ্চ রিয়াল" else "Highest Riyal"
+                                                            "Min ${foreignCur}" -> if (lang == "BN") "সর্বনিম্ন রিয়াল" else "Lowest Riyal"
                                                             "Max Profit" -> if (lang == "BN") "সর্বোচ্চ মুনাফা" else "Highest Profit"
                                                             else -> if (lang == "BN") "নতুন থেকে পুরাতন" else "Newest First"
                                                         }
@@ -859,43 +861,76 @@ fun TransactionScreen(
                                     )
                                 }
 
-                                // Rates Grid Row (Customer + Supplier)
-                                item {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedTextField(
-                                            value = customerRateInput,
-                                            onValueChange = {},
-                                            readOnly = true,
-                                            placeholder = { Text(viewModel.t("customer_assigned_rate"), color = MaterialTheme.colorScheme.outline) },
-                                            leadingIcon = {
-                                                Icon(Icons.Default.TrendingUp, contentDescription = "", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
-                                            },
-                                            shape = RoundedCornerShape(14.dp),
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .testTag("new_tx_cust_rate"),
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                                            ),
-                                            interactionSource = remember { MutableInteractionSource() }.also { src ->
-                                                LaunchedEffect(src) {
-                                                    src.interactions.collect { interaction ->
-                                                        if (interaction is androidx.compose.foundation.interaction.PressInteraction.Release) {
-                                                            activeCalcTarget = CalcTargetTx.CUSTOMER_RATE
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        )
-                                        OutlinedTextField(
-                                            value = supplierRateInput,
-                                            onValueChange = {},
-                                            readOnly = true,
-                                            placeholder = { Text(viewModel.t("supplier_rate_tx"), color = MaterialTheme.colorScheme.outline) },
-                                            leadingIcon = {
-                                                Icon(Icons.Default.TrendingDown, contentDescription = "", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
-                                            },
+                                 // Rates Grid Row (Customer + Supplier)
+                                 item {
+                                     val isRateBasedMode by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+                                     if (isRateBasedMode) {
+                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                             OutlinedTextField(
+                                                 value = customerRateInput,
+                                                 onValueChange = {},
+                                                 readOnly = true,
+                                                 placeholder = { Text(viewModel.t("customer_assigned_rate"), color = MaterialTheme.colorScheme.outline) },
+                                                 leadingIcon = {
+                                                     Icon(Icons.Default.TrendingUp, contentDescription = "", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                                                 },
+                                                 shape = RoundedCornerShape(14.dp),
+                                                 modifier = Modifier
+                                                     .weight(1f)
+                                                     .testTag("new_tx_cust_rate"),
+                                                 colors = OutlinedTextFieldDefaults.colors(
+                                                     focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                                 ),
+                                                 interactionSource = remember { MutableInteractionSource() }.also { src ->
+                                                     LaunchedEffect(src) {
+                                                         src.interactions.collect { interaction ->
+                                                             if (interaction is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                                                                 activeCalcTarget = CalcTargetTx.CUSTOMER_RATE
+                                                             }
+                                                         }
+                                                     }
+                                                 }
+                                             )
+                                             
+                                             val isSupplierRateEnabled by viewModel.isSupplierRateEnabled.collectAsStateWithLifecycle()
+                                             if (isSupplierRateEnabled) {
+                                                 OutlinedTextField(
+                                                     value = supplierRateInput,
+                                                     onValueChange = {},
+                                                     readOnly = true,
+                                                     placeholder = { Text(viewModel.t("supplier_rate_tx"), color = MaterialTheme.colorScheme.outline) },
+                                                     leadingIcon = {
+                                                         Icon(Icons.Default.TrendingDown, contentDescription = "", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                                                     },
+                                                     shape = RoundedCornerShape(14.dp),
+                                                     modifier = Modifier
+                                                         .weight(1f)
+                                                         .testTag("new_tx_supp_rate"),
+                                                     colors = OutlinedTextFieldDefaults.colors(
+                                                         focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                                     ),
+                                                     interactionSource = remember { MutableInteractionSource() }.also { src ->
+                                                         LaunchedEffect(src) {
+                                                             src.interactions.collect { interaction ->
+                                                                 if (interaction is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                                                                     activeCalcTarget = CalcTargetTx.SUPPLIER_RATE
+                                                                 }
+                                                             }
+                                                         }
+                                                     }
+                                                 )
+                                             }
+                                         }
+                                     } else {
+                                         // Automatically force rates to 1.0 under the hood if hidden
+                                         LaunchedEffect(Unit) {
+                                             customerRateInput = "1.0"
+                                             supplierRateInput = "1.0"
+                                         }
+                                     }
+                                 }
                                             shape = RoundedCornerShape(14.dp),
                                             modifier = Modifier
                                                 .weight(1f)
@@ -1518,8 +1553,10 @@ fun TransactionScreen(
                                 enabled = editCustomerIdInput > 0 && editReceiverNameInput.isNotBlank() && editReceiverPhoneInput.isNotBlank() && editSarAmountInput.isNotBlank() && editPinCodeInput.length == 4
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "পরিবর্তন সংরক্ষণ করুন" else "Save Ledger Changes",
-                                    style = MaterialTheme.typography.bodyLarge.copy(color = Color.White, fontWeight = FontWeight.Bold)
+                                    text = if (lang == "BN") "সেভ" else "Save",
+                                    style = MaterialTheme.typography.bodyLarge.copy(color = Color.White, fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -1990,7 +2027,7 @@ fun TransactionPremiumCard(
                                         color = if (netProfitBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
                                     )
                                     Text(
-                                        text = "(${currencyFormatter.format(netProfitSar)} SAR | Margin: ${String.format(Locale.getDefault(), "%.2f", profitMarginPct)}%)",
+                                        text = "(${currencyFormatter.format(netProfitSar)} ${foreignCur}| Margin: ${String.format(Locale.getDefault(), "%.2f", profitMarginPct)}%)",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (netProfitBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
                                     )
@@ -2049,7 +2086,7 @@ fun TransactionPremiumCard(
                                 ) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = "", modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (lang == "BN") "বিতরণ সম্পন্ন" else "Deliver Out", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = if (lang == "BN") "বিতরণ" else "Deliver", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
 
                                 // Cancelled action button
@@ -2062,7 +2099,7 @@ fun TransactionPremiumCard(
                                 ) {
                                     Icon(Icons.Default.Cancel, contentDescription = "", modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (lang == "BN") "বাতিল করুন" else "Cancel Deal", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = if (lang == "BN") "বাতিল" else "Cancel", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
@@ -2082,7 +2119,7 @@ fun TransactionPremiumCard(
                         ) {
                             Icon(Icons.Default.Receipt, contentDescription = "", modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = if (lang == "BN") "রসিদ দেখুন" else "View Receipt/Detail Record", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(text = if (lang == "BN") "রসিদ" else "Receipt", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -2489,7 +2526,7 @@ fun DigitalReceiptDialog(
                                     • Account: ${tx.receiverAccountType} (${tx.receiverAccountNo})
                                     
                                     💵 *Financial Details:*
-                                    • Sent Amount: SAR ${tx.amountSar}
+                                    • Sent Amount: ${foreignCur}${tx.amountSar}
                                     • Rate: ৳ ${tx.customerRate} BDT/SAR
                                     • Payable BDT: ৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} BDT
                                     • Status: ${tx.status}

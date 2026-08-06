@@ -53,11 +53,11 @@ fun ExpenseScreen(
     modifier: Modifier = Modifier,
     isAddingEntryView: Boolean = false
 ) {
-    val items by viewModel.expensesIncomes.collectAsState()
-    val stats by viewModel.financialStats.collectAsState()
-    val lang by viewModel.currentLanguage.collectAsState()
-    val foreignCurrency by viewModel.selectedForeignCurrency.collectAsState()
-    val localCurrency by viewModel.selectedLocalCurrency.collectAsState()
+    val items by viewModel.expensesIncomes.collectAsStateWithLifecycle()
+    val stats by viewModel.financialStats.collectAsStateWithLifecycle()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val foreignCurrency by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCurrency by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
 
     var showAddChoiceDialog by remember { mutableStateOf(false) }
 

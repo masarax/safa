@@ -22,4 +22,32 @@ class TokenManager(context: Context) {
     fun saveBaseUrl(url: String) = prefs.edit { putString(KEY_BASE_URL, url) }
 
     fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_URL) ?: DEFAULT_URL
+    
+    // --- App Settings Persistence ---
+    fun saveLanguage(lang: String) = prefs.edit { putString("app_lang", lang) }
+    fun getLanguage(): String = prefs.getString("app_lang", "BN") ?: "BN"
+    
+    fun saveCustomAppName(name: String) = prefs.edit { putString("app_name", name) }
+    fun getCustomAppName(): String = prefs.getString("app_name", "SAFA") ?: "SAFA"
+    
+    fun saveCustomAppLogo(logo: String) = prefs.edit { putString("app_logo", logo) }
+    fun getCustomAppLogo(): String = prefs.getString("app_logo", "👑") ?: "👑"
+    
+    fun saveCustomAppLogoUri(uri: String?) = prefs.edit { putString("app_logo_uri", uri) }
+    fun getCustomAppLogoUri(): String? = prefs.getString("app_logo_uri", null)
+    
+    fun saveLocalCurrency(curr: String) = prefs.edit { putString("local_curr", curr) }
+    fun getLocalCurrency(): String = prefs.getString("local_curr", "BDT") ?: "BDT"
+    
+    fun saveForeignCurrency(curr: String) = prefs.edit { putString("foreign_curr", curr) }
+    fun getForeignCurrency(): String = prefs.getString("foreign_curr", "SAR") ?: "SAR"
+    
+    fun saveRateFeatureEnabled(enabled: Boolean) = prefs.edit { putBoolean("rate_feature", enabled) }
+    fun getRateFeatureEnabled(): Boolean = prefs.getBoolean("rate_feature", true)
+
+    fun saveSupplierRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("supplier_rate_enabled", enabled) }
+    fun getSupplierRateEnabled(): Boolean = prefs.getBoolean("supplier_rate_enabled", true)
+
+    fun saveWalletRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("wallet_rate_enabled", enabled) }
+    fun getWalletRateEnabled(): Boolean = prefs.getBoolean("wallet_rate_enabled", true)
 }

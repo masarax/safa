@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,13 +53,15 @@ fun CustomerScreen(
     isProfileView: Boolean = false,
     isAddView: Boolean = false
 ) {
-    val customers by viewModel.customers.collectAsState()
-    val transactions by viewModel.transactions.collectAsState()
-    val lang by viewModel.currentLanguage.collectAsState()
-    val currentOperator by viewModel.currentOperator.collectAsState()
+    val customers by viewModel.customers.collectAsStateWithLifecycle()
+    val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+    val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
     
     // Check if a specific customer profile is globally selected
-    val selectedCustomerIdForProfile by viewModel.selectedCustomerIdForProfile.collectAsState()
+    val selectedCustomerIdForProfile by viewModel.selectedCustomerIdForProfile.collectAsStateWithLifecycle()
 
     var searchQuery by remember { mutableStateOf("") }
     var isCustomizerExpanded by remember { mutableStateOf(false) }
@@ -259,8 +262,10 @@ fun CustomerScreen(
                         Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (lang == "BN") "নতুন গ্রাহক" else "Add Customer",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White)
+                            text = if (lang == "BN") "নতুন" else "Add",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -543,7 +548,7 @@ fun CustomerScreen(
                                              )
                                              Spacer(modifier = Modifier.height(1.dp))
                                              Text(
-                                                 text = "${currencyFormatter.format(Math.abs(totalDue))} SAR",
+                                                 text = "${currencyFormatter.format(Math.abs(totalDue))} ${foreignCur}",
                                                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
                                                  color = if (totalDue > 0.05) Color(0xFFD32F2F) else if (totalDue <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32)
                                              )
@@ -564,24 +569,24 @@ fun CustomerScreen(
                                      ) {
                                          Column {
                                              Text(
-                                                 text = if (lang == "BN") "মোট লেনদেন (SAR)" else "Total Trans. (SAR)",
+                                                 text = if (lang == "BN") "মোট লেনদেন ${foreignCur}" else "Total Trans. ${foreignCur}",
                                                  style = MaterialTheme.typography.labelSmall,
                                                  color = MaterialTheme.colorScheme.outline
                                              )
                                              Text(
-                                                 text = "${currencyFormatter.format(totalSarSpent)} SAR",
+                                                 text = "${currencyFormatter.format(totalSarSpent)} ${foreignCur}",
                                                  style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                                  color = MaterialTheme.colorScheme.onSurface
                                              )
                                          }
                                          Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                              Text(
-                                                 text = if (lang == "BN") "মোট পাঠানো (BDT)" else "Total Sent (BDT)",
+                                                 text = if (lang == "BN") "মোট পাঠানো ${localCur}" else "Total Sent ${localCur}",
                                                  style = MaterialTheme.typography.labelSmall,
                                                  color = MaterialTheme.colorScheme.outline
                                              )
                                              Text(
-                                                 text = "${currencyFormatter.format(totalBdt)} BDT",
+                                                 text = "${currencyFormatter.format(totalBdt)} ${localCur}",
                                                  style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                                  color = MaterialTheme.colorScheme.onSurface
                                              )
@@ -631,7 +636,7 @@ fun CustomerProfileView(
         }
     }
 
-    val currentOperator by viewModel.currentOperator.collectAsState()
+    val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
     // Editing status state
     var isEditing by remember { mutableStateOf(false) }
     
@@ -674,11 +679,11 @@ fun CustomerProfileView(
     var isAddingTransaction by remember { mutableStateOf(false) }
     var isAdvanceReturn by remember { mutableStateOf(false) }
     var showAddTxChoiceDialog by remember { mutableStateOf(false) }
-    val suppliers by viewModel.suppliers.collectAsState(initial = emptyList())
-    val supplierDeposits by viewModel.supplierDeposits.collectAsState(initial = emptyList())
-    val currentRatesState by viewModel.currentRates.collectAsState()
-    val walletBatches by viewModel.walletBatches.collectAsState()
-    val walletLedgers by viewModel.walletLedgers.collectAsState()
+    val suppliers by viewModel.suppliers.collectAsStateWithLifecycle(initialValue = emptyList())
+    val supplierDeposits by viewModel.supplierDeposits.collectAsStateWithLifecycle(initialValue = emptyList())
+    val currentRatesState by viewModel.currentRates.collectAsStateWithLifecycle()
+    val walletBatches by viewModel.walletBatches.collectAsStateWithLifecycle()
+    val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
     var selectedBatchId by remember { mutableStateOf<Int?>(null) }
     var inputAmountSar by remember { mutableStateOf("") }
     var inputCustomerRate by remember { mutableStateOf("32.10") }
@@ -1016,7 +1021,7 @@ fun CustomerProfileView(
                                             color = Color(0xFF2E7D32)
                                         )
                                         Text(
-                                            text = if (lang == "BN") "পূর্বের বকেয়া রিয়াল আদায় করুন (বকেয়া: SAR ${DecimalFormat("#.##").format(totalUncollectedSar)})।" else "Collect previous outstanding dues (Owed: ${DecimalFormat("#.##").format(totalUncollectedSar)} SAR).",
+                                            text = if (lang == "BN") "পূর্বের বকেয়া রিয়াল আদায় করুন (বকেয়া: ${foreignCur}${DecimalFormat("#.##").format(totalUncollectedSar)})।" else "Collect previous outstanding dues (Owed: ${DecimalFormat("#.##").format(totalUncollectedSar)} ${foreignCur}).",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.outline
                                         )
@@ -1077,7 +1082,7 @@ fun CustomerProfileView(
                                             color = Color(0xFF1565C0)
                                         )
                                         Text(
-                                            text = if (lang == "BN") "কাস্টমারকে পাওনা ফেরত দিন (পাবে: SAR ${DecimalFormat("#.##").format(Math.abs(totalUncollectedSar))})।" else "Return customer's advanced balance (Owed: ${DecimalFormat("#.##").format(Math.abs(totalUncollectedSar))} SAR).",
+                                            text = if (lang == "BN") "কাস্টমারকে পাওনা ফেরত দিন (পাবে: ${foreignCur}${DecimalFormat("#.##").format(Math.abs(totalUncollectedSar))})।" else "Return customer's advanced balance (Owed: ${DecimalFormat("#.##").format(Math.abs(totalUncollectedSar))} ${foreignCur}).",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.outline
                                         )
@@ -1337,16 +1342,16 @@ fun CustomerProfileView(
                                 )
                                 Text(
                                     text = if (totalUncollectedSar <= -0.05) {
-                                        if (lang == "BN") "কাস্টমার পাবে (SAR)" else "Customer Owed (SAR)"
+                                        if (lang == "BN") "কাস্টমার পাবে ${foreignCur}" else "Customer Owed ${foreignCur}"
                                     } else {
-                                        if (lang == "BN") "মোট বকেয়া (SAR)" else "Total Due (SAR)"
+                                        if (lang == "BN") "মোট বকেয়া ${foreignCur}" else "Total Due ${foreignCur}"
                                     },
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     color = if (totalUncollectedSar > 0.05) Color(0xFFC62828) else if (totalUncollectedSar <= -0.05) Color(0xFF1565C0) else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
-                                text = "${DecimalFormat("#,##0.00").format(Math.abs(totalUncollectedSar))} SAR",
+                                text = "${DecimalFormat("#,##0.00").format(Math.abs(totalUncollectedSar))} ${foreignCur}",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
                                 color = if (totalUncollectedSar > 0.05) Color(0xFFC62828) else if (totalUncollectedSar <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32)
                             )
@@ -1539,7 +1544,7 @@ fun CustomerProfileView(
 
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                                 Text(
-                                    text = if (lang == "BN") "মোট বিতরণ (টাকা)" else "Paid Out (BDT)",
+                                    text = if (lang == "BN") "মোট বিতরণ (টাকা)" else "Paid Out ${localCur}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -1590,7 +1595,7 @@ fun CustomerProfileView(
                     }
                 }
             } else {
-                items(transactionsByDate.entries.toList()) { entry ->
+                items(transactionsByDate.entries.toList(), key = { it.key }) { entry ->
                     val dateText = entry.key
                     val txList = entry.value
                     Surface(
@@ -1658,7 +1663,7 @@ fun CustomerProfileView(
                                                                 contentColor = Color(0xFFE65100)
                                                             ) {
                                                                 Text(
-                                                                    text = if (lang == "BN") "রিয়াল বাকি: SAR ${DecimalFormat("#.##").format(sarDue)}" else "Uncollected: ${DecimalFormat("#.##").format(sarDue)} SAR",
+                                                                    text = if (lang == "BN") "রিয়াল বাকি: ${foreignCur}${DecimalFormat("#.##").format(sarDue)}" else "Uncollected: ${DecimalFormat("#.##").format(sarDue)} ${foreignCur}",
                                                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                                                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                                                 )
@@ -1675,7 +1680,7 @@ fun CustomerProfileView(
                                                                 contentColor = Color(0xFF1565C0)
                                                             ) {
                                                                 Text(
-                                                                    text = if (lang == "BN") "কাস্টমার পাবে: SAR ${DecimalFormat("#.##").format(Math.abs(sarDue))}" else "Overpaid: ${DecimalFormat("#.##").format(Math.abs(sarDue))} SAR",
+                                                                    text = if (lang == "BN") "কাস্টমার পাবে: ${foreignCur}${DecimalFormat("#.##").format(Math.abs(sarDue))}" else "Overpaid: ${DecimalFormat("#.##").format(Math.abs(sarDue))} ${foreignCur}",
                                                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                                                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                                                 )
@@ -1739,19 +1744,19 @@ fun CustomerProfileView(
                                                 
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                     Column {
-                                                        Text(text = if (lang == "BN") "রিয়াল গ্রহণ (SAR):" else "Riyal Collected (SAR):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                        Text(text = if (lang == "BN") "রিয়াল গ্রহণ ${foreignCur}:" else "Riyal Collected ${foreignCur}:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                         if (tx.amountSar <= 0.05 && tx.sarCollected > 0.05) {
-                                                            Text(text = "${tx.sarCollected} SAR (${if (lang == "BN") "বকেয়া আদায় পরিশোধ" else "Outstanding Due Collected"})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                                            Text(text = "${tx.sarCollected} ${foreignCur}(${if (lang == "BN") "বকেয়া আদায় পরিশোধ" else "Outstanding Due Collected"})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                                         } else {
-                                                            Text(text = "${tx.sarCollected} / ${tx.amountSar} SAR", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= 0.05) Color(0xFF2E7D32) else Color(0xFFE65100))
+                                                            Text(text = "${tx.sarCollected} / ${tx.amountSar} ${foreignCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= 0.05) Color(0xFF2E7D32) else Color(0xFFE65100))
                                                         }
                                                     }
                                                 }
                                                 
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                     Column {
-                                                        Text(text = if (lang == "BN") "বিতরণ (BDT):" else "Disbursed BDT:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
-                                                        Text(text = "৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} BDT", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                                        Text(text = if (lang == "BN") "বিতরণ ${localCur}:" else "Disbursed BDT:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                        Text(text = "৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} ${localCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                                     }
                                                 }
 
@@ -2027,7 +2032,7 @@ fun CustomerProfileView(
     if (isAmountCalCOpen) {
         CalculatorDialog(
             initialValue = inputAmountSar,
-            title = if (lang == "BN") "রিয়াল পরিমাণ (SAR)" else "Riyal Amount (SAR)",
+            title = if (lang == "BN") "রিয়াল পরিমাণ ${foreignCur}" else "Riyal Amount ${foreignCur}",
             lang = lang,
             onDismiss = { isAmountCalCOpen = false },
             onConfirm = { result ->
@@ -2044,7 +2049,7 @@ fun CustomerProfileView(
     if (isEditAmountCalCOpen) {
         CalculatorDialog(
             initialValue = editAmountSar,
-            title = if (lang == "BN") "রিয়াল পরিমাণ (SAR)" else "Riyal Amount (SAR)",
+            title = if (lang == "BN") "রিয়াল পরিমাণ ${foreignCur}" else "Riyal Amount ${foreignCur}",
             lang = lang,
             onDismiss = { isEditAmountCalCOpen = false },
             onConfirm = { result ->
@@ -2672,7 +2677,7 @@ fun AddTransactionStepPage(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "পরিমাণ (SAR)" else "Amount (SAR)",
+                                    text = if (lang == "BN") "পরিমাণ ${foreignCur}" else "Amount ${foreignCur}",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -3130,7 +3135,7 @@ fun AddTransactionStepPage(
                                     }
                                 }
 
-                                // Rate Group: Displays the buying rate (Kroy Rate BDT) automatically of the selected wallet batch
+                                // Rate Group: Displays the buying rate (Kroy Rate ${localCur}) automatically of the selected wallet batch
                                 if (activeBatch != null) {
                                     Card(
                                         modifier = Modifier.fillMaxWidth(),
@@ -3162,7 +3167,7 @@ fun AddTransactionStepPage(
                                                 )
                                             }
                                             Text(
-                                                text = "৳ $supplierRate BDT",
+                                                text = "৳ $supplierRate ${localCur}",
                                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black),
                                                 color = MaterialTheme.colorScheme.secondary
                                             )
@@ -3203,7 +3208,7 @@ fun AddTransactionStepPage(
                                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                                     ) {
                                         Text(
-                                            text = "${sarFormatter.format(previousDueSar)} SAR Due",
+                                            text = "${sarFormatter.format(previousDueSar)} ${foreignCur}Due",
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                                         )
@@ -3228,7 +3233,7 @@ fun AddTransactionStepPage(
                                         onValueChange = { },
                                         readOnly = true,
                                         enabled = false,
-                                        label = { Text(if (lang == "BN") "বকেয়া আদায় পরিমাণ (SAR)" else "Due Collected Amount (SAR)") },
+                                        label = { Text(if (lang == "BN") "বকেয়া আদায় পরিমাণ ${foreignCur}" else "Due Collected Amount ${foreignCur}") },
                                         placeholder = { Text("0.00") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         leadingIcon = { Icon(Icons.Default.PriceCheck, contentDescription = "") },
@@ -3276,7 +3281,7 @@ fun AddTransactionStepPage(
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ) {
                                         Text(
-                                            text = "${sarFormatter.format(Math.abs(previousDueSar))} SAR Owed",
+                                            text = "${sarFormatter.format(Math.abs(previousDueSar))} ${foreignCur}Owed",
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                                         )
@@ -3301,7 +3306,7 @@ fun AddTransactionStepPage(
                                         onValueChange = { },
                                         readOnly = true,
                                         enabled = false,
-                                        label = { Text(if (lang == "BN") "ফেরত পরিমাণ (SAR)" else "Return Amount (SAR)") },
+                                        label = { Text(if (lang == "BN") "ফেরত পরিমাণ ${foreignCur}" else "Return Amount ${foreignCur}") },
                                         placeholder = { Text("0.00") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         leadingIcon = { Icon(Icons.Default.CurrencyExchange, contentDescription = "") },
@@ -3350,7 +3355,7 @@ fun AddTransactionStepPage(
                                         value = customerRate,
                                         onValueChange = onCustomerRateChange,
                                         enabled = isAmtPresent,
-                                        label = { Text(if (lang == "BN") "বিক্রয় রেট (BDT)" else "Selling Rate (BDT)") },
+                                        label = { Text(if (lang == "BN") "বিক্রয় রেট ${localCur}" else "Selling Rate ${localCur}") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier.weight(1f)
@@ -3358,10 +3363,10 @@ fun AddTransactionStepPage(
 
                                     // Riyal Amount (Disabled - Read-only / display style only)
                                     OutlinedTextField(
-                                        value = "$amountSar SAR",
+                                        value = "$amountSar ${foreignCur}",
                                         onValueChange = { },
                                         enabled = false, // Disabled as requested!
-                                        label = { Text(if (lang == "BN") "পরিমাণ (SAR)" else "Amount (SAR)") },
+                                        label = { Text(if (lang == "BN") "পরিমাণ ${foreignCur}" else "Amount ${foreignCur}") },
                                         shape = RoundedCornerShape(12.dp),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             disabledTextColor = MaterialTheme.colorScheme.onSurface,
@@ -3372,12 +3377,12 @@ fun AddTransactionStepPage(
                                     )
                                 }
 
-                                // Riyal Received & Bangladesh Payout BDT inside a single horizontal Row side-by-side as requested
+                                // Riyal Received & Bangladesh Payout ${localCur}inside a single horizontal Row side-by-side as requested
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    // Riyal Received (SAR) - editable, restored as requested
+                                    // Riyal Received ${foreignCur} - editable, restored as requested
                                     OutlinedTextField(
                                         value = sarCollected,
                                         onValueChange = { inputStr ->
@@ -3386,18 +3391,18 @@ fun AddTransactionStepPage(
                                             }
                                         },
                                         enabled = isAmtPresent,
-                                        label = { Text(if (lang == "BN") "গ্রহণ (SAR)" else "Received (SAR)") },
+                                        label = { Text(if (lang == "BN") "গ্রহণ ${foreignCur}" else "Received ${foreignCur}") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier.weight(1f)
                                     )
 
-                                    // BDT field (Disabled - Read-only calculated total, as requested! And rounded integers only)
+                                    // ${localCur}field (Disabled - Read-only calculated total, as requested! And rounded integers only)
                                     OutlinedTextField(
                                         value = bdtDisbursed,
                                         onValueChange = { },
                                         enabled = false, // Disabled/read-only as requested!
-                                        label = { Text(if (lang == "BN") "বিতরণ (BDT)" else "Disbursed (BDT)") },
+                                        label = { Text(if (lang == "BN") "বিতরণ ${localCur}" else "Disbursed ${localCur}") },
                                         shape = RoundedCornerShape(12.dp),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             disabledTextColor = MaterialTheme.colorScheme.onSurface,
@@ -3412,17 +3417,17 @@ fun AddTransactionStepPage(
                     }
                 }
 
-                // B. BDT Total & SUMMARY cards
+                // B. ${localCur}Total & SUMMARY cards
                 item {
                     val sarVal = amountSar.toDoubleOrNull() ?: 0.0
                     val custRateVal = customerRate.toDoubleOrNull() ?: 0.0
-                    val bdtTotal = Math.round(sarVal * custRateVal) // Whole BDT amount
+                    val bdtTotal = Math.round(sarVal * custRateVal) // Whole ${localCur}amount
                     
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Total Payout BDT Card
+                        // Total Payout ${localCur}Card
                         if (sarVal > 0.05) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -3443,7 +3448,7 @@ fun AddTransactionStepPage(
                                         color = Color(0xFF1B5E20)
                                     )
                                     Text(
-                                        text = "৳ ${bdtFormatter.format(bdtTotal)} BDT",
+                                        text = "৳ ${bdtFormatter.format(bdtTotal)} ${localCur}",
                                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
                                         color = Color(0xFF1B5E20)
                                     )
@@ -3467,29 +3472,29 @@ fun AddTransactionStepPage(
                                 Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text(text = if (lang == "BN") "রিয়াল পরিমাণ:" else "SAR Amount:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
-                                    Text(text = "$amountSar SAR", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = "$amountSar ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                                 val amtVal = amountSar.toDoubleOrNull() ?: 0.0
                                 val collectedVal = sarCollected.toDoubleOrNull() ?: 0.0
                                 val newDueSar = amtVal - collectedVal
                                 if (newDueSar > 0.01) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text(text = if (lang == "BN") "নতুন বকেয়া (SAR):" else "New Outstanding Due (SAR):", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                                        Text(text = "${String.format("%.2f", newDueSar)} SAR", fontSize = 12.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
+                                        Text(text = if (lang == "BN") "নতুন বকেয়া ${foreignCur}:" else "New Outstanding Due ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                                        Text(text = "${String.format("%.2f", newDueSar)} ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
                                     }
                                 }
                                 if (previousDueSar > 0.05) {
                                     val dueAmtVal = dueSarCollected.toDoubleOrNull() ?: 0.0
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text(text = if (lang == "BN") "বকেয়া আদায় (SAR):" else "Due Collected (SAR):", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
-                                        Text(text = "$dueAmtVal SAR", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                        Text(text = if (lang == "BN") "বকেয়া আদায় ${foreignCur}:" else "Due Collected ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                        Text(text = "$dueAmtVal ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                     }
                                 } else if (previousDueSar <= -0.05) {
                                     val dueAmtVal = dueSarCollected.toDoubleOrNull() ?: 0.0
                                     if (dueAmtVal > 0.0) {
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(text = if (lang == "BN") "পাওনা ফেরত (SAR):" else "Advance Returned (SAR):", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
-                                            Text(text = "$dueAmtVal SAR", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                            Text(text = if (lang == "BN") "পাওনা ফেরত ${foreignCur}:" else "Advance Returned ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                            Text(text = "$dueAmtVal ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                         }
                                     }
                                 }
@@ -3580,7 +3585,7 @@ fun AddTransactionStepPage(
     if (isDueCalcOpen) {
         CalculatorDialog(
             initialValue = dueSarCollected,
-            title = if (lang == "BN") "বকেয়া আদায় পরিমাণ (SAR)" else "Due Collected Amount (SAR)",
+            title = if (lang == "BN") "বকেয়া আদায় পরিমাণ ${foreignCur}" else "Due Collected Amount ${foreignCur}",
             lang = lang,
             onDismiss = { isDueCalcOpen = false },
             onConfirm = { result ->
@@ -3696,12 +3701,12 @@ fun EditTransactionPage(
                             )
                         }
 
-                        // SAR Amount Input (With Calculator inline)
+                        // ${foreignCur}Amount Input (With Calculator inline)
                         OutlinedTextField(
                             value = editAmountSar,
                             onValueChange = { onEditAmountSarChange(it) },
                             readOnly = true,
-                            label = { Text(if (lang == "BN") "রিয়াল পরিমাণ (SAR)" else "Riyal Amount (SAR)") },
+                            label = { Text(if (lang == "BN") "রিয়াল পরিমাণ ${foreignCur}" else "Riyal Amount ${foreignCur}") },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Calculate,
@@ -3724,12 +3729,12 @@ fun EditTransactionPage(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // Real-time custom collected SAR / BDT tracking moved up to Calculation matrix
+                        // Real-time custom collected ${foreignCur}/ ${localCur}tracking moved up to Calculation matrix
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = editSarCollected,
                                 onValueChange = { onEditSarCollectedChange(it) },
-                                label = { Text(if (lang == "BN") "রিয়াল সংগ্রহ (SAR)" else "Riyal Received") },
+                                label = { Text(if (lang == "BN") "রিয়াল সংগ্রহ ${foreignCur}" else "Riyal Received") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
@@ -3737,7 +3742,7 @@ fun EditTransactionPage(
                             OutlinedTextField(
                                 value = editBdtDisbursed,
                                 onValueChange = { onEditBdtDisbursedChange(it) },
-                                label = { Text(if (lang == "BN") "টাকা পাঠানো (BDT)" else "BDT Disbursed") },
+                                label = { Text(if (lang == "BN") "টাকা পাঠানো ${localCur}" else "BDT Disbursed") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
@@ -3977,9 +3982,9 @@ fun generatePdfReceipt(
         
         val calculatedTotalBdt = Math.round(amountSar * customerRate)
         if (amountSar > 0.05) {
-            drawRow(if (lang == "BN") "নতুন লেনদেন (SAR):" else "New Remittance (SAR):", "$amountSar SAR")
+            drawRow(if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", "$amountSar ${foreignCur}")
             drawRow(if (lang == "BN") "বিনিময় হার:" else "Conversion Rate:", "$customerRate BDT/SAR")
-            drawRow(if (lang == "BN") "মোট প্রদান মূল্য (BDT):" else "Total Amount (BDT):", "BDT $calculatedTotalBdt")
+            drawRow(if (lang == "BN") "মোট প্রদান মূল্য ${localCur}:" else "Total Amount ${localCur}:", "BDT $calculatedTotalBdt")
         }
         
         drawRow(if (lang == "BN") "পেমেন্ট মেথড:" else "Payment Method:", paymentMethod)
@@ -3988,7 +3993,7 @@ fun generatePdfReceipt(
         }
         
         if (dueCollectedSar > 0.05) {
-            drawRow(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), "$dueCollectedSar SAR")
+            drawRow(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), "$dueCollectedSar ${foreignCur}")
         }
         
         // Horizontal grey divider line
@@ -3997,15 +4002,15 @@ fun generatePdfReceipt(
         currentY += 30f
         
         if (newDueSar > 0.01) {
-            drawRow(if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", "$newDueSar SAR")
+            drawRow(if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", "$newDueSar ${foreignCur}")
         } else if (newDueSar < -0.01) {
-            drawRow(if (lang == "BN") "আপনার জমা ব্যালেন্স:" else "Customer Surplus Credit:", "${-newDueSar} SAR")
+            drawRow(if (lang == "BN") "আপনার জমা ব্যালেন্স:" else "Customer Surplus Credit:", "${-newDueSar} ${foreignCur}")
         }
         
         if (totalRemainingDueSar > 0.05) {
-            drawRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Outstanding Due:", "$totalRemainingDueSar SAR")
+            drawRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Outstanding Due:", "$totalRemainingDueSar ${foreignCur}")
         } else if (totalRemainingDueSar < -0.05) {
-            drawRow(if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer refund credit:", "${-totalRemainingDueSar} SAR")
+            drawRow(if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer refund credit:", "${-totalRemainingDueSar} ${foreignCur}")
         } else {
             drawRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Remaining Dues:", if (lang == "BN") "কোনো বকেয়া নেই" else "Zero Outstanding Dues")
         }
@@ -4117,9 +4122,9 @@ fun generateImageReceipt(
         
         val calculatedTotalBdt = Math.round(amountSar * customerRate)
         if (amountSar > 0.05) {
-            drawVisualRow(if (lang == "BN") "নতুন লেনদেন (SAR):" else "New Remittance (SAR):", "$amountSar SAR")
+            drawVisualRow(if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", "$amountSar ${foreignCur}")
             drawVisualRow(if (lang == "BN") "রেট:" else "Ex. Rate:", "$customerRate BDT/SAR")
-            drawVisualRow(if (lang == "BN") "জমা মূল্য (BDT):" else "Total Amount (BDT):", "BDT $calculatedTotalBdt", highlight = true)
+            drawVisualRow(if (lang == "BN") "জমা মূল্য ${localCur}:" else "Total Amount ${localCur}:", "BDT $calculatedTotalBdt", highlight = true)
         }
         
         drawVisualRow(if (lang == "BN") "পেমেন্ট মেথড:" else "Payment Method:", paymentMethod)
@@ -4128,7 +4133,7 @@ fun generateImageReceipt(
         }
         
         if (dueCollectedSar > 0.05) {
-            drawVisualRow(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), "$dueCollectedSar SAR")
+            drawVisualRow(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), "$dueCollectedSar ${foreignCur}")
         }
         
         // Solid divider line
@@ -4138,15 +4143,15 @@ fun generateImageReceipt(
         currentY += 45f
         
         if (newDueSar > 0.01) {
-            drawVisualRow(if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", "$newDueSar SAR")
+            drawVisualRow(if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", "$newDueSar ${foreignCur}")
         } else if (newDueSar < -0.01) {
-            drawVisualRow(if (lang == "BN") "আপনার জমা ব্যালেন্স:" else "Surplus Balance:", "${-newDueSar} SAR")
+            drawVisualRow(if (lang == "BN") "আপনার জমা ব্যালেন্স:" else "Surplus Balance:", "${-newDueSar} ${foreignCur}")
         }
         
         if (totalRemainingDueSar > 0.05) {
-            drawVisualRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Outstanding Due:", "$totalRemainingDueSar SAR")
+            drawVisualRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Outstanding Due:", "$totalRemainingDueSar ${foreignCur}")
         } else if (totalRemainingDueSar < -0.05) {
-            drawVisualRow(if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer due refund:", "${-totalRemainingDueSar} SAR")
+            drawVisualRow(if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer due refund:", "${-totalRemainingDueSar} ${foreignCur}")
         } else {
             drawVisualRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Remaining Dues:", if (lang == "BN") "কোনো বকেয়া নেই" else "Zero Outstanding Dues")
         }
@@ -4253,7 +4258,7 @@ fun TransactionConfirmationPage(
             if (amountSar > 0.05) {
                 sb.append("New Remittance: $amountSar SAR\n")
                 sb.append("Rate: ৳ $customerRate\n")
-                sb.append("Disbursed Total: BDT $calculatedTotalBdt\n")
+                sb.append("Disbursed Total: ${localCur}$calculatedTotalBdt\n")
             }
             sb.append("Payment Method: $paymentMethod\n")
             if (paymentMethod != "Cash" && recipientNo.isNotBlank() && recipientNo != "N/A") {
@@ -4368,12 +4373,12 @@ fun TransactionConfirmationPage(
                     }
                     if (amountSar > 0.05) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "নতুন লেনদেন (SAR):" else "New Remittance (SAR):", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
-                            Text(text = "$amountSar SAR", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(text = if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = "$amountSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "বিতরণ মূল্য (BDT):" else "Disbursed (BDT):", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
-                            Text(text = "৳ $calculatedTotalBdt BDT", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
+                            Text(text = if (lang == "BN") "বিতরণ মূল্য ${localCur}:" else "Disbursed ${localCur}:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = "৳ $calculatedTotalBdt ${localCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "পেমেন্ট মেথড:" else "Payment Method:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
@@ -4389,7 +4394,7 @@ fun TransactionConfirmationPage(
                     if (dueCollectedSar > 0.05) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
-                            Text(text = "$dueCollectedSar SAR", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
+                            Text(text = "$dueCollectedSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -4397,24 +4402,24 @@ fun TransactionConfirmationPage(
                     if (newDueSar > 0.01) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
-                            Text(text = "$newDueSar SAR", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error))
+                            Text(text = "$newDueSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error))
                         }
                     } else if (newDueSar < -0.01) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "আপনার জমা ব্যালেন্স (সারপ্লাস):" else "Your Surplus Balance:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
-                            Text(text = "${-newDueSar} SAR", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
+                            Text(text = "${-newDueSar} ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
                         }
                     }
                     
                     if (totalRemainingDueSar > 0.05) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "গ্রাহকের মোট বকেয়া:" else "Customer Total Due:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
-                            Text(text = "$totalRemainingDueSar SAR", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error))
+                            Text(text = "$totalRemainingDueSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error))
                         }
                     } else if (totalRemainingDueSar < -0.05) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer Credit Due:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
-                            Text(text = "${-totalRemainingDueSar} SAR", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black, color = Color(0xFF2E7D32)))
+                            Text(text = "${-totalRemainingDueSar} ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black, color = Color(0xFF2E7D32)))
                         }
                     } else {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

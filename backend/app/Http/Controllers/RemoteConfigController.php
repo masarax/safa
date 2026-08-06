@@ -33,7 +33,10 @@ class RemoteConfigController extends Controller
 
     public function checkVersion(Request $request)
     {
-        $currentCode = (int) $request->query('version_code', 1);
+        $validated = $request->validate([
+            'version_code' => 'nullable|integer|min:1'
+        ]);
+        $currentCode = (int) ($validated['version_code'] ?? 1);
         $version = AppVersion::where('platform', 'android')->latest()->first();
 
         if (!$version) {
