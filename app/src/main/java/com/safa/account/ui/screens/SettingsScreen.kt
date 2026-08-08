@@ -718,8 +718,7 @@ fun CurrencyPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                 )
                 Button(
                     onClick = { 
-                        viewModel.updateSelectedForeignCurrency(selectedForeignCurrency)
-                        viewModel.updateSelectedLocalCurrency(selectedLocalCurrency)
+                        viewModel.updateCurrenciesOnServer(selectedLocalCurrency, selectedForeignCurrency)
                         onBack()
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -735,16 +734,19 @@ fun CurrencyPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
     val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
+    val customAppLogoUri by viewModel.customAppLogoUri.collectAsStateWithLifecycle()
 
     var tempAppName by remember { mutableStateOf(customAppName) }
-    var tempAppLogo by remember { mutableStateOf(customAppLogo) }
+    var tempAppLogo by remember { mutableStateOf(customAppLogoUri ?: customAppLogo) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             tempAppLogo = it.toString()
+            viewModel.uploadAppLogoToServer(context, it)
         }
     }
 
@@ -773,9 +775,9 @@ fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (tempAppLogo.startsWith("content://") || tempAppLogo.startsWith("http")) {
+                        if (tempAppLogo.startsWith("content://") || tempAppLogo.startsWith("file://") || tempAppLogo.startsWith("http")) {
                             AsyncImage(
-                                model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                model = coil.request.ImageRequest.Builder(context)
                                     .data(tempAppLogo)
                                     .crossfade(true)
                                     .size(256) // limit size to prevent OOM
@@ -812,12 +814,16 @@ fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 
                 Button(
                     onClick = { 
-                        viewModel.updateCustomAppName(tempAppName)
-                        viewModel.updateCustomAppLogo(tempAppLogo)
+                        viewModel.updateCustomAppNameOnServer(tempAppName)
                         if (tempAppLogo.startsWith("content://") || tempAppLogo.startsWith("file://")) {
+                            viewModel.uploadAppLogoToServer(context, Uri.parse(tempAppLogo))
+                        } else if (tempAppLogo.startsWith("http")) {
                             viewModel.updateCustomAppLogoUri(tempAppLogo)
+                            viewModel.updateConfigOnServer(mapOf("app_name" to tempAppName, "app_logo_url" to tempAppLogo))
                         } else {
+                            viewModel.updateCustomAppLogo(tempAppLogo)
                             viewModel.updateCustomAppLogoUri(null)
+                            viewModel.updateConfigOnServer(mapOf("app_name" to tempAppName, "app_logo" to tempAppLogo))
                         }
                         onBack()
                     },

@@ -1,5 +1,6 @@
 package com.safa.account.ui.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -13,6 +14,9 @@ import com.safa.account.data.model.*
 import com.safa.account.data.repository.AppRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -163,7 +167,7 @@ class HundiViewModel(
     private val _customAppLogoUri = MutableStateFlow<String?>(tokenManager?.getCustomAppLogoUri())
     val customAppLogoUri: StateFlow<String?> = _customAppLogoUri.asStateFlow()
 
-    private val _appVersion = MutableStateFlow("1.0")
+    private val _appVersion = MutableStateFlow(tokenManager?.getAppVersion() ?: "1.0")
     val appVersion: StateFlow<String> = _appVersion.asStateFlow()
 
     fun updateCustomAppName(name: String) {
@@ -179,6 +183,104 @@ class HundiViewModel(
     fun updateCustomAppLogoUri(uri: String?) {
         _customAppLogoUri.value = uri
         tokenManager?.saveCustomAppLogoUri(uri)
+    }
+
+    fun updateConfigOnServer(config: Map<String, Any?>) {
+        viewModelScope.launch {
+            try {
+                val api = syncManager?.getApiService() ?: return@launch
+                api.updateConfig(config)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun updateCustomAppNameOnServer(name: String) {
+        updateCustomAppName(name)
+        updateConfigOnServer(mapOf("app_name" to name))
+    }
+
+    fun updateCurrenciesOnServer(local: String, foreign: String) {
+        updateSelectedLocalCurrency(local)
+        updateSelectedForeignCurrency(foreign)
+        updateConfigOnServer(mapOf("local_currency" to local, "foreign_currency" to foreign))
+    }
+
+    fun uploadAppLogoToServer(context: android.content.Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val contentResolver = context.contentResolver
+                val inputStream = contentResolver.openInputStream(uri) ?: return@launch
+                val bytes = inputStream.readBytes()
+                inputStream.close()
+
+                val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
+                val mediaType = mimeType.toMediaTypeOrNull()
+                val requestFile = RequestBody.create(mediaType, bytes)
+                val part = MultipartBody.Part.createFormData("logo", "logo.jpg", requestFile)
+
+                val api = syncManager?.getApiService() ?: return@launch
+                val response = api.uploadLogo(part)
+                if (response.isSuccessful && response.body() != null) {
+                    val body = response.body()!!
+                    val logoUrl = body["logo_url"]?.toString()
+                        ?: body["url"]?.toString()
+                        ?: body["path"]?.toString()
+                        ?: body["app_logo_url"]?.toString()
+                    if (!logoUrl.isNullOrBlank()) {
+                        val fullUrl = if (logoUrl.startsWith("http")) logoUrl else "https://safa.masarax.com$logoUrl"
+                        updateCustomAppLogoUri(fullUrl)
+                        updateConfigOnServer(mapOf("app_logo_url" to fullUrl))
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun fetchRemoteConfig() {
+        viewModelScope.launch {
+            try {
+                val api = syncManager?.getApiService() ?: return@launch
+                val response = api.getRemoteConfig()
+                if (response.isSuccessful && response.body() != null) {
+                    val body = response.body()!!
+                    @Suppress("UNCHECKED_CAST")
+                    val dataMap = (body["config"] as? Map<String, Any?>) ?: body
+
+                    val name = dataMap["app_name"]?.toString()
+                    if (!name.isNullOrBlank()) {
+                        updateCustomAppName(name)
+                    }
+
+                    val logoUrl = dataMap["app_logo_url"]?.toString() ?: dataMap["app_logo"]?.toString()
+                    if (!logoUrl.isNullOrBlank()) {
+                        val fullUrl = if (logoUrl.startsWith("http") || logoUrl.startsWith("content://")) logoUrl else "https://safa.masarax.com$logoUrl"
+                        updateCustomAppLogoUri(fullUrl)
+                    }
+
+                    val version = dataMap["app_version"]?.toString() ?: dataMap["version"]?.toString()
+                    if (!version.isNullOrBlank()) {
+                        _appVersion.value = version
+                        tokenManager?.saveAppVersion(version)
+                    }
+
+                    val localCurr = dataMap["local_currency"]?.toString() ?: dataMap["local_curr"]?.toString()
+                    if (!localCurr.isNullOrBlank()) {
+                        updateSelectedLocalCurrency(localCurr)
+                    }
+
+                    val foreignCurr = dataMap["foreign_currency"]?.toString() ?: dataMap["foreign_curr"]?.toString()
+                    if (!foreignCurr.isNullOrBlank()) {
+                        updateSelectedForeignCurrency(foreignCurr)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     // Database master reset function
@@ -422,6 +524,7 @@ class HundiViewModel(
     init {
         // Automatically check/load rates for today on startup
         refreshTodayRates()
+        fetchRemoteConfig()
     }
 
     fun refreshTodayRates() {
@@ -779,6 +882,7 @@ class HundiViewModel(
             _pinBuffer.value = ""
             tokenManager?.saveLastMobile(operator.mobile)
             fetchOperatorsFromServer()
+            fetchRemoteConfig()
             triggerFullSync()
             navigateTo(AppScreen.DASHBOARD)
         } else {
@@ -869,6 +973,7 @@ class HundiViewModel(
                         _pinError.value = null
                         tokenManager?.saveLastMobile(mobile.trim())
                         fetchOperatorsFromServer()
+                        fetchRemoteConfig()
                         triggerFullSync()
                         navigateTo(AppScreen.DASHBOARD)
                         onResult(true, null)
@@ -1020,21 +1125,15 @@ class HundiViewModel(
                     val rawOps = body["operators"] as? List<Map<String, Any?>> ?: emptyList()
                     val currentOps = operators.value
                     val validMobiles = rawOps.mapNotNull { it["mobile"]?.toString()?.trim() }.filter { it.isNotBlank() }
-
-                    // Purge orphan local operators that are not on the server
-                    if (validMobiles.isNotEmpty()) {
-                        currentOps.forEach { localOp ->
-                            if (localOp.mobile.isNotBlank() && !validMobiles.contains(localOp.mobile.trim()) && localOp.id != _currentOperator.value?.id) {
-                                repository.deleteOperator(localOp)
-                            }
-                        }
-                    }
+                    val validIds = rawOps.mapNotNull { (it["id"] as? Number)?.toInt() }.filter { it > 0 }
 
                     rawOps.forEach { opMap ->
+                        val serverId = (opMap["id"] as? Number)?.toInt() ?: 0
                         val mobile = opMap["mobile"]?.toString()?.trim() ?: ""
                         val name = opMap["name"]?.toString() ?: "Operator"
                         val email = opMap["email"]?.toString() ?: ""
-                        val role = opMap["role"]?.toString() ?: "Staff"
+                        val roleStr = opMap["role"]?.toString() ?: "Staff"
+                        val isSuperAdmin = roleStr.equals("manager", true) || roleStr.equals("superadmin", true) || roleStr.equals("owner", true)
                         val isActivated = (opMap["is_activated"] as? Boolean) ?: true
                         @Suppress("UNCHECKED_CAST")
                         val permsMap = opMap["permissions"] as? Map<String, Any?> ?: emptyMap()
@@ -1044,12 +1143,16 @@ class HundiViewModel(
                             return if (v is Boolean) v else true
                         }
 
-                        val existing = currentOps.find { it.mobile.trim() == mobile && mobile.isNotBlank() }
+                        val existing = currentOps.find {
+                            (serverId > 0 && it.id == serverId) ||
+                            (mobile.isNotBlank() && it.mobile.trim() == mobile) ||
+                            (isSuperAdmin && (it.role == "SuperAdmin" || it.role == "Owner" || it.role == "Admin"))
+                        }
                         val hashedPin = existing?.pin ?: com.safa.account.utils.HashUtils.hashPin("1234")
                         val op = OperatorAccount(
                             id = existing?.id ?: 0,
                             username = name,
-                            role = if (role.equals("manager", true) || role.equals("superadmin", true) || role.equals("owner", true)) "SuperAdmin" else "Staff",
+                            role = if (isSuperAdmin) "SuperAdmin" else "Staff",
                             pin = hashedPin,
                             mobile = mobile,
                             email = email,
@@ -1073,8 +1176,39 @@ class HundiViewModel(
                         )
                         if (existing != null) {
                             repository.updateOperator(op)
+                            if (_currentOperator.value?.id == existing.id || (_currentOperator.value?.role == "SuperAdmin" && isSuperAdmin)) {
+                                _currentOperator.value = op
+                                if (mobile.isNotBlank()) tokenManager?.saveLastMobile(mobile)
+                            }
                         } else {
                             repository.insertOperator(op)
+                        }
+                    }
+
+                    // Purge old orphan local operators or old duplicates
+                    if (validMobiles.isNotEmpty() || validIds.isNotEmpty()) {
+                        val updatedOps = operators.value
+                        val superAdmins = updatedOps.filter { it.role == "SuperAdmin" }
+                        if (superAdmins.size > 1) {
+                            val mainSuperAdmin = superAdmins.find { it.id == _currentOperator.value?.id } ?: superAdmins.last()
+                            superAdmins.forEach { sa ->
+                                if (sa.id != mainSuperAdmin.id) {
+                                    repository.deleteOperator(sa)
+                                }
+                            }
+                        }
+
+                        currentOps.forEach { localOp ->
+                            val isServerMobileMatch = validMobiles.contains(localOp.mobile.trim())
+                            val isServerIdMatch = validIds.contains(localOp.id)
+                            val isCurrentSuperAdmin = localOp.role == "SuperAdmin" && rawOps.any {
+                                val r = it["role"]?.toString() ?: ""
+                                r.equals("manager", true) || r.equals("superadmin", true) || r.equals("owner", true)
+                            }
+
+                            if (!isServerMobileMatch && !isServerIdMatch && !isCurrentSuperAdmin) {
+                                repository.deleteOperator(localOp)
+                            }
                         }
                     }
                 }

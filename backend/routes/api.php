@@ -40,5 +40,7 @@ Route::middleware([CheckApiSecurityKey::class, AuditLogMiddleware::class, 'throt
     Route::post('/sync/up', [SyncController::class, 'syncUp']);
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
+    Route::post('/config/update', [RemoteConfigController::class, 'updateConfig']);
+    Route::post('/upload/logo', [RemoteConfigController::class, 'uploadLogo']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
 });

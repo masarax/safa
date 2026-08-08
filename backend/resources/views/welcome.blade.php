@@ -162,7 +162,9 @@
 </head>
 <body>
     <div class="container">
-        <div class="card">
+            <div style="margin-bottom: 1rem;">
+                <img src="{{ asset('safa-logo.png') }}" alt="SAFA Logo" style="height: 64px; max-width: 100%; object-fit: contain;">
+            </div>
             <div class="brand-badge">SAFA</div>
             <h1>SAFA System Online</h1>
 
@@ -206,7 +208,7 @@
             @else
                 <div class="status-pill">
                     <span class="status-dot"></span>
-                    Operational & Database Up-to-Date
+                    Operational
                 </div>
             @endif
         </div>

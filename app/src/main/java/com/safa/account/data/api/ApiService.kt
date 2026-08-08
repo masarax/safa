@@ -1,6 +1,7 @@
 package com.safa.account.data.api
 
 import com.safa.account.data.api.dto.*
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -53,6 +54,13 @@ interface ApiService {
 
     @GET("config/remote")
     suspend fun getRemoteConfig(): Response<Map<String, Any>>
+
+    @POST("config/update")
+    suspend fun updateConfig(@Body config: Map<String, Any?>): Response<Map<String, Any>>
+
+    @Multipart
+    @POST("upload/logo")
+    suspend fun uploadLogo(@Part logo: MultipartBody.Part): Response<Map<String, Any>>
 
     @GET("version/check")
     suspend fun checkVersion(

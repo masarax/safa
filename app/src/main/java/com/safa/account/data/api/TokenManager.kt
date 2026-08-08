@@ -106,7 +106,13 @@ class TokenManager(private val context: Context) {
     fun getCustomAppLogo(): String = prefs.getString("app_logo", "👑") ?: "👑"
     
     fun saveCustomAppLogoUri(uri: String?) = prefs.edit { putString("app_logo_uri", uri) }
-    fun getCustomAppLogoUri(): String? = prefs.getString("app_logo_uri", null)
+    fun getCustomAppLogoUri(): String? = prefs.getString("app_logo_uri", "https://safa.masarax.com/safa-logo.png")
+
+    fun saveServerLogoUrl(url: String?) = saveCustomAppLogoUri(url)
+    fun getServerLogoUrl(): String? = getCustomAppLogoUri()
+
+    fun saveAppVersion(version: String) = prefs.edit { putString("app_version", version) }
+    fun getAppVersion(): String = prefs.getString("app_version", "1.0") ?: "1.0"
     
     fun saveLocalCurrency(curr: String) = prefs.edit { putString("local_curr", curr) }
     fun getLocalCurrency(): String = prefs.getString("local_curr", "BDT") ?: "BDT"
