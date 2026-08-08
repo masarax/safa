@@ -238,4 +238,64 @@ class InstallerController extends Controller
 
         file_put_contents($envPath, trim($envContent) . "\n");
     }
+
+    /**
+     * Helper to get list of pending un-executed migration files.
+     */
+    public static function getPendingMigrations(): array
+    {
+        try {
+            $migrationFiles = glob(database_path('migrations/*.php'));
+            if (empty($migrationFiles)) {
+                return [];
+            }
+
+            if (!DB::schema()->hasTable('migrations')) {
+                return array_map(fn($f) => basename($f, '.php'), $migrationFiles);
+            }
+
+            $executedMigrations = DB::table('migrations')->pluck('migration')->toArray();
+            $pending = [];
+
+            foreach ($migrationFiles as $file) {
+                $name = basename($file, '.php');
+                if (!in_array($name, $executedMigrations)) {
+                    $pending[] = $name;
+                }
+            }
+
+            return $pending;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Show manual database update screen when new migrations are detected.
+     */
+    public function updateView()
+    {
+        $pendingMigrations = static::getPendingMigrations();
+        if (empty($pendingMigrations)) {
+            abort(404);
+        }
+
+        return view('install_update', compact('pendingMigrations'));
+    }
+
+    /**
+     * Process manual database migration execution without dropping existing data.
+     */
+    public function updateProcess(Request $request)
+    {
+        try {
+            Artisan::call('migrate', ['--force' => true]);
+            Artisan::call('config:clear');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Migration failed: ' . $e->getMessage());
+        }
+
+        return redirect()->route('home')->with('success', 'Database schema updated successfully without any data loss!');
+    }
 }
+
