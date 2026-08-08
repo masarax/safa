@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckInstalled
@@ -30,8 +32,45 @@ class CheckInstalled
             if (!$request->expectsJson() && !$request->is('install*')) {
                 return redirect('/install');
             }
+        } else {
+            // Auto-heal / Auto-migrate new tables when new code is pushed (Zero Data Loss)
+            $this->autoMigrateIfPending();
         }
 
         return $next($request);
+    }
+
+    /**
+     * Safely checks for un-executed migration files and runs migrate --force without dropping data.
+     */
+    protected function autoMigrateIfPending(): void
+    {
+        try {
+            $migrationFiles = glob(database_path('migrations/*.php'));
+            if (empty($migrationFiles)) {
+                return;
+            }
+
+            if (!DB::schema()->hasTable('migrations')) {
+                return;
+            }
+
+            $executedMigrations = DB::table('migrations')->pluck('migration')->toArray();
+            $hasPending = false;
+
+            foreach ($migrationFiles as $file) {
+                $name = basename($file, '.php');
+                if (!in_array($name, $executedMigrations)) {
+                    $hasPending = true;
+                    break;
+                }
+            }
+
+            if ($hasPending) {
+                Artisan::call('migrate', ['--force' => true]);
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore during runtime if DB connection is unavailable
+        }
     }
 }
