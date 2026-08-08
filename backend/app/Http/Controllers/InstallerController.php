@@ -266,6 +266,7 @@ class InstallerController extends Controller
                 '2026_01_04_000000_create_device_bindings_and_tokens_tables' => 'safa_device_bindings',
                 '2026_01_05_000000_create_superadmin_and_rbac_tables' => 'safa_superadmins',
                 '2026_01_06_000000_create_account_shares_table' => 'safa_account_shares',
+                '2026_01_07_000000_create_system_settings_table' => 'system_settings',
             ];
 
             foreach ($migrationFiles as $file) {

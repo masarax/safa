@@ -191,31 +191,23 @@
             @elseif (!empty($pendingMigrations))
                 <div class="update-box">
                     <div class="update-title">
-                        ⚡ Database Update Available (ডাটাবেস আপডেট প্রয়োজন)
+                        ⚡ ডাটাবেস আপডেট প্রয়োজন (Database Update Required)
                     </div>
                     <p class="update-desc">
-                        New schema updates detected. Click below to execute database updates safely with <strong>zero data loss</strong>.
-                        <br>
-                        (নতুন কলাম বা টেবিল যুক্ত হয়েছে। ডাটাবেস আপডেট করুন।)
+                        নতুন স্কিমা বা টেবিল যুক্ত হয়েছে। নিচে ক্লিক করে ডাটাবেস আপডেট করুন।
                     </p>
 
                     <form action="{{ route('install.update-process') }}" method="POST">
                         @csrf
                         <button type="submit" class="btn-update">
-                            ⚡ Update Database Now (ডাটাবেস আপডেট করুন)
+                            ⚡ ডাটাবেস আপডেট করুন
                         </button>
                     </form>
                 </div>
             @else
-                <div class="status-pill" style="margin-bottom: 1.25rem;">
+                <div class="status-pill">
                     <span class="status-dot"></span>
-                    Operational
-                </div>
-
-                <div style="margin-top: 1rem;">
-                    <a href="{{ url('/update-db') }}" class="btn-update" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; text-decoration: none;">
-                        ⚡ Run Database Update / Migration (ডাটাবেস মাইগ্রেশন রান করুন)
-                    </a>
+                    সিস্টেম একটিভ ও সিঙ্কড
                 </div>
             @endif
         </div>
