@@ -21,6 +21,7 @@ class AppRepository(
     suspend fun updateOperator(op: OperatorAccount) = operatorDao.update(op)
     suspend fun deleteOperator(op: OperatorAccount) = operatorDao.deleteById(op.id)
     suspend fun getOperatorByUsername(username: String) = operatorDao.getByUsername(username)
+    suspend fun getOperatorByMobile(mobile: String) = operatorDao.getByMobile(mobile)
 
     // ─── Customers ────────────────────────────────────────────────────────────
     val allCustomers: Flow<List<Customer>> = customerDao.getAll()

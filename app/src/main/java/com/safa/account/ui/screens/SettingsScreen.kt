@@ -10,6 +10,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -155,6 +158,48 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                 color = MaterialTheme.colorScheme.outline
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Multi-Account Switcher (1-Tap direct switching)
+        item {
+            val operators by viewModel.operators.collectAsStateWithLifecycle()
+            if (operators.size > 1) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (lang == "BN") "অ্যাকাউন্ট সুইচার (১-ট্যাপ)" else "Account Switcher (1-Tap)",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                        ) {
+                            operators.forEach { op ->
+                                val isCurrent = op.id == activeOperator?.id
+                                FilterChip(
+                                    selected = isCurrent,
+                                    onClick = { viewModel.switchOperatorDirectly(op) },
+                                    label = {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Icon(
+                                                imageVector = if (isCurrent) Icons.Default.CheckCircle else Icons.Default.AccountCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(op.username, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -729,11 +774,6 @@ fun PageHeader(
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = "পিছনে ফিরে যেতে এখানে চাপুন • Tap to go back",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline
-            )
         }
     }
 }
@@ -886,29 +926,55 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
     if (editingOperator != null) {
         var usernameInput by remember(editingOperator) { mutableStateOf(editingOperator!!.username) }
         var pinInput by remember(editingOperator) { mutableStateOf("") }
+        var mobileInput by remember(editingOperator) { mutableStateOf(editingOperator!!.mobile) }
         var roleInput by remember(editingOperator) { mutableStateOf(editingOperator!!.role) }
-        var permsInput by remember(editingOperator) { mutableStateOf(editingOperator!!.permissions.split(",").map { it.trim() }.toSet()) }
+        
+        var canViewCustomers by remember(editingOperator) { mutableStateOf(editingOperator!!.canViewCustomers) }
+        var canAddCustomers by remember(editingOperator) { mutableStateOf(editingOperator!!.canAddCustomers) }
+        var canEditCustomers by remember(editingOperator) { mutableStateOf(editingOperator!!.canEditCustomers) }
+        var canDeleteCustomers by remember(editingOperator) { mutableStateOf(editingOperator!!.canDeleteCustomers) }
+        var canViewSuppliers by remember(editingOperator) { mutableStateOf(editingOperator!!.canViewSuppliers) }
+        var canAddSuppliers by remember(editingOperator) { mutableStateOf(editingOperator!!.canAddSuppliers) }
+        var canEditSuppliers by remember(editingOperator) { mutableStateOf(editingOperator!!.canEditSuppliers) }
+        var canDeleteSuppliers by remember(editingOperator) { mutableStateOf(editingOperator!!.canDeleteSuppliers) }
+        var canViewTransactions by remember(editingOperator) { mutableStateOf(editingOperator!!.canViewTransactions) }
+        var canAddTransactions by remember(editingOperator) { mutableStateOf(editingOperator!!.canAddTransactions) }
+        var canEditTransactions by remember(editingOperator) { mutableStateOf(editingOperator!!.canEditTransactions) }
+        var canDeleteTransactions by remember(editingOperator) { mutableStateOf(editingOperator!!.canDeleteTransactions) }
+        var canManageWallet by remember(editingOperator) { mutableStateOf(editingOperator!!.canManageWallet) }
+        var canManageExpenses by remember(editingOperator) { mutableStateOf(editingOperator!!.canManageExpenses) }
+        var canViewReports by remember(editingOperator) { mutableStateOf(editingOperator!!.canViewReports) }
 
         AlertDialog(
             onDismissRequest = { editingOperator = null },
             title = {
                 Text(
-                    text = if (lang == "BN") "ইউজার তথ্য পরিবর্তন" else "Edit Operator Details",
+                    text = if (lang == "BN") "ইউজার তথ্য ও অনুমতি পরিবর্তন" else "Edit Operator Details & RBAC",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
                     OutlinedTextField(
                         value = usernameInput,
                         onValueChange = { usernameInput = it },
-                        label = { Text("Username") },
+                        label = { Text("Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = mobileInput,
+                        onValueChange = { mobileInput = it },
+                        label = { Text("Mobile Number") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = pinInput,
                         onValueChange = { if (it.length <= 4) pinInput = it },
-                        label = { Text("4-Digit PIN") },
+                        label = { Text("New 4-Digit PIN (Leave blank to keep)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -917,17 +983,25 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                         FilterChip(selected = roleInput == "Owner", onClick = { roleInput = "Owner" }, label = { Text("Owner") })
                         FilterChip(selected = roleInput == "Staff", onClick = { roleInput = "Staff" }, label = { Text("Staff") })
                     }
-                    Text(if (lang == "BN") "অনুমতিসমূহ" else "Permissions", style = MaterialTheme.typography.labelMedium)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("create" to "Create", "edit" to "Edit", "delete" to "Delete", "update" to "Update").forEach { (key, label) ->
-                            FilterChip(
-                                selected = permsInput.contains(key),
-                                onClick = {
-                                    permsInput = if (permsInput.contains(key)) permsInput - key else permsInput + key
-                                },
-                                label = { Text(label, fontSize = 12.sp) }
-                            )
-                        }
+
+                    Text(if (lang == "BN") "দানাদার অনুমতিসমূহ (Granular RBAC)" else "Granular RBAC Permissions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(selected = canViewCustomers, onClick = { canViewCustomers = !canViewCustomers }, label = { Text("View Cust", fontSize = 11.sp) })
+                        FilterChip(selected = canAddCustomers, onClick = { canAddCustomers = !canAddCustomers }, label = { Text("Add Cust", fontSize = 11.sp) })
+                        FilterChip(selected = canEditCustomers, onClick = { canEditCustomers = !canEditCustomers }, label = { Text("Edit Cust", fontSize = 11.sp) })
+                        FilterChip(selected = canDeleteCustomers, onClick = { canDeleteCustomers = !canDeleteCustomers }, label = { Text("Del Cust", fontSize = 11.sp) })
+                        FilterChip(selected = canViewSuppliers, onClick = { canViewSuppliers = !canViewSuppliers }, label = { Text("View Supp", fontSize = 11.sp) })
+                        FilterChip(selected = canAddSuppliers, onClick = { canAddSuppliers = !canAddSuppliers }, label = { Text("Add Supp", fontSize = 11.sp) })
+                        FilterChip(selected = canEditSuppliers, onClick = { canEditSuppliers = !canEditSuppliers }, label = { Text("Edit Supp", fontSize = 11.sp) })
+                        FilterChip(selected = canDeleteSuppliers, onClick = { canDeleteSuppliers = !canDeleteSuppliers }, label = { Text("Del Supp", fontSize = 11.sp) })
+                        FilterChip(selected = canViewTransactions, onClick = { canViewTransactions = !canViewTransactions }, label = { Text("View Tx", fontSize = 11.sp) })
+                        FilterChip(selected = canAddTransactions, onClick = { canAddTransactions = !canAddTransactions }, label = { Text("Add Tx", fontSize = 11.sp) })
+                        FilterChip(selected = canEditTransactions, onClick = { canEditTransactions = !canEditTransactions }, label = { Text("Edit Tx", fontSize = 11.sp) })
+                        FilterChip(selected = canDeleteTransactions, onClick = { canDeleteTransactions = !canDeleteTransactions }, label = { Text("Del Tx", fontSize = 11.sp) })
+                        FilterChip(selected = canManageWallet, onClick = { canManageWallet = !canManageWallet }, label = { Text("Wallet", fontSize = 11.sp) })
+                        FilterChip(selected = canManageExpenses, onClick = { canManageExpenses = !canManageExpenses }, label = { Text("Expenses", fontSize = 11.sp) })
+                        FilterChip(selected = canViewReports, onClick = { canViewReports = !canViewReports }, label = { Text("Reports", fontSize = 11.sp) })
                     }
                 }
             },
@@ -935,12 +1009,28 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                 Button(
                     onClick = {
                         val original = editingOperator
-                        if (original != null && usernameInput.isNotBlank() && pinInput.length == 4) {
+                        if (original != null && usernameInput.isNotBlank()) {
+                            val newHashedPin = if (pinInput.length == 4) com.safa.account.utils.HashUtils.hashPin(pinInput) else original.pin
                             val updated = original.copy(
                                 username = usernameInput,
-                                pin = pinInput,
+                                mobile = mobileInput,
+                                pin = newHashedPin,
                                 role = roleInput,
-                                permissions = permsInput.joinToString(",")
+                                canViewCustomers = canViewCustomers,
+                                canAddCustomers = canAddCustomers,
+                                canEditCustomers = canEditCustomers,
+                                canDeleteCustomers = canDeleteCustomers,
+                                canViewSuppliers = canViewSuppliers,
+                                canAddSuppliers = canAddSuppliers,
+                                canEditSuppliers = canEditSuppliers,
+                                canDeleteSuppliers = canDeleteSuppliers,
+                                canViewTransactions = canViewTransactions,
+                                canAddTransactions = canAddTransactions,
+                                canEditTransactions = canEditTransactions,
+                                canDeleteTransactions = canDeleteTransactions,
+                                canManageWallet = canManageWallet,
+                                canManageExpenses = canManageExpenses,
+                                canViewReports = canViewReports
                             )
                             viewModel.updateOperator(updated) {
                                 editingOperator = null

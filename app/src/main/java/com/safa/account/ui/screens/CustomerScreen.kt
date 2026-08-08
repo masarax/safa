@@ -62,8 +62,18 @@ fun CustomerScreen(
     val isRateBasedModeEnabled by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
     val isSupplierRateEnabled by viewModel.isSupplierRateEnabled.collectAsStateWithLifecycle()
     
-    // Check if a specific customer profile is globally selected
     val selectedCustomerIdForProfile by viewModel.selectedCustomerIdForProfile.collectAsStateWithLifecycle()
+
+    if (currentOperator != null && !currentOperator!!.canViewCustomers) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Lock, contentDescription = "", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                Text(text = viewModel.t("access_denied"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                Text(text = viewModel.t("permission_required"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+            }
+        }
+        return
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     var isCustomizerExpanded by remember { mutableStateOf(false) }

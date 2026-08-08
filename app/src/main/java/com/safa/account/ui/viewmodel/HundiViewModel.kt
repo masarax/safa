@@ -417,40 +417,6 @@ class HundiViewModel(
     init {
         // Automatically check/load rates for today on startup
         refreshTodayRates()
-        seedDefaultsIfEmpty()
-    }
-
-    private fun seedDefaultsIfEmpty() {
-        viewModelScope.launch {
-            try {
-                val ownerExist = repository.getOperatorByUsername("Owner")
-                if (ownerExist == null) {
-                    repository.insertOperator(
-                        OperatorAccount(
-                            username = "Owner",
-                            role = "Owner",
-                            pin = com.safa.account.utils.HashUtils.hashPin("1234"),
-                            isActive = true
-                        )
-                    )
-                }
-                val staffExist = repository.getOperatorByUsername("Operator Cashier")
-                if (staffExist == null) {
-                    repository.insertOperator(
-                        OperatorAccount(
-                            username = "Operator Cashier",
-                            role = "Staff",
-                            pin = com.safa.account.utils.HashUtils.hashPin("2580"),
-                            isActive = true
-                        )
-                    )
-                }
-                
-                // No default wallets to seed per user request
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
     }
 
     fun refreshTodayRates() {
@@ -491,72 +457,18 @@ class HundiViewModel(
         "role_owner" to "মালিক",
         "role_staff" to "স্টাফ",
         "operator_blocked" to "অ্যাকাউন্টটি সাময়িকভাবে স্থগিত আছে।",
-        
-        "total_sar_received" to "মোট সংগৃহীত রিয়াল",
-        "total_bdt_delivered" to "মোট প্রদেয় টাকা (বিতরণকৃত)",
-        "total_bdt_pending" to "মোট প্রদেয় টাকা (অপেক্ষমান)",
-        "estimated_profit" to "আজকের মোট মুনাফা",
-        "net_profit_bdt" to "মোট মুনাফা (স্থানীয়)",
-        "net_profit_sar" to "মোট মুনাফা (ফরেন)",
-        "daily_operating_rates" to "আজকের বাজার এক্সচেঞ্জ রেট",
-        "customer_sale_rate" to "কাস্টমার বিক্রি রেট",
-        "supplier_buy_rate" to "সাপ্লায়ার ক্রয় রেট",
-        
-        "customer_mgmt" to "গ্রাহক ব্যবস্থাপনা",
-        "add_customer" to "নতুন কাস্টমার যুক্ত করুন",
-        "customer_name" to "কাস্টমারের নাম",
-        "phone_number" to "মোবাইল নম্বর",
-        "address" to "ঠিকানা/কর্মস্থল",
-        "save_customer" to "কাস্টমার সংরক্ষণ করুন",
-        "total_customers" to "মোট রেজিস্টার্ড কাস্টমার",
-        
-        "supplier_mgmt" to "সাপ্লায়ার",
-        "add_supplier" to "নতুন সাপ্লায়ার যুক্ত করুন",
-        "supplier_name" to "সাপ্লায়ার নাম (Forex Group / Person)",
-        "save_supplier" to "সাপ্লায়ার সংরক্ষণ করুন",
-        "buy_bdt_pool" to "সাপ্লায়ার থেকে ফান্ড কেনা",
-        "amount_sar" to "ফরেন কারেন্সি পরিমাণ",
-        "rate_applied" to "রেট (যেমন ৩২.৫০)",
-        "purchase_success" to "টাকার ফান্ড সফলভাবে কেনা হয়েছে",
-        "total_deposited_sar" to "মোট রিয়াল জমা",
-        "acquired_bdt" to BdtSymbol() + " মোট সংগৃহীত ফান্ড",
-        "pool_balance" to "সাপ্লায়ারের কাছে টাকা ব্যালেন্স",
-        
-        "new_remittance" to "নতুন লেনদেন",
-        "select_customer" to "কাস্টমার খুঁজুন",
-        "select_supplier" to "বিশ্বরস্ত সাপ্লায়ার ফান্ড",
-        "saudi_amount" to "ফরেন কারেন্সি জমা পরিমাণ",
-        "customer_assigned_rate" to "কাস্টমার রেট (যেমন ৩২.১০)",
-        "supplier_rate_tx" to "সাপ্লায়ার রেট (ব্যবসায়িক ক্রয় রেট)",
-        "receiver_bdt_amount" to "প্রাপক পাবে (টাকা)",
-        "receiver_name" to "প্রাপকের নাম (যেমন আব্দুল হালিম)",
-        "receiver_phone" to "প্রাপকের মোবাইল",
-        "payment_method" to "টাকা পরিশোধের ক্ষেত্র",
-        "receiver_account_no" to "হিসাব নম্বর (bKash/Nagad/Bank)",
-        "notes" to "অতিরিক্ত মন্তব্য/ঠিকানা",
-        "status" to "লেনদেনের অবস্থা",
-        "status_pending" to "অপেক্ষমান (Pending)",
-        "status_delivered" to "পৌঁছে গেছে (Delivered)",
-        "status_cancelled" to "বাতিল করা হয়েছে (Cancelled)",
-        "save_transaction" to "লেনদেন সম্পন্ন করুন",
-        
-        "expenses_overhead" to "দৈনিক অফিস চালনা ও অতিরিক্ত ব্যয়",
-        "add_expense_income" to "আয়/ব্যয় এন্ট্রি করুন",
-        "title" to "বিবরণ (যেমন চায়ের বিল/অফিস ভাড়া)",
-        "amount" to "টাকা পরিমাণ",
-        "is_expense" to "ব্যয় নাকি আয়?",
-        "expense" to "অফিস ব্যয়",
-        "income" to "অফিস বাড়তি আয়",
-        "category" to "ক্যাটাগরি",
-        "save_record" to "সংরক্ষণ করুন",
-        
-        "update_daily_rates" to "প্রতিদিনের এক্সচেঞ্জ রেট আপডেট করুন",
-        "rate_saved" to "এক্সচেঞ্জ রেট সফলভাবে সংরক্ষিত!",
-        "operator_list" to "ইউজার ও স্টাফ লিস্ট",
-        "create_new_operator" to "নতুন স্টাফ/ইউজার যুক্ত করুন",
-        "pinCode" to "৪-ডিজিট সিকিউরিটি পিন",
-        "role" to "রোল (Owner/Staff)",
-        "unsettled_supp" to "সাপ্লায়ার পাওনা/দেনা পরিমাণ"
+        "access_denied" to "অনুমতি নেই",
+        "permission_required" to "এই ফিচারের জন্য আপনার অনুমতি প্রয়োজন।",
+        "no_account_found" to "এই মোবাইল নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি",
+        "activation_title" to "সুপার-এডমিন অ্যাক্টিভেশন",
+        "activation_desc" to "আপনার অ্যাডমিনিস্ট্রেটর অ্যাকাউন্ট সেটআপ করুন",
+        "full_name" to "পূর্ণ নাম",
+        "email" to "ইমেইল ঠিকানা",
+        "complete_activation" to "অ্যাক্টিভেশন সম্পন্ন করুন",
+        "login_button" to "লগইন করুন",
+        "mobile_number" to "মোবাইল নম্বর",
+        "enter_mobile_ph" to "যেমন: 01700000000",
+        "activate_super_admin" to "সুপার-এডমিন অ্যাক্টিভেশন"
     )
 
     val enMap = mapOf(
@@ -577,6 +489,18 @@ class HundiViewModel(
         "role_owner" to "Owner / Admin",
         "role_staff" to "Staff / Operator",
         "operator_blocked" to "Account is currently suspended.",
+        "access_denied" to "Access Denied",
+        "permission_required" to "You do not have permission to access this feature.",
+        "no_account_found" to "No account found with this mobile number",
+        "activation_title" to "SuperAdmin 1-Time Activation",
+        "activation_desc" to "Set up your initial administrator account",
+        "full_name" to "Full Name",
+        "email" to "Email Address",
+        "complete_activation" to "Complete Activation",
+        "login_button" to "Log In",
+        "mobile_number" to "Mobile Number",
+        "enter_mobile_ph" to "e.g. 01700000000",
+        "activate_super_admin" to "Activate SuperAdmin",
         
         "total_sar_received" to "Total Received Foreign",
         "total_bdt_delivered" to "Total Local Disbursed",
@@ -782,6 +706,111 @@ class HundiViewModel(
         }
     }
 
+    fun loginWithMobileAndPin(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            if (mobile.isBlank() || pin.length < 4) {
+                onResult(false, t("pin_incorrect"))
+                return@launch
+            }
+            val match = repository.getOperatorByMobile(mobile.trim())
+                ?: operators.value.find { it.mobile == mobile.trim() }
+            if (match != null) {
+                if (!match.isActivated) {
+                    onResult(false, "NEEDS_ACTIVATION")
+                } else if (com.safa.account.utils.HashUtils.verifyPin(pin, match.pin)) {
+                    if (match.isActive) {
+                        _currentOperator.value = match
+                        _selectedLoginOperator.value = match
+                        _pinError.value = null
+                        navigateTo(AppScreen.DASHBOARD)
+                        onResult(true, null)
+                    } else {
+                        onResult(false, t("operator_blocked"))
+                    }
+                } else {
+                    onResult(false, t("pin_incorrect"))
+                }
+            } else {
+                onResult(false, t("no_account_found"))
+            }
+        }
+    }
+
+    fun activateSuperAdmin(
+        name: String,
+        email: String,
+        mobile: String,
+        pin: String,
+        onComplete: () -> Unit
+    ) {
+        viewModelScope.launch {
+            if (pin.length == 4 && pin.all { it.isDigit() }) {
+                val hashedPin = com.safa.account.utils.HashUtils.hashPin(pin)
+                val superAdmin = OperatorAccount(
+                    username = name.ifBlank { "SuperAdmin" },
+                    role = "SuperAdmin",
+                    pin = hashedPin,
+                    mobile = mobile.trim(),
+                    email = email.trim(),
+                    isActivated = true,
+                    isActive = true,
+                    canViewCustomers = true,
+                    canAddCustomers = true,
+                    canEditCustomers = true,
+                    canDeleteCustomers = true,
+                    canViewSuppliers = true,
+                    canAddSuppliers = true,
+                    canEditSuppliers = true,
+                    canDeleteSuppliers = true,
+                    canViewTransactions = true,
+                    canAddTransactions = true,
+                    canEditTransactions = true,
+                    canDeleteTransactions = true,
+                    canManageWallet = true,
+                    canManageExpenses = true,
+                    canViewReports = true
+                )
+                val unactivated = operators.value.find { !it.isActivated || it.role == "SuperAdmin" }
+                val opId = if (unactivated != null) {
+                    val updated = unactivated.copy(
+                        username = name.ifBlank { "SuperAdmin" },
+                        role = "SuperAdmin",
+                        pin = hashedPin,
+                        mobile = mobile.trim(),
+                        email = email.trim(),
+                        isActivated = true,
+                        isActive = true,
+                        canViewCustomers = true,
+                        canAddCustomers = true,
+                        canEditCustomers = true,
+                        canDeleteCustomers = true,
+                        canViewSuppliers = true,
+                        canAddSuppliers = true,
+                        canEditSuppliers = true,
+                        canDeleteSuppliers = true,
+                        canViewTransactions = true,
+                        canAddTransactions = true,
+                        canEditTransactions = true,
+                        canDeleteTransactions = true,
+                        canManageWallet = true,
+                        canManageExpenses = true,
+                        canViewReports = true
+                    )
+                    repository.updateOperator(updated)
+                    updated.id
+                } else {
+                    repository.insertOperator(superAdmin).toInt()
+                }
+                val activeOp = superAdmin.copy(id = opId)
+                _currentOperator.value = activeOp
+                _selectedLoginOperator.value = activeOp
+                _pinError.value = null
+                navigateTo(AppScreen.DASHBOARD)
+                onComplete()
+            }
+        }
+    }
+
     fun logout() {
         _currentOperator.value = null
         _selectedLoginOperator.value = null
@@ -977,6 +1006,7 @@ class HundiViewModel(
                     )
                 )
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }
@@ -997,6 +1027,7 @@ class HundiViewModel(
                     remainingToDeduct = remainingToDeduct.subtract(deductFromThisBatch)
                 }
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }
@@ -1010,6 +1041,7 @@ class HundiViewModel(
                     val updatedRemaining = rem.coerceAtLeast(0.0)
                     repository.updateWalletBatch(batch.copy(remainingBdt = updatedRemaining))
                     onComplete()
+                    syncManager?.syncAll()
                 }
             }
         }
@@ -1102,6 +1134,7 @@ class HundiViewModel(
             repository.updateTransaction(
                 transaction.copy(status = newStatus)
             )
+            syncManager?.syncAll()
         }
     }
 
@@ -1157,6 +1190,16 @@ class HundiViewModel(
         }
     }
 
+    fun triggerFullSync() {
+        viewModelScope.launch {
+            try {
+                syncManager?.syncAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     // 6. Update Daily Standard Market Rates
     fun publishDailyRates(customerRate: Double, supplierRate: Double, onComplete: () -> Unit) {
         viewModelScope.launch {
@@ -1169,6 +1212,7 @@ class HundiViewModel(
             repository.insertDailyRate(updated)
             _currentRates.value = updated
             onComplete()
+            syncManager?.syncAll()
         }
     }
 
@@ -1185,6 +1229,7 @@ class HundiViewModel(
                     )
                 )
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }
@@ -1193,6 +1238,7 @@ class HundiViewModel(
         viewModelScope.launch {
             repository.updateOperator(operator)
             onComplete()
+            syncManager?.syncAll()
         }
     }
 
@@ -1206,6 +1252,7 @@ class HundiViewModel(
                 repository.updateOperator(updatedOp)
                 _currentOperator.value = updatedOp
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }
@@ -1217,6 +1264,7 @@ class HundiViewModel(
             if (operator.id != _currentOperator.value?.id) {
                 repository.deleteOperator(operator)
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }

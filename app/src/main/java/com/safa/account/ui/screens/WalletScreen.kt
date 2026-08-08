@@ -40,10 +40,22 @@ fun WalletScreen(
     val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
     val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val walletBatches by viewModel.walletBatches.collectAsStateWithLifecycle()
+    val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
 
-    val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
-    val walletBatches by viewModel.walletBatches.collectAsStateWithLifecycle()
+    val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+
+    if (currentOperator != null && !currentOperator!!.canManageWallet) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Lock, contentDescription = "", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                Text(text = viewModel.t("access_denied"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                Text(text = viewModel.t("permission_required"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+            }
+        }
+        return
+    }
 
     val currencyFormatter = remember { DecimalFormat("#,##0.00") }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }

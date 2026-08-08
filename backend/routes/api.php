@@ -8,12 +8,27 @@ use App\Http\Controllers\GraphQLController;
 use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
 
-// Auth Routes (5-Token Security System & Device Binding)
+// Auth Routes (5-Token Security System & Device Binding & Granular RBAC)
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthJWTController::class, 'login']);
     Route::post('/refresh', [AuthJWTController::class, 'refreshToken']);
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice']);
+    Route::post('/activate-superadmin', [AuthJWTController::class, 'activateSuperAdmin']);
+
+    // Operator Management (Granular RBAC)
+    Route::get('/operators', [AuthJWTController::class, 'getOperators']);
+    Route::post('/operators', [AuthJWTController::class, 'createOperator']);
+    Route::put('/operators/{id?}', [AuthJWTController::class, 'updateOperator']);
+    Route::delete('/operators/{id?}', [AuthJWTController::class, 'deleteOperator']);
+    Route::match(['get', 'post', 'put', 'patch', 'delete'], '/operators/{id?}', [AuthJWTController::class, 'operators']);
+
+    // Multi-Account Sharing & Switching
+    Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
+    Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
+    Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
 });
+
+
 
 // GraphQL API Endpoint (Protected by Multi-Level 5-Token Verification Middleware)
 Route::middleware(['verify.multilevel.token', AuditLogMiddleware::class])->group(function () {

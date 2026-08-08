@@ -106,7 +106,10 @@ class VerifyMultiLevelToken
         Auth::setUser($user);
         $request->setUserResolver(fn () => $user);
         $request->attributes->set('user', $user);
+        $request->attributes->set('active_account_id', $payload['account_id'] ?? 1);
+        $request->attributes->set('owner_user_id', $payload['owner_user_id'] ?? $userId);
 
         return $next($request);
+
     }
 }

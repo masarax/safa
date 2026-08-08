@@ -81,8 +81,18 @@ fun SupplierScreen(
     val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
     val isSupplierRateEnabled by viewModel.isSupplierRateEnabled.collectAsStateWithLifecycle()
 
-    // Retrieve global selection profile ID
     val selectedSupplierIdForProfile by viewModel.selectedSupplierIdForProfile.collectAsStateWithLifecycle()
+
+    if (currentOperator != null && !currentOperator!!.canViewSuppliers) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Lock, contentDescription = "", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                Text(text = viewModel.t("access_denied"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                Text(text = viewModel.t("permission_required"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+            }
+        }
+        return
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     var isCustomizerExpanded by remember { mutableStateOf(false) }

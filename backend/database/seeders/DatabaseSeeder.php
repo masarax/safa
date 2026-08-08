@@ -20,6 +20,18 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Test User', 'password' => bcrypt('password')]
         );
 
+        User::firstOrCreate(
+            ['mobile' => '01700000000'],
+            [
+                'name'         => 'Super Admin',
+                'email'        => 'superadmin@safa.local',
+                'password'     => bcrypt('123456'),
+                'role'         => 'superadmin',
+                'is_activated' => false,
+                'permissions'  => User::defaultPermissions(true),
+            ]
+        );
+
         $account = Account::firstOrCreate(['name' => 'SAFA Dev Account']);
 
         SafaApiKey::firstOrCreate(

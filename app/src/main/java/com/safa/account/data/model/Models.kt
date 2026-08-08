@@ -9,11 +9,29 @@ import androidx.room.PrimaryKey
 data class OperatorAccount(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val username: String,
-    val role: String,       // "Owner" | "Staff"
-    val pin: String,        // stored as plain text locally
+    val role: String,       // "SuperAdmin" | "Owner" | "Staff"
+    val pin: String,        // stored as hashed PIN locally
+    val mobile: String = "",
+    val email: String = "",
+    val isActivated: Boolean = true,
     val permissions: String = "edit,create,delete,update",
     val isBiometricEnabled: Boolean = false,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val canViewCustomers: Boolean = true,
+    val canAddCustomers: Boolean = true,
+    val canEditCustomers: Boolean = true,
+    val canDeleteCustomers: Boolean = true,
+    val canViewSuppliers: Boolean = true,
+    val canAddSuppliers: Boolean = true,
+    val canEditSuppliers: Boolean = true,
+    val canDeleteSuppliers: Boolean = true,
+    val canViewTransactions: Boolean = true,
+    val canAddTransactions: Boolean = true,
+    val canEditTransactions: Boolean = true,
+    val canDeleteTransactions: Boolean = true,
+    val canManageWallet: Boolean = true,
+    val canManageExpenses: Boolean = true,
+    val canViewReports: Boolean = true
 )
 
 @Entity(tableName = "customers")

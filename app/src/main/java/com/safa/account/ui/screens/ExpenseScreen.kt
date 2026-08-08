@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -59,6 +60,18 @@ fun ExpenseScreen(
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val foreignCurrency by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
     val localCurrency by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
+    val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+
+    if (currentOperator != null && !currentOperator!!.canManageExpenses) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Lock, contentDescription = "", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                Text(text = viewModel.t("access_denied"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                Text(text = viewModel.t("permission_required"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+            }
+        }
+        return
+    }
 
     var showAddChoiceDialog by remember { mutableStateOf(false) }
 

@@ -18,6 +18,9 @@ interface OperatorDao {
     @Query("SELECT * FROM operators WHERE username = :username LIMIT 1")
     suspend fun getByUsername(username: String): OperatorAccount?
 
+    @Query("SELECT * FROM operators WHERE mobile = :mobile LIMIT 1")
+    suspend fun getByMobile(mobile: String): OperatorAccount?
+
     @Query("DELETE FROM operators WHERE id = :id")
     suspend fun deleteById(id: Int)
 }

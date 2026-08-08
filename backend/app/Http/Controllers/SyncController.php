@@ -375,7 +375,22 @@ class SyncController extends Controller
                 }
             });
 
-            return response()->json(['status' => 'success']);
+            $user = $request->user();
+            if (!$user) {
+                $token = $request->bearerToken() ?? $request->header('X-SAFA-ACCESS-TOKEN');
+                if ($token) {
+                    $payload = AuthJWTController::verifyJwt($token);
+                    if ($payload && isset($payload['user_id'])) {
+                        $user = \App\Models\User::find($payload['user_id']);
+                    }
+                }
+            }
+            $permissions = $user ? $user->getFormattedPermissions() : \App\Models\User::defaultPermissions(true);
+
+            return response()->json([
+                'status'      => 'success',
+                'permissions' => $permissions,
+            ]);
         } catch (\Throwable $e) {
             Log::error("SyncUp failed: " . $e->getMessage());
             return response()->json([
@@ -406,6 +421,18 @@ class SyncController extends Controller
                 return response()->json(['message' => 'Unauthorized. Account not found.'], 401);
             }
 
+            $user = $request->user();
+            if (!$user) {
+                $token = $request->bearerToken() ?? $request->header('X-SAFA-ACCESS-TOKEN');
+                if ($token) {
+                    $payload = AuthJWTController::verifyJwt($token);
+                    if ($payload && isset($payload['user_id'])) {
+                        $user = \App\Models\User::find($payload['user_id']);
+                    }
+                }
+            }
+            $permissions = $user ? $user->getFormattedPermissions() : \App\Models\User::defaultPermissions(true);
+
             return response()->json([
                 'transactions'      => Transaction::withTrashed()->where('account_id', $accountId)->get(),
                 'customers'         => Customer::withTrashed()->where('account_id', $accountId)->get(),
@@ -414,7 +441,10 @@ class SyncController extends Controller
                 'wallet_ledgers'    => WalletLedger::withTrashed()->where('account_id', $accountId)->get(),
                 'supplier_deposits' => SupplierDeposit::withTrashed()->where('account_id', $accountId)->get(),
                 'expenses_incomes'  => ExpenseIncome::withTrashed()->where('account_id', $accountId)->get(),
+                'permissions'       => $permissions,
+                'user_permissions'  => $permissions,
             ]);
+
         } catch (\Throwable $e) {
             Log::error("SyncDown failed: " . $e->getMessage());
             return response()->json([
