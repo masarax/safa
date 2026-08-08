@@ -1,17 +1,18 @@
 <IfModule mod_rewrite.c>
-    <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
-    </IfModule>
-
     RewriteEngine On
 
-    # Prevent direct access to sensitive files
+    # Prevent direct access to sensitive files (Apache 2.2 & 2.4 compatible)
     <FilesMatch "^\.env|^\.git|composer\.(json|lock)|package\.(json|lock)">
-        Order allow,deny
-        Deny from all
+        <IfModule mod_authz_core.c>
+            Require all denied
+        </IfModule>
+        <IfModule !mod_authz_core.c>
+            Order allow,deny
+            Deny from all
+        </IfModule>
     </FilesMatch>
 
-    # Preserve Authorization and Custom SAFA Headers
+    # Preserve Authorization and Custom SAFA Security Headers
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
     RewriteCond %{HTTP:X-SAFA-API-KEY} .
@@ -23,7 +24,7 @@
     RewriteCond %{HTTP:X-SAFA-NONCE} .
     RewriteRule .* - [E=HTTP_X_SAFA_NONCE:%{HTTP:X-SAFA-NONCE}]
 
-    # Redirect all requests to the public directory
+    # Route requests to public directory if index.php is in public/
     RewriteCond %{REQUEST_URI} !^/public/
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>

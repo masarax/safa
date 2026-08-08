@@ -3,21 +3,21 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
-define('LARAVEL_START', microtime(true));
-
 // Enable error reporting during initial setup to debug any environment issues
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 
+define('LARAVEL_START', microtime(true));
+
 // Ensure required storage directories exist and are writable
 $storageDirs = [
-    __DIR__ . '/../storage/app',
-    __DIR__ . '/../storage/framework/cache/data',
-    __DIR__ . '/../storage/framework/sessions',
-    __DIR__ . '/../storage/framework/views',
-    __DIR__ . '/../storage/logs',
-    __DIR__ . '/../bootstrap/cache',
+    __DIR__ . '/storage/app',
+    __DIR__ . '/storage/framework/cache/data',
+    __DIR__ . '/storage/framework/sessions',
+    __DIR__ . '/storage/framework/views',
+    __DIR__ . '/storage/logs',
+    __DIR__ . '/bootstrap/cache',
 ];
 
 foreach ($storageDirs as $dir) {
@@ -27,7 +27,7 @@ foreach ($storageDirs as $dir) {
 }
 
 // Auto-initialize starter .env if missing before Laravel boots
-$envPath = __DIR__ . '/../.env';
+$envPath = __DIR__ . '/.env';
 if (!file_exists($envPath)) {
     $randomKey = 'base64:' . base64_encode(random_bytes(32));
     $initialEnv = <<<EOT
@@ -61,15 +61,15 @@ EOT;
 }
 
 // Determine if the application is in maintenance mode...
-if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+if (file_exists($maintenance = __DIR__.'/storage/framework/maintenance.php')) {
     require $maintenance;
 }
 
 // Register the Composer autoloader...
-require __DIR__.'/../vendor/autoload.php';
+require __DIR__.'/vendor/autoload.php';
 
 // Bootstrap Laravel and handle the request...
 /** @var Application $app */
-$app = require_once __DIR__.'/../bootstrap/app.php';
+$app = require_once __DIR__.'/bootstrap/app.php';
 
 $app->handleRequest(Request::capture());
