@@ -1,5 +1,16 @@
 <?php
 
+// Security Guard: Block direct access to hidden files or internal directories
+$requestUri = rawurldecode($_SERVER['REQUEST_URI'] ?? '');
+if (
+    preg_match('/\.(env|git|gitignore|editorconfig|htaccess)/i', $requestUri) ||
+    preg_match('/^\/(app|bootstrap|config|database|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml)/i', $requestUri)
+) {
+    http_response_code(404);
+    echo '<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>';
+    exit;
+}
+
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
