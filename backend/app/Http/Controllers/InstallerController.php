@@ -47,13 +47,11 @@ class InstallerController extends Controller
         $defaults = [
             'app_name' => env('APP_NAME', 'SAFA Backend'),
             'app_url' => env('APP_URL', request()->schemeAndHttpHost()),
-            'db_host' => env('DB_HOST', '127.0.0.1'),
+            'db_host' => env('DB_HOST', 'localhost'),
             'db_port' => env('DB_PORT', '3306'),
             'db_name' => env('DB_DATABASE', 'safa'),
             'db_user' => env('DB_USERNAME', 'root'),
             'db_pass' => env('DB_PASSWORD', ''),
-            'api_key' => env('SAFA_API_KEY', Str::random(32)),
-            'api_secret' => env('SAFA_API_SECRET', Str::random(32)),
         ];
 
         return view('install', compact('requirements', 'allRequirementsMet', 'defaults'));
@@ -102,8 +100,6 @@ class InstallerController extends Controller
             'db_name' => 'required|string',
             'db_user' => 'required|string',
             'db_pass' => 'nullable|string',
-            'api_key' => 'required|string',
-            'api_secret' => 'required|string',
         ]);
 
         $dbHost = $validated['db_host'];
@@ -131,7 +127,11 @@ class InstallerController extends Controller
             $appKey = 'base64:' . base64_encode(Str::random(32));
         }
 
-        // 3. Update or create .env file cleanly
+        // 3. Auto-generate API Security Credentials
+        $apiKey = env('SAFA_API_KEY') ?: Str::random(32);
+        $apiSecret = env('SAFA_API_SECRET') ?: Str::random(32);
+
+        // 4. Update or create .env file cleanly
         $envData = [
             'APP_NAME' => $validated['app_name'],
             'APP_ENV' => 'production',
@@ -144,14 +144,16 @@ class InstallerController extends Controller
             'DB_DATABASE' => $dbName,
             'DB_USERNAME' => $dbUser,
             'DB_PASSWORD' => $dbPass,
-            'SAFA_API_KEY' => $validated['api_key'],
-            'SAFA_API_SECRET' => $validated['api_secret'],
+            'SAFA_API_KEY' => $apiKey,
+            'SAFA_API_SECRET' => $apiSecret,
+            'SESSION_DRIVER' => 'database',
+            'CACHE_STORE' => 'database',
             'APP_INSTALLED' => 'true',
         ];
 
         $this->writeEnvironmentFile($envData);
 
-        // 4. Dynamically configure current request in memory
+        // 5. Dynamically configure current request in memory
         config([
             'app.name' => $validated['app_name'],
             'app.env' => 'production',
@@ -164,19 +166,21 @@ class InstallerController extends Controller
             'database.connections.mysql.database' => $dbName,
             'database.connections.mysql.username' => $dbUser,
             'database.connections.mysql.password' => $dbPass,
+            'session.driver' => 'database',
+            'cache.default' => 'database',
         ]);
 
         DB::purge('mysql');
         DB::reconnect('mysql');
 
-        // 5. Clear config cache safely
+        // 6. Clear config cache safely
         try {
             Artisan::call('config:clear');
         } catch (\Throwable $e) {
             // Ignore config clear errors during installation boot
         }
 
-        // 6. Run migrations inside try-catch block
+        // 7. Run migrations inside try-catch block
         try {
             Artisan::call('migrate', ['--force' => true]);
         } catch (\Throwable $e) {
@@ -185,7 +189,7 @@ class InstallerController extends Controller
                 ->with('error', "Migration failed! Exception: " . $e->getMessage());
         }
 
-        // 7. Create lock file
+        // 8. Create lock file
         file_put_contents(storage_path('installed'), date('Y-m-d H:i:s'));
 
         return redirect()->route('install.success')->with('success', 'System installation completed successfully!');
@@ -197,7 +201,9 @@ class InstallerController extends Controller
     public function success()
     {
         $apiUrl = rtrim(config('app.url', request()->schemeAndHttpHost()), '/') . '/api/';
-        return view('install_success', compact('apiUrl'));
+        $apiKey = env('SAFA_API_KEY', 'Auto-Configured');
+        $apiSecret = env('SAFA_API_SECRET', 'Auto-Configured');
+        return view('install_success', compact('apiUrl', 'apiKey', 'apiSecret'));
     }
 
     /**
