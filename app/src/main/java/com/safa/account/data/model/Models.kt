@@ -68,6 +68,7 @@ data class RemittanceTransaction(
     val operatorId: Int = 0,
     val walletBatchId: Int = 0,
     val notes: String = "",
+    val timestamp: Long = System.currentTimeMillis()
 ) {
     fun getProfitBdt(): Double {
         val cr = java.math.BigDecimal(customerRate.toString())

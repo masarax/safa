@@ -1,7 +1,7 @@
 # SAFA (সাফা) - Hundi & Multi-Currency Account Management System
 
 ## Project Overview
-SAFA is an offline-first enterprise financial accounting & Hundi (Hawala) multi-currency ledger application built with **Android (Kotlin, Jetpack Compose, Encrypted Room/SQLCipher)** and **Laravel 11 Backend (REST API, HMAC Authentication, SQLite/PostgreSQL)**.
+SAFA is an offline-first enterprise financial accounting & Hundi (Hawala) multi-currency ledger application built with **Android (Kotlin, Jetpack Compose, Encrypted Room/SQLCipher)** and **Laravel 13 Backend (REST API, HMAC Authentication, SQLite/PostgreSQL)**.
 
 ---
 
@@ -19,7 +19,7 @@ SAFA is an offline-first enterprise financial accounting & Hundi (Hawala) multi-
                             (HTTPS Sync & HMAC)
                                      |
                  +-------------------+-------------------+
-                 |        Laravel 11 Cloud Backend        |
+                 |        Laravel 13 Cloud Backend        |
                  |  - Sanctum API / Custom API Keys     |
                  |  - Double-Entry Ledger Validation    |
                  |  - PostgreSQL / SQLite Master DB     |
@@ -65,7 +65,7 @@ safa/
 │   ├── src/main/java/com/safa/account/
 │   │   ├── data/               # Models, DAOs, Database, API, Repositories
 │   │   └── ui/                 # Screens, ViewModels, Theme, Components
-├── backend/                    # Laravel 11 Backend API
+├── backend/                    # Laravel 13 Backend API
 │   ├── app/                    # Controllers, Models, Services, Middleware
 │   ├── database/               # Migrations, Factories, Seeders
 │   └── routes/                 # API Routes (`api.php`)

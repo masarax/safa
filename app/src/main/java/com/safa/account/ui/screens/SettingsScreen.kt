@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import coil.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safa.account.data.model.OperatorAccount
@@ -787,7 +789,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
                         OutlinedButton(onClick = { isAddingOperator = false }, modifier = Modifier.weight(1f)) {
-                            Text(if (lang == "BN") "বাতিল" else "Cancel")
+                            Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Button(
                             onClick = { 
@@ -797,7 +799,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                             }, 
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(if (lang == "BN") "সংরক্ষণ" else "Save")
+                            Text(if (lang == "BN") "সংরক্ষণ" else "Save", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -946,12 +948,12 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                         }
                     }
                 ) {
-                    Text(if (lang == "BN") "আপডেট করুন" else "Update")
+                    Text(if (lang == "BN") "আপডেট করুন" else "Update", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { editingOperator = null }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
+                    Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -987,12 +989,12 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(if (lang == "BN") "হ্যাঁ, মুছে ফেলুন" else "Yes, Delete")
+                    Text(if (lang == "BN") "হ্যাঁ, মুছে ফেলুন" else "Yes, Delete", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmByOp = null }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
+                    Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -1064,6 +1066,4 @@ fun PinChangePage(viewModel: HundiViewModel, onBack: () -> Unit) {
             }
         }
     }
-}
-
 }

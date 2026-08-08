@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,6 +79,7 @@ fun SupplierScreen(
     val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
     val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
     val walletLedgers by viewModel.walletLedgers.collectAsStateWithLifecycle()
+    val isSupplierRateEnabled by viewModel.isSupplierRateEnabled.collectAsStateWithLifecycle()
 
     // Retrieve global selection profile ID
     val selectedSupplierIdForProfile by viewModel.selectedSupplierIdForProfile.collectAsStateWithLifecycle()
@@ -746,6 +748,10 @@ fun SupplierProfileView(
         }
     }
 
+    val isSupplierRateEnabled by viewModel.isSupplierRateEnabled.collectAsStateWithLifecycle()
+    val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
+
     if (isAddingFund) {
         AddFundPage(
             supplierName = supplier.name,
@@ -763,6 +769,7 @@ fun SupplierProfileView(
             walletLedgers = walletLedgers,
             selectedLedgerId = selectedLedgerId,
             onLedgerIdChange = { selectedLedgerId = it },
+            isSupplierRateEnabled = isSupplierRateEnabled,
             onCancel = { isAddingFund = false },
             onSave = { date, doc ->
                 val amount = buyAmountSarInput.toDoubleOrNull() ?: 0.0
@@ -2009,13 +2016,17 @@ fun SupplierProfileView(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
-                        value = editDepRate,
-                        onValueChange = { editDepRate = it },
-                        label = { Text(if (lang == "BN") "রেট ${localCur}" else "Exchange Rate ${localCur}") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (isSupplierRateEnabled) {
+                        OutlinedTextField(
+                            value = editDepRate,
+                            onValueChange = { editDepRate = it },
+                            label = { Text(if (lang == "BN") "রেট ${localCur}" else "Exchange Rate ${localCur}") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LaunchedEffect(Unit) { editDepRate = "1.0" }
+                    }
 
                     OutlinedTextField(
                         value = editDepNotes,
@@ -2459,6 +2470,7 @@ fun AddFundPage(
     walletLedgers: List<WalletLedger>,
     selectedLedgerId: Int,
     onLedgerIdChange: (Int) -> Unit,
+    isSupplierRateEnabled: Boolean = true,
     onCancel: () -> Unit,
     onSave: (Long, String?) -> Unit
 ) {
@@ -2722,16 +2734,20 @@ fun AddFundPage(
                             modifier = Modifier.padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            OutlinedTextField(
-                                value = buyRateInput,
-                                onValueChange = onRateChange,
-                                label = { Text(if (lang == "BN") "বিনিময় রেট (BDT/SAR)" else "Exchange Rate") },
-                                leadingIcon = { Icon(Icons.Default.PriceChange, contentDescription = "") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            if (isSupplierRateEnabled) {
+                                OutlinedTextField(
+                                    value = buyRateInput,
+                                    onValueChange = onRateChange,
+                                    label = { Text(if (lang == "BN") "বিনিময় রেট (BDT/SAR)" else "Exchange Rate") },
+                                    leadingIcon = { Icon(Icons.Default.PriceChange, contentDescription = "") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            } else {
+                                LaunchedEffect(Unit) { onRateChange("1.0") }
+                            }
 
                             Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 

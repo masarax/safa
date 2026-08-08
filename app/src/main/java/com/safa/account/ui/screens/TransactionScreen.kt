@@ -17,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.TrendingFlat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -675,7 +677,8 @@ fun TransactionScreen(
                                     deletePinCodeInput = ""
                                     deletePinErrorText = null
                                 },
-                                onReceipt = { viewingReceiptTx = tx }
+                                onReceipt = { viewingReceiptTx = tx },
+                                foreignCur = foreignCur
                             )
                         }
                     }
@@ -685,21 +688,19 @@ fun TransactionScreen(
 
         // --- NEW TRANSACTION REGISTER DIALOG (Form styled beautifully) ---
         if (showAddDialog) {
-            AlertDialog(
+            Dialog(
                 onDismissRequest = { showAddDialog = false },
-                properties = DialogProperties(usePlatformDefaultWidth = false),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(24.dp)),
-                content = {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 760.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .heightIn(max = 760.dp)
+                        .clip(RoundedCornerShape(24.dp)),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -755,7 +756,7 @@ fun TransactionScreen(
                                             .horizontalScroll(rememberScrollState()),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        customers.forEach { customer ->
+                                        for (customer in customers) {
                                             val isSelected = selectedCustomerId == customer.id
                                             FilterChip(
                                                 selected = isSelected,
@@ -806,7 +807,7 @@ fun TransactionScreen(
                                                 .horizontalScroll(rememberScrollState()),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            activeBatches.forEach { (batch, ledgerName) ->
+                                            for ((batch, ledgerName) in activeBatches) {
                                                 val isSelected = selectedBatchId == batch.id
                                                 FilterChip(
                                                     selected = isSelected,
@@ -931,26 +932,7 @@ fun TransactionScreen(
                                          }
                                      }
                                  }
-                                            shape = RoundedCornerShape(14.dp),
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .testTag("new_tx_supp_rate"),
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                                            ),
-                                            interactionSource = remember { MutableInteractionSource() }.also { src ->
-                                                LaunchedEffect(src) {
-                                                    src.interactions.collect { interaction ->
-                                                        if (interaction is androidx.compose.foundation.interaction.PressInteraction.Release) {
-                                                            activeCalcTarget = CalcTargetTx.SUPPLIER_RATE
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        )
-                                    }
-                                }
+
 
                                 // Interactive Calculations Panel with Estimated Earnings
                                 item {
@@ -1161,26 +1143,23 @@ fun TransactionScreen(
                         }
                     }
                 }
-            )
         }
 
         // --- EDIT TRANSACTION DIALOG FORM ---
-        if (false && editingTx != null) {
-            AlertDialog(
+        if (editingTx != null) {
+            Dialog(
                 onDismissRequest = { editingTx = null },
-                properties = DialogProperties(usePlatformDefaultWidth = false),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(24.dp)),
-                content = {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 740.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .heightIn(max = 740.dp)
+                        .clip(RoundedCornerShape(24.dp)),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1562,7 +1541,6 @@ fun TransactionScreen(
                         }
                     }
                 }
-            )
         }
 
         // --- DELETE TRANSACTION CONFIRM SECURITY PIN GATE DIALOG ---
@@ -1708,7 +1686,8 @@ fun TransactionScreen(
                 customer = customer,
                 supplier = supplier,
                 lang = lang,
-                onDismiss = { viewingReceiptTx = null }
+                onDismiss = { viewingReceiptTx = null },
+                foreignCur = foreignCur
             )
         }
     }
@@ -1789,7 +1768,8 @@ fun TransactionPremiumCard(
     onUpdateStatus: (RemittanceTransaction, String) -> Unit,
     onEdit: (RemittanceTransaction) -> Unit,
     onDelete: (RemittanceTransaction) -> Unit,
-    onReceipt: () -> Unit
+    onReceipt: () -> Unit,
+    foreignCur: String = "SAR"
 ) {
     val isPending = tx.status != "Delivered" && tx.status != "Cancelled"
     val isCancelled = tx.status == "Cancelled"
@@ -2248,14 +2228,15 @@ fun DigitalReceiptDialog(
     customer: Customer?,
     supplier: Supplier?,
     lang: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    foreignCur: String = "SAR"
 ) {
     val currencyFormatter = remember { DecimalFormat("#,##0.00") }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        content = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
@@ -2567,7 +2548,6 @@ fun DigitalReceiptDialog(
                 }
             }
         }
-    )
 }
 
 // Inline helper extension for barcode layout randomized height offsets smoothly

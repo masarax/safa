@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -773,7 +774,7 @@ fun DashboardScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showFilterDialog = false }) {
-                        Text(if (lang == "BN") "বন্ধ করুন" else "Close")
+                        Text(if (lang == "BN") "বন্ধ করুন" else "Close", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             )
@@ -979,12 +980,12 @@ fun DashboardScreen(
                         },
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(if (lang == "BN") "রিপোর্ট তৈরি করুন" else "Generate Statement")
+                        Text(if (lang == "BN") "রিপোর্ট তৈরি করুন" else "Generate Statement", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showReportsDialog = false }) {
-                        Text(if (lang == "BN") "বাতিল" else "Cancel")
+                        Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             )
@@ -1071,7 +1072,7 @@ fun DashboardScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text(if (lang == "BN") "ঠিক আছে" else "Close Viewer")
+                                Text(if (lang == "BN") "ঠিক আছে" else "Close Viewer", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }

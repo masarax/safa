@@ -2,13 +2,13 @@
 
 ## 1. System Vision & Domain Model
 SAFA (সাফা) is an offline-first enterprise multi-currency Hundi / Hawala accounting ledger and cashbook management application.
-It integrates a **Kotlin + Jetpack Compose Android Client** with a **Laravel 11 REST API Backend**.
+It integrates a **Kotlin + Jetpack Compose Android Client** with a **Laravel 13 REST API Backend**.
 
 ### Core Architecture Layers:
 - **Presentation Layer**: 100% Jetpack Compose (Material Design 3), MVVM / MVI architecture with `StateFlow` and UI event state classes.
 - **Data Layer (Offline-First)**: Room DB with SQLCipher encryption, repository layer mediating between Room and Remote API.
 - **Security Layer**: AndroidX Biometric, SQLCipher AES-256 local database encryption, HMAC-SHA256 request signatures for sync.
-- **Backend Sync Engine**: Laravel 11 REST API endpoints handling bi-directional delta synchronization with conflict resolution.
+- **Backend Sync Engine**: Laravel 13 REST API endpoints handling bi-directional delta synchronization with conflict resolution.
 
 ---
 

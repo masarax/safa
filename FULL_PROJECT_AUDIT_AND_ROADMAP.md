@@ -2,7 +2,7 @@
 
 ## Executive Summary
 This document provides a non-destructive, full deep-system audit of the **SAFA (সাফা)** Multi-Currency Hundi / Hawala Ledger Accounting Application ecosystem. 
-It analyzes the **Android Mobile App (Kotlin + Jetpack Compose + Encrypted Room DB)** and the **Laravel 11 Cloud Backend (REST API + HMAC Authentication + SQLite/PostgreSQL)**.
+It analyzes the **Android Mobile App (Kotlin + Jetpack Compose + Encrypted Room DB)** and the **Laravel 13 Cloud Backend (REST API + HMAC Authentication + SQLite/PostgreSQL)**.
 
 ---
 

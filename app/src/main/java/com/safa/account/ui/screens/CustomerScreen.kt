@@ -59,6 +59,8 @@ fun CustomerScreen(
     val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
     val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
     val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
+    val isRateBasedModeEnabled by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+    val isSupplierRateEnabled by viewModel.isSupplierRateEnabled.collectAsStateWithLifecycle()
     
     // Check if a specific customer profile is globally selected
     val selectedCustomerIdForProfile by viewModel.selectedCustomerIdForProfile.collectAsStateWithLifecycle()
@@ -637,6 +639,10 @@ fun CustomerProfileView(
     }
 
     val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+    val foreignCur by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
+    val localCur by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
+    val isRateBasedModeEnabled by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
+    val isSupplierRateEnabled by viewModel.isSupplierRateEnabled.collectAsStateWithLifecycle()
     // Editing status state
     var isEditing by remember { mutableStateOf(false) }
     
@@ -776,6 +782,8 @@ fun CustomerProfileView(
                 recipientNo = confirmRecipientNo,
                 timestamp = confirmTimestamp,
                 isAdvanceReturn = confirmIsAdvanceReturn,
+                foreignCur = foreignCur,
+                localCur = localCur,
                 onDismiss = { showConfirmationPage = false }
             )
         } else if (txToEdit != null) {
@@ -817,6 +825,8 @@ fun CustomerProfileView(
                 onEditTxNotesChange = { editTxNotes = it },
                 editStatus = editStatus,
                 onEditStatusChange = { editStatus = it },
+                isRateBasedModeEnabled = isRateBasedModeEnabled,
+                isSupplierRateEnabled = isSupplierRateEnabled,
                 isEditAmountCalCOpen = isEditAmountCalCOpen,
                 onIsEditAmountCalCOpenChange = { isEditAmountCalCOpen = it },
                 onCancel = { txToEdit = null },
@@ -886,6 +896,8 @@ fun CustomerProfileView(
                 isAdvanceReturn = isAdvanceReturn,
                 selectedTimestamp = inputTimestamp,
                 onSelectedTimestampChange = { inputTimestamp = it },
+                isRateBasedModeEnabled = isRateBasedModeEnabled,
+                isSupplierRateEnabled = isSupplierRateEnabled,
                 onCancel = { isAddingTransaction = false },
                 onSubmit = {
                     txActionToConfirm = "ADD_TX_PAGE"
@@ -2587,6 +2599,10 @@ fun AddTransactionStepPage(
     isAdvanceReturn: Boolean = false,
     selectedTimestamp: Long,
     onSelectedTimestampChange: (Long) -> Unit,
+    isRateBasedModeEnabled: Boolean = true,
+    isSupplierRateEnabled: Boolean = true,
+    foreignCur: String = "SAR",
+    localCur: String = "BDT",
     onCancel: () -> Unit,
     onSubmit: () -> Unit
 ) {
@@ -3351,15 +3367,19 @@ fun AddTransactionStepPage(
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     // Sales Rate (Bikroy Rate) - editable customer rate
-                                    OutlinedTextField(
-                                        value = customerRate,
-                                        onValueChange = onCustomerRateChange,
-                                        enabled = isAmtPresent,
-                                        label = { Text(if (lang == "BN") "বিক্রয় রেট ${localCur}" else "Selling Rate ${localCur}") },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    if (isRateBasedModeEnabled) {
+                                        OutlinedTextField(
+                                            value = customerRate,
+                                            onValueChange = onCustomerRateChange,
+                                            enabled = isAmtPresent,
+                                            label = { Text(if (lang == "BN") "বিক্রয় রেট ${localCur}" else "Selling Rate ${localCur}") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    } else {
+                                        LaunchedEffect(Unit) { onCustomerRateChange("1.0") }
+                                    }
 
                                     // Riyal Amount (Disabled - Read-only / display style only)
                                     OutlinedTextField(
@@ -3629,6 +3649,10 @@ fun EditTransactionPage(
     onEditTxNotesChange: (String) -> Unit,
     editStatus: String,
     onEditStatusChange: (String) -> Unit,
+    isRateBasedModeEnabled: Boolean = true,
+    isSupplierRateEnabled: Boolean = true,
+    foreignCur: String = "SAR",
+    localCur: String = "BDT",
     isEditAmountCalCOpen: Boolean,
     onIsEditAmountCalCOpenChange: (Boolean) -> Unit,
     onCancel: () -> Unit,
@@ -3720,14 +3744,18 @@ fun EditTransactionPage(
                         )
 
                         // Customer Rate
-                        OutlinedTextField(
-                            value = editCustomerRate,
-                            onValueChange = { onEditCustomerRateChange(it) },
-                            label = { Text(if (lang == "BN") "গ্রাহক রেট" else "Customer Rate") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        if (isRateBasedModeEnabled) {
+                            OutlinedTextField(
+                                value = editCustomerRate,
+                                onValueChange = { onEditCustomerRateChange(it) },
+                                label = { Text(if (lang == "BN") "গ্রাহক রেট" else "Customer Rate") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            LaunchedEffect(Unit) { onEditCustomerRateChange("1.0") }
+                        }
 
                         // Real-time custom collected ${foreignCur}/ ${localCur}tracking moved up to Calculation matrix
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3929,7 +3957,9 @@ fun generatePdfReceipt(
     recipientNo: String,
     timestamp: Long,
     lang: String,
-    isAdvanceReturn: Boolean = false
+    isAdvanceReturn: Boolean = false,
+    foreignCur: String = "SAR",
+    localCur: String = "BDT"
 ): Uri? {
     try {
         val pdfDocument = android.graphics.pdf.PdfDocument()
@@ -4059,7 +4089,9 @@ fun generateImageReceipt(
     recipientNo: String,
     timestamp: Long,
     lang: String,
-    isAdvanceReturn: Boolean = false
+    isAdvanceReturn: Boolean = false,
+    foreignCur: String = "SAR",
+    localCur: String = "BDT"
 ): Uri? {
     try {
         val width = 600
@@ -4211,6 +4243,8 @@ fun TransactionConfirmationPage(
     recipientNo: String,
     timestamp: Long,
     isAdvanceReturn: Boolean = false,
+    foreignCur: String = "SAR",
+    localCur: String = "BDT",
     onDismiss: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current

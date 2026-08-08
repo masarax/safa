@@ -19,7 +19,7 @@ if (-not $env:JAVA_HOME) {
 Write-Host "Java JDK Home: $env:JAVA_HOME" -ForegroundColor Green
 
 # 2. Setup local.properties
-$androidHome = if ($env:ANDROID_HOME) { $env:ANDROID_HOME -replace '\\', '\\' -replace ':', '\:' } else { "C\:\\Android\\sdk" }
+$androidHome = if ($env:ANDROID_HOME) { $env:ANDROID_HOME -replace '\\', '/' } else { "C:/Android/sdk" }
 $localProps = "sdk.dir=$androidHome"
 Set-Content -Path ".\local.properties" -Value $localProps -Encoding UTF8
 Write-Host "Created local.properties pointing to sdk.dir=$androidHome" -ForegroundColor Green
