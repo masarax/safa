@@ -12,24 +12,34 @@ object RetrofitClient {
     @Volatile private var instance: Retrofit? = null
 
     fun getInstance(baseUrl: String, apiKey: String, apiSecret: String): Retrofit {
-        return instance ?: synchronized(this) {
-            val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
-            }
-            val security = ApiSecurityInterceptor(apiKey, apiSecret)
-            val client = OkHttpClient.Builder()
-                .addInterceptor(security)
-                .addInterceptor(logging)
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .build()
+        val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val current = instance
+        if (current != null && current.baseUrl().toString() == normalizedUrl) {
+            return current
+        }
+        return synchronized(this) {
+            val currentInSync = instance
+            if (currentInSync != null && currentInSync.baseUrl().toString() == normalizedUrl) {
+                currentInSync
+            } else {
+                val logging = HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
+                }
+                val security = ApiSecurityInterceptor(apiKey, apiSecret)
+                val client = OkHttpClient.Builder()
+                    .addInterceptor(security)
+                    .addInterceptor(logging)
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .build()
 
-            Retrofit.Builder()
-                .baseUrl(baseUrl)
-                .client(client)
-                .addConverterFactory(MoshiConverterFactory.create())
-                .build()
-                .also { instance = it }
+                Retrofit.Builder()
+                    .baseUrl(normalizedUrl)
+                    .client(client)
+                    .addConverterFactory(MoshiConverterFactory.create())
+                    .build()
+                    .also { instance = it }
+            }
         }
     }
 

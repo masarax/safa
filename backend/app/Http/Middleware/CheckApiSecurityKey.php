@@ -21,14 +21,13 @@ class CheckApiSecurityKey
             return response()->json(['message' => 'Unauthorized. Missing security headers.'], 401);
         }
 
-        if (abs(time() - $timestamp) > 300) {
+        if (abs(time() - (int) $timestamp) > 300) {
             return response()->json(['message' => 'Unauthorized. Request expired.'], 401);
         }
 
         if (Cache::has('nonce_' . $nonce)) {
             return response()->json(['message' => 'Unauthorized. Replay attack detected.'], 401);
         }
-        Cache::put('nonce_' . $nonce, true, 300);
 
         $keyRecord = SafaApiKey::where('api_key', $apiKey)->where('is_active', true)->first();
 
@@ -56,6 +55,8 @@ class CheckApiSecurityKey
             Log::warning("API Signature mismatch");
             return response()->json(['message' => 'Unauthorized. Signature mismatch.'], 401);
         }
+
+        Cache::put('nonce_' . $nonce, true, 300);
 
         return $next($request);
     }

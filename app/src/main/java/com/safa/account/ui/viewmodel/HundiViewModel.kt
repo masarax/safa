@@ -60,7 +60,7 @@ class HundiViewModel(
     val syncManager: SyncManager? = tokenManager?.let { SyncManager(repository, it) }
     val syncState: StateFlow<SyncState> = syncManager?.syncState ?: MutableStateFlow(SyncState.Idle)
 
-    private val _apiBaseUrl = MutableStateFlow(tokenManager?.getBaseUrl() ?: "http://10.0.2.2:8000/api/")
+    private val _apiBaseUrl = MutableStateFlow(tokenManager?.getBaseUrl() ?: "https://safa.masarax.com/api/")
     val apiBaseUrl: StateFlow<String> = _apiBaseUrl.asStateFlow()
 
     fun updateApiBaseUrl(newUrl: String) {
