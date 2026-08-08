@@ -15,11 +15,7 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        User::firstOrCreate(
-            ['email' => 'test@example.com'],
-            ['name' => 'Test User', 'password' => bcrypt('password')]
-        );
-
+        // 1. Seed SuperAdmin: Nazmus Sakib (Mobile: 0536308965, 6-digit PIN: 123456)
         User::updateOrCreate(
             ['mobile' => '0536308965'],
             [
@@ -33,14 +29,18 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $account = Account::firstOrCreate(['name' => 'SAFA Dev Account']);
+        $account = Account::firstOrCreate(['name' => 'SAFA Account']);
 
-        SafaApiKey::firstOrCreate(
-            ['api_key' => env('SAFA_API_KEY', 'safa_test_api_key_2026')],
+        // 2. Seed API Key Record matching 256-bit Cryptographic Secret Keys
+        $apiKey = env('SAFA_API_KEY', 'safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b');
+        $apiSecret = env('SAFA_API_SECRET', 'safa_sec_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b');
+
+        SafaApiKey::updateOrCreate(
+            ['api_key' => $apiKey],
             [
                 'account_id'  => $account->id,
-                'client_name' => 'Android App Dev',
-                'api_secret'  => env('SAFA_API_SECRET', 'safa_test_secret_32byteslong_2026'),
+                'client_name' => 'SAFA Mobile Client',
+                'api_secret'  => $apiSecret,
                 'is_active'   => true,
             ]
         );

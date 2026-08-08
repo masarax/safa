@@ -48,7 +48,7 @@ fun LoginScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
-        // Top Language Switcher Bar
+        // Top Language Switcher Bar - Clean Pill Button without Brackets
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -58,10 +58,11 @@ fun LoginScreen(
         ) {
             FilledTonalButton(
                 onClick = { viewModel.toggleLanguage() },
+                shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.testTag("auth_lang_toggle")
             ) {
                 Text(
-                    text = "[ EN | বাংলা ]",
+                    text = if (currentLang == "BN") "EN | বাংলা" else "EN | বাংলা",
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
@@ -70,25 +71,25 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 16.dp)
                 .align(Alignment.Center)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // App visual header icon
-            Card(
-                shape = CircleShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                modifier = Modifier.size(80.dp)
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Lock",
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Lock",
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
 
             Text(
@@ -101,130 +102,120 @@ fun LoginScreen(
                 textAlign = TextAlign.Center
             )
 
-            // Mobile + PIN Input Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            // Direct Flat Input Layout without Card or Shadow
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Mobile Number Input
-                    OutlinedTextField(
-                        value = mobileInput,
-                        onValueChange = {
-                            mobileInput = it
+                // Mobile Number Input
+                OutlinedTextField(
+                    value = mobileInput,
+                    onValueChange = {
+                        mobileInput = it
+                        loginError = null
+                    },
+                    label = { Text(viewModel.t("mobile_number", currentLang)) },
+                    placeholder = { Text(viewModel.t("enter_mobile_ph", currentLang)) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Phone, contentDescription = "Mobile")
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("login_mobile_input"),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                // 6-Digit Security PIN Input
+                OutlinedTextField(
+                    value = pinInput,
+                    onValueChange = {
+                        if (it.length <= 6) {
+                            pinInput = it
                             loginError = null
-                        },
-                        label = { Text(viewModel.t("mobile_number", currentLang)) },
-                        placeholder = { Text(viewModel.t("enter_mobile_ph", currentLang)) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Phone, contentDescription = "Mobile")
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("login_mobile_input"),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    // 6-Digit Security PIN Input
-                    OutlinedTextField(
-                        value = pinInput,
-                        onValueChange = {
-                            if (it.length <= 6) {
-                                pinInput = it
-                                loginError = null
-                            }
-                        },
-                        label = { Text(viewModel.t("enter_pin", currentLang)) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Security, contentDescription = "PIN")
-                        },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("login_pin_input"),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    // Error feedback
-                    AnimatedVisibility(
-                        visible = loginError != null,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        Text(
-                            text = loginError ?: "",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    // Biometric option if matching operator has biometric enabled
-                    val matchingOp = remember(mobileInput, operators) {
-                        operators.find { it.mobile == mobileInput.trim() && it.mobile.isNotBlank() }
-                    }
-                    if (matchingOp != null && matchingOp.isBiometricEnabled) {
-                        com.safa.account.ui.BiometricTriggerButton(
-                            lang = currentLang,
-                            onSuccess = { viewModel.loginWithBiometric(matchingOp) },
-                            onError = { loginError = it }
-                        )
-                    }
-
-                    // Login Button
-                    Button(
-                        onClick = {
-                            if (mobileInput.isBlank()) {
-                                loginError = if (currentLang == "BN") "মোবাইল নম্বর দিন" else "Please enter mobile number"
-                                return@Button
-                            }
-                            if (pinInput.isBlank()) {
-                                loginError = viewModel.t("pin_incorrect", currentLang)
-                                return@Button
-                            }
-                            isLoading = true
-                            viewModel.loginWithServer(mobileInput, pinInput) { success, result ->
-                                isLoading = false
-                                if (!success) {
-                                    loginError = result ?: viewModel.t("invalid_credentials", currentLang)
-                                }
-                            }
-                        },
-                        enabled = !isLoading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .testTag("login_submit_btn"),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = viewModel.t("login_button", currentLang),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
                         }
+                    },
+                    label = { Text(viewModel.t("enter_pin", currentLang)) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Security, contentDescription = "PIN")
+                    },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("login_pin_input"),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                // Error feedback
+                AnimatedVisibility(
+                    visible = loginError != null,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Text(
+                        text = loginError ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // Biometric option if matching operator has biometric enabled
+                val matchingOp = remember(mobileInput, operators) {
+                    operators.find { it.mobile == mobileInput.trim() && it.mobile.isNotBlank() }
+                }
+                if (matchingOp != null && matchingOp.isBiometricEnabled) {
+                    com.safa.account.ui.BiometricTriggerButton(
+                        lang = currentLang,
+                        onSuccess = { viewModel.loginWithBiometric(matchingOp) },
+                        onError = { loginError = it }
+                    )
+                }
+
+                // Login Button
+                Button(
+                    onClick = {
+                        if (mobileInput.isBlank()) {
+                            loginError = if (currentLang == "BN") "মোবাইল নম্বর দিন" else "Please enter mobile number"
+                            return@Button
+                        }
+                        if (pinInput.isBlank()) {
+                            loginError = viewModel.t("pin_incorrect", currentLang)
+                            return@Button
+                        }
+                        isLoading = true
+                        viewModel.loginWithServer(mobileInput, pinInput) { success, result ->
+                            isLoading = false
+                            if (!success) {
+                                loginError = result ?: viewModel.t("invalid_credentials", currentLang)
+                            }
+                        }
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("login_submit_btn"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = viewModel.t("login_button", currentLang),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
                     }
                 }
             }
         }
     }
 }
-
