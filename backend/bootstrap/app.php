@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'verify.multilevel.token' => VerifyMultiLevelToken::class,
         ]);
 
+        $middleware->appendToGroup('web', CheckInstalled::class);
         $middleware->appendToGroup('api', CheckInstalled::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

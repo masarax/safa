@@ -243,7 +243,7 @@
                 @endforeach
             </div>
 
-            <form action="{{ route('install.update-process') }}" method="POST">
+            <form action="{{ route('install.update-process') }}" method="POST" onsubmit="handleUpdateSubmit(event)">
                 @csrf
                 <button type="submit" class="btn-primary" id="btn-submit">
                     <span>🚀</span> <span id="btn-text">Run Database Migration Now</span>
@@ -257,6 +257,7 @@
     </div>
 
     <script>
+        let currentLang = 'en';
         const i18n = {
             en: {
                 title: "System Update & Database Migration",
@@ -265,6 +266,7 @@
                 infoDesc: "Existing database tables, user records, and financial transactions will remain 100% untouched. Only new tables and missing columns will be safely added.",
                 pendingLabel: "Pending Migrations ({{ count($pendingMigrations) }}):",
                 btnText: "Run Database Migration Now",
+                btnUpdating: "Updating Database Schema... Please wait",
                 footerText: "SAFA Account System • Multi-Layer Security Hardened"
             },
             bn: {
@@ -274,11 +276,13 @@
                 infoDesc: "আপনার বিদ্যমান ডাটাবেসের সকল ইউজার, লেনদেন ও হিসাব ১০০% অক্ষত থাকবে। শুধুমাত্র নতুন টেবিল ও নতুন কলামগুলো নিরাপদে যুক্ত হবে।",
                 pendingLabel: "অপেক্ষমান মাইগ্রেশন সমূহ ({{ count($pendingMigrations) }} টি):",
                 btnText: "ডাটাবেস মাইগ্রেশন সম্পন্ন করুন",
+                btnUpdating: "ডাটাবেস আপডেট হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন",
                 footerText: "সাফা অ্যাকাউন্ট সিস্টেম • মাল্টি-লেয়ার সিকিউরিটি গার্ড"
             }
         };
 
         function setLang(lang) {
+            currentLang = lang;
             document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('btn-' + lang).classList.add('active');
 
@@ -290,6 +294,16 @@
             document.getElementById('pending-label').innerText = t.pendingLabel;
             document.getElementById('btn-text').innerText = t.btnText;
             document.getElementById('footer-text').innerText = t.footerText;
+        }
+
+        function handleUpdateSubmit(e) {
+            const btn = document.getElementById('btn-submit');
+            const text = document.getElementById('btn-text');
+            btn.style.opacity = '0.7';
+            btn.style.cursor = 'not-allowed';
+            btn.disabled = true;
+            text.innerText = i18n[currentLang].btnUpdating;
+            e.target.submit();
         }
     </script>
 </body>

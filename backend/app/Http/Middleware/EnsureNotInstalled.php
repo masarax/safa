@@ -23,16 +23,24 @@ class EnsureNotInstalled
         if ($isInstalled) {
             $pending = InstallerController::getPendingMigrations();
 
-            // Allow /install/update only if there are pending migrations
-            if (!empty($pending) && $request->is('install/update*')) {
-                return $next($request);
+            if ($request->is('install/update*')) {
+                if (!empty($pending)) {
+                    return $next($request);
+                }
+                return redirect()->route('home')->with('info', 'Database is already up to date.');
+            }
+
+            if ($request->is('install')) {
+                if (!empty($pending)) {
+                    return redirect()->route('install.update-view');
+                }
+                return redirect()->route('home')->with('info', 'System is already installed and up to date.');
             }
 
             if ($request->is('install/success')) {
                 return $next($request);
             }
 
-            // Strict Security Lockdown: Pretend installer endpoints do not exist (HTTP 404)
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json([
                     'status' => 'error',
@@ -40,9 +48,10 @@ class EnsureNotInstalled
                 ], 403);
             }
 
-            abort(404);
+            return redirect()->route('home');
         }
 
         return $next($request);
     }
 }
+

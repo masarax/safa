@@ -266,6 +266,10 @@ class InstallerController extends Controller
 
             return $pending;
         } catch (\Throwable $e) {
+            $migrationFiles = glob(database_path('migrations/*.php'));
+            if (!empty($migrationFiles) && (file_exists(storage_path('installed')) || env('APP_INSTALLED') == true || env('APP_INSTALLED') === 'true')) {
+                return array_map(fn($f) => basename($f, '.php'), $migrationFiles);
+            }
             return [];
         }
     }
@@ -277,7 +281,7 @@ class InstallerController extends Controller
     {
         $pendingMigrations = static::getPendingMigrations();
         if (empty($pendingMigrations)) {
-            abort(404);
+            return redirect()->route('home')->with('info', 'Database is already up to date.');
         }
 
         return view('install_update', compact('pendingMigrations'));
@@ -290,7 +294,14 @@ class InstallerController extends Controller
     {
         try {
             Artisan::call('migrate', ['--force' => true]);
-            Artisan::call('config:clear');
+
+            try {
+                Artisan::call('config:clear');
+                Artisan::call('cache:clear');
+                Artisan::call('view:clear');
+            } catch (\Throwable $ce) {
+                // Ignore cache clearing errors if any
+            }
         } catch (\Throwable $e) {
             return back()->with('error', 'Migration failed: ' . $e->getMessage());
         }
@@ -298,4 +309,5 @@ class InstallerController extends Controller
         return redirect()->route('home')->with('success', 'Database schema updated successfully without any data loss!');
     }
 }
+
 
