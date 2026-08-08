@@ -75,70 +75,40 @@ class SyncController extends Controller
                 return (string) $raw;
             };
 
-            DB::transaction(function () use ($data, $accountId, $parseDeletedAt) {
-                // 1. Transactions Sync
-                if (isset($data['transactions']) && is_array($data['transactions'])) {
-                    foreach ($data['transactions'] as $tx) {
-                        if (empty($tx['local_id'])) continue;
+            $accepted = [
+                'customers'         => [],
+                'suppliers'         => [],
+                'wallet_ledgers'    => [],
+                'supplier_deposits' => [],
+                'wallet_batches'    => [],
+                'transactions'      => [],
+                'expenses_incomes'  => [],
+            ];
+            $rejected = [];
 
-                        $existing = Transaction::withTrashed()
-                            ->where('account_id', $accountId)
-                            ->where('local_id', (int) $tx['local_id'])
-                            ->first();
-
-                        if ($existing && isset($tx['timestamp']) && $existing->timestamp > (int) $tx['timestamp']) {
-                            continue;
-                        }
-
-                        $isDeleted = !empty($tx['deleted_at']) || !empty($tx['is_deleted']);
-                        $deletedAtValue = $isDeleted ? ($parseDeletedAt($tx['deleted_at'] ?? null) ?? now()) : null;
-
-                        $record = Transaction::withTrashed()->updateOrCreate(
-                            ['account_id' => $accountId, 'local_id' => (int) $tx['local_id']],
-                            [
-                                'type'                  => substr((string) ($tx['type'] ?? 'Pending'), 0, 20),
-                                'amount'                => (float) ($tx['amount'] ?? 0),
-                                'customer_id'           => (int) ($tx['customer_id'] ?? 0),
-                                'supplier_id'           => (int) ($tx['supplier_id'] ?? 0),
-                                'amount_sar'            => (float) ($tx['amount_sar'] ?? $tx['amount'] ?? 0),
-                                'customer_rate'         => (float) ($tx['customer_rate'] ?? 0),
-                                'supplier_rate'         => (float) ($tx['supplier_rate'] ?? 0),
-                                'amount_bdt'            => (float) ($tx['amount_bdt'] ?? 0),
-                                'receiver_name'         => substr((string) ($tx['receiver_name'] ?? ''), 0, 255),
-                                'receiver_phone'        => substr((string) ($tx['receiver_phone'] ?? ''), 0, 50),
-                                'receiver_account_type' => substr((string) ($tx['receiver_account_type'] ?? ''), 0, 50),
-                                'receiver_account_no'   => substr((string) ($tx['receiver_account_no'] ?? ''), 0, 100),
-                                'wallet_batch_id'       => (int) ($tx['wallet_batch_id'] ?? 0),
-                                'notes'                 => $tx['notes'] ?? null,
-                                'hash'                  => $tx['hash'] ?? null,
-                                'timestamp'             => (int) ($tx['timestamp'] ?? time()),
-                            ]
-                        );
-
-                        if ($isDeleted) {
-                            $record->deleted_at = $deletedAtValue;
-                            $record->save();
-                        } else {
-                            if ($record->trashed()) {
-                                $record->restore();
-                            }
-                            $record->deleted_at = null;
-                            $record->save();
-                        }
-                    }
-                }
-
-                // 2. Customers Sync
+            DB::transaction(function () use ($data, $accountId, $parseDeletedAt, &$accepted, &$rejected) {
+                // Step 1: Customers Sync (Independent Root)
                 if (isset($data['customers']) && is_array($data['customers'])) {
                     foreach ($data['customers'] as $c) {
-                        if (empty($c['local_id']) || empty($c['name'])) continue;
+                        if (empty($c['local_id']) || empty($c['name'])) {
+                            $rejected[] = [
+                                'entity' => 'customers',
+                                'local_id' => (int) ($c['local_id'] ?? 0),
+                                'reason' => 'Missing required fields (local_id or name)'
+                            ];
+                            continue;
+                        }
 
                         $existing = Customer::withTrashed()
                             ->where('account_id', $accountId)
                             ->where('local_id', (int) $c['local_id'])
                             ->first();
 
-                        if ($existing && isset($c['timestamp']) && $existing->timestamp > (int) $c['timestamp']) {
+                        if ($existing && isset($c['timestamp']) && (int)$existing->timestamp > (int)$c['timestamp']) {
+                            $accepted['customers'][] = [
+                                'local_id'  => (int) $c['local_id'],
+                                'server_id' => $existing->id
+                            ];
                             continue;
                         }
 
@@ -164,20 +134,36 @@ class SyncController extends Controller
                             $record->deleted_at = null;
                             $record->save();
                         }
+
+                        $accepted['customers'][] = [
+                            'local_id'  => (int) $c['local_id'],
+                            'server_id' => $record->id
+                        ];
                     }
                 }
 
-                // 3. Suppliers Sync
+                // Step 2: Suppliers Sync (Independent Root)
                 if (isset($data['suppliers']) && is_array($data['suppliers'])) {
                     foreach ($data['suppliers'] as $s) {
-                        if (empty($s['local_id']) || empty($s['name'])) continue;
+                        if (empty($s['local_id']) || empty($s['name'])) {
+                            $rejected[] = [
+                                'entity' => 'suppliers',
+                                'local_id' => (int) ($s['local_id'] ?? 0),
+                                'reason' => 'Missing required fields (local_id or name)'
+                            ];
+                            continue;
+                        }
 
                         $existing = Supplier::withTrashed()
                             ->where('account_id', $accountId)
                             ->where('local_id', (int) $s['local_id'])
                             ->first();
 
-                        if ($existing && isset($s['timestamp']) && $existing->timestamp > (int) $s['timestamp']) {
+                        if ($existing && isset($s['timestamp']) && (int)$existing->timestamp > (int)$s['timestamp']) {
+                            $accepted['suppliers'][] = [
+                                'local_id'  => (int) $s['local_id'],
+                                'server_id' => $existing->id
+                            ];
                             continue;
                         }
 
@@ -203,64 +189,36 @@ class SyncController extends Controller
                             $record->deleted_at = null;
                             $record->save();
                         }
+
+                        $accepted['suppliers'][] = [
+                            'local_id'  => (int) $s['local_id'],
+                            'server_id' => $record->id
+                        ];
                     }
                 }
 
-                // 4. Wallet Batches Sync
-                if (isset($data['wallet_batches']) && is_array($data['wallet_batches'])) {
-                    foreach ($data['wallet_batches'] as $b) {
-                        if (empty($b['local_id'])) continue;
-
-                        $existing = WalletBatch::withTrashed()
-                            ->where('account_id', $accountId)
-                            ->where('local_id', (int) $b['local_id'])
-                            ->first();
-
-                        if ($existing && isset($b['timestamp']) && $existing->timestamp > (int) $b['timestamp']) {
-                            continue;
-                        }
-
-                        $isDeleted = !empty($b['deleted_at']) || !empty($b['is_deleted']);
-                        $deletedAtValue = $isDeleted ? ($parseDeletedAt($b['deleted_at'] ?? null) ?? now()) : null;
-
-                        $record = WalletBatch::withTrashed()->updateOrCreate(
-                            ['account_id' => $accountId, 'local_id' => (int) $b['local_id']],
-                            [
-                                'ledger_id'           => (int) ($b['ledger_id'] ?? 0),
-                                'rate'                => (float) ($b['rate'] ?? 0),
-                                'initial_bdt'         => (float) ($b['initial_bdt'] ?? 0),
-                                'remaining_bdt'       => (float) ($b['remaining_bdt'] ?? 0),
-                                'supplier_id'         => (int) ($b['supplier_id'] ?? 0),
-                                'supplier_deposit_id' => (int) ($b['supplier_deposit_id'] ?? 0),
-                                'notes'               => $b['notes'] ?? null,
-                                'timestamp'           => (int) ($b['timestamp'] ?? time()),
-                            ]
-                        );
-
-                        if ($isDeleted) {
-                            $record->deleted_at = $deletedAtValue;
-                            $record->save();
-                        } else {
-                            if ($record->trashed()) {
-                                $record->restore();
-                            }
-                            $record->deleted_at = null;
-                            $record->save();
-                        }
-                    }
-                }
-
-                // 5. Wallet Ledgers Sync
+                // Step 3: Wallet Ledgers Sync (Independent Root)
                 if (isset($data['wallet_ledgers']) && is_array($data['wallet_ledgers'])) {
                     foreach ($data['wallet_ledgers'] as $wl) {
-                        if (empty($wl['local_id'])) continue;
+                        if (empty($wl['local_id'])) {
+                            $rejected[] = [
+                                'entity' => 'wallet_ledgers',
+                                'local_id' => 0,
+                                'reason' => 'Missing local_id'
+                            ];
+                            continue;
+                        }
 
                         $existing = WalletLedger::withTrashed()
                             ->where('account_id', $accountId)
                             ->where('local_id', (int) $wl['local_id'])
                             ->first();
 
-                        if ($existing && isset($wl['timestamp']) && $existing->timestamp > (int) $wl['timestamp']) {
+                        if ($existing && isset($wl['timestamp']) && (int)$existing->timestamp > (int)$wl['timestamp']) {
+                            $accepted['wallet_ledgers'][] = [
+                                'local_id'  => (int) $wl['local_id'],
+                                'server_id' => $existing->id
+                            ];
                             continue;
                         }
 
@@ -285,21 +243,46 @@ class SyncController extends Controller
                             $record->deleted_at = null;
                             $record->save();
                         }
+
+                        $accepted['wallet_ledgers'][] = [
+                            'local_id'  => (int) $wl['local_id'],
+                            'server_id' => $record->id
+                        ];
                     }
                 }
 
-                // 6. Supplier Deposits Sync
+                // Step 4: Supplier Deposits Sync (Depends on Supplier)
                 if (isset($data['supplier_deposits']) && is_array($data['supplier_deposits'])) {
                     foreach ($data['supplier_deposits'] as $sd) {
-                        if (empty($sd['local_id'])) continue;
+                        if (empty($sd['local_id'])) {
+                            $rejected[] = [
+                                'entity' => 'supplier_deposits',
+                                'local_id' => 0,
+                                'reason' => 'Missing local_id'
+                            ];
+                            continue;
+                        }
 
                         $existing = SupplierDeposit::withTrashed()
                             ->where('account_id', $accountId)
                             ->where('local_id', (int) $sd['local_id'])
                             ->first();
 
-                        if ($existing && isset($sd['timestamp']) && $existing->timestamp > (int) $sd['timestamp']) {
+                        if ($existing && isset($sd['timestamp']) && (int)$existing->timestamp > (int)$sd['timestamp']) {
+                            $accepted['supplier_deposits'][] = [
+                                'local_id'  => (int) $sd['local_id'],
+                                'server_id' => $existing->id
+                            ];
                             continue;
+                        }
+
+                        // Resolve local_id to server primary key for supplier_id
+                        $rawSupplierId = (int) ($sd['supplier_id'] ?? 0);
+                        $serverSupplierId = 0;
+                        if ($rawSupplierId > 0) {
+                            $serverSupplierId = Supplier::where('account_id', $accountId)
+                                ->where('local_id', $rawSupplierId)
+                                ->value('id') ?? $rawSupplierId;
                         }
 
                         $isDeleted = !empty($sd['deleted_at']) || !empty($sd['is_deleted']);
@@ -308,7 +291,7 @@ class SyncController extends Controller
                         $record = SupplierDeposit::withTrashed()->updateOrCreate(
                             ['account_id' => $accountId, 'local_id' => (int) $sd['local_id']],
                             [
-                                'supplier_id'      => (int) ($sd['supplier_id'] ?? 0),
+                                'supplier_id'      => $serverSupplierId,
                                 'amount_sar'       => (float) ($sd['amount_sar'] ?? 0),
                                 'rate'             => (float) ($sd['rate'] ?? 0),
                                 'amount_bdt'       => (float) ($sd['amount_bdt'] ?? 0),
@@ -329,20 +312,184 @@ class SyncController extends Controller
                             $record->deleted_at = null;
                             $record->save();
                         }
+
+                        $accepted['supplier_deposits'][] = [
+                            'local_id'  => (int) $sd['local_id'],
+                            'server_id' => $record->id
+                        ];
                     }
                 }
 
-                // 7. Expenses & Incomes Sync
+                // Step 5: Wallet Batches Sync (Depends on WalletLedger, Supplier, SupplierDeposit)
+                if (isset($data['wallet_batches']) && is_array($data['wallet_batches'])) {
+                    foreach ($data['wallet_batches'] as $b) {
+                        if (empty($b['local_id'])) {
+                            $rejected[] = [
+                                'entity' => 'wallet_batches',
+                                'local_id' => 0,
+                                'reason' => 'Missing local_id'
+                            ];
+                            continue;
+                        }
+
+                        $existing = WalletBatch::withTrashed()
+                            ->where('account_id', $accountId)
+                            ->where('local_id', (int) $b['local_id'])
+                            ->first();
+
+                        if ($existing && isset($b['timestamp']) && (int)$existing->timestamp > (int)$b['timestamp']) {
+                            $accepted['wallet_batches'][] = [
+                                'local_id'  => (int) $b['local_id'],
+                                'server_id' => $existing->id
+                            ];
+                            continue;
+                        }
+
+                        // Resolve local IDs to server primary keys
+                        $rawLedgerId = (int) ($b['ledger_id'] ?? 0);
+                        $serverLedgerId = $rawLedgerId > 0 ? (WalletLedger::where('account_id', $accountId)->where('local_id', $rawLedgerId)->value('id') ?? $rawLedgerId) : 0;
+
+                        $rawSupplierId = (int) ($b['supplier_id'] ?? 0);
+                        $serverSupplierId = $rawSupplierId > 0 ? (Supplier::where('account_id', $accountId)->where('local_id', $rawSupplierId)->value('id') ?? $rawSupplierId) : 0;
+
+                        $rawDepositId = (int) ($b['supplier_deposit_id'] ?? 0);
+                        $serverDepositId = $rawDepositId > 0 ? (SupplierDeposit::where('account_id', $accountId)->where('local_id', $rawDepositId)->value('id') ?? $rawDepositId) : 0;
+
+                        $isDeleted = !empty($b['deleted_at']) || !empty($b['is_deleted']);
+                        $deletedAtValue = $isDeleted ? ($parseDeletedAt($b['deleted_at'] ?? null) ?? now()) : null;
+
+                        $record = WalletBatch::withTrashed()->updateOrCreate(
+                            ['account_id' => $accountId, 'local_id' => (int) $b['local_id']],
+                            [
+                                'ledger_id'           => $serverLedgerId,
+                                'rate'                => (float) ($b['rate'] ?? 0),
+                                'initial_bdt'         => (float) ($b['initial_bdt'] ?? 0),
+                                'remaining_bdt'       => (float) ($b['remaining_bdt'] ?? 0),
+                                'supplier_id'         => $serverSupplierId,
+                                'supplier_deposit_id' => $serverDepositId,
+                                'notes'               => $b['notes'] ?? null,
+                                'timestamp'           => (int) ($b['timestamp'] ?? time()),
+                            ]
+                        );
+
+                        if ($isDeleted) {
+                            $record->deleted_at = $deletedAtValue;
+                            $record->save();
+                        } else {
+                            if ($record->trashed()) {
+                                $record->restore();
+                            }
+                            $record->deleted_at = null;
+                            $record->save();
+                        }
+
+                        $accepted['wallet_batches'][] = [
+                            'local_id'  => (int) $b['local_id'],
+                            'server_id' => $record->id
+                        ];
+                    }
+                }
+
+                // Step 6: Transactions Sync (Depends on Customer, Supplier, WalletBatch)
+                if (isset($data['transactions']) && is_array($data['transactions'])) {
+                    foreach ($data['transactions'] as $tx) {
+                        if (empty($tx['local_id'])) {
+                            $rejected[] = [
+                                'entity' => 'transactions',
+                                'local_id' => 0,
+                                'reason' => 'Missing local_id'
+                            ];
+                            continue;
+                        }
+
+                        $existing = Transaction::withTrashed()
+                            ->where('account_id', $accountId)
+                            ->where('local_id', (int) $tx['local_id'])
+                            ->first();
+
+                        if ($existing && isset($tx['timestamp']) && (int)$existing->timestamp > (int)$tx['timestamp']) {
+                            $accepted['transactions'][] = [
+                                'local_id'  => (int) $tx['local_id'],
+                                'server_id' => $existing->id
+                            ];
+                            continue;
+                        }
+
+                        // Resolve local IDs to server primary keys
+                        $rawCustomerId = (int) ($tx['customer_id'] ?? 0);
+                        $serverCustomerId = $rawCustomerId > 0 ? (Customer::where('account_id', $accountId)->where('local_id', $rawCustomerId)->value('id') ?? $rawCustomerId) : 0;
+
+                        $rawSupplierId = (int) ($tx['supplier_id'] ?? 0);
+                        $serverSupplierId = $rawSupplierId > 0 ? (Supplier::where('account_id', $accountId)->where('local_id', $rawSupplierId)->value('id') ?? $rawSupplierId) : 0;
+
+                        $rawBatchId = (int) ($tx['wallet_batch_id'] ?? 0);
+                        $serverBatchId = $rawBatchId > 0 ? (WalletBatch::where('account_id', $accountId)->where('local_id', $rawBatchId)->value('id') ?? $rawBatchId) : 0;
+
+                        $isDeleted = !empty($tx['deleted_at']) || !empty($tx['is_deleted']);
+                        $deletedAtValue = $isDeleted ? ($parseDeletedAt($tx['deleted_at'] ?? null) ?? now()) : null;
+
+                        $record = Transaction::withTrashed()->updateOrCreate(
+                            ['account_id' => $accountId, 'local_id' => (int) $tx['local_id']],
+                            [
+                                'type'                  => substr((string) ($tx['type'] ?? 'Pending'), 0, 20),
+                                'amount'                => (float) ($tx['amount'] ?? 0),
+                                'customer_id'           => $serverCustomerId,
+                                'supplier_id'           => $serverSupplierId,
+                                'amount_sar'            => (float) ($tx['amount_sar'] ?? $tx['amount'] ?? 0),
+                                'customer_rate'         => (float) ($tx['customer_rate'] ?? 0),
+                                'supplier_rate'         => (float) ($tx['supplier_rate'] ?? 0),
+                                'amount_bdt'            => (float) ($tx['amount_bdt'] ?? 0),
+                                'receiver_name'         => substr((string) ($tx['receiver_name'] ?? ''), 0, 255),
+                                'receiver_phone'        => substr((string) ($tx['receiver_phone'] ?? ''), 0, 50),
+                                'receiver_account_type' => substr((string) ($tx['receiver_account_type'] ?? ''), 0, 50),
+                                'receiver_account_no'   => substr((string) ($tx['receiver_account_no'] ?? ''), 0, 100),
+                                'wallet_batch_id'       => $serverBatchId,
+                                'notes'                 => $tx['notes'] ?? null,
+                                'hash'                  => $tx['hash'] ?? null,
+                                'timestamp'             => (int) ($tx['timestamp'] ?? time()),
+                            ]
+                        );
+
+                        if ($isDeleted) {
+                            $record->deleted_at = $deletedAtValue;
+                            $record->save();
+                        } else {
+                            if ($record->trashed()) {
+                                $record->restore();
+                            }
+                            $record->deleted_at = null;
+                            $record->save();
+                        }
+
+                        $accepted['transactions'][] = [
+                            'local_id'  => (int) $tx['local_id'],
+                            'server_id' => $record->id
+                        ];
+                    }
+                }
+
+                // Step 7: Expenses & Incomes Sync (Independent Root)
                 if (isset($data['expenses_incomes']) && is_array($data['expenses_incomes'])) {
                     foreach ($data['expenses_incomes'] as $e) {
-                        if (empty($e['local_id'])) continue;
+                        if (empty($e['local_id'])) {
+                            $rejected[] = [
+                                'entity' => 'expenses_incomes',
+                                'local_id' => 0,
+                                'reason' => 'Missing local_id'
+                            ];
+                            continue;
+                        }
 
                         $existing = ExpenseIncome::withTrashed()
                             ->where('account_id', $accountId)
                             ->where('local_id', (int) $e['local_id'])
                             ->first();
 
-                        if ($existing && isset($e['timestamp']) && $existing->timestamp > (int) $e['timestamp']) {
+                        if ($existing && isset($e['timestamp']) && (int)$existing->timestamp > (int)$e['timestamp']) {
+                            $accepted['expenses_incomes'][] = [
+                                'local_id'  => (int) $e['local_id'],
+                                'server_id' => $existing->id
+                            ];
                             continue;
                         }
 
@@ -371,6 +518,11 @@ class SyncController extends Controller
                             $record->deleted_at = null;
                             $record->save();
                         }
+
+                        $accepted['expenses_incomes'][] = [
+                            'local_id'  => (int) $e['local_id'],
+                            'server_id' => $record->id
+                        ];
                     }
                 }
             });
@@ -389,6 +541,9 @@ class SyncController extends Controller
 
             return response()->json([
                 'status'      => 'success',
+                'server_time' => time(),
+                'accepted'    => $accepted,
+                'rejected'    => $rejected,
                 'permissions' => $permissions,
             ]);
         } catch (\Throwable $e) {

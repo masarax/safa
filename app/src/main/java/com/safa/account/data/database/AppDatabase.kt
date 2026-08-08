@@ -10,6 +10,41 @@ import kotlinx.coroutines.CoroutineScope
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
 
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE customers ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE customers ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE customers ADD COLUMN syncError TEXT DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE suppliers ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE suppliers ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE suppliers ADD COLUMN syncError TEXT DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE transactions ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE transactions ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE transactions ADD COLUMN syncError TEXT DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN syncError TEXT DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN syncError TEXT DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN syncError TEXT DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE wallet_batches ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE wallet_batches ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE wallet_batches ADD COLUMN syncError TEXT DEFAULT NULL")
+    }
+}
+
 @Database(
     entities = [
         OperatorAccount::class,
@@ -22,7 +57,7 @@ import net.sqlcipher.database.SupportFactory
         WalletLedger::class,
         WalletBatch::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -50,7 +85,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "safa_encrypted_db"
                 )
                     .openHelperFactory(factory)
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_3_4)
                     .build()
                     .also { INSTANCE = it }
             }

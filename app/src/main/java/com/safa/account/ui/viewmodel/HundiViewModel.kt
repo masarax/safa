@@ -394,7 +394,8 @@ class HundiViewModel(
 
     fun updateCustomer(customer: Customer, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            repository.updateCustomer(customer)
+            val updatedStatus = if (customer.syncStatus == SyncStatus.SYNCED) SyncStatus.PENDING_UPDATE else customer.syncStatus
+            repository.updateCustomer(customer.copy(syncStatus = updatedStatus))
             syncManager?.syncAll()
             onComplete()
         }
@@ -402,7 +403,8 @@ class HundiViewModel(
 
     fun updateSupplier(supplier: Supplier, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            repository.updateSupplier(supplier)
+            val updatedStatus = if (supplier.syncStatus == SyncStatus.SYNCED) SyncStatus.PENDING_UPDATE else supplier.syncStatus
+            repository.updateSupplier(supplier.copy(syncStatus = updatedStatus))
             syncManager?.syncAll()
             onComplete()
         }

@@ -34,9 +34,18 @@ data class OperatorAccount(
     val canViewReports: Boolean = true
 )
 
+object SyncStatus {
+    const val PENDING_CREATE = 0
+    const val SYNCED = 1
+    const val PENDING_UPDATE = 2
+    const val PENDING_DELETE = 3
+    const val SYNC_FAILED = 4
+}
+
 @Entity(tableName = "customers")
 data class Customer(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val serverId: Int = 0,
     val name: String,
     val phone: String,
     val address: String = "",
@@ -44,12 +53,15 @@ data class Customer(
     val avatarColor: String = "4280391411",
     val avatarEmoji: String = "👤",
     val timestamp: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val syncStatus: Int = SyncStatus.PENDING_CREATE,
+    val syncError: String? = null
 )
 
 @Entity(tableName = "suppliers")
 data class Supplier(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val serverId: Int = 0,
     val name: String,
     val phone: String = "",
     val address: String = "",
@@ -58,7 +70,9 @@ data class Supplier(
     val avatarColor: String = "4280391411",
     val avatarEmoji: String = "🏢",
     val timestamp: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val syncStatus: Int = SyncStatus.PENDING_CREATE,
+    val syncError: String? = null
 )
 
 @Entity(
@@ -72,6 +86,7 @@ data class Supplier(
 )
 data class RemittanceTransaction(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val serverId: Int = 0,
     val customerId: Int,
     val supplierId: Int = 0,
     val amountSar: Double,
@@ -89,7 +104,9 @@ data class RemittanceTransaction(
     val walletBatchId: Int = 0,
     val notes: String = "",
     val timestamp: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val syncStatus: Int = SyncStatus.PENDING_CREATE,
+    val syncError: String? = null
 ) {
     fun getProfitBdt(): Double {
         val cr = java.math.BigDecimal(customerRate.toString())
@@ -113,6 +130,7 @@ data class RemittanceTransaction(
 )
 data class SupplierDeposit(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val serverId: Int = 0,
     val supplierId: Int,
     val amountSar: Double,
     val rate: Double,
@@ -122,19 +140,24 @@ data class SupplierDeposit(
     // "SAR_GIVEN" | "SAR_DEPOSIT" | "SAR_RECEIVED" | "SAR_SETTLEMENT" | "BDT_WITHDRAW"
     val notes: String = "",
     val timestamp: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val syncStatus: Int = SyncStatus.PENDING_CREATE,
+    val syncError: String? = null
 )
 
 @Entity(tableName = "expenses_incomes")
 data class ExpenseIncome(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val serverId: Int = 0,
     val title: String,
     val amount: Double,
     val currency: String = "BDT",
     val isExpense: Boolean = true,
     val category: String = "General",
     val timestamp: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val syncStatus: Int = SyncStatus.PENDING_CREATE,
+    val syncError: String? = null
 )
 
 @Entity(tableName = "daily_rates")
@@ -147,9 +170,12 @@ data class DailyRate(
 @Entity(tableName = "wallet_ledgers")
 data class WalletLedger(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val serverId: Int = 0,
     val name: String,
     val timestamp: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val syncStatus: Int = SyncStatus.PENDING_CREATE,
+    val syncError: String? = null
 )
 
 @Entity(
@@ -162,6 +188,7 @@ data class WalletLedger(
 )
 data class WalletBatch(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val serverId: Int = 0,
     val ledgerId: Int,
     val rate: Double,
     val initialBdt: Double,
@@ -170,6 +197,8 @@ data class WalletBatch(
     val supplierDepositId: Int = 0,
     val notes: String = "",
     val timestamp: Long = System.currentTimeMillis(),
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val syncStatus: Int = SyncStatus.PENDING_CREATE,
+    val syncError: String? = null
 )
 

@@ -94,19 +94,20 @@ class SyncManager(
         return@withContext try {
             val api = getApiService()
 
-            // 1. Collect all local Room data (including soft-deleted records)
-            val localTxns = repository.allTransactionsRaw.firstOrNull() ?: emptyList()
-            val localCustomers = repository.allCustomersRaw.firstOrNull() ?: emptyList()
-            val localSuppliers = repository.allSuppliersRaw.firstOrNull() ?: emptyList()
-            val localSupplierDeposits = repository.allSupplierDepositsRaw.firstOrNull() ?: emptyList()
-            val localExpensesIncomes = repository.allExpensesIncomesRaw.firstOrNull() ?: emptyList()
-            val localWalletBatches = repository.allWalletBatchesRaw.firstOrNull() ?: emptyList()
-            val localWalletLedgers = repository.allWalletLedgersRaw.firstOrNull() ?: emptyList()
+            // 1. Collect pending local Room data (where syncStatus != SYNCED)
+            val pendingTxns = repository.getPendingTransactions()
+            val pendingCustomers = repository.getPendingCustomers()
+            val pendingSuppliers = repository.getPendingSuppliers()
+            val pendingSupplierDeposits = repository.getPendingSupplierDeposits()
+            val pendingExpensesIncomes = repository.getPendingExpensesIncomes()
+            val pendingWalletBatches = repository.getPendingWalletBatches()
+            val pendingWalletLedgers = repository.getPendingWalletLedgers()
 
             // 2. Format SyncUp payload for Laravel backend
-            val txMaps = localTxns.map { tx ->
+            val txMaps = pendingTxns.map { tx ->
                 mapOf<String, Any?>(
                     "local_id" to tx.id,
+                    "server_id" to tx.serverId,
                     "type" to tx.status,
                     "amount" to tx.amountSar,
                     "customer_id" to tx.customerId,
@@ -125,27 +126,30 @@ class SyncManager(
                     "deleted_at" to tx.deletedAt
                 )
             }
-            val custMaps = localCustomers.map { c ->
+            val custMaps = pendingCustomers.map { c ->
                 mapOf<String, Any?>(
                     "local_id" to c.id,
+                    "server_id" to c.serverId,
                     "name" to c.name,
                     "phone" to c.phone,
                     "timestamp" to c.timestamp,
                     "deleted_at" to c.deletedAt
                 )
             }
-            val suppMaps = localSuppliers.map { s ->
+            val suppMaps = pendingSuppliers.map { s ->
                 mapOf<String, Any?>(
                     "local_id" to s.id,
+                    "server_id" to s.serverId,
                     "name" to s.name,
                     "phone" to s.phone,
                     "timestamp" to s.timestamp,
                     "deleted_at" to s.deletedAt
                 )
             }
-            val sdMaps = localSupplierDeposits.map { sd ->
+            val sdMaps = pendingSupplierDeposits.map { sd ->
                 mapOf<String, Any?>(
                     "local_id" to sd.id,
+                    "server_id" to sd.serverId,
                     "supplier_id" to sd.supplierId,
                     "amount_sar" to sd.amountSar,
                     "rate" to sd.rate,
@@ -157,9 +161,10 @@ class SyncManager(
                     "deleted_at" to sd.deletedAt
                 )
             }
-            val eiMaps = localExpensesIncomes.map { ei ->
+            val eiMaps = pendingExpensesIncomes.map { ei ->
                 mapOf<String, Any?>(
                     "local_id" to ei.id,
+                    "server_id" to ei.serverId,
                     "title" to ei.title,
                     "amount" to ei.amount,
                     "currency" to ei.currency,
@@ -169,9 +174,10 @@ class SyncManager(
                     "deleted_at" to ei.deletedAt
                 )
             }
-            val wbMaps = localWalletBatches.map { wb ->
+            val wbMaps = pendingWalletBatches.map { wb ->
                 mapOf<String, Any?>(
                     "local_id" to wb.id,
+                    "server_id" to wb.serverId,
                     "ledger_id" to wb.ledgerId,
                     "rate" to wb.rate,
                     "initial_bdt" to wb.initialBdt,
@@ -183,9 +189,10 @@ class SyncManager(
                     "deleted_at" to wb.deletedAt
                 )
             }
-            val wlMaps = localWalletLedgers.map { wl ->
+            val wlMaps = pendingWalletLedgers.map { wl ->
                 mapOf<String, Any?>(
                     "local_id" to wl.id,
+                    "server_id" to wl.serverId,
                     "name" to wl.name,
                     "timestamp" to wl.timestamp,
                     "deleted_at" to wl.deletedAt
@@ -210,28 +217,113 @@ class SyncManager(
                 return@withContext Result.failure(Exception(err))
             }
 
+            val upBody = upRes.body()
+            if (upBody != null) {
+                @Suppress("UNCHECKED_CAST")
+                val acceptedMap = upBody["accepted"] as? Map<String, List<Map<String, Any>>>
+                if (acceptedMap != null) {
+                    acceptedMap["customers"]?.forEach { item ->
+                        val localId = (item["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (item["server_id"] as? Number)?.toInt() ?: 0
+                        if (localId > 0 && serverId > 0) {
+                            repository.markCustomerSynced(localId, serverId)
+                        }
+                    }
+                    acceptedMap["suppliers"]?.forEach { item ->
+                        val localId = (item["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (item["server_id"] as? Number)?.toInt() ?: 0
+                        if (localId > 0 && serverId > 0) {
+                            repository.markSupplierSynced(localId, serverId)
+                        }
+                    }
+                    acceptedMap["transactions"]?.forEach { item ->
+                        val localId = (item["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (item["server_id"] as? Number)?.toInt() ?: 0
+                        if (localId > 0 && serverId > 0) {
+                            repository.markTransactionSynced(localId, serverId)
+                        }
+                    }
+                    acceptedMap["supplier_deposits"]?.forEach { item ->
+                        val localId = (item["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (item["server_id"] as? Number)?.toInt() ?: 0
+                        if (localId > 0 && serverId > 0) {
+                            repository.markSupplierDepositSynced(localId, serverId)
+                        }
+                    }
+                    acceptedMap["expenses_incomes"]?.forEach { item ->
+                        val localId = (item["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (item["server_id"] as? Number)?.toInt() ?: 0
+                        if (localId > 0 && serverId > 0) {
+                            repository.markExpenseIncomeSynced(localId, serverId)
+                        }
+                    }
+                    acceptedMap["wallet_ledgers"]?.forEach { item ->
+                        val localId = (item["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (item["server_id"] as? Number)?.toInt() ?: 0
+                        if (localId > 0 && serverId > 0) {
+                            repository.markWalletLedgerSynced(localId, serverId)
+                        }
+                    }
+                    acceptedMap["wallet_batches"]?.forEach { item ->
+                        val localId = (item["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (item["server_id"] as? Number)?.toInt() ?: 0
+                        if (localId > 0 && serverId > 0) {
+                            repository.markWalletBatchSynced(localId, serverId)
+                        }
+                    }
+                }
+
+                @Suppress("UNCHECKED_CAST")
+                val rejectedList = upBody["rejected"] as? List<Map<String, Any>>
+                rejectedList?.forEach { item ->
+                    val entity = item["entity"]?.toString() ?: ""
+                    val localId = (item["local_id"] as? Number)?.toInt() ?: 0
+                    val reason = item["reason"]?.toString() ?: "Sync rejected by server"
+                    if (localId > 0) {
+                        when (entity) {
+                            "customers" -> repository.markCustomerFailed(localId, reason)
+                            "suppliers" -> repository.markSupplierFailed(localId, reason)
+                            "transactions" -> repository.markTransactionFailed(localId, reason)
+                            "supplier_deposits" -> repository.markSupplierDepositFailed(localId, reason)
+                            "expenses_incomes" -> repository.markExpenseIncomeFailed(localId, reason)
+                            "wallet_ledgers" -> repository.markWalletLedgerFailed(localId, reason)
+                            "wallet_batches" -> repository.markWalletBatchFailed(localId, reason)
+                        }
+                    }
+                }
+            }
+
             // 4. Perform SyncDown GET
+            val localTxns = repository.allTransactionsRaw.firstOrNull() ?: emptyList()
+            val localCustomers = repository.allCustomersRaw.firstOrNull() ?: emptyList()
+            val localSuppliers = repository.allSuppliersRaw.firstOrNull() ?: emptyList()
+            val localSupplierDeposits = repository.allSupplierDepositsRaw.firstOrNull() ?: emptyList()
+            val localExpensesIncomes = repository.allExpensesIncomesRaw.firstOrNull() ?: emptyList()
+            val localWalletBatches = repository.allWalletBatchesRaw.firstOrNull() ?: emptyList()
+            val localWalletLedgers = repository.allWalletLedgersRaw.firstOrNull() ?: emptyList()
+
             val downRes = api.syncDown()
             if (downRes.isSuccessful) {
                 val body = downRes.body()
                 if (body != null) {
                     // --- 4.1 Sync Down Customers ---
                     body.customers.forEach { map ->
-                        val localId = (map["local_id"] as? Number)?.toInt() ?: (map["id"] as? Number)?.toInt() ?: 0
+                        val localId = (map["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (map["id"] as? Number)?.toInt() ?: 0
                         val name = map["name"]?.toString() ?: ""
                         val phone = map["phone"]?.toString() ?: ""
                         val ts = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                         val delAt = parseDeletedAt(map["deleted_at"])
 
-                        if (localId > 0 && name.isNotBlank()) {
-                            val localMatch = localCustomers.find { it.id == localId }
+                        if (name.isNotBlank()) {
+                            val localMatch = localCustomers.find { (localId > 0 && it.id == localId) || (serverId > 0 && it.serverId == serverId) }
                             if (localMatch == null) {
                                 repository.insertCustomer(
-                                    Customer(id = localId, name = name, phone = phone, timestamp = ts, deletedAt = delAt)
+                                    Customer(id = localId, serverId = serverId, name = name, phone = phone, timestamp = ts, deletedAt = delAt, syncStatus = com.safa.account.data.model.SyncStatus.SYNCED)
                                 )
-                            } else if (ts >= localMatch.timestamp) {
+                            } else if (localMatch.syncStatus == com.safa.account.data.model.SyncStatus.SYNCED && ts >= localMatch.timestamp) {
                                 repository.updateCustomer(
-                                    localMatch.copy(name = name, phone = phone, timestamp = ts, deletedAt = delAt)
+                                    localMatch.copy(serverId = if (serverId > 0) serverId else localMatch.serverId, name = name, phone = phone, timestamp = ts, deletedAt = delAt, syncStatus = com.safa.account.data.model.SyncStatus.SYNCED)
                                 )
                             }
                         }
@@ -239,21 +331,22 @@ class SyncManager(
 
                     // --- 4.2 Sync Down Suppliers ---
                     body.suppliers.forEach { map ->
-                        val localId = (map["local_id"] as? Number)?.toInt() ?: (map["id"] as? Number)?.toInt() ?: 0
+                        val localId = (map["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (map["id"] as? Number)?.toInt() ?: 0
                         val name = map["name"]?.toString() ?: ""
                         val phone = map["phone"]?.toString() ?: ""
                         val ts = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                         val delAt = parseDeletedAt(map["deleted_at"])
 
-                        if (localId > 0 && name.isNotBlank()) {
-                            val localMatch = localSuppliers.find { it.id == localId }
+                        if (name.isNotBlank()) {
+                            val localMatch = localSuppliers.find { (localId > 0 && it.id == localId) || (serverId > 0 && it.serverId == serverId) }
                             if (localMatch == null) {
                                 repository.insertSupplier(
-                                    Supplier(id = localId, name = name, phone = phone, timestamp = ts, deletedAt = delAt)
+                                    Supplier(id = localId, serverId = serverId, name = name, phone = phone, timestamp = ts, deletedAt = delAt, syncStatus = com.safa.account.data.model.SyncStatus.SYNCED)
                                 )
-                            } else if (ts >= localMatch.timestamp) {
+                            } else if (localMatch.syncStatus == com.safa.account.data.model.SyncStatus.SYNCED && ts >= localMatch.timestamp) {
                                 repository.updateSupplier(
-                                    localMatch.copy(name = name, phone = phone, timestamp = ts, deletedAt = delAt)
+                                    localMatch.copy(serverId = if (serverId > 0) serverId else localMatch.serverId, name = name, phone = phone, timestamp = ts, deletedAt = delAt, syncStatus = com.safa.account.data.model.SyncStatus.SYNCED)
                                 )
                             }
                         }
@@ -261,7 +354,8 @@ class SyncManager(
 
                     // --- 4.3 Sync Down Remittance Transactions ---
                     body.transactions.forEach { map ->
-                        val localId = (map["local_id"] as? Number)?.toInt() ?: (map["id"] as? Number)?.toInt() ?: 0
+                        val localId = (map["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (map["id"] as? Number)?.toInt() ?: 0
                         val customerId = (map["customer_id"] as? Number)?.toInt() ?: 0
                         val supplierId = (map["supplier_id"] as? Number)?.toInt() ?: 0
                         val amountSar = (map["amount_sar"] as? Number)?.toDouble() ?: (map["amount"] as? Number)?.toDouble() ?: 0.0
@@ -278,56 +372,59 @@ class SyncManager(
                         val ts = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                         val delAt = parseDeletedAt(map["deleted_at"])
 
-                        if (localId > 0) {
-                            val localMatch = localTxns.find { it.id == localId }
-                            if (localMatch == null) {
-                                repository.insertTransaction(
-                                    RemittanceTransaction(
-                                        id = localId,
-                                        customerId = customerId,
-                                        supplierId = supplierId,
-                                        amountSar = amountSar,
-                                        customerRate = customerRate,
-                                        supplierRate = supplierRate,
-                                        amountBdt = amountBdt,
-                                        receiverName = receiverName,
-                                        receiverPhone = receiverPhone,
-                                        receiverAccountType = receiverAccountType,
-                                        receiverAccountNo = receiverAccountNo,
-                                        status = status,
-                                        walletBatchId = walletBatchId,
-                                        notes = notes,
-                                        timestamp = ts,
-                                        deletedAt = delAt
-                                    )
+                        val localMatch = localTxns.find { (localId > 0 && it.id == localId) || (serverId > 0 && it.serverId == serverId) }
+                        if (localMatch == null) {
+                            repository.insertTransaction(
+                                RemittanceTransaction(
+                                    id = localId,
+                                    serverId = serverId,
+                                    customerId = customerId,
+                                    supplierId = supplierId,
+                                    amountSar = amountSar,
+                                    customerRate = customerRate,
+                                    supplierRate = supplierRate,
+                                    amountBdt = amountBdt,
+                                    receiverName = receiverName,
+                                    receiverPhone = receiverPhone,
+                                    receiverAccountType = receiverAccountType,
+                                    receiverAccountNo = receiverAccountNo,
+                                    status = status,
+                                    walletBatchId = walletBatchId,
+                                    notes = notes,
+                                    timestamp = ts,
+                                    deletedAt = delAt,
+                                    syncStatus = com.safa.account.data.model.SyncStatus.SYNCED
                                 )
-                            } else if (ts >= localMatch.timestamp) {
-                                repository.updateTransaction(
-                                    localMatch.copy(
-                                        customerId = customerId,
-                                        supplierId = supplierId,
-                                        amountSar = amountSar,
-                                        customerRate = customerRate,
-                                        supplierRate = supplierRate,
-                                        amountBdt = amountBdt,
-                                        receiverName = receiverName,
-                                        receiverPhone = receiverPhone,
-                                        receiverAccountType = receiverAccountType,
-                                        receiverAccountNo = receiverAccountNo,
-                                        status = status,
-                                        walletBatchId = walletBatchId,
-                                        notes = notes,
-                                        timestamp = ts,
-                                        deletedAt = delAt
-                                    )
+                            )
+                        } else if (localMatch.syncStatus == com.safa.account.data.model.SyncStatus.SYNCED && ts >= localMatch.timestamp) {
+                            repository.updateTransaction(
+                                localMatch.copy(
+                                    serverId = if (serverId > 0) serverId else localMatch.serverId,
+                                    customerId = customerId,
+                                    supplierId = supplierId,
+                                    amountSar = amountSar,
+                                    customerRate = customerRate,
+                                    supplierRate = supplierRate,
+                                    amountBdt = amountBdt,
+                                    receiverName = receiverName,
+                                    receiverPhone = receiverPhone,
+                                    receiverAccountType = receiverAccountType,
+                                    receiverAccountNo = receiverAccountNo,
+                                    status = status,
+                                    walletBatchId = walletBatchId,
+                                    notes = notes,
+                                    timestamp = ts,
+                                    deletedAt = delAt,
+                                    syncStatus = com.safa.account.data.model.SyncStatus.SYNCED
                                 )
-                            }
+                            )
                         }
                     }
 
                     // --- 4.4 Sync Down Supplier Deposits ---
                     body.supplierDeposits.forEach { map ->
-                        val localId = (map["local_id"] as? Number)?.toInt() ?: (map["id"] as? Number)?.toInt() ?: 0
+                        val localId = (map["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (map["id"] as? Number)?.toInt() ?: 0
                         val supplierId = (map["supplier_id"] as? Number)?.toInt() ?: 0
                         val amountSar = (map["amount_sar"] as? Number)?.toDouble() ?: 0.0
                         val rate = (map["rate"] as? Number)?.toDouble() ?: 0.0
@@ -338,44 +435,47 @@ class SyncManager(
                         val ts = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                         val delAt = parseDeletedAt(map["deleted_at"])
 
-                        if (localId > 0) {
-                            val localMatch = localSupplierDeposits.find { it.id == localId }
-                            if (localMatch == null) {
-                                repository.insertSupplierDeposit(
-                                    SupplierDeposit(
-                                        id = localId,
-                                        supplierId = supplierId,
-                                        amountSar = amountSar,
-                                        rate = rate,
-                                        amountBdt = amountBdt,
-                                        paidBdt = paidBdt,
-                                        transactionType = transactionType,
-                                        notes = notes,
-                                        timestamp = ts,
-                                        deletedAt = delAt
-                                    )
+                        val localMatch = localSupplierDeposits.find { (localId > 0 && it.id == localId) || (serverId > 0 && it.serverId == serverId) }
+                        if (localMatch == null) {
+                            repository.insertSupplierDeposit(
+                                SupplierDeposit(
+                                    id = localId,
+                                    serverId = serverId,
+                                    supplierId = supplierId,
+                                    amountSar = amountSar,
+                                    rate = rate,
+                                    amountBdt = amountBdt,
+                                    paidBdt = paidBdt,
+                                    transactionType = transactionType,
+                                    notes = notes,
+                                    timestamp = ts,
+                                    deletedAt = delAt,
+                                    syncStatus = com.safa.account.data.model.SyncStatus.SYNCED
                                 )
-                            } else if (ts >= localMatch.timestamp) {
-                                repository.updateSupplierDeposit(
-                                    localMatch.copy(
-                                        supplierId = supplierId,
-                                        amountSar = amountSar,
-                                        rate = rate,
-                                        amountBdt = amountBdt,
-                                        paidBdt = paidBdt,
-                                        transactionType = transactionType,
-                                        notes = notes,
-                                        timestamp = ts,
-                                        deletedAt = delAt
-                                    )
+                            )
+                        } else if (localMatch.syncStatus == com.safa.account.data.model.SyncStatus.SYNCED && ts >= localMatch.timestamp) {
+                            repository.updateSupplierDeposit(
+                                localMatch.copy(
+                                    serverId = if (serverId > 0) serverId else localMatch.serverId,
+                                    supplierId = supplierId,
+                                    amountSar = amountSar,
+                                    rate = rate,
+                                    amountBdt = amountBdt,
+                                    paidBdt = paidBdt,
+                                    transactionType = transactionType,
+                                    notes = notes,
+                                    timestamp = ts,
+                                    deletedAt = delAt,
+                                    syncStatus = com.safa.account.data.model.SyncStatus.SYNCED
                                 )
-                            }
+                            )
                         }
                     }
 
                     // --- 4.5 Sync Down Expense Incomes ---
                     body.expensesIncomes.forEach { map ->
-                        val localId = (map["local_id"] as? Number)?.toInt() ?: (map["id"] as? Number)?.toInt() ?: 0
+                        val localId = (map["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (map["id"] as? Number)?.toInt() ?: 0
                         val title = map["title"]?.toString() ?: ""
                         val amount = (map["amount"] as? Number)?.toDouble() ?: 0.0
                         val currency = map["currency"]?.toString() ?: "BDT"
@@ -385,31 +485,35 @@ class SyncManager(
                         val ts = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                         val delAt = parseDeletedAt(map["deleted_at"])
 
-                        if (localId > 0 && title.isNotBlank()) {
-                            val localMatch = localExpensesIncomes.find { it.id == localId }
+                        if (title.isNotBlank()) {
+                            val localMatch = localExpensesIncomes.find { (localId > 0 && it.id == localId) || (serverId > 0 && it.serverId == serverId) }
                             if (localMatch == null) {
                                 repository.insertExpenseIncome(
                                     ExpenseIncome(
                                         id = localId,
+                                        serverId = serverId,
                                         title = title,
                                         amount = amount,
                                         currency = currency,
                                         isExpense = isExpense,
                                         category = category,
                                         timestamp = ts,
-                                        deletedAt = delAt
+                                        deletedAt = delAt,
+                                        syncStatus = com.safa.account.data.model.SyncStatus.SYNCED
                                     )
                                 )
-                            } else if (ts >= localMatch.timestamp) {
-                                repository.insertExpenseIncome(
+                            } else if (localMatch.syncStatus == com.safa.account.data.model.SyncStatus.SYNCED && ts >= localMatch.timestamp) {
+                                repository.updateExpenseIncome(
                                     localMatch.copy(
+                                        serverId = if (serverId > 0) serverId else localMatch.serverId,
                                         title = title,
                                         amount = amount,
                                         currency = currency,
                                         isExpense = isExpense,
                                         category = category,
                                         timestamp = ts,
-                                        deletedAt = delAt
+                                        deletedAt = delAt,
+                                        syncStatus = com.safa.account.data.model.SyncStatus.SYNCED
                                     )
                                 )
                             }
@@ -418,20 +522,21 @@ class SyncManager(
 
                     // --- 4.6 Sync Down Wallet Ledgers ---
                     body.walletLedgers.forEach { map ->
-                        val localId = (map["local_id"] as? Number)?.toInt() ?: (map["id"] as? Number)?.toInt() ?: 0
+                        val localId = (map["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (map["id"] as? Number)?.toInt() ?: 0
                         val name = map["name"]?.toString() ?: ""
                         val ts = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                         val delAt = parseDeletedAt(map["deleted_at"])
 
-                        if (localId > 0 && name.isNotBlank()) {
-                            val localMatch = localWalletLedgers.find { it.id == localId }
+                        if (name.isNotBlank()) {
+                            val localMatch = localWalletLedgers.find { (localId > 0 && it.id == localId) || (serverId > 0 && it.serverId == serverId) }
                             if (localMatch == null) {
                                 repository.insertWalletLedger(
-                                    WalletLedger(id = localId, name = name, timestamp = ts, deletedAt = delAt)
+                                    WalletLedger(id = localId, serverId = serverId, name = name, timestamp = ts, deletedAt = delAt, syncStatus = com.safa.account.data.model.SyncStatus.SYNCED)
                                 )
-                            } else if (ts >= localMatch.timestamp) {
+                            } else if (localMatch.syncStatus == com.safa.account.data.model.SyncStatus.SYNCED && ts >= localMatch.timestamp) {
                                 repository.updateWalletLedger(
-                                    localMatch.copy(name = name, timestamp = ts, deletedAt = delAt)
+                                    localMatch.copy(serverId = if (serverId > 0) serverId else localMatch.serverId, name = name, timestamp = ts, deletedAt = delAt, syncStatus = com.safa.account.data.model.SyncStatus.SYNCED)
                                 )
                             }
                         }
@@ -439,7 +544,8 @@ class SyncManager(
 
                     // --- 4.7 Sync Down Wallet Batches ---
                     body.walletBatches.forEach { map ->
-                        val localId = (map["local_id"] as? Number)?.toInt() ?: (map["id"] as? Number)?.toInt() ?: 0
+                        val localId = (map["local_id"] as? Number)?.toInt() ?: 0
+                        val serverId = (map["id"] as? Number)?.toInt() ?: 0
                         val ledgerId = (map["ledger_id"] as? Number)?.toInt() ?: 0
                         val rate = (map["rate"] as? Number)?.toDouble() ?: 0.0
                         val initialBdt = (map["initial_bdt"] as? Number)?.toDouble() ?: 0.0
@@ -450,44 +556,46 @@ class SyncManager(
                         val ts = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
                         val delAt = parseDeletedAt(map["deleted_at"])
 
-                        if (localId > 0) {
-                            val localMatch = localWalletBatches.find { it.id == localId }
-                            if (localMatch == null) {
-                                repository.insertWalletBatch(
-                                    WalletBatch(
-                                        id = localId,
-                                        ledgerId = ledgerId,
-                                        rate = rate,
-                                        initialBdt = initialBdt,
-                                        remainingBdt = remainingBdt,
-                                        supplierId = supplierId,
-                                        supplierDepositId = supplierDepositId,
-                                        notes = notes,
-                                        timestamp = ts,
-                                        deletedAt = delAt
-                                    )
+                        val localMatch = localWalletBatches.find { (localId > 0 && it.id == localId) || (serverId > 0 && it.serverId == serverId) }
+                        if (localMatch == null) {
+                            repository.insertWalletBatch(
+                                WalletBatch(
+                                    id = localId,
+                                    serverId = serverId,
+                                    ledgerId = ledgerId,
+                                    rate = rate,
+                                    initialBdt = initialBdt,
+                                    remainingBdt = remainingBdt,
+                                    supplierId = supplierId,
+                                    supplierDepositId = supplierDepositId,
+                                    notes = notes,
+                                    timestamp = ts,
+                                    deletedAt = delAt,
+                                    syncStatus = com.safa.account.data.model.SyncStatus.SYNCED
                                 )
-                            } else if (ts >= localMatch.timestamp) {
-                                repository.updateWalletBatch(
-                                    localMatch.copy(
-                                        ledgerId = ledgerId,
-                                        rate = rate,
-                                        initialBdt = initialBdt,
-                                        remainingBdt = remainingBdt,
-                                        supplierId = supplierId,
-                                        supplierDepositId = supplierDepositId,
-                                        notes = notes,
-                                        timestamp = ts,
-                                        deletedAt = delAt
-                                    )
+                            )
+                        } else if (localMatch.syncStatus == com.safa.account.data.model.SyncStatus.SYNCED && ts >= localMatch.timestamp) {
+                            repository.updateWalletBatch(
+                                localMatch.copy(
+                                    serverId = if (serverId > 0) serverId else localMatch.serverId,
+                                    ledgerId = ledgerId,
+                                    rate = rate,
+                                    initialBdt = initialBdt,
+                                    remainingBdt = remainingBdt,
+                                    supplierId = supplierId,
+                                    supplierDepositId = supplierDepositId,
+                                    notes = notes,
+                                    timestamp = ts,
+                                    deletedAt = delAt,
+                                    syncStatus = com.safa.account.data.model.SyncStatus.SYNCED
                                 )
-                            }
+                            )
                         }
                     }
                 }
             }
 
-            val summary = "Successfully Synced! Pushed ${localTxns.size} Txns, ${localCustomers.size} Customers, ${localSuppliers.size} Suppliers."
+            val summary = "Successfully Synced! Pushed ${pendingTxns.size} Txns, ${pendingCustomers.size} Customers, ${pendingSuppliers.size} Suppliers."
             _syncState.value = SyncState.Success(summary)
             Result.success(summary)
         } catch (e: Exception) {
