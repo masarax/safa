@@ -128,8 +128,8 @@ class InstallerController extends Controller
         }
 
         // 3. Auto-generate API Security Credentials
-        $apiKey = env('SAFA_API_KEY') ?: Str::random(32);
-        $apiSecret = env('SAFA_API_SECRET') ?: Str::random(32);
+        $apiKey = (env('SAFA_API_KEY') && !str_contains(env('SAFA_API_KEY'), 'test')) ? env('SAFA_API_KEY') : ('safa_key_' . bin2hex(random_bytes(16)));
+        $apiSecret = (env('SAFA_API_SECRET') && !str_contains(env('SAFA_API_SECRET'), 'test')) ? env('SAFA_API_SECRET') : ('safa_sec_' . bin2hex(random_bytes(32)));
 
         // 4. Update or create .env file cleanly
         $envData = [

@@ -73,15 +73,17 @@ try {
     $envPath = __DIR__ . '/.env';
     if (!file_exists($envPath)) {
         $randomKey = 'base64:' . base64_encode(random_bytes(32));
+        $randomApiKey = 'safa_key_' . bin2hex(random_bytes(16));
+        $randomApiSecret = 'safa_sec_' . bin2hex(random_bytes(32));
         $initialEnv = <<<EOT
 APP_NAME=SAFA
 APP_ENV=production
 APP_KEY={$randomKey}
-APP_DEBUG=true
+APP_DEBUG=false
 APP_URL=https://safa.masarax.com
 
-SAFA_API_KEY=safa_test_api_key_2026
-SAFA_API_SECRET=safa_test_secret_32byteslong_2026
+SAFA_API_KEY={$randomApiKey}
+SAFA_API_SECRET={$randomApiSecret}
 
 LOG_CHANNEL=stack
 LOG_LEVEL=debug
