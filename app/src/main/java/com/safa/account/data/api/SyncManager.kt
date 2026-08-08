@@ -87,7 +87,7 @@ class SyncManager(
 
             // 2. Format SyncUp payload for Laravel backend
             val txMaps = localTxns.map { tx ->
-                mapOf(
+                mapOf<String, Any?>(
                     "local_id" to tx.id,
                     "type" to tx.status,
                     "amount" to tx.amountSar,
@@ -108,7 +108,7 @@ class SyncManager(
                 )
             }
             val custMaps = localCustomers.map { c ->
-                mapOf(
+                mapOf<String, Any?>(
                     "local_id" to c.id,
                     "name" to c.name,
                     "phone" to c.phone,
@@ -117,7 +117,7 @@ class SyncManager(
                 )
             }
             val suppMaps = localSuppliers.map { s ->
-                mapOf(
+                mapOf<String, Any?>(
                     "local_id" to s.id,
                     "name" to s.name,
                     "phone" to s.phone,
@@ -126,7 +126,7 @@ class SyncManager(
                 )
             }
             val sdMaps = localSupplierDeposits.map { sd ->
-                mapOf(
+                mapOf<String, Any?>(
                     "local_id" to sd.id,
                     "supplier_id" to sd.supplierId,
                     "amount_sar" to sd.amountSar,
@@ -140,7 +140,7 @@ class SyncManager(
                 )
             }
             val eiMaps = localExpensesIncomes.map { ei ->
-                mapOf(
+                mapOf<String, Any?>(
                     "local_id" to ei.id,
                     "title" to ei.title,
                     "amount" to ei.amount,
@@ -152,7 +152,7 @@ class SyncManager(
                 )
             }
             val wbMaps = localWalletBatches.map { wb ->
-                mapOf(
+                mapOf<String, Any?>(
                     "local_id" to wb.id,
                     "ledger_id" to wb.ledgerId,
                     "rate" to wb.rate,
@@ -166,7 +166,7 @@ class SyncManager(
                 )
             }
             val wlMaps = localWalletLedgers.map { wl ->
-                mapOf(
+                mapOf<String, Any?>(
                     "local_id" to wl.id,
                     "name" to wl.name,
                     "timestamp" to wl.timestamp,
