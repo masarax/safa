@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use App\Http\Controllers\InstallerController;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckInstalled
@@ -29,6 +30,14 @@ class CheckInstalled
 
             if (!$request->expectsJson() && !$request->is('install*')) {
                 return redirect('/install');
+            }
+        } else {
+            // When new database migrations exist, redirect web traffic from index / to /install/update screen
+            $pending = InstallerController::getPendingMigrations();
+            if (!empty($pending)) {
+                if (!$request->is('install/update*') && !$request->is('api/*') && !$request->expectsJson()) {
+                    return redirect('/install/update');
+                }
             }
         }
 
