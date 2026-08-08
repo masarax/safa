@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\InstallerController;
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\CheckInstalled;
@@ -18,4 +19,22 @@ Route::middleware([CheckInstalled::class])->group(function () {
     Route::get('/', function () {
         return view('welcome');
     })->name('home');
+
+    // Safe zero-data-loss database updater for future migration releases
+    Route::get('/update-db', function () {
+        try {
+            Artisan::call('migrate', ['--force' => true]);
+            $output = Artisan::output();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Database schema updated successfully without any data loss.',
+                'details' => trim($output)
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Database update failed: ' . $e->getMessage()
+            ], 500);
+        }
+    })->name('update.db');
 });

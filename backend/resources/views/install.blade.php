@@ -43,8 +43,7 @@
             width: 100%;
             max-width: 680px;
             background: var(--card-bg);
-            border-radius: 14px;
-            box-shadow: 0 4px 25px rgba(15, 23, 42, 0.06);
+            border-radius: 12px;
             border: 1px solid var(--border-color);
             overflow: hidden;
         }
@@ -209,7 +208,7 @@
             border: 1px solid var(--border-color);
             border-radius: 8px;
             background: var(--input-bg);
-            font-size: 16px; /* Prevents auto-zoom on mobile */
+            font-size: 16px;
             color: var(--text-dark);
             outline: none;
             transition: border-color 0.2s ease;
@@ -281,12 +280,6 @@
             background: #fee2e2;
             color: #991b1b;
             border: 1px solid #fca5a5;
-        }
-
-        .alert-info {
-            background: #eff6ff;
-            color: #1e40af;
-            border: 1px solid #bfdbfe;
         }
 
         .alert-success {
@@ -427,10 +420,6 @@
                         <input type="url" id="app_url" name="app_url" value="{{ old('app_url', $defaults['app_url']) }}" required placeholder="https://safa.masarax.com">
                     </div>
 
-                    <div class="alert alert-info" style="margin-top: 1rem;" id="txtApiNotice">
-                        🔐 <strong>API Security:</strong> Mobile app security keys (API Key & Secret) will be automatically generated securely behind the scenes during setup.
-                    </div>
-
                     <div class="btn-group">
                         <button type="button" class="btn btn-secondary" id="btnPrev2" onclick="goToStep(1)">← Previous</button>
                         <button type="button" class="btn btn-primary" id="btnNext2" onclick="goToStep(3)">Next: Database →</button>
@@ -498,7 +487,6 @@
                 step2Title: "Step 2: System & Domain Configuration",
                 lblAppName: "System Name (App Name)",
                 lblAppUrl: "System URL (App URL)",
-                apiNotice: "🔐 <strong>API Security:</strong> Mobile app security keys (API Key & Secret) will be automatically generated securely behind the scenes during setup.",
                 btnPrev2: "← Previous",
                 btnNext2: "Next: Database →",
                 step3Title: "Step 3: Database Connection Settings",
@@ -524,7 +512,6 @@
                 step2Title: "ধাপ ২: ওয়েবসাইটের নাম ও ইউআরএল",
                 lblAppName: "ওয়েবসাইটের নাম (System Name)",
                 lblAppUrl: "ওয়েবসাইট ইউআরএল (App URL)",
-                apiNotice: "🔐 <strong>API Security:</strong> মোবাইল অ্যাপ কানেকশনের জন্য নিরাপত্তা চাবি (API Key & Secret) ইনস্টলের সময় স্বয়ংক্রিয়ভাবে নিরাপদ প্রক্রিয়ায় তৈরি হবে।",
                 btnPrev2: "← আগের ধাপ",
                 btnNext2: "পরবর্তী ধাপ (ডাটাবেস সেটিংস) →",
                 step3Title: "ধাপ ৩: cPanel ডাটাবেস সংযোগ সেটিংস",
@@ -561,7 +548,6 @@
             document.getElementById('txtStep2Title').innerText = t.step2Title;
             document.getElementById('lblAppName').innerText = t.lblAppName;
             document.getElementById('lblAppUrl').innerText = t.lblAppUrl;
-            document.getElementById('txtApiNotice').innerHTML = t.apiNotice;
             document.getElementById('btnPrev2').innerText = t.btnPrev2;
             document.getElementById('btnNext2').innerText = t.btnNext2;
 

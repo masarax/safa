@@ -45,7 +45,6 @@
             border-radius: 14px;
             padding: 2.25rem 1.75rem;
             text-align: center;
-            box-shadow: 0 4px 25px rgba(15, 23, 42, 0.06);
             border: 1px solid var(--border-color);
             position: relative;
         }
@@ -306,8 +305,8 @@
                 valMig: "সম্পূর্ণ হয়েছে",
                 lblLock: "সিকিউরিটি লক ফাইল",
                 lblApiUrl: "API Base Endpoint:",
-                btnHome: "🏠 হোমপেজে যান",
-                btnStatus: "💚 সার্ভার স্ট্যাটাস চেক"
+                btnHome: "হোমপেজে যান",
+                btnStatus: "সার্ভার স্ট্যাটাস চেক"
             }
         };
 
