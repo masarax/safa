@@ -5,11 +5,15 @@
 
     RewriteEngine On
 
-    # Handle Authorization Header
+    # Prevent direct access to sensitive files
+    <FilesMatch "^\.env|^\.git|composer\.(json|lock)|package\.(json|lock)">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+
+    # Preserve Authorization and Custom SAFA Headers
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-
-    # Handle Custom SAFA Security Headers
     RewriteCond %{HTTP:X-SAFA-API-KEY} .
     RewriteRule .* - [E=HTTP_X_SAFA_API_KEY:%{HTTP:X-SAFA-API-KEY}]
     RewriteCond %{HTTP:X-SAFA-SIGNATURE} .
@@ -19,17 +23,7 @@
     RewriteCond %{HTTP:X-SAFA-NONCE} .
     RewriteRule .* - [E=HTTP_X_SAFA_NONCE:%{HTTP:X-SAFA-NONCE}]
 
-    # Handle X-XSRF-Token Header
-    RewriteCond %{HTTP:x-xsrf-token} .
-    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
-
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
-
-    # Send Requests To Front Controller...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+    # Redirect all requests to the public directory
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
