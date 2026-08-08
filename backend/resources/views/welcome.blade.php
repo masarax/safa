@@ -162,8 +162,9 @@
 </head>
 <body>
     <div class="container">
-            <div style="margin-bottom: 1rem;">
-                <img src="{{ asset('safa-logo.png') }}" alt="SAFA Logo" style="height: 64px; max-width: 100%; object-fit: contain;">
+        <div class="card">
+            <div style="margin-bottom: 1rem; text-align: center;">
+                <img src="{{ asset('safa-logo.png') }}" alt="SAFA Logo" style="height: 72px; max-width: 100%; object-fit: contain;">
             </div>
             <div class="brand-badge">SAFA</div>
             <h1>SAFA System Online</h1>
@@ -206,9 +207,15 @@
                     </form>
                 </div>
             @else
-                <div class="status-pill">
+                <div class="status-pill" style="margin-bottom: 1.25rem;">
                     <span class="status-dot"></span>
                     Operational
+                </div>
+
+                <div style="margin-top: 1rem;">
+                    <a href="{{ url('/update-db') }}" class="btn-update" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; text-decoration: none;">
+                        ⚡ Run Database Update / Migration (ডাটাবেস মাইগ্রেশন রান করুন)
+                    </a>
                 </div>
             @endif
         </div>

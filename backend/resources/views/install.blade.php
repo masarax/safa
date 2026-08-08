@@ -348,6 +348,9 @@
                 <button type="button" class="lang-btn active" id="langEN" onclick="setLanguage('en')">EN</button>
                 <button type="button" class="lang-btn" id="langBN" onclick="setLanguage('bn')">বাংলা</button>
             </div>
+            <div style="margin-bottom: 0.75rem;">
+                <img src="{{ asset('safa-logo.png') }}" alt="SAFA Logo" style="height: 60px; max-width: 100%; object-fit: contain;">
+            </div>
             <span class="brand-badge">SAFA</span>
             <h1 id="txtTitle">SAFA System Installation Wizard</h1>
             <p id="txtSubTitle">Configure your server and database settings in 3 easy steps</p>

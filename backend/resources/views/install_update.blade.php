@@ -211,6 +211,9 @@
                 <button type="button" class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
                 <button type="button" class="lang-btn" id="btn-bn" onclick="setLang('bn')">বাংলা</button>
             </div>
+            <div style="margin-bottom: 0.75rem;">
+                <img src="{{ asset('safa-logo.png') }}" alt="SAFA Logo" style="height: 60px; max-width: 100%; object-fit: contain;">
+            </div>
             <div class="brand-badge">SAFA</div>
             <h1 id="title-text">System Update & Database Migration</h1>
             <p id="subtitle-text">New schema updates detected. Click below to run database migrations.</p>

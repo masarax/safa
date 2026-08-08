@@ -243,6 +243,9 @@
                 <button type="button" class="lang-btn" id="langBN" onclick="setLanguage('bn')">বাংলা</button>
             </div>
 
+            <div style="margin-bottom: 0.75rem;">
+                <img src="{{ asset('safa-logo.png') }}" alt="SAFA Logo" style="height: 60px; max-width: 100%; object-fit: contain;">
+            </div>
             <div class="icon-badge">✓</div>
             <h1 id="txtTitle">Installation Completed!</h1>
             <p class="subtitle" id="txtSubTitle">SAFA backend system and database are ready for production</p>
