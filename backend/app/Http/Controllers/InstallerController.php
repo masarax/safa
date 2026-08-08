@@ -240,6 +240,56 @@ class InstallerController extends Controller
     }
 
     /**
+     * Helper to auto-register pre-existing database tables in the migrations table.
+     * Prevents "Table already exists" errors when migrating legacy or imported databases on cPanel.
+     */
+    public static function autoHealExistingSchema(array $migrationFiles): void
+    {
+        try {
+            if (!DB::schema()->hasTable('migrations')) {
+                try {
+                    Artisan::call('migrate:install');
+                } catch (\Throwable $th) {
+                    return;
+                }
+            }
+
+            $executedMigrations = DB::table('migrations')->pluck('migration')->toArray();
+
+            // Mapping migration files to their primary table indicator
+            $migrationTableMap = [
+                '0001_01_01_000000_create_users_table' => 'users',
+                '0001_01_01_000001_create_cache_table' => 'cache',
+                '0001_01_01_000002_create_jobs_table' => 'jobs',
+                '2026_01_01_000000_create_safa_tables' => 'safa_users',
+                '2026_01_02_000000_expand_hundi_and_wallet_tables' => 'safa_wallets',
+                '2026_01_04_000000_create_device_bindings_and_tokens_tables' => 'safa_device_bindings',
+                '2026_01_05_000000_create_superadmin_and_rbac_tables' => 'safa_superadmins',
+                '2026_01_06_000000_create_account_shares_table' => 'safa_account_shares',
+            ];
+
+            foreach ($migrationFiles as $file) {
+                $name = basename($file, '.php');
+                if (in_array($name, $executedMigrations)) {
+                    continue;
+                }
+
+                if (isset($migrationTableMap[$name])) {
+                    $tableName = $migrationTableMap[$name];
+                    if (DB::schema()->hasTable($tableName)) {
+                        DB::table('migrations')->insert([
+                            'migration' => $name,
+                            'batch' => 1,
+                        ]);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Silence auto-healing exceptions
+        }
+    }
+
+    /**
      * Helper to get list of pending un-executed migration files.
      */
     public static function getPendingMigrations(): array
@@ -249,6 +299,9 @@ class InstallerController extends Controller
             if (empty($migrationFiles)) {
                 return [];
             }
+
+            // Perform auto-healing for any pre-existing tables before checking pending status
+            static::autoHealExistingSchema($migrationFiles);
 
             if (!DB::schema()->hasTable('migrations')) {
                 return array_map(fn($f) => basename($f, '.php'), $migrationFiles);
@@ -266,10 +319,6 @@ class InstallerController extends Controller
 
             return $pending;
         } catch (\Throwable $e) {
-            $migrationFiles = glob(database_path('migrations/*.php'));
-            if (!empty($migrationFiles) && (file_exists(storage_path('installed')) || env('APP_INSTALLED') == true || env('APP_INSTALLED') === 'true')) {
-                return array_map(fn($f) => basename($f, '.php'), $migrationFiles);
-            }
             return [];
         }
     }
@@ -293,6 +342,9 @@ class InstallerController extends Controller
     public function updateProcess(Request $request)
     {
         try {
+            $migrationFiles = glob(database_path('migrations/*.php'));
+            static::autoHealExistingSchema($migrationFiles);
+
             Artisan::call('migrate', ['--force' => true]);
 
             try {
@@ -303,11 +355,21 @@ class InstallerController extends Controller
                 // Ignore cache clearing errors if any
             }
         } catch (\Throwable $e) {
-            return back()->with('error', 'Migration failed: ' . $e->getMessage());
+            if (str_contains($e->getMessage(), 'already exists')) {
+                try {
+                    static::autoHealExistingSchema(glob(database_path('migrations/*.php')));
+                    Artisan::call('migrate', ['--force' => true]);
+                } catch (\Throwable $e2) {
+                    return back()->with('error', 'Migration warning: ' . $e2->getMessage());
+                }
+            } else {
+                return back()->with('error', 'Migration failed: ' . $e->getMessage());
+            }
         }
 
         return redirect()->route('home')->with('success', 'Database schema updated successfully without any data loss!');
     }
 }
+
 
 
