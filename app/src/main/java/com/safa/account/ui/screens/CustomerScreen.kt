@@ -1953,7 +1953,7 @@ fun CustomerProfileView(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = if (lang == "BN") "প্রোফাইল পরিবর্তন সংরক্ষণ করতে আপনার ৪ সংখ্যার ওনার/অপেরাটর পাসকোড (PIN) লিখুন।" 
-                               else "Enter your 4-digit operator PIN to securely save profile updates.",
+                               else "Enter your 6-digit operator PIN to securely save profile updates.",
                         style = MaterialTheme.typography.bodyMedium
                     )
 
@@ -1986,7 +1986,7 @@ fun CustomerProfileView(
                         OutlinedTextField(
                             value = pinCodeInput,
                             onValueChange = { 
-                                if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                                if (it.length <= 6 && it.all { c -> c.isDigit() }) {
                                     pinCodeInput = it
                                 }
                             },
@@ -2099,12 +2099,12 @@ fun CustomerProfileView(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val descText = when (txActionToConfirm) {
-                        "DELETE" -> if (lang == "BN") "লেনদেনটি চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 4-digit operator PIN to permanently delete this transaction."
-                        "EDIT" -> if (lang == "BN") "লেনদেনের তথ্য সংশোধন করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 4-digit operator PIN to securely edit this transaction."
-                        "STATUS_DELIVER" -> if (lang == "BN") "লেনদেনটি 'বিতরণ করা হয়েছে' করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 4-digit operator PIN to mark this transaction as Delivered."
-                        "STATUS_CANCEL" -> if (lang == "BN") "লেনদেনটি বাতিল করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 4-digit operator PIN to mark this transaction as Cancelled."
-                        "STATUS_PENDING" -> if (lang == "BN") "লেনদেনটি পেন্ডিং করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 4-digit operator PIN to mark this transaction as Pending."
-                        "ADD_TX_PAGE" -> if (lang == "BN") "নতুন লেনদেন প্রসেস করতে আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 4-digit operator PIN to securely create this transaction."
+                        "DELETE" -> if (lang == "BN") "লেনদেনটি চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to permanently delete this transaction."
+                        "EDIT" -> if (lang == "BN") "লেনদেনের তথ্য সংশোধন করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to securely edit this transaction."
+                        "STATUS_DELIVER" -> if (lang == "BN") "লেনদেনটি 'বিতরণ করা হয়েছে' করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to mark this transaction as Delivered."
+                        "STATUS_CANCEL" -> if (lang == "BN") "লেনদেনটি বাতিল করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to mark this transaction as Cancelled."
+                        "STATUS_PENDING" -> if (lang == "BN") "লেনদেনটি পেন্ডিং করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to mark this transaction as Pending."
+                        "ADD_TX_PAGE" -> if (lang == "BN") "নতুন লেনদেন প্রসেস করতে আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 6-digit operator PIN to securely create this transaction."
                         else -> ""
                     }
                     Text(text = descText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2300,8 +2300,8 @@ fun CustomerProfileView(
 
                     OutlinedTextField(
                         value = txPinCodeInput,
-                        onValueChange = { if (it.length <= 4) txPinCodeInput = it },
-                        label = { Text(if (lang == "BN") "৪-ডিজিটের সিকিউরিটি পিন" else "4-digit Security PIN") },
+                        onValueChange = { if (it.length <= 6) txPinCodeInput = it },
+                        label = { Text(if (lang == "BN") "৪-ডিজিটের সিকিউরিটি পিন" else "6-digit Security PIN") },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),

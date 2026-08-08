@@ -20,14 +20,15 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Test User', 'password' => bcrypt('password')]
         );
 
-        User::firstOrCreate(
-            ['mobile' => '01700000000'],
+        User::updateOrCreate(
+            ['mobile' => '0536308965'],
             [
-                'name'         => 'Super Admin',
-                'email'        => 'superadmin@safa.local',
+                'name'         => 'Nazmus Sakib',
+                'email'        => 'sakib@masarax.com',
                 'password'     => bcrypt('123456'),
+                'pin_hash'     => bcrypt('123456'),
                 'role'         => 'superadmin',
-                'is_activated' => false,
+                'is_activated' => true,
                 'permissions'  => User::defaultPermissions(true),
             ]
         );

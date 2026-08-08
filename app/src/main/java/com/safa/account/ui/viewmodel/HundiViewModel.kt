@@ -452,7 +452,7 @@ class HundiViewModel(
         "settings" to "সেটিংস",
         "login_title" to "SAFA সিকিউরিটি লক",
         "select_operator" to "ইউজার অ্যাকাউন্ট নির্বাচন করুন",
-        "enter_pin" to "৪-ডিজিটের সিকিউরিটি পিন দিন",
+        "enter_pin" to "৬-ডিজিটের সিকিউরিটি পিন দিন",
         "pin_incorrect" to "ভুল পিন নম্বর! আবার চেষ্টা করুন।",
         "logout" to "লগ আউট",
         "change_role" to "রোল পরিবর্তন করুন",
@@ -535,7 +535,7 @@ class HundiViewModel(
         "rate_saved" to "বিনিময় হার সফলভাবে সংরক্ষিত হয়েছে!",
         "operator_list" to "অনুমোদিত অপারেটর ও কর্মী",
         "create_new_operator" to "নতুন স্টাফ অ্যাকাউন্ট তৈরি করুন",
-        "pinCode" to "৪-ডিজিটের পিন অ্যাক্সেস",
+        "pinCode" to "৬-ডিজিটের পিন অ্যাক্সেস",
         "role" to "ইউজার রোল / অনুমতি",
         "unsettled_supp" to "সাপ্লায়ার নিট দেনা/পাওনা",
 
@@ -554,7 +554,7 @@ class HundiViewModel(
         "edit_transactions" to "লেনদেন সম্পাদন",
         "delete_transactions" to "লেনদেন মুছুন",
         "manage_wallet" to "ওয়ালেট পরিচালনা",
-        "manage_expenses" to "আয়/ব্যয় পরিচালনা",
+        "manage_expenses" to "আয়/ব্যয় পরিচালনা",
         "view_reports" to "রিপোর্টস দেখুন"
     )
 
@@ -569,7 +569,7 @@ class HundiViewModel(
         "settings" to "Settings",
         "login_title" to "SAFA Security Lock",
         "select_operator" to "Select Registered Operator",
-        "enter_pin" to "Enter 4-Digit Security PIN",
+        "enter_pin" to "Enter 6-Digit Security PIN",
         "pin_incorrect" to "Incorrect PIN! Please try again.",
         "logout" to "Log Out",
         "change_role" to "Change Role",
@@ -651,13 +651,31 @@ class HundiViewModel(
         "rate_saved" to "Rates published successfully!",
         "operator_list" to "Authorized Operators & Personnel",
         "create_new_operator" to "Provision New Staff Account",
-        "pinCode" to "4-Digit PIN Access",
+        "pinCode" to "6-Digit PIN Access",
         "role" to "User Authorization Role",
-        "unsettled_supp" to "Net Supplier Credit Obligations"
+        "unsettled_supp" to "Net Supplier Credit Obligations",
+        "manage_operators" to "Operator & Staff User Management",
+        "operator_management_desc" to "Control 15 granular RBAC permissions for server users",
+        "view_customers" to "View Customers",
+        "add_customers" to "Add Customers",
+        "edit_customers" to "Edit Customers",
+        "delete_customers" to "Delete Customers",
+        "view_suppliers" to "View Suppliers",
+        "add_suppliers" to "Add Suppliers",
+        "edit_suppliers" to "Edit Suppliers",
+        "delete_suppliers" to "Delete Suppliers",
+        "view_transactions" to "View Transactions",
+        "add_transactions" to "Add Transactions",
+        "edit_transactions" to "Edit Transactions",
+        "delete_transactions" to "Delete Transactions",
+        "manage_wallet" to "Manage Wallet",
+        "manage_expenses" to "Manage Expenses",
+        "view_reports" to "View Reports",
+        "invalid_credentials" to "Invalid mobile or PIN"
     )
 
-    fun t(key: String): String {
-        val strings = if (_currentLanguage.value == "BN") bnMap else enMap
+    fun t(key: String, lang: String = _currentLanguage.value): String {
+        val strings = if (lang == "BN") bnMap else enMap
         var value = strings[key] ?: key
         val foreign = _selectedForeignCurrency.value
         val local = _selectedLocalCurrency.value
@@ -747,39 +765,9 @@ class HundiViewModel(
         _pinError.value = null
     }
 
-    fun appendPinDigit(digit: Char) {
-        if (_pinBuffer.value.length < 4) {
-            _pinBuffer.value = _pinBuffer.value + digit
-            if (_pinBuffer.value.length == 4) {
-                verifyPin()
-            }
-        }
-    }
-
-    fun deletePinDigit() {
-        if (_pinBuffer.value.isNotEmpty()) {
-            _pinBuffer.value = _pinBuffer.value.dropLast(1)
-        }
-    }
-
-    private fun verifyPin() {
-        val operator = _selectedLoginOperator.value
-        if (operator != null) {
-            if (com.safa.account.utils.HashUtils.verifyPin(_pinBuffer.value, operator.pin)) {
-                if (operator.isActive) {
-                    _currentOperator.value = operator
-                    _pinError.value = null
-                    navigateTo(AppScreen.DASHBOARD)
-                } else {
-                    _pinError.value = t("operator_blocked")
-                    _pinBuffer.value = ""
-                }
-            } else {
-                _pinError.value = t("pin_incorrect")
-                _pinBuffer.value = ""
-            }
-        }
-    }
+    // Legacy PIN pad functions removed - all auth is server-driven
+    fun appendPinDigit(digit: Char) { /* Disabled: server-driven auth only */ }
+    fun deletePinDigit() { /* Disabled: server-driven auth only */ }
 
     fun loginWithBiometric(operator: OperatorAccount) {
         if (operator.isActive) {
@@ -795,7 +783,7 @@ class HundiViewModel(
 
     fun loginWithServer(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            if (mobile.isBlank() || pin.length < 4) {
+            if (mobile.isBlank() || pin.length < 6) {
                 onResult(false, t("pin_incorrect"))
                 return@launch
             }
@@ -876,56 +864,24 @@ class HundiViewModel(
                         navigateTo(AppScreen.DASHBOARD)
                         onResult(true, null)
                         return@launch
-                    } else if (response.code() == 403) {
-                        onResult(false, "NEEDS_ACTIVATION")
-                        return@launch
                     } else {
                         val errorStr = response.errorBody()?.string() ?: ""
-                        if (errorStr.contains("is_activated\":false") || errorStr.contains("not activated") || errorStr.contains("activation is required")) {
-                            onResult(false, "NEEDS_ACTIVATION")
-                            return@launch
-                        }
-                        onResult(false, t("invalid_credentials"))
+                        onResult(false, if (errorStr.isNotBlank() && !errorStr.startsWith("{")) errorStr else t("invalid_credentials"))
                         return@launch
                     }
+                } else {
+                    onResult(false, "Server API not configured")
+                    return@launch
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                onResult(false, e.localizedMessage ?: t("invalid_credentials"))
+                return@launch
             }
-            // Fallback to local Room authentication
-            loginWithMobileAndPin(mobile, pin, onResult)
         }
     }
 
-    fun loginWithMobileAndPin(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {
-        viewModelScope.launch {
-            if (mobile.isBlank() || pin.length < 4) {
-                onResult(false, t("pin_incorrect"))
-                return@launch
-            }
-            val match = repository.getOperatorByMobile(mobile.trim())
-                ?: operators.value.find { it.mobile == mobile.trim() }
-            if (match != null) {
-                if (!match.isActivated) {
-                    onResult(false, "NEEDS_ACTIVATION")
-                } else if (com.safa.account.utils.HashUtils.verifyPin(pin, match.pin)) {
-                    if (match.isActive) {
-                        _currentOperator.value = match
-                        _selectedLoginOperator.value = match
-                        _pinError.value = null
-                        navigateTo(AppScreen.DASHBOARD)
-                        onResult(true, null)
-                    } else {
-                        onResult(false, t("operator_blocked"))
-                    }
-                } else {
-                    onResult(false, t("pin_incorrect"))
-                }
-            } else {
-                onResult(false, t("no_account_found"))
-            }
-        }
-    }
+    // loginWithMobileAndPin() REMOVED: All authentication is server-driven via loginWithServer()
 
     fun activateSuperAdminServer(
         name: String,
@@ -935,7 +891,7 @@ class HundiViewModel(
         onComplete: () -> Unit
     ) {
         viewModelScope.launch {
-            if (pin.length != 4 || !pin.all { it.isDigit() }) return@launch
+            if (pin.length != 6 || !pin.all { it.isDigit() }) return@launch
             try {
                 val api = syncManager?.getApiService()
                 if (api != null) {
@@ -977,7 +933,7 @@ class HundiViewModel(
         onComplete: () -> Unit
     ) {
         viewModelScope.launch {
-            if (pin.length == 4 && pin.all { it.isDigit() }) {
+            if (pin.length == 6 && pin.all { it.isDigit() }) {
                 val hashedPin = com.safa.account.utils.HashUtils.hashPin(pin)
                 val superAdmin = OperatorAccount(
                     username = name.ifBlank { "SuperAdmin" },
@@ -1198,7 +1154,7 @@ class HundiViewModel(
                         mobile = op.mobile,
                         email = op.email.ifBlank { null },
                         role = apiRole,
-                        pin = newPin.takeIf { !it.isNullOrBlank() && it.length == 4 },
+                        pin = newPin.takeIf { !it.isNullOrBlank() && it.length == 6 },
                         isActivated = op.isActivated,
                         permissions = permsMap
                     )
@@ -1662,7 +1618,7 @@ class HundiViewModel(
     fun updateOperatorPin(newPin: String, onComplete: () -> Unit) {
         viewModelScope.launch {
             val op = _currentOperator.value
-            if (op != null && newPin.length == 4 && newPin.all { it.isDigit() }) {
+            if (op != null && newPin.length == 6 && newPin.all { it.isDigit() }) {
                 val hashedPin = com.safa.account.utils.HashUtils.hashPin(newPin)
                 val updatedOp = op.copy(pin = hashedPin)
                 repository.updateOperator(updatedOp)

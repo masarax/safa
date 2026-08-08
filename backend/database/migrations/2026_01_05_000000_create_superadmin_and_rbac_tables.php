@@ -13,20 +13,20 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            if (!Schema::hasColumn('users', 'role')) {
-                $table->enum('role', ['superadmin', 'manager', 'staff'])->default('staff');
-            }
             if (!Schema::hasColumn('users', 'mobile')) {
-                $table->string('mobile', 30)->nullable()->unique();
+                $table->string('mobile', 20)->nullable()->unique()->after('email');
             }
             if (!Schema::hasColumn('users', 'pin_hash')) {
-                $table->string('pin_hash', 255)->nullable();
+                $table->string('pin_hash', 255)->nullable()->after('mobile');
             }
-            if (!Schema::hasColumn('users', 'is_activated')) {
-                $table->boolean('is_activated')->default(false);
+            if (!Schema::hasColumn('users', 'role')) {
+                $table->enum('role', ['superadmin', 'manager', 'staff'])->default('staff')->after('pin_hash');
             }
             if (!Schema::hasColumn('users', 'permissions')) {
-                $table->json('permissions')->nullable();
+                $table->json('permissions')->nullable()->after('role');
+            }
+            if (!Schema::hasColumn('users', 'is_activated')) {
+                $table->boolean('is_activated')->default(true);
             }
         });
 
@@ -45,12 +45,7 @@ return new class extends Migration {
             });
         }
 
-        // Seed initial SuperAdmin user if missing: mobile = '01700000000', role = 'superadmin', is_activated = false
-        $existingSuperAdmin = DB::table('users')
-            ->where('mobile', '01700000000')
-            ->orWhere('role', 'superadmin')
-            ->first();
-
+        // Seed initial SuperAdmin user: Nazmus Sakib (Mobile: 0536308965, 6-digit PIN: 123456)
         $allPermissions = [
             'can_view_customers'     => true,
             'can_add_customers'      => true,
@@ -69,15 +64,34 @@ return new class extends Migration {
             'can_view_reports'       => true,
         ];
 
-        if (!$existingSuperAdmin) {
-            DB::table('users')->insert([
-                'name'         => 'Super Admin',
-                'email'        => 'superadmin@safa.local',
+        $existingSuperAdmin = DB::table('users')
+            ->where('mobile', '0536308965')
+            ->orWhere('email', 'sakib@masarax.com')
+            ->orWhere('mobile', '01700000000')
+            ->orWhere('role', 'superadmin')
+            ->first();
+
+        if ($existingSuperAdmin) {
+            DB::table('users')->where('id', $existingSuperAdmin->id)->update([
+                'name'         => 'Nazmus Sakib',
+                'email'        => 'sakib@masarax.com',
+                'mobile'       => '0536308965',
                 'password'     => Hash::make('123456'),
+                'pin_hash'     => Hash::make('123456'),
                 'role'         => 'superadmin',
-                'mobile'       => '01700000000',
-                'pin_hash'     => null,
-                'is_activated' => false,
+                'is_activated' => true,
+                'permissions'  => json_encode($allPermissions),
+                'updated_at'   => now(),
+            ]);
+        } else {
+            DB::table('users')->insert([
+                'name'         => 'Nazmus Sakib',
+                'email'        => 'sakib@masarax.com',
+                'mobile'       => '0536308965',
+                'password'     => Hash::make('123456'),
+                'pin_hash'     => Hash::make('123456'),
+                'role'         => 'superadmin',
+                'is_activated' => true,
                 'permissions'  => json_encode($allPermissions),
                 'created_at'   => now(),
                 'updated_at'   => now(),

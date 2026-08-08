@@ -19,7 +19,7 @@ class AuthJWTController extends Controller
 
 {
     /**
-     * Authenticate user via Mobile + PIN (or Email/Username + Password) and issue security tokens.
+     * Authenticate user via Mobile + 6-Digit PIN and issue security tokens.
      */
     public function login(Request $request)
     {
@@ -39,43 +39,35 @@ class AuthJWTController extends Controller
             ], 422);
         }
 
-        $mobile = $request->input('mobile');
-        $email = $request->input('email') ?? $request->input('username');
-        $pin = $request->input('pin');
-        $password = $request->input('password');
+        $mobile = $request->input('mobile') ?? $request->input('email') ?? $request->input('username');
+        $pin = $request->input('pin') ?? $request->input('password');
 
-        if (empty($mobile) && empty($email)) {
+        if (empty($mobile)) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Mobile number or Email/Username is required for login.'
+                'message' => 'Mobile number is required for login.'
             ], 422);
         }
 
-        if (empty($pin) && empty($password)) {
+        if (empty($pin)) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'PIN or Password is required for login.'
+                'message' => '6-Digit PIN is required for login.'
             ], 422);
         }
 
-        // 1. Look up user in users table
-        $user = null;
-        if (!empty($mobile)) {
-            $user = User::where('mobile', $mobile)->first();
-        }
-        if (!$user && !empty($email)) {
-            $user = User::where('email', $email)->orWhere('mobile', $email)->first();
+        // 1. Query users table where mobile = $request->mobile
+        $user = User::where('mobile', $request->input('mobile'))->first();
+
+        if (!$user && !empty($mobile)) {
+            $user = User::where('email', $mobile)->orWhere('mobile', $mobile)->first();
         }
 
-        // 2. Fallback: Look up in operator_accounts table in MySQL DB
+        // Fallback: Look up in operator_accounts table if user missing
         if (!$user && Schema::hasTable('operator_accounts')) {
-            $opAccount = null;
-            if (!empty($mobile)) {
-                $opAccount = DB::table('operator_accounts')->where('mobile', $mobile)->first();
-            }
-            if (!$opAccount && !empty($email)) {
-                $opAccount = DB::table('operator_accounts')->where('email', $email)->orWhere('mobile', $email)->first();
-            }
+            $opAccount = DB::table('operator_accounts')
+                ->where('mobile', $request->input('mobile') ?? $mobile)
+                ->first();
 
             if ($opAccount) {
                 if (!empty($opAccount->user_id)) {
@@ -90,7 +82,7 @@ class AuthJWTController extends Controller
                         'role'         => $opAccount->role,
                         'pin_hash'     => $opAccount->pin_hash,
                         'password'     => $opAccount->pin_hash,
-                        'is_activated' => (bool) $opAccount->is_activated,
+                        'is_activated' => true,
                         'permissions'  => json_decode($opAccount->permissions, true) ?? [],
                     ]);
                     DB::table('operator_accounts')->where('id', $opAccount->id)->update(['user_id' => $user->id]);
@@ -98,66 +90,36 @@ class AuthJWTController extends Controller
             }
         }
 
-        // If user not found in MySQL DB users / operator_accounts table
+        // If user not found in MySQL DB
         if (!$user) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'User account not found. Please contact administrator.'
+                'message' => 'User account not found.'
             ], 404);
         }
 
-        // 3. Authenticate via PIN or Password
-        $authenticated = false;
-        $credential = $pin ?? $password;
+        // 2. Validate 6-digit PIN using Hash::check($request->pin, $user->pin_hash ?? $user->password)
+        $pinHash = $user->pin_hash ?? $user->password;
+        $pinValid = false;
 
-        if (!empty($user->pin_hash) && Hash::check($credential, $user->pin_hash)) {
-            $authenticated = true;
-        } elseif (!empty($user->password) && Hash::check($credential, $user->password)) {
-            $authenticated = true;
+        if (!empty($pinHash) && Hash::check($pin, $pinHash)) {
+            $pinValid = true;
+        } elseif (!empty($user->pin_hash) && Hash::check($pin, $user->pin_hash)) {
+            $pinValid = true;
+        } elseif (!empty($user->password) && Hash::check($pin, $user->password)) {
+            $pinValid = true;
         }
 
-        if (!$authenticated) {
+        if (!$pinValid) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Invalid PIN / Password.'
+                'message' => 'Invalid 6-Digit PIN.'
             ], 401);
         }
 
-        // 4. Handle non-activated user account
-        if (!$user->is_activated) {
-            $tempActivationToken = static::generateJwt([
-                'purpose' => 'activation',
-                'sub'     => $user->id,
-                'user_id' => $user->id,
-                'mobile'  => $user->mobile,
-                'role'    => $user->role,
-                'iat'     => time(),
-                'exp'     => time() + 3600,
-            ]);
-
-            return response()->json([
-                'status'               => 'success',
-                'message'              => 'SuperAdmin activation required.',
-                'is_activated'         => false,
-                'requires_activation'  => true,
-                'activation_token'     => $tempActivationToken,
-                'temporary_token'      => $tempActivationToken,
-                'role'                 => $user->role,
-                'mobile'               => $user->mobile,
-                'user'                 => [
-                    'id'           => $user->id,
-                    'name'         => $user->name,
-                    'email'        => $user->email,
-                    'mobile'       => $user->mobile,
-                    'role'         => $user->role,
-                    'is_activated' => false,
-                ]
-            ], 200);
-        }
-
-        // 5. Handle activated user - issue 5 security tokens
-        $deviceUuid = $request->input('device_uuid') ?? $request->header('X-SAFA-DEVICE-TOKEN') ?? ('DEVICE_' . $user->id);
-        $fingerprintHash = $request->input('fingerprint_hash') ?? $request->header('X-SAFA-FINGERPRINT-TOKEN') ?? ('FINGERPRINT_' . $user->id);
+        // 3. Issue 5 security tokens directly (No separate activation flow)
+        $deviceUuid = $request->input('device_uuid') ?? $request->input('device_token') ?? $request->header('X-SAFA-DEVICE-TOKEN') ?? ('DEVICE_' . $user->id);
+        $fingerprintHash = $request->input('fingerprint_hash') ?? $request->input('fingerprint_token') ?? $request->header('X-SAFA-FINGERPRINT-TOKEN') ?? ('FINGERPRINT_' . $user->id);
         $deviceModel = $request->input('device_model') ?? $request->header('X-SAFA-DEVICE-MODEL', 'Unknown Device');
 
         $deviceBinding = DeviceBinding::where('user_id', $user->id)
@@ -217,8 +179,6 @@ class AuthJWTController extends Controller
         return response()->json([
             'status'               => 'success',
             'message'              => 'Login successful.',
-            'is_activated'         => true,
-            'requires_activation'  => false,
             'user'                 => [
                 'id'           => $user->id,
                 'name'         => $user->name,

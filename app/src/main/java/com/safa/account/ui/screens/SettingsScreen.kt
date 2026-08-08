@@ -420,14 +420,33 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
         item {
             val activeOp by viewModel.currentOperator.collectAsStateWithLifecycle()
             val isBioEnabled = activeOp?.isBiometricEnabled ?: false
+            val context = androidx.compose.ui.platform.LocalContext.current
             
-            Surface(
-                onClick = {
-                    val updated = activeOp?.copy(isBiometricEnabled = !isBioEnabled)
+            val toggleBiometric = { targetChecked: Boolean ->
+                if (targetChecked) {
+                    com.safa.account.ui.launchBiometricPrompt(
+                        context = context,
+                        lang = lang,
+                        onSuccess = {
+                            val updated = activeOp?.copy(isBiometricEnabled = true)
+                            if (updated != null) {
+                                viewModel.updateOperator(updated)
+                            }
+                            viewModel.setBiometricEnabled(true)
+                        },
+                        onError = { /* Biometric cancelled or failed */ }
+                    )
+                } else {
+                    val updated = activeOp?.copy(isBiometricEnabled = false)
                     if (updated != null) {
                         viewModel.updateOperator(updated)
                     }
-                },
+                    viewModel.setBiometricEnabled(false)
+                }
+            }
+
+            Surface(
+                onClick = { toggleBiometric(!isBioEnabled) },
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier
@@ -466,10 +485,7 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                     Switch(
                         checked = isBioEnabled,
                         onCheckedChange = { checked ->
-                            val updated = activeOp?.copy(isBiometricEnabled = checked)
-                            if (updated != null) {
-                                viewModel.updateOperator(updated)
-                            }
+                            toggleBiometric(checked)
                         }
                     )
                 }
@@ -865,7 +881,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 
                     OutlinedTextField(
                         value = newPin,
-                        onValueChange = { if (it.length <= 4) { newPin = it; errorMsg = null } },
+                        onValueChange = { if (it.length <= 6) { newPin = it; errorMsg = null } },
                         label = { Text(viewModel.t("enter_pin")) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -913,8 +929,8 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                         }
                         Button(
                             onClick = {
-                                if (newName.isBlank() || newMobile.isBlank() || newPin.length != 4) {
-                                    errorMsg = if (lang == "BN") "সব তথ্য দিন এবং পিন ৪ ডিজিট হতে হবে" else "Fill name, mobile, and 4-digit PIN"
+                                if (newName.isBlank() || newMobile.isBlank() || newPin.length != 6) {
+                                    errorMsg = if (lang == "BN") "সব তথ্য দিন এবং পিন ৪ ডিজিট হতে হবে" else "Fill name, mobile, and 6-digit PIN"
                                     return@Button
                                 }
                                 val permsMap = mapOf(
@@ -1091,8 +1107,8 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     )
                     OutlinedTextField(
                         value = pinInput,
-                        onValueChange = { if (it.length <= 4) pinInput = it },
-                        label = { Text(if (lang == "BN") "নতুন ৪-ডিজিটের পিন (ঐচ্ছিক)" else "New 4-Digit PIN (Optional)") },
+                        onValueChange = { if (it.length <= 6) pinInput = it },
+                        label = { Text(if (lang == "BN") "নতুন ৪-ডিজিটের পিন (ঐচ্ছিক)" else "New 6-digit PIN (Optional)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1128,7 +1144,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     onClick = {
                         val original = editingOperator
                         if (original != null && usernameInput.isNotBlank()) {
-                            val newHashedPin = if (pinInput.length == 4) com.safa.account.utils.HashUtils.hashPin(pinInput) else original.pin
+                            val newHashedPin = if (pinInput.length == 6) com.safa.account.utils.HashUtils.hashPin(pinInput) else original.pin
                             val updated = original.copy(
                                 username = usernameInput,
                                 mobile = mobileInput,
@@ -1150,7 +1166,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                                 canManageExpenses = canManageExpenses,
                                 canViewReports = canViewReports
                             )
-                            viewModel.updateOperatorOnServer(updated, pinInput.takeIf { it.length == 4 }) {
+                            viewModel.updateOperatorOnServer(updated, pinInput.takeIf { it.length == 6 }) {
                                 editingOperator = null
                             }
                         }
@@ -1230,14 +1246,14 @@ fun PinChangePage(viewModel: HundiViewModel, onBack: () -> Unit) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = oldPin,
-                    onValueChange = { if (it.length <= 4) oldPin = it; errorMsg = null; successMsg = null },
+                    onValueChange = { if (it.length <= 6) oldPin = it; errorMsg = null; successMsg = null },
                     label = { Text(if (lang == "BN") "বর্তমান পিন" else "Current PIN") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = newPin,
-                    onValueChange = { if (it.length <= 4) newPin = it; errorMsg = null; successMsg = null },
+                    onValueChange = { if (it.length <= 6) newPin = it; errorMsg = null; successMsg = null },
                     label = { Text(if (lang == "BN") "নতুন পিন" else "New PIN") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     modifier = Modifier.fillMaxWidth()
@@ -1252,7 +1268,7 @@ fun PinChangePage(viewModel: HundiViewModel, onBack: () -> Unit) {
 
                 Button(
                     onClick = { 
-                        if (oldPin.length == 4 && newPin.length == 4) {
+                        if (oldPin.length == 6 && newPin.length == 6) {
                             if (com.safa.account.utils.HashUtils.verifyPin(oldPin, viewModel.currentOperator.value?.pin ?: "")) {
                                 viewModel.updateOperatorPin(newPin) {
                                     successMsg = if (lang == "BN") "পিন সফলভাবে পরিবর্তন করা হয়েছে!" else "PIN changed successfully!"

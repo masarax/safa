@@ -31,6 +31,71 @@ fun Context.findFragmentActivity(): FragmentActivity? {
     return null
 }
 
+fun launchBiometricPrompt(
+    context: Context,
+    lang: String,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit
+) {
+    val activity = context.findFragmentActivity()
+    if (activity == null) {
+        onError("Biometric authentication requires a FragmentActivity")
+        return
+    }
+
+    activity.runOnUiThread {
+        val biometricManager = BiometricManager.from(context)
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        val canAuthenticate = biometricManager.canAuthenticate(authenticators)
+
+        if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
+            val executor = ContextCompat.getMainExecutor(context)
+            val biometricPrompt = BiometricPrompt(
+                activity,
+                executor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        onSuccess()
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        super.onAuthenticationError(errorCode, errString)
+                        if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_CANCELED) {
+                            onError(errString.toString())
+                        }
+                    }
+
+                    override fun onAuthenticationFailed() {
+                        super.onAuthenticationFailed()
+                        onError("Fingerprint not recognized. Please try again.")
+                    }
+                }
+            )
+
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle(if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Verification")
+                .setSubtitle(if (lang == "BN") "ফিঙ্গারপ্রিন্ট বা লক স্ক্রিন ব্যবহার করুন" else "Scan fingerprint or enter screen lock")
+                .setAllowedAuthenticators(authenticators)
+                .build()
+
+            try {
+                biometricPrompt.authenticate(promptInfo)
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Biometric prompt failed to launch")
+            }
+        } else {
+            val err = when (canAuthenticate) {
+                BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "No biometric hardware on this device."
+                BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Biometric hardware is currently unavailable."
+                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "No fingerprint or lock credentials enrolled on this device."
+                else -> "Biometric authentication is not supported."
+            }
+            onError(err)
+        }
+    }
+}
+
 @Composable
 fun BiometricTriggerButton(
     lang: String,
@@ -39,85 +104,30 @@ fun BiometricTriggerButton(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val activity = remember(context) { context.findFragmentActivity() }
     var isAuthenticating by remember { mutableStateOf(false) }
 
     val currentOnSuccess by rememberUpdatedState(onSuccess)
     val currentOnError by rememberUpdatedState(onError)
 
-    fun launchBiometricPrompt() {
+    fun trigger() {
         if (isAuthenticating) return
-        val currentActivity = activity ?: context.findFragmentActivity()
-
-        if (currentActivity == null) {
-            currentOnError("Biometric authentication requires a FragmentActivity")
-            return
-        }
-
         isAuthenticating = true
-
-        currentActivity.runOnUiThread {
-            val biometricManager = BiometricManager.from(context)
-            val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            val canAuthenticate = biometricManager.canAuthenticate(authenticators)
-
-            if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
-                val executor = ContextCompat.getMainExecutor(context)
-                val biometricPrompt = BiometricPrompt(
-                    currentActivity,
-                    executor,
-                    object : BiometricPrompt.AuthenticationCallback() {
-                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                            super.onAuthenticationSucceeded(result)
-                            isAuthenticating = false
-                            currentOnSuccess()
-                        }
-
-                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                            super.onAuthenticationError(errorCode, errString)
-                            isAuthenticating = false
-                            // Ignore user cancellation (CANCELED = 10, USER_CANCELED = 13) without raising red error banners
-                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_CANCELED) {
-                                currentOnError(errString.toString())
-                            }
-                        }
-
-                        override fun onAuthenticationFailed() {
-                            super.onAuthenticationFailed()
-                            isAuthenticating = false
-                            currentOnError("Fingerprint not recognized. Please try again.")
-                        }
-                    }
-                )
-
-                val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                    .setTitle(if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Verification")
-                    .setSubtitle(if (lang == "BN") "ফিঙ্গারপ্রিন্ট বা লক স্ক্রিন ব্যবহার করুন" else "Scan fingerprint or enter screen lock")
-                    .setAllowedAuthenticators(authenticators)
-                    .build()
-
-                try {
-                    biometricPrompt.authenticate(promptInfo)
-                } catch (e: Exception) {
-                    isAuthenticating = false
-                    currentOnError(e.localizedMessage ?: "Biometric prompt failed to launch")
-                }
-            } else {
+        launchBiometricPrompt(
+            context = context,
+            lang = lang,
+            onSuccess = {
                 isAuthenticating = false
-                val err = when (canAuthenticate) {
-                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "No biometric hardware on this device."
-                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Biometric hardware is currently unavailable."
-                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "No fingerprint or lock credentials enrolled on this device."
-                    else -> "Biometric authentication is not supported."
-                }
+                currentOnSuccess()
+            },
+            onError = { err ->
+                isAuthenticating = false
                 currentOnError(err)
             }
-        }
+        )
     }
 
-    // Auto-trigger immediately on launch
     LaunchedEffect(Unit) {
-        launchBiometricPrompt()
+        trigger()
     }
 
     Column(
@@ -132,7 +142,7 @@ fun BiometricTriggerButton(
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                 .clickable {
-                    launchBiometricPrompt()
+                    trigger()
                 },
             contentAlignment = Alignment.Center
         ) {

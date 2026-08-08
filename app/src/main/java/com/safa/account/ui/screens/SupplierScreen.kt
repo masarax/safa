@@ -1690,7 +1690,7 @@ fun SupplierProfileView(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = if (lang == "BN") "প্রোফাইল পরিবর্তন সংরক্ষণ করতে ৪ সংখ্যার পাসকোড (PIN) কোডটি লিখুন।" 
-                               else "Enter your 4-digit operator PIN to securely save profile updates.",
+                               else "Enter your 6-digit operator PIN to securely save profile updates.",
                         style = MaterialTheme.typography.bodyMedium
                     )
 
@@ -1731,7 +1731,7 @@ fun SupplierProfileView(
                     OutlinedTextField(
                         value = pinCodeInput,
                         onValueChange = { 
-                            if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                            if (it.length <= 6 && it.all { c -> c.isDigit() }) {
                                 pinCodeInput = it
                             }
                         },
@@ -2220,10 +2220,10 @@ fun SupplierProfileView(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val descText = when (txActionToConfirm) {
-                        "DELETE" -> if (lang == "BN") "লেনদেনটি চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 4-digit operator PIN to permanently delete this transaction."
-                        "EDIT" -> if (lang == "BN") "লেনদেনের পরিবর্তনসমূহ ডাটাবেজে সংরক্ষণ করতে পিন দিন।" else "Enter your 4-digit operator PIN to securely save transaction updates."
-                        "DELETE_DEP" -> if (lang == "BN") "ফান্ড হিসাব চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 4-digit operator PIN to permanently delete this fund/deposit."
-                        "EDIT_DEP" -> if (lang == "BN") "ফান্ড হিসাব সংশোধন সুরক্ষিত করতে আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 4-digit operator PIN to securely edit this fund/deposit."
+                        "DELETE" -> if (lang == "BN") "লেনদেনটি চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to permanently delete this transaction."
+                        "EDIT" -> if (lang == "BN") "লেনদেনের পরিবর্তনসমূহ ডাটাবেজে সংরক্ষণ করতে পিন দিন।" else "Enter your 6-digit operator PIN to securely save transaction updates."
+                        "DELETE_DEP" -> if (lang == "BN") "ফান্ড হিসাব চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 6-digit operator PIN to permanently delete this fund/deposit."
+                        "EDIT_DEP" -> if (lang == "BN") "ফান্ড হিসাব সংশোধন সুরক্ষিত করতে আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 6-digit operator PIN to securely edit this fund/deposit."
                         else -> if (lang == "BN") "লেনদেনের অবস্থা (Status) পরিবর্তন করতে পিন দিন।" else "Enter your PIN to apply status modification."
                     }
                     Text(text = descText, style = MaterialTheme.typography.bodyMedium)
@@ -2334,7 +2334,7 @@ fun SupplierProfileView(
                     OutlinedTextField(
                         value = txPinCodeInput,
                         onValueChange = { 
-                            if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                            if (it.length <= 6 && it.all { c -> c.isDigit() }) {
                                 txPinCodeInput = it
                             }
                         },

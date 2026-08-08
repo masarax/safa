@@ -1477,7 +1477,7 @@ fun TransactionScreen(
                                 )
                             } else {
                                 Text(
-                                    text = if (lang == "BN") "মালিক বা ৪-ডিজিট সিকিউরিটি পিন দিন" else "Confirm 4-Digit Security PIN",
+                                    text = if (lang == "BN") "মালিক বা ৪-ডিজিট সিকিউরিটি পিন দিন" else "Confirm 6-digit Security PIN",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.error
                                 )
@@ -1485,7 +1485,7 @@ fun TransactionScreen(
                             OutlinedTextField(
                                 value = editPinCodeInput,
                                 onValueChange = {
-                                    if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                                    if (it.length <= 6 && it.all { c -> c.isDigit() }) {
                                         editPinCodeInput = it
                                     }
                                 },
@@ -1540,7 +1540,7 @@ fun TransactionScreen(
                                     .fillMaxWidth()
                                     .height(48.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                                enabled = editCustomerIdInput > 0 && editReceiverNameInput.isNotBlank() && editReceiverPhoneInput.isNotBlank() && editSarAmountInput.isNotBlank() && editPinCodeInput.length == 4
+                                enabled = editCustomerIdInput > 0 && editReceiverNameInput.isNotBlank() && editReceiverPhoneInput.isNotBlank() && editSarAmountInput.isNotBlank() && editPinCodeInput.length == 6
                             ) {
                                 Text(
                                     text = if (lang == "BN") "সেভ" else "Save",
@@ -1598,7 +1598,7 @@ fun TransactionScreen(
                         } else {
                             Text(
                                 text = if (lang == "BN") "আপনি কি নিশ্চিতভাবে এই লেনদেনটি চিরতরে মুছে দিতে চান? অনুমোদন করতে আপনার ৪ সংখ্যার সিকিউরিটি পিন কোড দিন।" 
-                                       else "Are you absolutely sure you want to delete this transaction record? Enter your 4-digit PIN to authorize.",
+                                       else "Are you absolutely sure you want to delete this transaction record? Enter your 6-digit PIN to authorize.",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -1606,7 +1606,7 @@ fun TransactionScreen(
                         OutlinedTextField(
                             value = deletePinCodeInput,
                             onValueChange = {
-                                if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                                if (it.length <= 6 && it.all { c -> c.isDigit() }) {
                                     deletePinCodeInput = it
                                 }
                             },
