@@ -25,14 +25,13 @@ class SyncManager(
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
-    private val apiKey = com.safa.account.BuildConfig.SAFA_API_KEY
-    private val apiSecret = com.safa.account.BuildConfig.SAFA_API_SECRET
-
     private fun getApiService(): ApiService {
         val baseUrl = tokenManager.getBaseUrl().let {
             if (it.endsWith("/")) it else "$it/"
         }
-        return RetrofitClient.getApiService(baseUrl, apiKey, apiSecret, tokenManager)
+        val key = tokenManager.getApiKey()
+        val sec = tokenManager.getApiSecret()
+        return RetrofitClient.getApiService(baseUrl, key, sec, tokenManager)
     }
 
     suspend fun executeGraphQl(

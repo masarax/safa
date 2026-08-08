@@ -15,8 +15,18 @@ class TokenManager(private val context: Context) {
         private const val KEY_SESSION_TOKEN = "session_token"
         private const val KEY_FINGERPRINT_TOKEN = "fingerprint_token"
         private const val KEY_BASE_URL = "base_url"
+        private const val KEY_API_KEY = "api_key"
+        private const val KEY_API_SECRET = "api_secret"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
+        private const val DEFAULT_API_KEY = "safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b"
+        private const val DEFAULT_API_SECRET = "safa_sec_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
     }
+
+    fun saveApiKey(key: String) = prefs.edit { putString(KEY_API_KEY, key) }
+    fun getApiKey(): String = prefs.getString(KEY_API_KEY, DEFAULT_API_KEY) ?: DEFAULT_API_KEY
+
+    fun saveApiSecret(secret: String) = prefs.edit { putString(KEY_API_SECRET, secret) }
+    fun getApiSecret(): String = prefs.getString(KEY_API_SECRET, DEFAULT_API_SECRET) ?: DEFAULT_API_SECRET
 
     // --- 5-Token Security Layer ---
     fun saveAccessToken(token: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
