@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WalletBatch extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'account_id',
         'local_id',
@@ -17,5 +20,7 @@ class WalletBatch extends Model
         'supplier_deposit_id',
         'notes',
         'timestamp',
+        'deleted_at',
     ];
 }
+

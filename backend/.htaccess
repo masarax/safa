@@ -1,11 +1,14 @@
+# Turn off Directory Indexing
+Options -Indexes
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
     # 1. Block access to all hidden dotfiles (e.g. .env, .git, .gitignore, .htaccess)
-    RewriteRule (^\/|\/)\.(?!well-known) - [F,L]
+    RewriteRule (^\/|\/|\.)\.(?!well-known) - [F,L]
 
-    # 2. Block direct web access to sensitive system files & directories
-    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md|metadata\.json) - [F,L]
+    # 2. Block direct web access to sensitive system files & internal directories
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md|metadata\.json|\.env|\.git) - [F,L]
 
     # 3. Route all legitimate web traffic to index.php
     RewriteCond %{REQUEST_FILENAME} !-d
@@ -14,7 +17,7 @@
 </IfModule>
 
 # Fallback Access Denial for Apache 2.2 / 2.4 / LiteSpeed
-<FilesMatch "^\.|\.env|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml">
+<FilesMatch "^\.|\.env|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

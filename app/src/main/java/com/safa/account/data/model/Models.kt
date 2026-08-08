@@ -25,7 +25,8 @@ data class Customer(
     val securityNotes: String = "",
     val avatarColor: String = "4280391411",
     val avatarEmoji: String = "👤",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
 
 @Entity(tableName = "suppliers")
@@ -38,7 +39,8 @@ data class Supplier(
     val securityNotes: String = "",
     val avatarColor: String = "4280391411",
     val avatarEmoji: String = "🏢",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
 
 @Entity(
@@ -68,7 +70,8 @@ data class RemittanceTransaction(
     val operatorId: Int = 0,
     val walletBatchId: Int = 0,
     val notes: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 ) {
     fun getProfitBdt(): Double {
         val cr = java.math.BigDecimal(customerRate.toString())
@@ -100,7 +103,8 @@ data class SupplierDeposit(
     val transactionType: String = "SAR_GIVEN",
     // "SAR_GIVEN" | "SAR_DEPOSIT" | "SAR_RECEIVED" | "SAR_SETTLEMENT" | "BDT_WITHDRAW"
     val notes: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
 
 @Entity(tableName = "expenses_incomes")
@@ -111,7 +115,8 @@ data class ExpenseIncome(
     val currency: String = "BDT",
     val isExpense: Boolean = true,
     val category: String = "General",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
 
 @Entity(tableName = "daily_rates")
@@ -125,7 +130,8 @@ data class DailyRate(
 data class WalletLedger(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
 
 @Entity(
@@ -145,5 +151,7 @@ data class WalletBatch(
     val supplierId: Int = 0,
     val supplierDepositId: Int = 0,
     val notes: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
+

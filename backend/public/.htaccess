@@ -1,8 +1,7 @@
-<IfModule mod_rewrite.c>
-    <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
-    </IfModule>
+# Turn off Directory Indexing & MultiViews
+Options -Indexes -MultiViews
 
+<IfModule mod_rewrite.c>
     RewriteEngine On
 
     # Handle Authorization Header
@@ -23,6 +22,12 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
+    # Block access to hidden dotfiles (e.g. .env, .git, .gitignore, .htaccess)
+    RewriteRule (^\/|\/|\.)\.(?!well-known) - [F,L]
+
+    # Block direct web access to sensitive system files & internal directories
+    RewriteRule ^(\.env|\.git|app|bootstrap|config|database|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml) - [F,L]
+
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$
@@ -33,3 +38,14 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Fallback Access Denial for Apache 2.2 / 2.4 / LiteSpeed
+<FilesMatch "^\.|\.env|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

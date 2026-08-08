@@ -823,7 +823,7 @@ class HundiViewModel(
 
     fun deleteCustomer(id: Int) {
         viewModelScope.launch {
-            repository.deleteCustomerById(id)
+            repository.softDeleteCustomerById(id)
             syncManager?.syncAll()
         }
     }
@@ -844,7 +844,8 @@ class HundiViewModel(
 
     fun deleteSupplier(id: Int) {
         viewModelScope.launch {
-            repository.deleteSupplierById(id)
+            repository.softDeleteSupplierById(id)
+            syncManager?.syncAll()
         }
     }
 
@@ -892,14 +893,16 @@ class HundiViewModel(
                     )
                 }
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }
 
     fun deleteSupplierDeposit(id: Int) {
         viewModelScope.launch {
-            repository.deleteSupplierDepositById(id)
-            repository.deleteWalletBatchBySupplierDepositId(id)
+            repository.softDeleteSupplierDepositById(id)
+            repository.softDeleteWalletBatchBySupplierDepositId(id)
+            syncManager?.syncAll()
         }
     }
 
@@ -920,6 +923,7 @@ class HundiViewModel(
                     )
                 )
             }
+            syncManager?.syncAll()
         }
     }
 
@@ -929,6 +933,7 @@ class HundiViewModel(
             viewModelScope.launch {
                 repository.insertWalletLedger(WalletLedger(name = name))
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }
@@ -941,6 +946,7 @@ class HundiViewModel(
                 if (target != null) {
                     repository.updateWalletLedger(target.copy(name = newName))
                     onComplete()
+                    syncManager?.syncAll()
                 }
             }
         }
@@ -948,13 +954,13 @@ class HundiViewModel(
 
     fun deleteWalletLedger(id: Int, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            repository.deleteWalletLedgerById(id)
-            // also delete all batches belonging to this ledger
+            repository.softDeleteWalletLedgerById(id)
             val batches = repository.allWalletBatches.firstOrNull()?.filter { it.ledgerId == id } ?: emptyList()
             batches.forEach {
-                repository.deleteWalletBatchById(it.id)
+                repository.softDeleteWalletBatchById(it.id)
             }
             onComplete()
+            syncManager?.syncAll()
         }
     }
 
@@ -1111,8 +1117,9 @@ class HundiViewModel(
                         repository.updateWalletBatch(batch.copy(remainingBdt = newRemaining))
                     }
                 }
-                repository.deleteTransactionById(id)
+                repository.softDeleteTransactionById(id)
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }
@@ -1138,13 +1145,15 @@ class HundiViewModel(
                     )
                 )
                 onComplete()
+                syncManager?.syncAll()
             }
         }
     }
 
     fun removeExpenseIncome(id: Int) {
         viewModelScope.launch {
-            repository.deleteExpenseIncomeById(id)
+            repository.softDeleteExpenseIncomeById(id)
+            syncManager?.syncAll()
         }
     }
 

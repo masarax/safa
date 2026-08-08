@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 
 use App\Http\Middleware\CheckInstalled;
 use App\Http\Middleware\EnsureNotInstalled;
+use App\Http\Middleware\SecurityHeaders;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,9 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(SecurityHeaders::class);
+
         $middleware->alias([
             'check.installed' => CheckInstalled::class,
             'ensure.not.installed' => EnsureNotInstalled::class,
+            'security.headers' => SecurityHeaders::class,
         ]);
 
         $middleware->appendToGroup('api', CheckInstalled::class);
