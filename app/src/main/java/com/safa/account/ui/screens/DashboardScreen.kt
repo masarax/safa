@@ -405,7 +405,8 @@ fun DashboardScreen(
                                             color = if (isDarkMode) Color(0xFFE0E0E0) else Color(0xFF444444),
                                             textAlign = TextAlign.Center,
                                             maxLines = 1,
-                                            fontSize = 11.sp
+                                            overflow = TextOverflow.Ellipsis,
+                                            fontSize = 10.sp
                                         )
                                     }
                                 }
@@ -519,7 +520,9 @@ fun DashboardScreen(
                         fontWeight = FontWeight.ExtraBold,
                         color = if (isDarkMode) Color.White else Color(0xFF222222)
                     ),
-                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -537,7 +540,9 @@ fun DashboardScreen(
                         Text(
                             text = if (lang == "BN") "কোনো লেনদেন পাওয়া যায়নি।" else "No transactions found.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline
+                            color = MaterialTheme.colorScheme.outline,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -560,7 +565,9 @@ fun DashboardScreen(
                             Text(
                                 text = dateHeader,
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -644,7 +651,9 @@ fun DashboardScreen(
                                                 Text(
                                                     text = "$rateText • $timeStr",
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = if (isDarkMode) Color.LightGray else Color.Gray
+                                                    color = if (isDarkMode) Color.LightGray else Color.Gray,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
@@ -681,7 +690,9 @@ fun DashboardScreen(
                                         Text(
                                             text = sarAmountText,
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black),
-                                            color = amountColor
+                                            color = amountColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                     if (itemIndex < entriesForDate.size - 1) {
@@ -712,27 +723,33 @@ fun DashboardScreen(
                         Text(
                             text = if (lang == "BN") "ব্যালেন্স শিট ও সাপ্লায়ার রিজার্ভ" else "Ledger Reserves Details",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column {
-                                Text(text = viewModel.t("total_sar_received"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = viewModel.t("total_sar_received"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "${foreignCurrency} ${currencyFormatter.format(stats.totalSarReceived)}",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(text = "Current Fund Stock ${localCurrency}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
+                                Text(text = "Current Fund Stock ${localCurrency}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "৳ ${currencyFormatter.format(stats.totalBoughtPoolBdt)}",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -747,7 +764,7 @@ fun DashboardScreen(
         if (showFilterDialog) {
             AlertDialog(
                 onDismissRequest = { showFilterDialog = false },
-                title = { Text(if (lang == "BN") "কাস্টমার ফিল্টার" else "Customer List Filter") },
+                title = { Text(if (lang == "BN") "কাস্টমার ফিল্টার" else "Customer List Filter", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
@@ -761,7 +778,7 @@ fun DashboardScreen(
                                 .padding(vertical = 4.dp)
                         ) {
                             RadioButton(selected = currentFilterType == "ALL", onClick = { currentFilterType = "ALL"; showFilterDialog = false })
-                            Text(if (lang == "BN") "সব কাস্টমার" else "All Customers", modifier = Modifier.padding(start = 8.dp))
+                            Text(if (lang == "BN") "সব কাস্টমার" else "All Customers", modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -774,7 +791,7 @@ fun DashboardScreen(
                                 .padding(vertical = 4.dp)
                         ) {
                             RadioButton(selected = currentFilterType == "HAS_BALANCE", onClick = { currentFilterType = "HAS_BALANCE"; showFilterDialog = false })
-                            Text(if (lang == "BN") "বকেয়া ব্যালেন্সধারী" else "With Active Balance", modifier = Modifier.padding(start = 8.dp))
+                            Text(if (lang == "BN") "বকেয়া ব্যালেন্সধারী" else "With Active Balance", modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -787,7 +804,7 @@ fun DashboardScreen(
                                 .padding(vertical = 4.dp)
                         ) {
                             RadioButton(selected = currentFilterType == "A_Z", onClick = { currentFilterType = "A_Z"; showFilterDialog = false })
-                            Text(if (lang == "BN") "বর্ণানুক্রমিক (A-Z)" else "Sort Alphabetically (A-Z)", modifier = Modifier.padding(start = 8.dp))
+                            Text(if (lang == "BN") "বর্ণানুক্রমিক (A-Z)" else "Sort Alphabetically (A-Z)", modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 },
@@ -806,7 +823,9 @@ fun DashboardScreen(
                 title = { 
                     Text(
                         text = if (lang == "BN") "বিস্তারিত রিপোর্ট ডাউনলোড" else "Detailed Reports Center",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     ) 
                 },
                 text = {
@@ -826,7 +845,9 @@ fun DashboardScreen(
                         Text(
                             text = if (lang == "BN") "১. সময়সীমা নির্বাচন করুন:" else "1. Select Period Range:",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         
                         // Flexible horizontal flow
@@ -849,7 +870,7 @@ fun DashboardScreen(
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }
@@ -870,7 +891,7 @@ fun DashboardScreen(
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }
@@ -882,7 +903,9 @@ fun DashboardScreen(
                         Text(
                             text = if (lang == "BN") "২. পিডিএফ / এক্সেল / ইমেজ ফরম্যাট:" else "2. Select File Format:",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -905,7 +928,7 @@ fun DashboardScreen(
                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text(formatLabel, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text(formatLabel, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
@@ -1040,7 +1063,9 @@ fun DashboardScreen(
                                 Text(
                                     text = if (lang == "BN") "রিপোর্ট ডাউনলোড সফল!" else "Download Complete!",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                             Text(
@@ -1059,7 +1084,8 @@ fun DashboardScreen(
                                 Text(
                                     text = generatedReportPath,
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                             
@@ -1123,7 +1149,9 @@ fun CustomSegmentButton(
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.ExtraBold,
                 color = if (isActive) activeTextColor else MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -1184,7 +1212,9 @@ fun ServiceShortcutGrid(
                 text = if (lang == "BN") "আমাদের সেবাসমূহ" else "SAFA Quick Services",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 12.dp)
+                modifier = Modifier.padding(bottom = 12.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             val rows = services.chunked(3)
@@ -1224,7 +1254,8 @@ fun ServiceShortcutGrid(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
-                                fontSize = 11.sp
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 10.sp
                             )
                         }
                     }

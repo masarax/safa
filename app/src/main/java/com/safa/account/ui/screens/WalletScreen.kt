@@ -133,15 +133,16 @@ fun WalletScreen(
                             letterSpacing = (-0.3).sp
                         ),
                         color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Button(
                     onClick = { showAddLedgerDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(32.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp)
+                    modifier = Modifier.height(34.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -214,7 +215,10 @@ fun WalletScreen(
                                     Text(
                                         text = ledger.name,
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
                                     )
                                     IconButton(
                                         onClick = {
@@ -238,7 +242,9 @@ fun WalletScreen(
                                     Text(
                                         text = if (lang == "BN") "সক্রিয় উপ-হিসাব: ${batches.count { it.remainingBdt > 0.01 }}টি" else "Sub-accounts: ${batches.count { it.remainingBdt > 0.01 }}",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
+                                        color = MaterialTheme.colorScheme.outline,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -246,7 +252,9 @@ fun WalletScreen(
                                 Text(
                                     text = "৳ ${currencyFormatter.format(ledgerBalance)}",
                                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
-                                    color = if (ledgerBalance > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline
+                                    color = if (ledgerBalance > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Icon(
                                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -272,8 +280,8 @@ fun WalletScreen(
                                      onClick = { showAddFundDialog = ledger },
                                      colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                                      shape = RoundedCornerShape(10.dp),
-                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-                                     modifier = Modifier.weight(1f)
+                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                     modifier = Modifier.weight(1f).height(36.dp)
                                  ) {
                                      Icon(Icons.Default.AddCircle, contentDescription = "", modifier = Modifier.size(14.dp))
                                      Spacer(modifier = Modifier.width(3.dp))
@@ -289,8 +297,8 @@ fun WalletScreen(
                                      onClick = { showDeductFundDialog = ledger },
                                      colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
                                      shape = RoundedCornerShape(10.dp),
-                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-                                     modifier = Modifier.weight(1f)
+                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                     modifier = Modifier.weight(1f).height(36.dp)
                                  ) {
                                      Icon(Icons.Default.RemoveCircle, contentDescription = "", modifier = Modifier.size(14.dp))
                                      Spacer(modifier = Modifier.width(3.dp))
@@ -317,7 +325,7 @@ fun WalletScreen(
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
                                 modifier = Modifier.fillMaxWidth().height(36.dp),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC62828).copy(alpha = 0.3f)),
-                                contentPadding = PaddingValues(vertical = 4.dp)
+                                contentPadding = PaddingValues(vertical = 0.dp, horizontal = 12.dp)
                             ) {
                                 Icon(Icons.Default.Delete, contentDescription = "Delete Ledger", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -332,8 +340,10 @@ fun WalletScreen(
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = if (lang == "BN") "তারিখ ও রেট অনুসারে সক্রিয় স্টক তালিকা:" else "Sub-Khata cost base stock registers (By Date & Rate):",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                                 color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(bottom = 6.dp)
                             )
 
@@ -341,7 +351,9 @@ fun WalletScreen(
                                 Text(
                                     text = if (lang == "BN") "কোনো সক্রিয় স্টক খতিয়ান নেই।" else "No active sub-ledger batches registered.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.outline
+                                    color = MaterialTheme.colorScheme.outline,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             } else {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -365,12 +377,17 @@ fun WalletScreen(
                                                 Text(
                                                     text = "Rate: @ $rate",
                                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Black, fontSize = 13.sp),
-                                                    color = MaterialTheme.colorScheme.primary
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f, fill = false)
                                                 )
                                                 Text(
                                                     text = "Total Remaining: ৳${currencyFormatter.format(combinedRemaining)}",
                                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                    color = if (combinedRemaining > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline
+                                                    color = if (combinedRemaining > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
 
@@ -386,13 +403,17 @@ fun WalletScreen(
                                                         Text(
                                                             text = dateFormatter.format(Date(batch.timestamp)),
                                                             fontSize = 10.sp,
-                                                            color = MaterialTheme.colorScheme.outline
+                                                            color = MaterialTheme.colorScheme.outline,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                         if (batch.notes.isNotBlank()) {
                                                             Text(
                                                                 text = "Notes: ${batch.notes}",
                                                                 fontSize = 9.sp,
-                                                                color = MaterialTheme.colorScheme.outlineVariant
+                                                                color = MaterialTheme.colorScheme.outlineVariant,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
                                                             )
                                                         }
                                                     }
@@ -401,12 +422,16 @@ fun WalletScreen(
                                                             text = "In: ৳${currencyFormatter.format(batch.initialBdt)}",
                                                             fontSize = 10.sp,
                                                             fontWeight = FontWeight.Bold,
-                                                            color = MaterialTheme.colorScheme.onSurface
+                                                            color = MaterialTheme.colorScheme.onSurface,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                         Text(
                                                             text = "Bal: ৳${currencyFormatter.format(batch.remainingBdt)}",
                                                             fontSize = 10.sp,
-                                                            color = if (batch.remainingBdt > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline
+                                                            color = if (batch.remainingBdt > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
                                                 }
@@ -450,12 +475,12 @@ fun WalletScreen(
                     },
                     enabled = newLedgerName.isNotBlank()
                 ) {
-                    Text(if (lang == "BN") "যোগ করুন" else "Create")
+                    Text(if (lang == "BN") "যোগ করুন" else "Create", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddLedgerDialog = false }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
+                    Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -498,16 +523,20 @@ fun WalletScreen(
 
                         Text(
                             text = if (lang == "BN") "ওয়ালেট নাম পরিবর্তন করুন" else "Rename Wallet Registrar",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
                             color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
 
                         Text(
                             text = if (lang == "BN") "ওয়ালেট খাতাটির নাম নিচে লিখুন:" else "Enter the new display name of this wallet book below:",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
 
                         OutlinedTextField(
@@ -526,9 +555,10 @@ fun WalletScreen(
                             OutlinedButton(
                                 onClick = { showEditLedgerDialog = null },
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "বাতিল" else "Cancel")
+                                Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
 
                             Button(
@@ -539,9 +569,10 @@ fun WalletScreen(
                                 },
                                 enabled = editLedgerNameInput.isNotBlank(),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save")
+                                Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -574,12 +605,12 @@ fun WalletScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text(if (lang == "BN") "হ্যাঁ, মুছে ফেলুন" else "Yes, Delete")
+                    Text(if (lang == "BN") "হ্যাঁ, মুছে ফেলুন" else "Yes, Delete", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = null }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
+                    Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -604,7 +635,7 @@ fun WalletScreen(
                     onClick = { showDeletionBlockedDialog = null },
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text(if (lang == "BN") "ঠিক আছে" else "OK")
+                    Text(if (lang == "BN") "ঠিক আছে" else "OK", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -647,16 +678,20 @@ fun WalletScreen(
 
                         Text(
                             text = if (lang == "BN") "${ledger.name} তে টাকা জমা" else "Deposit Funds - ${ledger.name}",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
                             color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
 
                         Text(
                             text = if (lang == "BN") "তহবিলে জমা দেওয়ার বিবরণী" else "Enter deposit details",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
@@ -704,9 +739,10 @@ fun WalletScreen(
                             OutlinedButton(
                                 onClick = { showAddFundDialog = null },
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "বাতিল" else "Cancel")
+                                Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
 
                             Button(
@@ -722,9 +758,10 @@ fun WalletScreen(
                                 enabled = addFundBdtAmount.isNotBlank(),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "জমা করুন" else "Confirm")
+                                Text(if (lang == "BN") "জমা করুন" else "Confirm", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -777,9 +814,11 @@ fun WalletScreen(
 
                         Text(
                             text = if (lang == "BN") "${ledger.name} থেকে টাকা কমানো (উত্তোলন)" else "Reduce Funds - ${ledger.name}",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
                             color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
 
                         // Highlighted available balance display
@@ -797,8 +836,10 @@ fun WalletScreen(
                                 } else {
                                     "Currently Available: ৳ ${currencyFormatter.format(maxAvailable)}"
                                 },
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
-                                color = MaterialTheme.colorScheme.primary
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 13.sp),
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -829,7 +870,9 @@ fun WalletScreen(
                                 },
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                                 color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -843,9 +886,10 @@ fun WalletScreen(
                                     showDeductFundDialog = null 
                                 },
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "বাতিল" else "Cancel")
+                                Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
 
                             Button(
@@ -859,9 +903,10 @@ fun WalletScreen(
                                 enabled = deductFundBdtAmount.isNotBlank() && !isOverLimit && enteredAmount > 0.0,
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "নিশ্চিত" else "Confirm")
+                                Text(if (lang == "BN") "নিশ্চিত" else "Confirm", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }

@@ -339,7 +339,7 @@ fun TransactionScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp) },
+                    placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "", modifier = Modifier.size(20.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -391,7 +391,9 @@ fun TransactionScreen(
                         Text(
                             text = if (lang == "BN") "⚙️ ফিল্টার ও সেটিংস" else "⚙️ Filter & Settings",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
 
                         Row(
@@ -404,7 +406,9 @@ fun TransactionScreen(
                                     text = if (lang == "BN") "বাছাই করুন" else "Sort By",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline,
-                                    modifier = Modifier.padding(bottom = 2.dp)
+                                    modifier = Modifier.padding(bottom = 2.dp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 var sortMenuExpanded by remember { mutableStateOf(false) }
                                 Box {
@@ -442,7 +446,9 @@ fun TransactionScreen(
                                                             "Min ${foreignCur}" -> if (lang == "BN") "সর্বনিম্ন রিয়াল" else "Lowest Riyal"
                                                             "Max Profit" -> if (lang == "BN") "সর্বোচ্চ মুনাফা" else "Highest Profit"
                                                             else -> if (lang == "BN") "নতুন থেকে পুরাতন" else "Newest First"
-                                                        }
+                                                        },
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                 },
                                                 onClick = {
@@ -461,7 +467,9 @@ fun TransactionScreen(
                                     text = if (lang == "BN") "তারিখ ফিল্টার" else "Date Filter",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline,
-                                    modifier = Modifier.padding(bottom = 2.dp)
+                                    modifier = Modifier.padding(bottom = 2.dp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 var dateMenuExpanded by remember { mutableStateOf(false) }
                                 Box {
@@ -497,7 +505,9 @@ fun TransactionScreen(
                                                             "Week" -> if (lang == "BN") "শেষ ৭ দিন" else "Last 7 Days"
                                                             "Month" -> if (lang == "BN") "শেষ ৩০ দিন" else "Last 30 Days"
                                                             else -> if (lang == "BN") "সব সময়" else "All Time"
-                                                        }
+                                                        },
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                 },
                                                 onClick = {
@@ -526,7 +536,9 @@ fun TransactionScreen(
                             ) {
                                 Text(
                                     text = if (lang == "BN") "সংক্ষিপ্ত ভিউ:" else "Compact View:",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Switch(
                                     checked = isCompactDensity,
@@ -549,7 +561,9 @@ fun TransactionScreen(
                             ) {
                                 Text(
                                     text = if (lang == "BN") "পরিসংখ্যান (Stats):" else "Show KPI Stats:",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Switch(
                                     checked = showStatsDashboard,
@@ -592,6 +606,7 @@ fun TransactionScreen(
                                     else -> status
                                 },
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium
                             )
                         },
@@ -1512,35 +1527,31 @@ fun TransactionScreen(
                             // Save Button
                             Button(
                                 onClick = {
-                                    if (editPinCodeInput != operatorPin) {
-                                        editPinErrorText = if (lang == "BN") "❌ ভুল পিন কোড! পুনরায় চেষ্টা করুন" else "❌ Incorrect PIN! Please re-verify."
-                                    } else {
-                                        val sar = editSarAmountInput.toDoubleOrNull() ?: 0.0
-                                        val cr = editCustomerRateInput.toDoubleOrNull() ?: 0.0
-                                        val sr = editSupplierRateInput.toDoubleOrNull() ?: 0.0
-                                        val updatedTx = editingTx!!.copy(
-                                            amountSar = sar,
-                                            customerRate = cr,
-                                            supplierRate = sr,
-                                            amountBdt = sar * cr,
-                                            receiverAccountType = editReceiverAccountTypeInput,
-                                            receiverAccountNo = if (editReceiverAccountTypeInput == "Cash") "Cash Payout" else editReceiverAccountNoInput,
-                                            supplierId = editSupplierIdInput,
-                                            notes = editNotesInput,
-                                            customerId = editCustomerIdInput,
-                                            receiverName = editReceiverNameInput,
-                                            receiverPhone = editReceiverPhoneInput
-                                        )
-                                        viewModel.updateTransactionStatus(updatedTx, editingTx!!.status)
-                                        editingTx = null
-                                    }
+                                    val sar = editSarAmountInput.toDoubleOrNull() ?: 0.0
+                                    val cr = editCustomerRateInput.toDoubleOrNull() ?: 0.0
+                                    val sr = editSupplierRateInput.toDoubleOrNull() ?: 0.0
+                                    val updatedTx = editingTx!!.copy(
+                                        amountSar = sar,
+                                        customerRate = cr,
+                                        supplierRate = sr,
+                                        amountBdt = sar * cr,
+                                        receiverAccountType = editReceiverAccountTypeInput,
+                                        receiverAccountNo = if (editReceiverAccountTypeInput == "Cash") "Cash Payout" else editReceiverAccountNoInput,
+                                        supplierId = editSupplierIdInput,
+                                        notes = editNotesInput,
+                                        customerId = editCustomerIdInput,
+                                        receiverName = editReceiverNameInput,
+                                        receiverPhone = editReceiverPhoneInput
+                                    )
+                                    viewModel.updateTransactionStatus(updatedTx, editingTx!!.status)
+                                    editingTx = null
                                 },
                                 shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                                enabled = editCustomerIdInput > 0 && editReceiverNameInput.isNotBlank() && editReceiverPhoneInput.isNotBlank() && editSarAmountInput.isNotBlank() && editPinCodeInput.length == 6
+                                enabled = editCustomerIdInput > 0 && editReceiverNameInput.isNotBlank() && editReceiverPhoneInput.isNotBlank() && editSarAmountInput.isNotBlank()
                             ) {
                                 Text(
                                     text = if (lang == "BN") "সেভ" else "Save",
@@ -1554,7 +1565,7 @@ fun TransactionScreen(
                 }
         }
 
-        // --- DELETE TRANSACTION CONFIRM SECURITY PIN GATE DIALOG ---
+        // --- DELETE TRANSACTION CONFIRM DIALOG ---
         if (deletingTx != null) {
             AlertDialog(
                 onDismissRequest = { deletingTx = null },
@@ -1576,71 +1587,18 @@ fun TransactionScreen(
                     }
                 },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (currentOperator?.isBiometricEnabled == true) {
-                            com.safa.account.ui.BiometricTriggerButton(
-                                lang = lang,
-                                onSuccess = {
-                                    val txIdToDelete = deletingTx!!.id
-                                    viewModel.deleteTransaction(txIdToDelete)
-                                    deletingTx = null
-                                },
-                                onError = { err ->
-                                    deletePinErrorText = err
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = if (lang == "BN") "অথবা পিন দিয়ে করুন:" else "Or verify using PIN:",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        } else {
-                            Text(
-                                text = if (lang == "BN") "আপনি কি নিশ্চিতভাবে এই লেনদেনটি চিরতরে মুছে দিতে চান? অনুমোদন করতে আপনার ৪ সংখ্যার সিকিউরিটি পিন কোড দিন।" 
-                                       else "Are you absolutely sure you want to delete this transaction record? Enter your 6-digit PIN to authorize.",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-
-                        OutlinedTextField(
-                            value = deletePinCodeInput,
-                            onValueChange = {
-                                if (it.length <= 6 && it.all { c -> c.isDigit() }) {
-                                    deletePinCodeInput = it
-                                }
-                            },
-                            placeholder = { Text("PIN") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Lock, contentDescription = "", tint = MaterialTheme.colorScheme.error)
-                            },
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.error,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                            )
-                        )
-                        if (deletePinErrorText != null) {
-                            Text(
-                                text = deletePinErrorText!!,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-                    }
+                    Text(
+                        text = if (lang == "BN") "আপনি কি নিশ্চিতভাবে এই লেনদেনটি মুছে দিতে চান?" 
+                               else "Are you sure you want to delete this transaction record?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 },
                 confirmButton = {
                     Button(
                         onClick = {
-                            if (deletePinCodeInput != operatorPin) {
-                                deletePinErrorText = if (lang == "BN") "❌ ভুল পিন কোড! পুনরায় চেষ্টা করুন" else "❌ Incorrect PIN! Authorization failed."
-                            } else {
-                                val txIdToDelete = deletingTx!!.id
-                                viewModel.deleteTransaction(txIdToDelete)
-                                deletingTx = null
-                            }
+                            val txIdToDelete = deletingTx!!.id
+                            viewModel.deleteTransaction(txIdToDelete)
+                            deletingTx = null
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         shape = RoundedCornerShape(12.dp)

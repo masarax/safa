@@ -275,7 +275,8 @@ fun SupplierScreen(
                                 letterSpacing = (-0.3).sp
                             ),
                             color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -303,7 +304,7 @@ fun SupplierScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp) },
+                        placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "", modifier = Modifier.size(20.dp)) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -350,7 +351,9 @@ fun SupplierScreen(
                             Text(
                                 text = if (lang == "BN") "⚙️ ফিল্টার ও সেটিংস" else "⚙️ Filter & Settings",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -362,7 +365,9 @@ fun SupplierScreen(
                                         text = if (lang == "BN") "বাছাই করুন" else "Sort By",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
-                                        modifier = Modifier.padding(bottom = 2.dp)
+                                        modifier = Modifier.padding(bottom = 2.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     var sortMenuExpanded by remember { mutableStateOf(false) }
                                     Box {
@@ -398,7 +403,9 @@ fun SupplierScreen(
                                                                 "A-Z" -> if (lang == "BN") "নাম A-Z" else "Name A-Z"
                                                                 "Balance" -> if (lang == "BN") "সর্বোচ্চ ব্যালেন্স" else "Highest Balance"
                                                                 else -> if (lang == "BN") "নতুন প্রথম" else "Newest First"
-                                                            }
+                                                            },
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     },
                                                     onClick = {
@@ -417,7 +424,9 @@ fun SupplierScreen(
                                         text = if (lang == "BN") "ফিল্টার ক্যাটাগরি" else "Filter Balance",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
-                                        modifier = Modifier.padding(bottom = 2.dp)
+                                        modifier = Modifier.padding(bottom = 2.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     var filterMenuExpanded by remember { mutableStateOf(false) }
                                     Box {
@@ -451,7 +460,9 @@ fun SupplierScreen(
                                                                 "Has Balance" -> if (lang == "BN") "শুধু ব্যালেন্স জমা" else "Has Active Deposit"
                                                                 "Owing" -> if (lang == "BN") "শুধু বাকি/পাওনা" else "Owing Liability"
                                                                 else -> if (lang == "BN") "সব সাপ্লায়ার" else "All Suppliers"
-                                                            }
+                                                            },
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     },
                                                     onClick = {
@@ -480,7 +491,9 @@ fun SupplierScreen(
                             Text(
                                 text = if (lang == "BN") "কোনো সাপ্লায়ার প্রোফাইল নেই।" else "No suppliers registered.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.outline
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -551,13 +564,17 @@ fun SupplierScreen(
                                                 Text(
                                                     text = supplier.name,
                                                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.ExtraBold),
-                                                    color = MaterialTheme.colorScheme.onSurface
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                                 Spacer(modifier = Modifier.height(1.dp))
                                                 Text(
                                                     text = supplier.phone,
                                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                                    color = MaterialTheme.colorScheme.outline
+                                                    color = MaterialTheme.colorScheme.outline,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
@@ -574,13 +591,17 @@ fun SupplierScreen(
                                                     if (lang == "BN") "কোনো বকেয়া নেই" else "No Due"
                                                 },
                                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                color = if (isDue) Color(0xFFD32F2F) else if (isReceivable) Color(0xFF1565C0) else Color(0xFF2E7D32)
+                                                color = if (isDue) Color(0xFFD32F2F) else if (isReceivable) Color(0xFF1565C0) else Color(0xFF2E7D32),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                             Spacer(modifier = Modifier.height(1.dp))
                                             Text(
                                                 text = "৳ ${currencyFormatter.format(Math.abs(currentSupplierBdtDue))}",
                                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
-                                                color = if (isDue) Color(0xFFD32F2F) else if (isReceivable) Color(0xFF1565C0) else Color(0xFF2E7D32)
+                                                color = if (isDue) Color(0xFFD32F2F) else if (isReceivable) Color(0xFF1565C0) else Color(0xFF2E7D32),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -597,28 +618,36 @@ fun SupplierScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Column {
+                                        Column(modifier = Modifier.weight(1f)) {
                                             Text(
                                                 text = if (lang == "BN") "সর্বমোট রিয়াল জমা" else "Total Riyal Deposited",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.outline
+                                                color = MaterialTheme.colorScheme.outline,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
                                                 text = "${currencyFormatter.format(totalDepositedSar)} ${foreignCur}",
                                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
-                                        Column(horizontalAlignment = Alignment.End) {
+                                        Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                                             Text(
                                                 text = if (lang == "BN") "সর্বমোট টাকা ক্রয়" else "Total Taka Buy",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.outline
+                                                color = MaterialTheme.colorScheme.outline,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
                                                 text = "৳ ${currencyFormatter.format(totalAcquiredBdt)} ${localCur}",
                                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -867,12 +896,7 @@ fun SupplierProfileView(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (!isEditing) {
                     IconButton(
-                        onClick = { 
-                            actionToConfirm = "DELETE"
-                            pinCodeInput = ""
-                            pinErrorText = null
-                            showSecurityDialog = true 
-                        },
+                        onClick = { onDelete() },
                         modifier = Modifier.size(36.dp),
                         colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
@@ -883,10 +907,13 @@ fun SupplierProfileView(
                 IconButton(
                     onClick = { 
                         if (isEditing) {
-                            actionToConfirm = "SAVE"
-                            pinCodeInput = ""
-                            pinErrorText = null
-                            showSecurityDialog = true
+                            val updatedSupplier = supplier.copy(
+                                name = editName,
+                                phone = editPhone,
+                                address = editAddress
+                            )
+                            onUpdate(updatedSupplier)
+                            isEditing = false
                         } else {
                             isEditing = true
                         }
@@ -1390,11 +1417,7 @@ fun SupplierProfileView(
                                                         }
                                                         IconButton(
                                                             onClick = {
-                                                                depToDelete = ledgerItem
-                                                                txActionToConfirm = "DELETE_DEP"
-                                                                txPinCodeInput = ""
-                                                                txPinErrorText = null
-                                                                showTxSecurityDialog = true
+                                                                viewModel.deleteSupplierDeposit(ledgerItem.id)
                                                             },
                                                             modifier = Modifier.size(32.dp)
                                                         ) {
@@ -1577,11 +1600,7 @@ fun SupplierProfileView(
                                                                 }
                                                                 IconButton(
                                                                     onClick = {
-                                                                        txToDelete = tx
-                                                                        txActionToConfirm = "DELETE"
-                                                                        txPinCodeInput = ""
-                                                                        txPinErrorText = null
-                                                                        showTxSecurityDialog = true
+                                                                        viewModel.deleteTransaction(tx.id)
                                                                     },
                                                                     modifier = Modifier.size(36.dp)
                                                                 ) {
@@ -1593,11 +1612,7 @@ fun SupplierProfileView(
                                                                 if (tx.status != "Cancelled" && tx.status != "Delivered") {
                                                                     Button(
                                                                         onClick = {
-                                                                            txToEdit = tx
-                                                                            txActionToConfirm = "STATUS_DELIVER"
-                                                                            txPinCodeInput = ""
-                                                                            txPinErrorText = null
-                                                                            showTxSecurityDialog = true
+                                                                            viewModel.updateTransactionStatus(tx, "Delivered")
                                                                         },
                                                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                                                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
@@ -1610,11 +1625,7 @@ fun SupplierProfileView(
                                                                 if (tx.status == "Pending") {
                                                                     OutlinedButton(
                                                                         onClick = {
-                                                                            txToEdit = tx
-                                                                            txActionToConfirm = "STATUS_CANCEL"
-                                                                            txPinCodeInput = ""
-                                                                            txPinErrorText = null
-                                                                            showTxSecurityDialog = true
+                                                                            viewModel.updateTransactionStatus(tx, "Cancelled")
                                                                         },
                                                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                         modifier = Modifier.height(28.dp)
@@ -1624,11 +1635,7 @@ fun SupplierProfileView(
                                                                 } else if (tx.status == "Cancelled") {
                                                                     OutlinedButton(
                                                                         onClick = {
-                                                                            txToEdit = tx
-                                                                            txActionToConfirm = "STATUS_PENDING"
-                                                                            txPinCodeInput = ""
-                                                                            txPinErrorText = null
-                                                                            showTxSecurityDialog = true
+                                                                            viewModel.updateTransactionStatus(tx, "Pending")
                                                                         },
                                                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                         modifier = Modifier.height(28.dp)
@@ -1673,125 +1680,7 @@ fun SupplierProfileView(
     }
 }
 
-    // Security authorizer PIN gate dialog
-    if (showSecurityDialog) {
-        AlertDialog(
-            onDismissRequest = { showSecurityDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Default.VerifiedUser, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Text(
-                        text = if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Verification",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = if (lang == "BN") "প্রোফাইল পরিবর্তন সংরক্ষণ করতে ৪ সংখ্যার পাসকোড (PIN) কোডটি লিখুন।" 
-                               else "Enter your 6-digit operator PIN to securely save profile updates.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
 
-                    if (currentOperator?.isBiometricEnabled == true) {
-                        com.safa.account.ui.BiometricTriggerButton(
-                            lang = lang,
-                            onSuccess = {
-                                if (actionToConfirm == "DELETE") {
-                                    onDelete()
-                                    showSecurityDialog = false
-                                } else {
-                                    val updatedSupplier = supplier.copy(
-                                        name = editName,
-                                        phone = editPhone,
-                                        address = editAddress,
-                                        tradeLicense = editLicense,
-                                        securityNotes = editNotes,
-                                        avatarColor = editColor,
-                                        avatarEmoji = editEmoji
-                                    )
-                                    onUpdate(updatedSupplier)
-                                    showSecurityDialog = false
-                                    isEditing = false
-                                }
-                            },
-                            onError = { err ->
-                                pinErrorText = err
-                            }
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        Text(
-                            text = if (lang == "BN") "অথবা পিন দিয়ে করুন:" else "Or verify using PIN:",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = pinCodeInput,
-                        onValueChange = { 
-                            if (it.length <= 6 && it.all { c -> c.isDigit() }) {
-                                pinCodeInput = it
-                            }
-                        },
-                        placeholder = { Text("PIN Passcode") },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    if (pinErrorText != null) {
-                        Text(
-                            text = pinErrorText!!,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (pinCodeInput == operatorPin) {
-                            if (actionToConfirm == "DELETE") {
-                                onDelete()
-                                showSecurityDialog = false
-                            } else {
-                                val updatedSupplier = supplier.copy(
-                                    name = editName,
-                                    phone = editPhone,
-                                    address = editAddress,
-                                    tradeLicense = editLicense,
-                                    securityNotes = editNotes,
-                                    avatarColor = editColor,
-                                    avatarEmoji = editEmoji
-                                )
-                                onUpdate(updatedSupplier)
-                                showSecurityDialog = false
-                                isEditing = false
-                            }
-                        } else {
-                            pinErrorText = if (lang == "BN") "❌ ভুল পিন কোড! পুনরায় চেষ্টা করুন" else "❌ Incorrect PIN! Try again."
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (actionToConfirm == "DELETE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(if (lang == "BN") "ভেরিফাই করুন" else "Verify")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSecurityDialog = false }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
-                }
-            }
-        )
-    }
 
     if (txToEdit != null) {
         val suppliersList by viewModel.suppliers.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -1958,13 +1847,33 @@ fun SupplierProfileView(
             confirmButton = {
                 Button(
                     onClick = {
-                        txActionToConfirm = "EDIT"
-                        txPinCodeInput = ""
-                        txPinErrorText = null
-                        showTxSecurityDialog = true
+                        if (txToEdit != null) {
+                            val amt = editAmountSar.toDoubleOrNull() ?: 0.0
+                            val cRate = editCustomerRate.toDoubleOrNull() ?: 0.0
+                            val sRate = editSupplierRate.toDoubleOrNull() ?: 0.0
+                            val col = editSarCollected.toDoubleOrNull() ?: amt
+                            val dis = editBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
+                            val updatedTx = txToEdit!!.copy(
+                                amountSar = amt,
+                                customerRate = cRate,
+                                supplierRate = sRate,
+                                amountBdt = amt * cRate,
+                                receiverName = editReceiverName,
+                                receiverPhone = editPhoneNum,
+                                receiverAccountType = editReceiverAccountType,
+                                receiverAccountNo = editReceiverAccountNo,
+                                notes = editTxNotes,
+                                status = editStatus,
+                                supplierId = editSupplierId ?: txToEdit!!.supplierId,
+                                sarCollected = col,
+                                bdtDisbursed = dis
+                            )
+                            viewModel.updateTransactionStatus(updatedTx, editStatus)
+                        }
+                        txToEdit = null
                     }
                 ) {
-                    Text(if (lang == "BN") "যাচাই করুন" else "Save Changes")
+                    Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")
                 }
             },
             dismissButton = {
@@ -2049,13 +1958,25 @@ fun SupplierProfileView(
             confirmButton = {
                 Button(
                     onClick = {
-                        txActionToConfirm = "EDIT_DEP"
-                        txPinCodeInput = ""
-                        txPinErrorText = null
-                        showTxSecurityDialog = true
+                        if (depositToEdit != null) {
+                            val amt = editDepAmountSar.toDoubleOrNull() ?: 0.0
+                            val rateValue = editDepRate.toDoubleOrNull() ?: 0.0
+                            val updatedDep = SupplierDeposit(
+                                id = depositToEdit!!.id,
+                                supplierId = supplier.id,
+                                amountSar = amt,
+                                rate = rateValue,
+                                amountBdt = amt * rateValue,
+                                transactionType = editDepTxType,
+                                notes = editDepNotes,
+                                timestamp = depositToEdit!!.timestamp
+                            )
+                            viewModel.updateSupplierDeposit(updatedDep)
+                        }
+                        depositToEdit = null
                     }
                 ) {
-                    Text(if (lang == "BN") "যাচাই করুন" else "Save Changes")
+                    Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")
                 }
             },
             dismissButton = {
@@ -2200,262 +2121,6 @@ fun SupplierProfileView(
             confirmButton = {
                 TextButton(onClick = { showAddChoiceDialog = false }) {
                     Text(if (lang == "BN") "বন্ধ করুন" else "Cancel")
-                }
-            }
-        )
-    }
-
-    if (showTxSecurityDialog) {
-        AlertDialog(
-            onDismissRequest = { showTxSecurityDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Default.VerifiedUser, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Text(
-                        text = if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Challenge",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val descText = when (txActionToConfirm) {
-                        "DELETE" -> if (lang == "BN") "লেনদেনটি চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to permanently delete this transaction."
-                        "EDIT" -> if (lang == "BN") "লেনদেনের পরিবর্তনসমূহ ডাটাবেজে সংরক্ষণ করতে পিন দিন।" else "Enter your 6-digit operator PIN to securely save transaction updates."
-                        "DELETE_DEP" -> if (lang == "BN") "ফান্ড হিসাব চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 6-digit operator PIN to permanently delete this fund/deposit."
-                        "EDIT_DEP" -> if (lang == "BN") "ফান্ড হিসাব সংশোধন সুরক্ষিত করতে আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 6-digit operator PIN to securely edit this fund/deposit."
-                        else -> if (lang == "BN") "লেনদেনের অবস্থা (Status) পরিবর্তন করতে পিন দিন।" else "Enter your PIN to apply status modification."
-                    }
-                    Text(text = descText, style = MaterialTheme.typography.bodyMedium)
-
-                    if (currentOperator?.isBiometricEnabled == true) {
-                        val onSuccessAction = {
-                            when (txActionToConfirm) {
-                                "DELETE" -> {
-                                    val id = txToDelete?.id ?: txToEdit?.id
-                                    if (id != null) {
-                                        viewModel.deleteTransaction(id)
-                                    }
-                                    txToDelete = null
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "EDIT" -> {
-                                    if (txToEdit != null) {
-                                        val amt = editAmountSar.toDoubleOrNull() ?: 0.0
-                                        val cRate = editCustomerRate.toDoubleOrNull() ?: 0.0
-                                        val sRate = editSupplierRate.toDoubleOrNull() ?: 0.0
-                                        val col = editSarCollected.toDoubleOrNull() ?: amt
-                                        val dis = editBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
-                                        val updatedTx = txToEdit!!.copy(
-                                            amountSar = amt,
-                                            customerRate = cRate,
-                                            supplierRate = sRate,
-                                            amountBdt = amt * cRate,
-                                            receiverName = editReceiverName,
-                                            receiverPhone = editPhoneNum,
-                                            receiverAccountType = editReceiverAccountType,
-                                            receiverAccountNo = editReceiverAccountNo,
-                                            notes = editTxNotes,
-                                            status = editStatus,
-                                            supplierId = editSupplierId ?: txToEdit!!.supplierId,
-                                            sarCollected = col,
-                                            bdtDisbursed = dis
-                                        )
-                                        viewModel.updateTransactionStatus(updatedTx, editStatus)
-                                    }
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "STATUS_DELIVER" -> {
-                                    if (txToEdit != null) {
-                                        viewModel.updateTransactionStatus(txToEdit!!, "Delivered")
-                                    }
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "STATUS_CANCEL" -> {
-                                    if (txToEdit != null) {
-                                        viewModel.updateTransactionStatus(txToEdit!!, "Cancelled")
-                                    }
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "STATUS_PENDING" -> {
-                                    if (txToEdit != null) {
-                                        viewModel.updateTransactionStatus(txToEdit!!, "Pending")
-                                    }
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "DELETE_DEP" -> {
-                                    if (depToDelete != null) {
-                                        viewModel.deleteSupplierDeposit(depToDelete!!.id)
-                                    }
-                                    depToDelete = null
-                                    showTxSecurityDialog = false
-                                }
-                                "EDIT_DEP" -> {
-                                    if (depositToEdit != null) {
-                                        val amt = editDepAmountSar.toDoubleOrNull() ?: 0.0
-                                        val rateValue = editDepRate.toDoubleOrNull() ?: 0.0
-                                        val updatedDep = SupplierDeposit(
-                                            id = depositToEdit!!.id,
-                                            supplierId = supplier.id,
-                                            amountSar = amt,
-                                            rate = rateValue,
-                                            amountBdt = amt * rateValue,
-                                            transactionType = editDepTxType,
-                                            notes = editDepNotes,
-                                            timestamp = depositToEdit!!.timestamp
-                                        )
-                                        viewModel.updateSupplierDeposit(updatedDep)
-                                    }
-                                    depositToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                            }
-                        }
-                        com.safa.account.ui.BiometricTriggerButton(
-                            lang = lang,
-                            onSuccess = onSuccessAction,
-                            onError = { err ->
-                                txPinErrorText = err
-                            }
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        Text(
-                            text = if (lang == "BN") "অথবা পিন দিয়ে করুন:" else "Or verify using PIN:",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = txPinCodeInput,
-                        onValueChange = { 
-                            if (it.length <= 6 && it.all { c -> c.isDigit() }) {
-                                txPinCodeInput = it
-                            }
-                        },
-                        placeholder = { Text("PIN") },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    if (txPinErrorText != null) {
-                        Text(
-                            text = txPinErrorText!!,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (txPinCodeInput == operatorPin) {
-                            when (txActionToConfirm) {
-                                "DELETE" -> {
-                                    val id = txToDelete?.id ?: txToEdit?.id
-                                    if (id != null) {
-                                        viewModel.deleteTransaction(id)
-                                    }
-                                    txToDelete = null
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "EDIT" -> {
-                                    if (txToEdit != null) {
-                                        val amt = editAmountSar.toDoubleOrNull() ?: 0.0
-                                        val cRate = editCustomerRate.toDoubleOrNull() ?: 0.0
-                                        val sRate = editSupplierRate.toDoubleOrNull() ?: 0.0
-                                        val col = editSarCollected.toDoubleOrNull() ?: amt
-                                        val dis = editBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
-                                        val updatedTx = txToEdit!!.copy(
-                                            amountSar = amt,
-                                            customerRate = cRate,
-                                            supplierRate = sRate,
-                                            amountBdt = amt * cRate,
-                                            receiverName = editReceiverName,
-                                            receiverPhone = editPhoneNum,
-                                            receiverAccountType = editReceiverAccountType,
-                                            receiverAccountNo = editReceiverAccountNo,
-                                            notes = editTxNotes,
-                                            status = editStatus,
-                                            supplierId = editSupplierId ?: txToEdit!!.supplierId,
-                                            sarCollected = col,
-                                            bdtDisbursed = dis
-                                        )
-                                        viewModel.updateTransactionStatus(updatedTx, editStatus)
-                                    }
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "STATUS_DELIVER" -> {
-                                    if (txToEdit != null) {
-                                        viewModel.updateTransactionStatus(txToEdit!!, "Delivered")
-                                    }
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "STATUS_CANCEL" -> {
-                                    if (txToEdit != null) {
-                                        viewModel.updateTransactionStatus(txToEdit!!, "Cancelled")
-                                    }
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "STATUS_PENDING" -> {
-                                    if (txToEdit != null) {
-                                        viewModel.updateTransactionStatus(txToEdit!!, "Pending")
-                                    }
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "DELETE_DEP" -> {
-                                    if (depToDelete != null) {
-                                        viewModel.deleteSupplierDeposit(depToDelete!!.id)
-                                    }
-                                    depToDelete = null
-                                    showTxSecurityDialog = false
-                                }
-                                "EDIT_DEP" -> {
-                                    if (depositToEdit != null) {
-                                        val amt = editDepAmountSar.toDoubleOrNull() ?: 0.0
-                                        val rateValue = editDepRate.toDoubleOrNull() ?: 0.0
-                                        val updatedDep = SupplierDeposit(
-                                            id = depositToEdit!!.id,
-                                            supplierId = supplier.id,
-                                            amountSar = amt,
-                                            rate = rateValue,
-                                            amountBdt = amt * rateValue,
-                                            transactionType = editDepTxType,
-                                            notes = editDepNotes,
-                                            timestamp = depositToEdit!!.timestamp
-                                        )
-                                        viewModel.updateSupplierDeposit(updatedDep)
-                                    }
-                                    depositToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                            }
-                        } else {
-                            txPinErrorText = if (lang == "BN") "❌ ভুল পিন কোড! পুনরায় চেষ্টা করুন" else "❌ Incorrect PIN! Try again."
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (lang == "BN") "নিশ্চিত করুন" else "Confirm")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTxSecurityDialog = false }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
                 }
             }
         )

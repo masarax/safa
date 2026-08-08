@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,7 +38,7 @@ fun LoginScreen(
     val operators by viewModel.operators.collectAsStateWithLifecycle()
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
 
-    var mobileInput by remember { mutableStateOf("") }
+    var mobileInput by remember { mutableStateOf(viewModel.tokenManager?.getLastMobile() ?: "") }
     var pinInput by remember { mutableStateOf("") }
     var loginError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
@@ -59,11 +60,14 @@ fun LoginScreen(
             FilledTonalButton(
                 onClick = { viewModel.toggleLanguage() },
                 shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.testTag("auth_lang_toggle")
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier.height(36.dp).testTag("auth_lang_toggle")
             ) {
                 Text(
                     text = if (currentLang == "BN") "EN | বাংলা" else "EN | বাংলা",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -96,10 +100,12 @@ fun LoginScreen(
                 text = viewModel.t("login_title", currentLang),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp
+                    fontSize = 22.sp
                 ),
                 color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             // Direct Flat Input Layout without Card or Shadow
@@ -160,13 +166,16 @@ fun LoginScreen(
                         text = loginError ?: "",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 // Biometric option if matching operator has biometric enabled
                 val matchingOp = remember(mobileInput, operators) {
-                    operators.find { it.mobile == mobileInput.trim() && it.mobile.isNotBlank() }
+                    operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
+                        ?: operators.find { it.isBiometricEnabled }
                 }
                 if (matchingOp != null && matchingOp.isBiometricEnabled) {
                     com.safa.account.ui.BiometricTriggerButton(
@@ -200,7 +209,8 @@ fun LoginScreen(
                         .fillMaxWidth()
                         .height(50.dp)
                         .testTag("login_submit_btn"),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
@@ -211,7 +221,9 @@ fun LoginScreen(
                     } else {
                         Text(
                             text = viewModel.t("login_button", currentLang),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }

@@ -259,7 +259,8 @@ fun CustomerScreen(
                                 letterSpacing = (-0.3).sp
                             ),
                             color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -287,7 +288,7 @@ fun CustomerScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp) },
+                        placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "", modifier = Modifier.size(20.dp)) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -334,7 +335,9 @@ fun CustomerScreen(
                             Text(
                                 text = if (lang == "BN") "⚙️ ফিল্টার ও সেটিংস" else "⚙️ Filter & Settings",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -346,7 +349,9 @@ fun CustomerScreen(
                                         text = if (lang == "BN") "বাছাই করুন" else "Sort By",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
-                                        modifier = Modifier.padding(bottom = 2.dp)
+                                        modifier = Modifier.padding(bottom = 2.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     var sortMenuExpanded by remember { mutableStateOf(false) }
                                     Box {
@@ -384,7 +389,9 @@ fun CustomerScreen(
                                                                 "Due" -> if (lang == "BN") "সর্বোচ্চ বকেয়া" else "Highest Due"
                                                                 "Advance" -> if (lang == "BN") "সর্বোচ্চ অগ্রিম" else "Highest Advance"
                                                                 else -> if (lang == "BN") "নতুন প্রথম" else "Newest First"
-                                                            }
+                                                            },
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     },
                                                     onClick = {
@@ -403,7 +410,9 @@ fun CustomerScreen(
                                         text = if (lang == "BN") "ফিল্টার ক্যাটাগরি" else "Filter Balance",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
-                                        modifier = Modifier.padding(bottom = 2.dp)
+                                        modifier = Modifier.padding(bottom = 2.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     var filterMenuExpanded by remember { mutableStateOf(false) }
                                     Box {
@@ -437,7 +446,9 @@ fun CustomerScreen(
                                                                 "Due" -> if (lang == "BN") "শুধু বকেয়া কাস্টমার" else "Due Customers"
                                                                 "Advance" -> if (lang == "BN") "শুধু অগ্রিম কাস্টমার" else "Advance Customers"
                                                                 else -> if (lang == "BN") "সব গ্রাহক" else "All Customers"
-                                                            }
+                                                            },
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     },
                                                     onClick = {
@@ -466,7 +477,9 @@ fun CustomerScreen(
                             Text(
                                 text = if (lang == "BN") "কোনো কাস্টমার পাওয়া যায়নি!" else "No customer profiles found.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.outline
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -537,13 +550,17 @@ fun CustomerScreen(
                                                  Text(
                                                      text = customer.name,
                                                      style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.ExtraBold),
-                                                     color = MaterialTheme.colorScheme.onSurface
+                                                     color = MaterialTheme.colorScheme.onSurface,
+                                                     maxLines = 1,
+                                                     overflow = TextOverflow.Ellipsis
                                                  )
                                                  Spacer(modifier = Modifier.height(1.dp))
                                                  Text(
                                                      text = customer.phone,
                                                      style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                                     color = MaterialTheme.colorScheme.outline
+                                                     color = MaterialTheme.colorScheme.outline,
+                                                     maxLines = 1,
+                                                     overflow = TextOverflow.Ellipsis
                                                  )
                                              }
                                          }
@@ -556,13 +573,17 @@ fun CustomerScreen(
                                                      if (lang == "BN") "মোট বকেয়া" else "Total Due"
                                                  },
                                                  style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                 color = if (totalDue > 0.05) Color(0xFFD32F2F) else if (totalDue <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32)
+                                                 color = if (totalDue > 0.05) Color(0xFFD32F2F) else if (totalDue <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32),
+                                                 maxLines = 1,
+                                                 overflow = TextOverflow.Ellipsis
                                              )
                                              Spacer(modifier = Modifier.height(1.dp))
                                              Text(
                                                  text = "${currencyFormatter.format(Math.abs(totalDue))} ${foreignCur}",
                                                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
-                                                 color = if (totalDue > 0.05) Color(0xFFD32F2F) else if (totalDue <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32)
+                                                 color = if (totalDue > 0.05) Color(0xFFD32F2F) else if (totalDue <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32),
+                                                 maxLines = 1,
+                                                 overflow = TextOverflow.Ellipsis
                                              )
                                          }
                                      }
@@ -579,40 +600,52 @@ fun CustomerScreen(
                                          horizontalArrangement = Arrangement.SpaceBetween,
                                          verticalAlignment = Alignment.CenterVertically
                                      ) {
-                                         Column {
+                                         Column(modifier = Modifier.weight(1f)) {
                                              Text(
                                                  text = if (lang == "BN") "মোট লেনদেন ${foreignCur}" else "Total Trans. ${foreignCur}",
                                                  style = MaterialTheme.typography.labelSmall,
-                                                 color = MaterialTheme.colorScheme.outline
+                                                 color = MaterialTheme.colorScheme.outline,
+                                                 maxLines = 1,
+                                                 overflow = TextOverflow.Ellipsis
                                              )
                                              Text(
                                                  text = "${currencyFormatter.format(totalSarSpent)} ${foreignCur}",
                                                  style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                                 color = MaterialTheme.colorScheme.onSurface
+                                                 color = MaterialTheme.colorScheme.onSurface,
+                                                 maxLines = 1,
+                                                 overflow = TextOverflow.Ellipsis
                                              )
                                          }
-                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                                              Text(
                                                  text = if (lang == "BN") "মোট পাঠানো ${localCur}" else "Total Sent ${localCur}",
                                                  style = MaterialTheme.typography.labelSmall,
-                                                 color = MaterialTheme.colorScheme.outline
+                                                 color = MaterialTheme.colorScheme.outline,
+                                                 maxLines = 1,
+                                                 overflow = TextOverflow.Ellipsis
                                              )
                                              Text(
                                                  text = "${currencyFormatter.format(totalBdt)} ${localCur}",
                                                  style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                                 color = MaterialTheme.colorScheme.onSurface
+                                                 color = MaterialTheme.colorScheme.onSurface,
+                                                 maxLines = 1,
+                                                 overflow = TextOverflow.Ellipsis
                                              )
                                          }
-                                         Column(horizontalAlignment = Alignment.End) {
+                                         Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                                              Text(
                                                  text = if (lang == "BN") "লেনদেন সংখ্যা" else "Trans. Count",
                                                  style = MaterialTheme.typography.labelSmall,
-                                                 color = MaterialTheme.colorScheme.outline
+                                                 color = MaterialTheme.colorScheme.outline,
+                                                 maxLines = 1,
+                                                 overflow = TextOverflow.Ellipsis
                                              )
                                              Text(
                                                  text = "${customerTxs.size}",
                                                  style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                                 color = MaterialTheme.colorScheme.onSurface
+                                                 color = MaterialTheme.colorScheme.onSurface,
+                                                 maxLines = 1,
+                                                 overflow = TextOverflow.Ellipsis
                                              )
                                          }
                                      }
@@ -841,10 +874,30 @@ fun CustomerProfileView(
                 onIsEditAmountCalCOpenChange = { isEditAmountCalCOpen = it },
                 onCancel = { txToEdit = null },
                 onSave = {
-                    txActionToConfirm = "EDIT"
-                    txPinCodeInput = ""
-                    txPinErrorText = null
-                    showTxSecurityDialog = true
+                    if (txToEdit != null) {
+                        val amt = editAmountSar.toDoubleOrNull() ?: 0.0
+                        val cRate = editCustomerRate.toDoubleOrNull() ?: 0.0
+                        val sRate = editSupplierRate.toDoubleOrNull() ?: 0.0
+                        val col = editSarCollected.toDoubleOrNull() ?: amt
+                        val dis = editBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
+                        val updatedTx = txToEdit!!.copy(
+                            amountSar = amt,
+                            customerRate = cRate,
+                            supplierRate = sRate,
+                            amountBdt = amt * cRate,
+                            receiverName = editReceiverName,
+                            receiverPhone = editReceiverPhone,
+                            receiverAccountType = editReceiverAccountType,
+                            receiverAccountNo = editReceiverAccountNo,
+                            notes = editTxNotes,
+                            status = editStatus,
+                            supplierId = editSupplierId ?: txToEdit!!.supplierId,
+                            sarCollected = col,
+                            bdtDisbursed = dis
+                        )
+                        viewModel.updateTransactionStatus(updatedTx, editStatus)
+                    }
+                    txToEdit = null
                 }
             )
         } else if (isAddingTransaction) {
@@ -910,10 +963,110 @@ fun CustomerProfileView(
                 isSupplierRateEnabled = isSupplierRateEnabled,
                 onCancel = { isAddingTransaction = false },
                 onSubmit = {
-                    txActionToConfirm = "ADD_TX_PAGE"
-                    txPinCodeInput = ""
-                    txPinErrorText = null
-                    showTxSecurityDialog = true
+                    val amt = inputAmountSar.toDoubleOrNull() ?: 0.0
+                    val cRate = inputCustomerRate.toDoubleOrNull() ?: 32.10
+                    val batchId = selectedBatchId ?: 0
+                    val col = inputSarCollected.toDoubleOrNull() ?: amt
+                    val dis = inputBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
+                    val dueAmt = inputDueSarCollected.toDoubleOrNull() ?: 0.0
+                    val rcvStr = if (inputReceiverAccountType == "Cash") "Cash" else inputReceiverAccountNo
+
+                    confirmCustName = customer.name
+                    confirmAmountSar = amt
+                    confirmCustomerRate = cRate
+                    confirmCollectedSar = col
+                    confirmDueCollectedSar = dueAmt
+                    confirmNewDueSar = amt - col
+                    val dueAmtEffect = if (isAdvanceReturn || totalUncollectedSar <= -0.05) -dueAmt else dueAmt
+                    confirmTotalRemainingDueSar = totalUncollectedSar + confirmNewDueSar + dueAmtEffect
+                    confirmPaymentMethod = inputReceiverAccountType
+                    confirmRecipientNo = rcvStr
+                    confirmTimestamp = inputTimestamp
+                    confirmIsAdvanceReturn = isAdvanceReturn || (totalUncollectedSar <= -0.05 && dueAmt > 0.05)
+
+                    if (amt > 0.05 && batchId > 0 && rcvStr.isNotBlank()) {
+                        viewModel.createRemittance(
+                            customerId = customer.id,
+                            walletBatchId = batchId,
+                            amountSar = amt,
+                            customerRate = cRate,
+                            receiverName = "Recipient",
+                            receiverPhone = rcvStr,
+                            receiverAccountType = inputReceiverAccountType,
+                            receiverAccountNo = rcvStr,
+                            notes = inputNotes,
+                            sarCollected = col,
+                            bdtDisbursed = dis,
+                            timestamp = inputTimestamp
+                        ) {
+                            if (dueAmt > 0.05) {
+                                viewModel.createRemittance(
+                                    customerId = customer.id,
+                                    walletBatchId = 0,
+                                    amountSar = 0.0,
+                                    customerRate = 0.0,
+                                    receiverName = if (isAdvanceReturn) "Advance Return" else "Due Payment",
+                                    receiverPhone = "N/A",
+                                    receiverAccountType = "N/A",
+                                    receiverAccountNo = "N/A",
+                                    notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
+                                    sarCollected = dueAmtEffect,
+                                    bdtDisbursed = 0.0,
+                                    status = "Delivered",
+                                    timestamp = inputTimestamp
+                                ) {
+                                    inputAmountSar = ""
+                                    inputReceiverPhone = ""
+                                    inputReceiverAccountNo = ""
+                                    inputNotes = ""
+                                    inputSarCollected = ""
+                                    inputBdtDisbursed = ""
+                                    inputDueSarCollected = ""
+                                    inputTimestamp = System.currentTimeMillis()
+                                    isAddingTransaction = false
+                                    showConfirmationPage = true
+                                }
+                            } else {
+                                inputAmountSar = ""
+                                inputReceiverPhone = ""
+                                inputReceiverAccountNo = ""
+                                inputNotes = ""
+                                inputSarCollected = ""
+                                inputBdtDisbursed = ""
+                                inputDueSarCollected = ""
+                                inputTimestamp = System.currentTimeMillis()
+                                isAddingTransaction = false
+                                showConfirmationPage = true
+                            }
+                        }
+                    } else if (amt <= 0.05 && dueAmt > 0.05) {
+                        viewModel.createRemittance(
+                            customerId = customer.id,
+                            walletBatchId = 0,
+                            amountSar = 0.0,
+                            customerRate = 0.0,
+                            receiverName = if (isAdvanceReturn) "Advance Return" else "Due Payment",
+                            receiverPhone = "N/A",
+                            receiverAccountType = "N/A",
+                            receiverAccountNo = "N/A",
+                            notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
+                            sarCollected = dueAmtEffect,
+                            bdtDisbursed = 0.0,
+                            status = "Delivered",
+                            timestamp = inputTimestamp
+                        ) {
+                            inputAmountSar = ""
+                            inputReceiverPhone = ""
+                            inputReceiverAccountNo = ""
+                            inputNotes = ""
+                            inputSarCollected = ""
+                            inputBdtDisbursed = ""
+                            inputDueSarCollected = ""
+                            inputTimestamp = System.currentTimeMillis()
+                            isAddingTransaction = false
+                            showConfirmationPage = true
+                        }
+                    }
                 }
             )
         }
@@ -1152,12 +1305,7 @@ fun CustomerProfileView(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (!isEditing) {
                     IconButton(
-                        onClick = { 
-                            actionToConfirm = "DELETE"
-                            pinCodeInput = ""
-                            pinErrorText = null
-                            showSecurityDialog = true 
-                        },
+                        onClick = { onDelete() },
                         modifier = Modifier.size(36.dp),
                         colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
@@ -1168,10 +1316,16 @@ fun CustomerProfileView(
                 IconButton(
                     onClick = { 
                         if (isEditing) {
-                            actionToConfirm = "SAVE"
-                            pinCodeInput = ""
-                            pinErrorText = null
-                            showSecurityDialog = true
+                            val updatedCustomer = customer.copy(
+                                name = editName,
+                                phone = editPhone,
+                                address = editAddress,
+                                securityNotes = editNotes,
+                                avatarColor = editColor,
+                                avatarEmoji = editEmoji
+                            )
+                            onUpdate(updatedCustomer)
+                            isEditing = false
                         } else {
                             isEditing = true
                         }
@@ -1822,7 +1976,7 @@ fun CustomerProfileView(
                                                         ) {
                                                             Icon(Icons.Default.Share, contentDescription = "", modifier = Modifier.size(12.dp))
                                                             Spacer(modifier = Modifier.width(4.dp))
-                                                            Text(if (lang == "BN") "শেয়ার" else "Share", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                            Text(if (lang == "BN") "শেয়ার" else "Share", fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         }
 
                                                         OutlinedButton(
@@ -1847,16 +2001,12 @@ fun CustomerProfileView(
                                                         ) {
                                                             Icon(Icons.Default.Edit, contentDescription = "", modifier = Modifier.size(12.dp))
                                                             Spacer(modifier = Modifier.width(4.dp))
-                                                            Text(if (lang == "BN") "এডিট" else "Edit", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                            Text(if (lang == "BN") "এডিট" else "Edit", fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         }
 
                                                         OutlinedButton(
                                                             onClick = {
-                                                                txToDelete = tx
-                                                                txActionToConfirm = "DELETE"
-                                                                txPinCodeInput = ""
-                                                                txPinErrorText = null
-                                                                showTxSecurityDialog = true
+                                                                viewModel.deleteTransaction(tx.id)
                                                             },
                                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                             modifier = Modifier.height(28.dp),
@@ -1864,34 +2014,26 @@ fun CustomerProfileView(
                                                         ) {
                                                             Icon(Icons.Default.Delete, contentDescription = "", modifier = Modifier.size(12.dp))
                                                             Spacer(modifier = Modifier.width(4.dp))
-                                                            Text(if (lang == "BN") "ডিলিট" else "Delete", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                            Text(if (lang == "BN") "ডিলিট" else "Delete", fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         }
 
                                                         if (tx.status != "Cancelled" && tx.status != "Delivered") {
                                                             Button(
                                                                 onClick = {
-                                                                    txToDelete = tx
-                                                                    txActionToConfirm = "STATUS_DELIVER"
-                                                                    txPinCodeInput = ""
-                                                                    txPinErrorText = null
-                                                                    showTxSecurityDialog = true
+                                                                    viewModel.updateTransactionStatus(tx, "Delivered")
                                                                 },
                                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                 modifier = Modifier.height(28.dp)
                                                             ) {
-                                                                Text(if (lang == "BN") "ডেলিভারি" else "Deliver", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                                Text(if (lang == "BN") "ডেলিভারি" else "Deliver", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                             }
                                                         }
 
                                                         if (tx.status == "Pending") {
                                                             OutlinedButton(
                                                                 onClick = {
-                                                                    txToDelete = tx
-                                                                    txActionToConfirm = "STATUS_CANCEL"
-                                                                    txPinCodeInput = ""
-                                                                    txPinErrorText = null
-                                                                    showTxSecurityDialog = true
+                                                                    viewModel.updateTransactionStatus(tx, "Cancelled")
                                                                 },
                                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                 modifier = Modifier.height(28.dp)
@@ -1901,11 +2043,7 @@ fun CustomerProfileView(
                                                         } else if (tx.status == "Cancelled") {
                                                             OutlinedButton(
                                                                 onClick = {
-                                                                    txToDelete = tx
-                                                                    txActionToConfirm = "STATUS_PENDING"
-                                                                    txPinCodeInput = ""
-                                                                    txPinErrorText = null
-                                                                    showTxSecurityDialog = true
+                                                                    viewModel.updateTransactionStatus(tx, "Pending")
                                                                 },
                                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                 modifier = Modifier.height(28.dp)
@@ -1937,119 +2075,7 @@ fun CustomerProfileView(
     }
 
     // Secure Gate verification Dialog
-    if (showSecurityDialog) {
-        AlertDialog(
-            onDismissRequest = { showSecurityDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Default.VerifiedUser, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Text(
-                        text = if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Verification",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = if (lang == "BN") "প্রোফাইল পরিবর্তন সংরক্ষণ করতে আপনার ৪ সংখ্যার ওনার/অপেরাটর পাসকোড (PIN) লিখুন।" 
-                               else "Enter your 6-digit operator PIN to securely save profile updates.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
 
-                    if (currentOperator?.isBiometricEnabled == true) {
-                        com.safa.account.ui.BiometricTriggerButton(
-                            lang = lang,
-                            onSuccess = {
-                                if (actionToConfirm == "DELETE") {
-                                    onDelete()
-                                    showSecurityDialog = false
-                                } else {
-                                    val updatedCustomer = customer.copy(
-                                        name = editName,
-                                        phone = editPhone,
-                                        address = editAddress,
-                                        securityNotes = editNotes,
-                                        avatarColor = editColor,
-                                        avatarEmoji = editEmoji
-                                    )
-                                    onUpdate(updatedCustomer)
-                                    showSecurityDialog = false
-                                    isEditing = false
-                                }
-                            },
-                            onError = { err ->
-                                pinErrorText = err
-                            }
-                        )
-                    } else {
-                        OutlinedTextField(
-                            value = pinCodeInput,
-                            onValueChange = { 
-                                if (it.length <= 6 && it.all { c -> c.isDigit() }) {
-                                    pinCodeInput = it
-                                }
-                            },
-                            placeholder = { Text("PIN Passcode") },
-                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        if (pinErrorText != null) {
-                            Text(
-                                text = pinErrorText!!,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                if (currentOperator?.isBiometricEnabled != true) {
-                    Button(
-                        onClick = {
-                            if (pinCodeInput == operatorPin) {
-                                // Successfully Verified PIN! Proceed with database update
-                                if (actionToConfirm == "DELETE") {
-                                    onDelete()
-                                    showSecurityDialog = false
-                                } else {
-                                    val updatedCustomer = customer.copy(
-                                        name = editName,
-                                        phone = editPhone,
-                                        address = editAddress,
-                                        securityNotes = editNotes,
-                                        avatarColor = editColor,
-                                        avatarEmoji = editEmoji
-                                    )
-                                    onUpdate(updatedCustomer)
-                                    showSecurityDialog = false
-                                    isEditing = false
-                                }
-                            } else {
-                                pinErrorText = if (lang == "BN") "❌ ভুল পিন কোড! পুনরায় চেষ্টা করুন" else "❌ Incorrect PIN! Try again."
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (actionToConfirm == "DELETE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Text(if (lang == "BN") "ভেরিফাই করুন" else "Verify")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSecurityDialog = false }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
-                }
-            }
-        )
-    }
 
     if (isAmountCalCOpen) {
         CalculatorDialog(
@@ -2079,426 +2105,6 @@ fun CustomerProfileView(
                 val s = result.toDoubleOrNull() ?: 0.0
                 val r = editCustomerRate.toDoubleOrNull() ?: 0.0
                 editBdtDisbursed = Math.round(s * r).toString()
-                isEditAmountCalCOpen = false
-            }
-        )
-    }
-
-    if (showTxSecurityDialog) {
-        AlertDialog(
-            onDismissRequest = { showTxSecurityDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Default.VerifiedUser, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Text(
-                        text = if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Challenge",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val descText = when (txActionToConfirm) {
-                        "DELETE" -> if (lang == "BN") "লেনদেনটি চিরতরে মুছে ফেলার জন্য আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to permanently delete this transaction."
-                        "EDIT" -> if (lang == "BN") "লেনদেনের তথ্য সংশোধন করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to securely edit this transaction."
-                        "STATUS_DELIVER" -> if (lang == "BN") "লেনদেনটি 'বিতরণ করা হয়েছে' করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to mark this transaction as Delivered."
-                        "STATUS_CANCEL" -> if (lang == "BN") "লেনদেনটি বাতিল করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to mark this transaction as Cancelled."
-                        "STATUS_PENDING" -> if (lang == "BN") "লেনদেনটি পেন্ডিং করতে আপনার ৪-ডিজিটের সিকিউরিটি পিন দিন।" else "Enter your 6-digit operator PIN to mark this transaction as Pending."
-                        "ADD_TX_PAGE" -> if (lang == "BN") "নতুন লেনদেন প্রসেস করতে আপনার ৪-ডিজিটের পিন দিন।" else "Enter your 6-digit operator PIN to securely create this transaction."
-                        else -> ""
-                    }
-                    Text(text = descText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    
-                    if (currentOperator?.isBiometricEnabled == true) {
-                        val onSuccessAction = {
-                            when (txActionToConfirm) {
-                                "ADD_TX_PAGE" -> {
-                                    val amt = inputAmountSar.toDoubleOrNull() ?: 0.0
-                                    val cRate = inputCustomerRate.toDoubleOrNull() ?: 32.10
-                                    val batchId = selectedBatchId ?: 0
-                                    val col = inputSarCollected.toDoubleOrNull() ?: amt
-                                    val dis = inputBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
-                                    val dueAmt = inputDueSarCollected.toDoubleOrNull() ?: 0.0
-                                    val rcvStr = if (inputReceiverAccountType == "Cash") "Cash" else inputReceiverAccountNo
-
-                                    confirmCustName = customer.name
-                                    confirmAmountSar = amt
-                                    confirmCustomerRate = cRate
-                                    confirmCollectedSar = col
-                                    confirmDueCollectedSar = dueAmt
-                                    confirmNewDueSar = amt - col
-                                    val dueAmtEffect = if (isAdvanceReturn || totalUncollectedSar <= -0.05) -dueAmt else dueAmt
-                                    confirmTotalRemainingDueSar = totalUncollectedSar + confirmNewDueSar + dueAmtEffect
-                                    confirmPaymentMethod = inputReceiverAccountType
-                                    confirmRecipientNo = rcvStr
-                                    confirmTimestamp = inputTimestamp
-                                    confirmIsAdvanceReturn = isAdvanceReturn || (totalUncollectedSar <= -0.05 && dueAmt > 0.05)
-
-                                    if (amt > 0.05 && batchId > 0 && rcvStr.isNotBlank()) {
-                                        viewModel.createRemittance(
-                                            customerId = customer.id,
-                                            walletBatchId = batchId,
-                                            amountSar = amt,
-                                            customerRate = cRate,
-                                            receiverName = "Recipient",
-                                            receiverPhone = rcvStr,
-                                            receiverAccountType = inputReceiverAccountType,
-                                            receiverAccountNo = rcvStr,
-                                            notes = inputNotes,
-                                            sarCollected = col,
-                                            bdtDisbursed = dis,
-                                            timestamp = inputTimestamp
-                                        ) {
-                                            if (dueAmt > 0.05) {
-                                                viewModel.createRemittance(
-                                                    customerId = customer.id,
-                                                    walletBatchId = 0,
-                                                    amountSar = 0.0,
-                                                    customerRate = 0.0,
-                                                    receiverName = if (isAdvanceReturn) "Advance Return" else "Due Payment",
-                                                    receiverPhone = "N/A",
-                                                    receiverAccountType = "N/A",
-                                                    receiverAccountNo = "N/A",
-                                                    notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
-                                                    sarCollected = dueAmtEffect,
-                                                    bdtDisbursed = 0.0,
-                                                    status = "Delivered",
-                                                    timestamp = inputTimestamp
-                                                ) {
-                                                    // Reset states
-                                                    inputAmountSar = ""
-                                                    inputReceiverPhone = ""
-                                                    inputReceiverAccountNo = ""
-                                                    inputNotes = ""
-                                                    inputSarCollected = ""
-                                                    inputBdtDisbursed = ""
-                                                    inputDueSarCollected = ""
-                                                    inputTimestamp = System.currentTimeMillis()
-                                                    isAddingTransaction = false
-                                                    showConfirmationPage = true
-                                                }
-                                            } else {
-                                                // Reset states
-                                                inputAmountSar = ""
-                                                inputReceiverPhone = ""
-                                                inputReceiverAccountNo = ""
-                                                inputNotes = ""
-                                                inputSarCollected = ""
-                                                inputBdtDisbursed = ""
-                                                inputDueSarCollected = ""
-                                                inputTimestamp = System.currentTimeMillis()
-                                                isAddingTransaction = false
-                                                showConfirmationPage = true
-                                            }
-                                        }
-                                    } else if (amt <= 0.05 && dueAmt > 0.05) {
-                                        viewModel.createRemittance(
-                                            customerId = customer.id,
-                                            walletBatchId = 0,
-                                            amountSar = 0.0,
-                                            customerRate = 0.0,
-                                            receiverName = if (isAdvanceReturn) "Advance Return" else "Due Payment",
-                                            receiverPhone = "N/A",
-                                            receiverAccountType = "N/A",
-                                            receiverAccountNo = "N/A",
-                                            notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
-                                            sarCollected = dueAmtEffect,
-                                            bdtDisbursed = 0.0,
-                                            status = "Delivered",
-                                            timestamp = inputTimestamp
-                                        ) {
-                                            // Reset states
-                                            inputAmountSar = ""
-                                            inputReceiverPhone = ""
-                                            inputReceiverAccountNo = ""
-                                            inputNotes = ""
-                                            inputSarCollected = ""
-                                            inputBdtDisbursed = ""
-                                            inputDueSarCollected = ""
-                                            inputTimestamp = System.currentTimeMillis()
-                                            isAddingTransaction = false
-                                            showConfirmationPage = true
-                                        }
-                                    }
-                                    showTxSecurityDialog = false
-                                }
-                                "DELETE" -> {
-                                    val id = txToDelete?.id ?: txToEdit?.id
-                                    if (id != null) {
-                                        viewModel.deleteTransaction(id)
-                                    }
-                                    txToDelete = null
-                                    txToEdit = null
-                                    showTxSecurityDialog = false
-                                }
-                                "EDIT" -> {
-                                    if (txToEdit != null) {
-                                        val amt = editAmountSar.toDoubleOrNull() ?: 0.0
-                                        val cRate = editCustomerRate.toDoubleOrNull() ?: 0.0
-                                        val sRate = editSupplierRate.toDoubleOrNull() ?: 0.0
-                                        val col = editSarCollected.toDoubleOrNull() ?: amt
-                                        val dis = editBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
-                                        val updatedTx = txToEdit!!.copy(
-                                             amountSar = amt,
-                                             customerRate = cRate,
-                                             supplierRate = sRate,
-                                             amountBdt = amt * cRate,
-                                             receiverName = editReceiverName,
-                                             receiverPhone = editReceiverPhone,
-                                             receiverAccountType = editReceiverAccountType,
-                                             receiverAccountNo = editReceiverAccountNo,
-                                             notes = editTxNotes,
-                                             status = editStatus,
-                                             supplierId = editSupplierId ?: txToEdit!!.supplierId,
-                                             sarCollected = col,
-                                             bdtDisbursed = dis
-                                         )
-                                         viewModel.updateTransactionStatus(updatedTx, editStatus)
-                                     }
-                                     txToEdit = null
-                                     showTxSecurityDialog = false
-                                 }
-                                 "STATUS_DELIVER" -> {
-                                     if (txToDelete != null) {
-                                         viewModel.updateTransactionStatus(txToDelete!!, "Delivered")
-                                     }
-                                     txToDelete = null
-                                     showTxSecurityDialog = false
-                                 }
-                                 "STATUS_CANCEL" -> {
-                                     if (txToDelete != null) {
-                                         viewModel.updateTransactionStatus(txToDelete!!, "Cancelled")
-                                     }
-                                     txToDelete = null
-                                     showTxSecurityDialog = false
-                                 }
-                                 "STATUS_PENDING" -> {
-                                     if (txToDelete != null) {
-                                         viewModel.updateTransactionStatus(txToDelete!!, "Pending")
-                                     }
-                                     txToDelete = null
-                                     showTxSecurityDialog = false
-                                 }
-                            }
-                        }
-                        com.safa.account.ui.BiometricTriggerButton(
-                            lang = lang,
-                            onSuccess = onSuccessAction,
-                            onError = { err ->
-                                txPinErrorText = err
-                            }
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        Text(
-                            text = if (lang == "BN") "অথবা পিন দিয়ে করুন:" else "Or verify using PIN:",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    OutlinedTextField(
-                        value = txPinCodeInput,
-                        onValueChange = { if (it.length <= 6) txPinCodeInput = it },
-                        label = { Text(if (lang == "BN") "৪-ডিজিটের সিকিউরিটি পিন" else "6-digit Security PIN") },
-                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = txPinErrorText != null
-                    )
-                    
-                    if (txPinErrorText != null) {
-                        Text(text = txPinErrorText ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (txPinCodeInput == operatorPin) {
-                            when (txActionToConfirm) {
-                                "ADD_TX_PAGE" -> {
-                                    val amt = inputAmountSar.toDoubleOrNull() ?: 0.0
-                                    val cRate = inputCustomerRate.toDoubleOrNull() ?: 32.10
-                                    val batchId = selectedBatchId ?: 0
-                                    val col = inputSarCollected.toDoubleOrNull() ?: amt
-                                    val dis = inputBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
-                                    val dueAmt = inputDueSarCollected.toDoubleOrNull() ?: 0.0
-                                    val rcvStr = if (inputReceiverAccountType == "Cash") "Cash" else inputReceiverAccountNo
-
-                                    confirmCustName = customer.name
-                                    confirmAmountSar = amt
-                                    confirmCustomerRate = cRate
-                                    confirmCollectedSar = col
-                                    confirmDueCollectedSar = dueAmt
-                                    confirmNewDueSar = amt - col
-                                    val dueAmtEffect = if (isAdvanceReturn || totalUncollectedSar <= -0.05) -dueAmt else dueAmt
-                                    confirmTotalRemainingDueSar = totalUncollectedSar + confirmNewDueSar + dueAmtEffect
-                                    confirmPaymentMethod = inputReceiverAccountType
-                                    confirmRecipientNo = rcvStr
-                                    confirmTimestamp = inputTimestamp
-                                    confirmIsAdvanceReturn = isAdvanceReturn || (totalUncollectedSar <= -0.05 && dueAmt > 0.05)
-
-                                    if (amt > 0.05 && batchId > 0 && rcvStr.isNotBlank()) {
-                                        viewModel.createRemittance(
-                                            customerId = customer.id,
-                                            walletBatchId = batchId,
-                                            amountSar = amt,
-                                            customerRate = cRate,
-                                            receiverName = "Recipient",
-                                            receiverPhone = rcvStr,
-                                            receiverAccountType = inputReceiverAccountType,
-                                            receiverAccountNo = rcvStr,
-                                            notes = inputNotes,
-                                            sarCollected = col,
-                                            bdtDisbursed = dis,
-                                            timestamp = inputTimestamp
-                                        ) {
-                                            if (dueAmt > 0.05) {
-                                                viewModel.createRemittance(
-                                                    customerId = customer.id,
-                                                    walletBatchId = 0,
-                                                    amountSar = 0.0,
-                                                    customerRate = 0.0,
-                                                    receiverName = if (isAdvanceReturn) "Advance Return" else "Due Payment",
-                                                    receiverPhone = "N/A",
-                                                    receiverAccountType = "N/A",
-                                                    receiverAccountNo = "N/A",
-                                                    notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
-                                                    sarCollected = dueAmtEffect,
-                                                    bdtDisbursed = 0.0,
-                                                    status = "Delivered",
-                                                    timestamp = inputTimestamp
-                                                ) {
-                                                    // Reset states
-                                                    inputAmountSar = ""
-                                                    inputReceiverPhone = ""
-                                                    inputReceiverAccountNo = ""
-                                                    inputNotes = ""
-                                                    inputSarCollected = ""
-                                                    inputBdtDisbursed = ""
-                                                    inputDueSarCollected = ""
-                                                    inputTimestamp = System.currentTimeMillis()
-                                                    isAddingTransaction = false
-                                                    showConfirmationPage = true
-                                                }
-                                            } else {
-                                                // Reset states
-                                                inputAmountSar = ""
-                                                inputReceiverPhone = ""
-                                                inputReceiverAccountNo = ""
-                                                inputNotes = ""
-                                                inputSarCollected = ""
-                                                inputBdtDisbursed = ""
-                                                inputDueSarCollected = ""
-                                                inputTimestamp = System.currentTimeMillis()
-                                                isAddingTransaction = false
-                                                showConfirmationPage = true
-                                            }
-                                        }
-                                    } else if (amt <= 0.05 && dueAmt > 0.05) {
-                                        viewModel.createRemittance(
-                                            customerId = customer.id,
-                                            walletBatchId = 0,
-                                            amountSar = 0.0,
-                                            customerRate = 0.0,
-                                            receiverName = if (isAdvanceReturn) "Advance Return" else "Due Payment",
-                                            receiverPhone = "N/A",
-                                            receiverAccountType = "N/A",
-                                            receiverAccountNo = "N/A",
-                                            notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
-                                            sarCollected = dueAmtEffect,
-                                            bdtDisbursed = 0.0,
-                                            status = "Delivered",
-                                            timestamp = inputTimestamp
-                                        ) {
-                                            // Reset states
-                                            inputAmountSar = ""
-                                            inputReceiverPhone = ""
-                                            inputReceiverAccountNo = ""
-                                            inputNotes = ""
-                                            inputSarCollected = ""
-                                            inputBdtDisbursed = ""
-                                            inputDueSarCollected = ""
-                                            inputTimestamp = System.currentTimeMillis()
-                                            isAddingTransaction = false
-                                            showConfirmationPage = true
-                                        }
-                                    }
-                                    showTxSecurityDialog = false
-                                }
-                                 "DELETE" -> {
-                                     val id = txToDelete?.id ?: txToEdit?.id
-                                     if (id != null) {
-                                         viewModel.deleteTransaction(id)
-                                     }
-                                     txToDelete = null
-                                     txToEdit = null
-                                     showTxSecurityDialog = false
-                                 }
-                                 "EDIT" -> {
-                                     if (txToEdit != null) {
-                                         val amt = editAmountSar.toDoubleOrNull() ?: 0.0
-                                         val cRate = editCustomerRate.toDoubleOrNull() ?: 0.0
-                                         val sRate = editSupplierRate.toDoubleOrNull() ?: 0.0
-                                         val col = editSarCollected.toDoubleOrNull() ?: amt
-                                         val dis = editBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
-                                         val updatedTx = txToEdit!!.copy(
-                                              amountSar = amt,
-                                              customerRate = cRate,
-                                              supplierRate = sRate,
-                                              amountBdt = amt * cRate,
-                                              receiverName = editReceiverName,
-                                              receiverPhone = editReceiverPhone,
-                                              receiverAccountType = editReceiverAccountType,
-                                              receiverAccountNo = editReceiverAccountNo,
-                                              notes = editTxNotes,
-                                              status = editStatus,
-                                              supplierId = editSupplierId ?: txToEdit!!.supplierId,
-                                              sarCollected = col,
-                                              bdtDisbursed = dis
-                                          )
-                                          viewModel.updateTransactionStatus(updatedTx, editStatus)
-                                      }
-                                      txToEdit = null
-                                      showTxSecurityDialog = false
-                                  }
-                                  "STATUS_DELIVER" -> {
-                                      if (txToDelete != null) {
-                                          viewModel.updateTransactionStatus(txToDelete!!, "Delivered")
-                                      }
-                                      txToDelete = null
-                                      showTxSecurityDialog = false
-                                  }
-                                  "STATUS_CANCEL" -> {
-                                      if (txToDelete != null) {
-                                          viewModel.updateTransactionStatus(txToDelete!!, "Cancelled")
-                                      }
-                                      txToDelete = null
-                                      showTxSecurityDialog = false
-                                  }
-                                  "STATUS_PENDING" -> {
-                                      if (txToDelete != null) {
-                                          viewModel.updateTransactionStatus(txToDelete!!, "Pending")
-                                      }
-                                      txToDelete = null
-                                      showTxSecurityDialog = false
-                                  }
-                            }
-                        } else {
-                            txPinErrorText = if (lang == "BN") "❌ ভুল পিন কোড! পুনরায় চেষ্টা করুন" else "❌ Incorrect PIN! Try again."
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (lang == "BN") "নিশ্চিত করুন" else "Confirm")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTxSecurityDialog = false }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
-                }
             }
         )
     }

@@ -102,7 +102,9 @@ class MainActivity : FragmentActivity() {
                             Text(
                                 text = if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application",
                                 fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleMedium
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                         },
                         text = {
@@ -121,7 +123,9 @@ class MainActivity : FragmentActivity() {
                                 Text(
                                     text = if (currentLanguage == "BN") "হ্যাঁ, বের হব" else "Yes, Exit",
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.error
+                                    color = MaterialTheme.colorScheme.error,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                             }
                         },
@@ -131,7 +135,9 @@ class MainActivity : FragmentActivity() {
                             ) {
                                 Text(
                                     text = if (currentLanguage == "BN") "না" else "No",
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -250,153 +256,61 @@ fun HundiTopAppBar(
 
     TopAppBar(
         title = {
-            Box {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .padding(vertical = 4.dp)
+                    .clickable { viewModel.navigateTo(AppScreen.SETTINGS) }
+            ) {
+                // Crown dynamic indicator
+                Box(
                     modifier = Modifier
-                        .padding(vertical = 4.dp)
-                        .clickable { showAccountMenu = !showAccountMenu }
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(if (isDarkMode) Color(0xFF2D2513) else Color(0xFFFFF6DF)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Crown dynamic indicator
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(if (isDarkMode) Color(0xFF2D2513) else Color(0xFFFFF6DF)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
-                        Text(text = customAppLogo, fontSize = 14.sp)
-                    }
+                    val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
+                    val customAppLogoUri by viewModel.customAppLogoUri.collectAsStateWithLifecycle()
+                    val logoUri = customAppLogoUri ?: if (customAppLogo.startsWith("content://") || customAppLogo.startsWith("file://") || customAppLogo.startsWith("http")) customAppLogo else null
 
-                    Column {
-                        val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
-                        Text(
-                            text = customAppName,
-                            style = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Black,
-                                color = contentOnGoldColor
-                            )
+                    if (logoUri != null) {
+                        coil.compose.AsyncImage(
+                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                .data(logoUri)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Logo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
-                        Text(
-                            text = if (currentLang == "BN") "অপারেটর: $operatorName" else "Operator: $operatorName",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 11.sp,
-                                color = contentOnGoldColor.copy(alpha = 0.8f)
-                            )
-                        )
+                    } else {
+                        Text(text = customAppLogo, fontSize = 14.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     }
                 }
 
-                DropdownMenu(
-                    expanded = showAccountMenu,
-                    onDismissRequest = { showAccountMenu = false },
-                    modifier = Modifier
-                        .background(dropdownBgColor)
-                        .border(1.dp, if (isDarkMode) Color(0xFF222222) else Color(0xFFEEEEEE), RoundedCornerShape(8.dp))
-                ) {
+                Column {
+                    val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
                     Text(
-                        text = if (currentLang == "BN") "ব্যবহারকারী নির্বাচন করুন" else "Switch Active Account",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = dropdownTextColor.copy(alpha = 0.6f)
+                        text = customAppName,
+                        style = TextStyle(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = contentOnGoldColor
                         ),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
-                    
-                    operators.forEach { op ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (op.username == operatorName) Icons.Default.CheckCircle else Icons.Default.AccountCircle,
-                                        contentDescription = null,
-                                        tint = if (op.username == operatorName) Color(0xFF43A047) else dropdownTextColor.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Column {
-                                        Text(
-                                            text = op.username,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = dropdownTextColor
-                                            )
-                                        )
-                                        Text(
-                                            text = if (op.role == "ADMIN") "🔒 Admin" else "👥 Staff",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = dropdownTextColor.copy(alpha = 0.5f),
-                                                fontSize = 9.sp
-                                            )
-                                        )
-                                    }
-                                }
-                            },
-                            onClick = {
-                                showAccountMenu = false
-                                viewModel.switchOperatorDirectly(op)
-                            }
-                        )
-                    }
-
-                    Divider(color = if (isDarkMode) Color(0xFF42392B) else Color(0xFFEEEEEE))
-
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = null,
-                                    tint = if (isDarkMode) Color(0xFFE5C158) else Color(0xFF3E2700),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = if (currentLang == "BN") "সেটিংস" else "Settings",
-                                    color = dropdownTextColor,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                                )
-                            }
-                        },
-                        onClick = {
-                            showAccountMenu = false
-                            viewModel.navigateTo(AppScreen.SETTINGS)
-                        }
-                    )
-
-                    Divider(color = if (isDarkMode) Color(0xFF42392B) else Color(0xFFEEEEEE))
-
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Logout,
-                                    contentDescription = null,
-                                    tint = Color(0xFFE53935),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = if (currentLang == "BN") "লগআউট করুন" else "Lock / Logout",
-                                    color = Color(0xFFE53935),
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                                )
-                            }
-                        },
-                        onClick = {
-                            showAccountMenu = false
-                            onLogoutClick()
-                        }
+                    Text(
+                        text = if (currentLang == "BN") "অপারেটর: $operatorName" else "Operator: $operatorName",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp,
+                            color = contentOnGoldColor.copy(alpha = 0.8f)
+                        ),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
             }
@@ -502,7 +416,8 @@ fun HundiBottomNavigationBar(
                                 fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
                                 fontSize = 10.sp
                             ),
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(

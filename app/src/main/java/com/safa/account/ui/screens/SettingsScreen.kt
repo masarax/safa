@@ -82,16 +82,29 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                 text = if (lang == "BN") "সেটিংস" else "Settings",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                 color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         }
 
-        // Active User Header Profile Card (Stunning Visual Card)
+        // Active User Header Profile Card (With Integrated Account Dropdown if multiple accounts exist)
         item {
+            val operators by viewModel.operators.collectAsStateWithLifecycle()
+            var showAccountDropdown by remember { mutableStateOf(false) }
+            val hasMultipleAccounts = operators.size > 1
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 4.dp)
+                    .then(
+                        if (hasMultipleAccounts) {
+                            Modifier.clickable { showAccountDropdown = !showAccountDropdown }
+                        } else {
+                            Modifier
+                        }
+                    ),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
@@ -101,102 +114,135 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 )
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
+                Box {
+                    Row(
                         modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = activeOperator?.username ?: "Staff Account",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(top = 2.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (activeOperator?.role == "Owner") 
-                                            Color(0xFF2E7D32).copy(alpha = 0.15f) 
-                                        else 
-                                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = activeOperator?.username ?: "Staff Account",
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(top = 2.dp)
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (activeOperator?.role == "Owner" || activeOperator?.role == "SuperAdmin") 
+                                                Color(0xFF2E7D32).copy(alpha = 0.15f) 
+                                            else 
+                                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = activeOperator?.role?.uppercase() ?: "STAFF",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 9.sp
+                                        ),
+                                        color = if (activeOperator?.role == "Owner" || activeOperator?.role == "SuperAdmin") Color(0xFF2E7D32) else MaterialTheme.colorScheme.secondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                                 Text(
-                                    text = activeOperator?.role?.uppercase() ?: "STAFF",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 9.sp
-                                    ),
-                                    color = if (activeOperator?.role == "Owner") Color(0xFF2E7D32) else MaterialTheme.colorScheme.secondary
+                                    text = "ID: #${activeOperator?.id ?: 1}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.outline,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            Text(
-                                text = "ID: #${activeOperator?.id ?: 1}",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                color = MaterialTheme.colorScheme.outline
+                        }
+
+                        if (hasMultipleAccounts) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Switch Account",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
-                }
-            }
-        }
 
-        // Multi-Account Switcher (1-Tap direct switching)
-        item {
-            val operators by viewModel.operators.collectAsStateWithLifecycle()
-            if (operators.size > 1) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = if (lang == "BN") "অ্যাকাউন্ট সুইচার (১-ট্যাপ)" else "Account Switcher (1-Tap)",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                    if (hasMultipleAccounts) {
+                        DropdownMenu(
+                            expanded = showAccountDropdown,
+                            onDismissRequest = { showAccountDropdown = false },
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                         ) {
+                            Text(
+                                text = if (lang == "BN") "অ্যাকাউন্ট সুইচার (১-ট্যাপ)" else "Switch Account",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                            Divider()
                             operators.forEach { op ->
                                 val isCurrent = op.id == activeOperator?.id
-                                FilterChip(
-                                    selected = isCurrent,
-                                    onClick = { viewModel.switchOperatorDirectly(op) },
-                                    label = {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
                                             Icon(
                                                 imageVector = if (isCurrent) Icons.Default.CheckCircle else Icons.Default.AccountCircle,
                                                 contentDescription = null,
-                                                modifier = Modifier.size(14.dp)
+                                                tint = if (isCurrent) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                                                modifier = Modifier.size(18.dp)
                                             )
-                                            Text(op.username, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal)
+                                            Column {
+                                                Text(
+                                                    text = op.username,
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                )
+                                                Text(
+                                                    text = "${op.role} • #${op.id}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        fontSize = 10.sp,
+                                                        color = MaterialTheme.colorScheme.outline
+                                                    )
+                                                )
+                                            }
                                         }
+                                    },
+                                    onClick = {
+                                        showAccountDropdown = false
+                                        viewModel.switchOperatorDirectly(op)
                                     }
                                 )
                             }
@@ -215,6 +261,8 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                     letterSpacing = 0.5.sp
                 ),
                 color = MaterialTheme.colorScheme.outline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
             )
         }
@@ -247,12 +295,16 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                         Column {
                             Text(
                                 text = if (lang == "BN") "রেট ভিত্তিক হিসাব মোড" else "Rate-Based Mode",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = if (lang == "BN") "সাপ্লায়ার ক্রয় রেট ও প্রফিট মার্জিন গণনাকারী মোড" else "Calculate supplier buying rates & profit margins",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                color = MaterialTheme.colorScheme.outline
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -294,12 +346,16 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                             Column {
                                 Text(
                                     text = if (lang == "BN") "সাপ্লায়ার রেট" else "Supplier Rate",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = if (lang == "BN") "সাপ্লায়ারদের জন্য কাস্টম রেট" else "Enable supplier custom rates",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                    color = MaterialTheme.colorScheme.outline
+                                    color = MaterialTheme.colorScheme.outline,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -342,12 +398,16 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                             Column {
                                 Text(
                                     text = if (lang == "BN") "ওয়ালেট রেট" else "Wallet Rate",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = if (lang == "BN") "ওয়ালেট রিচার্জের জন্য কাস্টম রেট" else "Enable wallet custom rates",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                    color = MaterialTheme.colorScheme.outline
+                                    color = MaterialTheme.colorScheme.outline,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -395,6 +455,8 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                     letterSpacing = 0.5.sp
                 ),
                 color = MaterialTheme.colorScheme.outline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
             )
         }
@@ -473,12 +535,16 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                         Column {
                             Text(
                                 text = if (lang == "BN") "ফিঙ্গর প্রিন্ট লাগাও" else "Fingerprint Lock",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = if (lang == "BN") "অপেরেশন সফল করতে মোবাইল এর লকস্ক্রিন লক ব্যবহার করি" else "Use mobile lock screen fingerprint to verify actions",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                color = MaterialTheme.colorScheme.outline
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -499,13 +565,14 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp)
-                    .height(38.dp),
+                    .height(42.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
                     contentColor = MaterialTheme.colorScheme.error
                 ),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.ExitToApp,
@@ -518,7 +585,62 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
-                    )
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        // Live Dynamic App Name & Version Footer
+        item {
+            val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
+            val appVersion by viewModel.appVersion.collectAsStateWithLifecycle()
+            val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
+            val customAppLogoUri by viewModel.customAppLogoUri.collectAsStateWithLifecycle()
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val logoUri = customAppLogoUri ?: if (customAppLogo.startsWith("content://") || customAppLogo.startsWith("file://") || customAppLogo.startsWith("http")) customAppLogo else null
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (logoUri != null) {
+                        AsyncImage(
+                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                .data(logoUri)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Logo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Text(text = customAppLogo, fontSize = 18.sp)
+                    }
+                }
+                Text(
+                    text = customAppName,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = if (lang == "BN") "ভার্সন $appVersion" else "Version $appVersion",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -538,14 +660,23 @@ fun SettingsMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
                 Box(
                     modifier = Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha=0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 }
-                Text(text = title, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             Icon(Icons.Default.ChevronRight, contentDescription = "", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
         }
@@ -778,7 +909,7 @@ fun PageHeader(
                 modifier = Modifier.size(18.dp)
             )
         }
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -1001,9 +1132,9 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                                     ) {
                                         Icon(Icons.Default.Person, contentDescription = "", tint = MaterialTheme.colorScheme.primary)
                                     }
-                                    Column {
-                                        Text(op.username, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                        Text("Role: ${op.role} | ${op.mobile}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(op.username, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Role: ${op.role} | ${op.mobile}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                                 IconButton(onClick = { expandedOperatorId = if (isExpanded) null else op.id }) {
@@ -1285,7 +1416,7 @@ fun PinChangePage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (lang == "BN") "পিন আপডেট করুন" else "Update PIN")
+                    Text(if (lang == "BN") "পিন আপডেট করুন" else "Update PIN", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

@@ -193,12 +193,16 @@ fun ExpenseScreen(
                                 fontSize = 16.sp,
                                 letterSpacing = (-0.3).sp
                             ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = if (lang == "BN") "পিছনে ফিরে যেতে এখানে চাপুন" else "Tap here to go back",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
+                            color = MaterialTheme.colorScheme.outline,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -240,13 +244,13 @@ fun ExpenseScreen(
                     }
 
                     // Currency Selector Segment
-                    Text(text = if (lang == "BN") "কারেন্সি" else "Currency", style = MaterialTheme.typography.labelSmall)
+                    Text(text = if (lang == "BN") "কারেন্সি" else "Currency", style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(localCurrency, foreignCurrency).forEach { curr ->
                             FilterChip(
                                 selected = currencyInput == curr,
                                 onClick = { currencyInput = curr },
-                                label = { Text(curr) },
+                                label = { Text(curr, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -254,9 +258,9 @@ fun ExpenseScreen(
 
                     // Categories selectors
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = if (lang == "BN") "ক্যাটাগরি" else "Category", style = MaterialTheme.typography.labelSmall)
+                        Text(text = if (lang == "BN") "ক্যাটাগরি" else "Category", style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         TextButton(onClick = { showAddCategoryDialog = true }, contentPadding = PaddingValues(0.dp)) {
-                            Text(text = if (lang == "BN") "+ যুক্ত করুন" else "+ Add New", fontSize = 12.sp)
+                            Text(text = if (lang == "BN") "+ যুক্ত করুন" else "+ Add New", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     
@@ -269,7 +273,7 @@ fun ExpenseScreen(
                             FilterChip(
                                 selected = categoryInput == c,
                                 onClick = { categoryInput = c },
-                                label = { Text(c, fontSize = 13.sp) }
+                                label = { Text(c, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                             )
                         }
                     }
@@ -287,10 +291,11 @@ fun ExpenseScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().height(36.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(vertical = 0.dp, horizontal = 16.dp)
                     ) {
-                        Text(if (lang == "BN") "সেভ করুন" else "Save", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(if (lang == "BN") "সেভ করুন" else "Save", fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -394,14 +399,16 @@ fun ExpenseScreen(
                         onClick = { showAddChoiceDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp)
+                        modifier = Modifier.height(34.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (lang == "BN") "নতুন এন্ট্রি" else "New Entry",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White)
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -425,17 +432,19 @@ fun ExpenseScreen(
                                 onClick = { selectedTab = 0 },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(36.dp),
+                                    .height(38.dp),
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFC62828),
                                     contentColor = Color.White
                                 ),
-                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
                                 Text(
                                     text = if (lang == "BN") "খরচ" else "Expenses",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         } else {
@@ -443,17 +452,19 @@ fun ExpenseScreen(
                                 onClick = { selectedTab = 0 },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(36.dp),
+                                    .height(38.dp),
                                 shape = RoundedCornerShape(10.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
-                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
                                 Text(
                                     text = if (lang == "BN") "খরচ" else "Expenses",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -463,17 +474,19 @@ fun ExpenseScreen(
                                 onClick = { selectedTab = 1 },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(36.dp),
+                                    .height(38.dp),
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF2E7D32),
                                     contentColor = Color.White
                                 ),
-                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
                                 Text(
                                     text = if (lang == "BN") "আয়" else "Incomes",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         } else {
@@ -481,17 +494,19 @@ fun ExpenseScreen(
                                 onClick = { selectedTab = 1 },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(36.dp),
+                                    .height(38.dp),
                                 shape = RoundedCornerShape(10.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
-                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
                                 Text(
                                     text = if (lang == "BN") "আয়" else "Incomes",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -512,11 +527,13 @@ fun ExpenseScreen(
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(text = if (lang == "BN") "মোট খরচ" else "Total Expenses", style = MaterialTheme.typography.labelSmall, color = Color(0xFFC62828))
+                                    Text(text = if (lang == "BN") "মোট খরচ" else "Total Expenses", style = MaterialTheme.typography.labelSmall, color = Color(0xFFC62828), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
                                         text = "৳ ${currencyFormatter.format(stats.totalExpensesBdt)}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = Color(0xFFC62828)
+                                        color = Color(0xFFC62828),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -528,11 +545,13 @@ fun ExpenseScreen(
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(text = if (lang == "BN") "মোট আয়" else "Total Incomes", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2E7D32))
+                                    Text(text = if (lang == "BN") "মোট আয়" else "Total Incomes", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2E7D32), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
                                         text = "৳ ${currencyFormatter.format(stats.totalOtherIncomeBdt)}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = Color(0xFF2E7D32)
+                                        color = Color(0xFF2E7D32),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -546,6 +565,8 @@ fun ExpenseScreen(
                         text = if (lang == "BN") "রিপোর্ট (সব মিলে)" else "Overall Reports",
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
@@ -565,8 +586,8 @@ fun ExpenseScreen(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                                    Text(text = "$cat: ", style = MaterialTheme.typography.labelSmall)
-                                    Text(text = "৳${currencyFormatter.format(totalCatAmount)}", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = if (selectedTab == 0) Color(0xFFC62828) else Color(0xFF2E7D32))
+                                    Text(text = "$cat: ", style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(text = "৳${currencyFormatter.format(totalCatAmount)}", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = if (selectedTab == 0) Color(0xFFC62828) else Color(0xFF2E7D32), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
@@ -631,7 +652,9 @@ fun ExpenseScreen(
                             Text(
                                 text = if (lang == "BN") "⚙️ ফিল্টার ও সেটিংস" else "⚙️ Filter & Settings",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -643,6 +666,8 @@ fun ExpenseScreen(
                                         text = if (lang == "BN") "বাছাই করুন" else "Sort By",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.padding(bottom = 2.dp)
                                     )
                                     var sortMenuExpanded by remember { mutableStateOf(false) }
@@ -650,8 +675,8 @@ fun ExpenseScreen(
                                         OutlinedButton(
                                             onClick = { sortMenuExpanded = true },
                                             shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                            modifier = Modifier.fillMaxWidth().height(36.dp)
                                         ) {
                                             Text(
                                                 text = when (selectedSortOption) {
@@ -679,7 +704,9 @@ fun ExpenseScreen(
                                                                 "Max" -> if (lang == "BN") "সর্বোচ্চ পরিমাণ" else "Max Amount"
                                                                 "Min" -> if (lang == "BN") "সর্বনিম্ন পরিমাণ" else "Min Amount"
                                                                 else -> if (lang == "BN") "নতুন প্রথম" else "Newest First"
-                                                            }
+                                                            },
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     },
                                                     onClick = {
@@ -698,6 +725,8 @@ fun ExpenseScreen(
                                         text = if (lang == "BN") "মুদ্রা ফিল্টার" else "Filter Currency",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.padding(bottom = 2.dp)
                                     )
                                     var filterMenuExpanded by remember { mutableStateOf(false) }
@@ -705,8 +734,8 @@ fun ExpenseScreen(
                                         OutlinedButton(
                                             onClick = { filterMenuExpanded = true },
                                             shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                            modifier = Modifier.fillMaxWidth().height(36.dp)
                                         ) {
                                             Text(
                                                 text = when (selectedFilterCurrency) {
@@ -732,7 +761,9 @@ fun ExpenseScreen(
                                                                 foreignCurrency -> if (lang == "BN") "শুধু রিয়াল ($foreignCurrency)" else "Only Riyal ($foreignCurrency)"
                                                                 localCurrency -> if (lang == "BN") "শুধু টাকা ($localCurrency)" else "Only Taka ($localCurrency)"
                                                                 else -> if (lang == "BN") "সকল মুদ্রা" else "All Currencies"
-                                                            }
+                                                            },
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     },
                                                     onClick = {
@@ -789,7 +820,9 @@ fun ExpenseScreen(
                                 Text(
                                     text = item.title,
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = if (item.isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF2E7D32)
+                                    color = if (item.isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF2E7D32),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -797,25 +830,29 @@ fun ExpenseScreen(
                                 ) {
                                     AssistChip(
                                         onClick = {},
-                                        label = { Text(item.category) },
+                                        label = { Text(item.category, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                     )
                                     Text(
                                         text = SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(Date(item.timestamp)),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
+                                        color = MaterialTheme.colorScheme.outline,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
                                     text = "${if (item.isExpense) "-" else "+"} ${item.currency} ${currencyFormatter.format(item.amount)}",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = if (item.isExpense) Color(0xFFC62828) else Color(0xFF2E7D32)
+                                    color = if (item.isExpense) Color(0xFFC62828) else Color(0xFF2E7D32),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
 
                                 IconButton(
@@ -851,12 +888,12 @@ fun ExpenseScreen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text(confirmLabel)
+                        Text(confirmLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { itemToDelete = null }) {
-                        Text(cancelLabel)
+                        Text(cancelLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             )
@@ -970,7 +1007,7 @@ fun ExpenseScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showAddChoiceDialog = false }) {
-                        Text(if (lang == "BN") "বন্ধ করুন" else "Cancel")
+                        Text(if (lang == "BN") "বন্ধ করুন" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             )

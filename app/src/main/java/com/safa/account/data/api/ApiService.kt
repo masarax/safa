@@ -14,6 +14,43 @@ interface ApiService {
     @GET("sync/down")
     suspend fun syncDown(): Response<SyncDownResponse>
 
+    // --- Direct Endpoint Mappings (/api/customers, /api/suppliers, /api/deposits, /api/transactions) ---
+    @GET("customers")
+    suspend fun getCustomers(): Response<List<Map<String, Any>>>
+
+    @POST("customers")
+    suspend fun createCustomer(@Body customer: Map<String, Any?>): Response<Map<String, Any>>
+
+    @PUT("customers/{id}")
+    suspend fun updateCustomerApi(@Path("id") id: Int, @Body customer: Map<String, Any?>): Response<Map<String, Any>>
+
+    @DELETE("customers/{id}")
+    suspend fun deleteCustomerApi(@Path("id") id: Int): Response<Map<String, Any>>
+
+    @GET("suppliers")
+    suspend fun getSuppliers(): Response<List<Map<String, Any>>>
+
+    @POST("suppliers")
+    suspend fun createSupplier(@Body supplier: Map<String, Any?>): Response<Map<String, Any>>
+
+    @PUT("suppliers/{id}")
+    suspend fun updateSupplierApi(@Path("id") id: Int, @Body supplier: Map<String, Any?>): Response<Map<String, Any>>
+
+    @DELETE("suppliers/{id}")
+    suspend fun deleteSupplierApi(@Path("id") id: Int): Response<Map<String, Any>>
+
+    @GET("deposits")
+    suspend fun getDeposits(): Response<List<Map<String, Any>>>
+
+    @POST("deposits")
+    suspend fun createDeposit(@Body deposit: Map<String, Any?>): Response<Map<String, Any>>
+
+    @GET("transactions")
+    suspend fun getTransactions(): Response<List<Map<String, Any>>>
+
+    @POST("transactions")
+    suspend fun createTransactionApi(@Body transaction: Map<String, Any?>): Response<Map<String, Any>>
+
     @GET("config/remote")
     suspend fun getRemoteConfig(): Response<Map<String, Any>>
 

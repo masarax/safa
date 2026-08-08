@@ -163,6 +163,9 @@ class HundiViewModel(
     private val _customAppLogoUri = MutableStateFlow<String?>(tokenManager?.getCustomAppLogoUri())
     val customAppLogoUri: StateFlow<String?> = _customAppLogoUri.asStateFlow()
 
+    private val _appVersion = MutableStateFlow("1.0")
+    val appVersion: StateFlow<String> = _appVersion.asStateFlow()
+
     fun updateCustomAppName(name: String) {
         _customAppName.value = name
         tokenManager?.saveCustomAppName(name)
@@ -774,6 +777,9 @@ class HundiViewModel(
             _currentOperator.value = operator
             _pinError.value = null
             _pinBuffer.value = ""
+            tokenManager?.saveLastMobile(operator.mobile)
+            fetchOperatorsFromServer()
+            triggerFullSync()
             navigateTo(AppScreen.DASHBOARD)
         } else {
             _pinError.value = t("operator_blocked")
@@ -861,6 +867,9 @@ class HundiViewModel(
                         _currentOperator.value = finalOp
                         _selectedLoginOperator.value = finalOp
                         _pinError.value = null
+                        tokenManager?.saveLastMobile(mobile.trim())
+                        fetchOperatorsFromServer()
+                        triggerFullSync()
                         navigateTo(AppScreen.DASHBOARD)
                         onResult(true, null)
                         return@launch
@@ -1010,8 +1019,19 @@ class HundiViewModel(
                     @Suppress("UNCHECKED_CAST")
                     val rawOps = body["operators"] as? List<Map<String, Any?>> ?: emptyList()
                     val currentOps = operators.value
+                    val validMobiles = rawOps.mapNotNull { it["mobile"]?.toString()?.trim() }.filter { it.isNotBlank() }
+
+                    // Purge orphan local operators that are not on the server
+                    if (validMobiles.isNotEmpty()) {
+                        currentOps.forEach { localOp ->
+                            if (localOp.mobile.isNotBlank() && !validMobiles.contains(localOp.mobile.trim()) && localOp.id != _currentOperator.value?.id) {
+                                repository.deleteOperator(localOp)
+                            }
+                        }
+                    }
+
                     rawOps.forEach { opMap ->
-                        val mobile = opMap["mobile"]?.toString() ?: ""
+                        val mobile = opMap["mobile"]?.toString()?.trim() ?: ""
                         val name = opMap["name"]?.toString() ?: "Operator"
                         val email = opMap["email"]?.toString() ?: ""
                         val role = opMap["role"]?.toString() ?: "Staff"
@@ -1024,12 +1044,12 @@ class HundiViewModel(
                             return if (v is Boolean) v else true
                         }
 
-                        val existing = currentOps.find { it.mobile == mobile && mobile.isNotBlank() }
+                        val existing = currentOps.find { it.mobile.trim() == mobile && mobile.isNotBlank() }
                         val hashedPin = existing?.pin ?: com.safa.account.utils.HashUtils.hashPin("1234")
                         val op = OperatorAccount(
                             id = existing?.id ?: 0,
                             username = name,
-                            role = if (role.equals("manager", true) || role.equals("superadmin", true) || role.equals("owner", true)) "Owner" else "Staff",
+                            role = if (role.equals("manager", true) || role.equals("superadmin", true) || role.equals("owner", true)) "SuperAdmin" else "Staff",
                             pin = hashedPin,
                             mobile = mobile,
                             email = email,
@@ -1607,6 +1627,7 @@ class HundiViewModel(
     }
 
     fun updateOperator(operator: OperatorAccount, onComplete: () -> Unit = {}) {
+        _currentOperator.value = operator
         viewModelScope.launch {
             repository.updateOperator(operator)
             onComplete()
@@ -1641,43 +1662,9 @@ class HundiViewModel(
         }
     }
 
-    // Prepopulate extra demo transactions for sandbox visual depth on click
+    // Disable demo data injection; all data is fetched live from server
     fun injectDemoSandboxData() {
-        viewModelScope.launch {
-            // Pick an active customer and supplier or fallback
-            val custId = customers.value.firstOrNull()?.id ?: 1
-            val suppId = suppliers.value.firstOrNull()?.id ?: 1
-            val opId = _currentOperator.value?.id ?: 1
-            
-            val randomList = listOf(
-                Pair(1000.0, "Bashir Alam"),
-                Pair(3400.0, "Mominul Haque"),
-                Pair(800.0, "Salma Begum"),
-                Pair(5000.0, "Zakir Hossain")
-            )
-            
-            for (idx in randomList.indices) {
-                val amt = randomList[idx].first
-                val name = randomList[idx].second
-                repository.insertTransaction(
-                    RemittanceTransaction(
-                        customerId = custId,
-                        supplierId = suppId,
-                        amountSar = amt,
-                        customerRate = 32.1 - (idx * 0.05),
-                        supplierRate = 32.6,
-                        amountBdt = amt * (32.1 - (idx * 0.05)),
-                        receiverName = name,
-                        receiverPhone = "015112223${idx}4",
-                        receiverAccountType = "bKash",
-                        receiverAccountNo = "015112223${idx}4",
-                        status = if (idx % 2 == 0) "Delivered" else "Pending",
-                        operatorId = opId,
-                        timestamp = System.currentTimeMillis() - (idx * 14400000)
-                    )
-                )
-            }
-        }
+        // No-op: Only real server data is used
     }
 }
 
