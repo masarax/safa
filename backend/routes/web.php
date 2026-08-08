@@ -6,14 +6,12 @@ use App\Http\Controllers\InstallerController;
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\CheckInstalled;
 
-// Installation & Manual System Update Routes
+// Installation & System Update Routes
 Route::middleware([EnsureNotInstalled::class])->group(function () {
     Route::get('/install', [InstallerController::class, 'index'])->name('install.index');
     Route::post('/install/process', [InstallerController::class, 'process'])->name('install.process');
     Route::post('/install/test-db', [InstallerController::class, 'testDb'])->name('install.test-db');
     Route::get('/install/success', [InstallerController::class, 'success'])->name('install.success');
-
-    // Manual Database Migration Update Screen (active ONLY when un-executed migrations exist)
     Route::get('/install/update', [InstallerController::class, 'updateView'])->name('install.update-view');
     Route::post('/install/update-process', [InstallerController::class, 'updateProcess'])->name('install.update-process');
 });
@@ -21,10 +19,17 @@ Route::middleware([EnsureNotInstalled::class])->group(function () {
 // Application Web Routes (protected by CheckInstalled middleware)
 Route::middleware([CheckInstalled::class])->group(function () {
     Route::get('/', function () {
+        // If pending database migrations/table updates exist on cPanel, show full install-style update page right on /
+        $pending = InstallerController::getPendingMigrations();
+        if (!empty($pending)) {
+            return view('install_update', ['pendingMigrations' => $pending]);
+        }
+
+        // Once database is up to date, render the main index page
         return view('welcome');
     })->name('home');
 
-    // Safe zero-data-loss database updater
+    // API Database Update Endpoint
     Route::get('/update-db', function () {
         try {
             Artisan::call('migrate', ['--force' => true]);
