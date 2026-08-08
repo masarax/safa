@@ -2,22 +2,80 @@ package com.safa.account.data.api
 
 import android.content.Context
 import androidx.core.content.edit
+import com.safa.account.data.network.DeviceSecurityHelper
 
-class TokenManager(context: Context) {
+class TokenManager(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("safa_secure_prefs", Context.MODE_PRIVATE)
 
     companion object {
-        private const val KEY_TOKEN = "auth_token"
+        private const val KEY_ACCESS_TOKEN = "auth_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_DEVICE_TOKEN = "device_token"
+        private const val KEY_SESSION_TOKEN = "session_token"
+        private const val KEY_FINGERPRINT_TOKEN = "fingerprint_token"
         private const val KEY_BASE_URL = "base_url"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
     }
 
-    fun saveToken(token: String) = prefs.edit { putString(KEY_TOKEN, token) }
+    // --- 5-Token Security Layer ---
+    fun saveAccessToken(token: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
+    fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
 
-    fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
+    // Legacy / Convenience Compatibility
+    fun saveToken(token: String) = saveAccessToken(token)
+    fun getToken(): String? = getAccessToken()
+    fun clearToken() = clearAllTokens()
 
-    fun clearToken() = prefs.edit { remove(KEY_TOKEN) }
+    fun saveRefreshToken(token: String?) = prefs.edit { putString(KEY_REFRESH_TOKEN, token) }
+    fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
+
+    fun saveDeviceToken(token: String?) = prefs.edit { putString(KEY_DEVICE_TOKEN, token) }
+    fun getDeviceToken(): String {
+        var token = prefs.getString(KEY_DEVICE_TOKEN, null)
+        if (token.isNullOrBlank()) {
+            token = DeviceSecurityHelper.getOrCreateDeviceUuid(context)
+            saveDeviceToken(token)
+        }
+        return token
+    }
+
+    fun saveSessionToken(token: String?) = prefs.edit { putString(KEY_SESSION_TOKEN, token) }
+    fun getSessionToken(): String? = prefs.getString(KEY_SESSION_TOKEN, null)
+
+    fun saveFingerprintToken(token: String?) = prefs.edit { putString(KEY_FINGERPRINT_TOKEN, token) }
+    fun getFingerprintToken(): String {
+        var token = prefs.getString(KEY_FINGERPRINT_TOKEN, null)
+        if (token.isNullOrBlank()) {
+            token = DeviceSecurityHelper.getHardwareFingerprintHash(context)
+            saveFingerprintToken(token)
+        }
+        return token
+    }
+
+    fun saveAllTokens(
+        accessToken: String?,
+        refreshToken: String?,
+        deviceToken: String?,
+        sessionToken: String?,
+        fingerprintToken: String?
+    ) {
+        prefs.edit {
+            putString(KEY_ACCESS_TOKEN, accessToken)
+            putString(KEY_REFRESH_TOKEN, refreshToken)
+            putString(KEY_DEVICE_TOKEN, deviceToken)
+            putString(KEY_SESSION_TOKEN, sessionToken)
+            putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
+        }
+    }
+
+    fun clearAllTokens() = prefs.edit {
+        remove(KEY_ACCESS_TOKEN)
+        remove(KEY_REFRESH_TOKEN)
+        remove(KEY_DEVICE_TOKEN)
+        remove(KEY_SESSION_TOKEN)
+        remove(KEY_FINGERPRINT_TOKEN)
+    }
 
     fun saveBaseUrl(url: String) = prefs.edit { putString(KEY_BASE_URL, url) }
 

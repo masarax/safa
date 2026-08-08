@@ -32,7 +32,26 @@ class SyncManager(
         val baseUrl = tokenManager.getBaseUrl().let {
             if (it.endsWith("/")) it else "$it/"
         }
-        return RetrofitClient.getApiService(baseUrl, apiKey, apiSecret)
+        return RetrofitClient.getApiService(baseUrl, apiKey, apiSecret, tokenManager)
+    }
+
+    suspend fun executeGraphQl(
+        query: String,
+        variables: Map<String, Any?>? = null,
+        operationName: String? = null
+    ): Result<com.safa.account.data.api.dto.GraphQlResponse> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val api = getApiService()
+            val req = com.safa.account.data.api.dto.GraphQlRequest(query = query, variables = variables, operationName = operationName)
+            val res = api.postGraphQl(req)
+            if (res.isSuccessful && res.body() != null) {
+                Result.success(res.body()!!)
+            } else {
+                Result.failure(Exception("GraphQL execution failed with status: ${res.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun checkServerHealth(): Result<String> = withContext(Dispatchers.IO) {

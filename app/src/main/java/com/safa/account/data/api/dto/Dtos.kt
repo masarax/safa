@@ -37,3 +37,30 @@ data class SyncDownResponse(
     @Json(name = "wallet_batches") val walletBatches: List<Map<String, Any?>> = emptyList(),
     @Json(name = "wallet_ledgers") val walletLedgers: List<Map<String, Any?>> = emptyList()
 )
+
+@JsonClass(generateAdapter = true)
+data class GraphQlRequest(
+    @Json(name = "query") val query: String,
+    @Json(name = "variables") val variables: Map<String, Any?>? = null,
+    @Json(name = "operationName") val operationName: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GraphQlErrorLocation(
+    @Json(name = "line") val line: Int? = null,
+    @Json(name = "column") val column: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GraphQlError(
+    @Json(name = "message") val message: String = "",
+    @Json(name = "locations") val locations: List<GraphQlErrorLocation>? = null,
+    @Json(name = "path") val path: List<Any>? = null,
+    @Json(name = "extensions") val extensions: Map<String, Any?>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GraphQlResponse(
+    @Json(name = "data") val data: Map<String, Any?>? = null,
+    @Json(name = "errors") val errors: List<GraphQlError>? = null
+)

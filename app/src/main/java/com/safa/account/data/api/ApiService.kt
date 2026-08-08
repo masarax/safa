@@ -1,5 +1,7 @@
 package com.safa.account.data.api
 
+import com.safa.account.data.api.dto.GraphQlRequest
+import com.safa.account.data.api.dto.GraphQlResponse
 import com.safa.account.data.api.dto.SyncDownResponse
 import com.safa.account.data.api.dto.SyncUpPayload
 import retrofit2.Response
@@ -25,4 +27,9 @@ interface ApiService {
     suspend fun checkVersion(
         @Query("version_code") versionCode: Int
     ): Response<Map<String, Any>>
+
+    @POST("graphql")
+    suspend fun postGraphQl(
+        @Body request: GraphQlRequest
+    ): Response<GraphQlResponse>
 }

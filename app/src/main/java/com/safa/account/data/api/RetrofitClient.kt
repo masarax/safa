@@ -11,7 +11,12 @@ object RetrofitClient {
 
     @Volatile private var instance: Retrofit? = null
 
-    fun getInstance(baseUrl: String, apiKey: String, apiSecret: String): Retrofit {
+    fun getInstance(
+        baseUrl: String,
+        apiKey: String,
+        apiSecret: String,
+        tokenManager: TokenManager? = null
+    ): Retrofit {
         val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         val current = instance
         if (current != null && current.baseUrl().toString() == normalizedUrl) {
@@ -25,7 +30,7 @@ object RetrofitClient {
                 val logging = HttpLoggingInterceptor().apply {
                     level = HttpLoggingInterceptor.Level.BODY
                 }
-                val security = ApiSecurityInterceptor(apiKey, apiSecret)
+                val security = ApiSecurityInterceptor(apiKey, apiSecret, tokenManager)
                 val client = OkHttpClient.Builder()
                     .addInterceptor(security)
                     .addInterceptor(logging)
@@ -43,8 +48,13 @@ object RetrofitClient {
         }
     }
 
-    fun getApiService(baseUrl: String, apiKey: String, apiSecret: String): ApiService {
-        return getInstance(baseUrl, apiKey, apiSecret).create(ApiService::class.java)
+    fun getApiService(
+        baseUrl: String,
+        apiKey: String,
+        apiSecret: String,
+        tokenManager: TokenManager? = null
+    ): ApiService {
+        return getInstance(baseUrl, apiKey, apiSecret, tokenManager).create(ApiService::class.java)
     }
 
     fun clearCache() {

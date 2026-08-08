@@ -29,4 +29,20 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * Get the device bindings for the user.
+     */
+    public function deviceBindings()
+    {
+        return $this->hasMany(DeviceBinding::class);
+    }
+
+    /**
+     * Get the auth sessions for the user.
+     */
+    public function authSessions()
+    {
+        return $this->hasMany(AuthSession::class);
+    }
 }

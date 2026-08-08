@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Http\Middleware\CheckInstalled;
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\VerifyMultiLevelToken;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.installed' => CheckInstalled::class,
             'ensure.not.installed' => EnsureNotInstalled::class,
             'security.headers' => SecurityHeaders::class,
+            'verify.multilevel.token' => VerifyMultiLevelToken::class,
         ]);
 
         $middleware->appendToGroup('api', CheckInstalled::class);

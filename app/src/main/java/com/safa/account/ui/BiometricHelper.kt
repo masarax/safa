@@ -1,5 +1,8 @@
 package com.safa.account.ui
 
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,15 +15,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import android.content.Context
-import android.content.ContextWrapper
-import androidx.biometric.BiometricManager
 
 fun Context.findFragmentActivity(): FragmentActivity? {
     var currentContext = this
@@ -41,94 +39,100 @@ fun BiometricTriggerButton(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val activity = context.findFragmentActivity()
+    val activity = remember(context) { context.findFragmentActivity() }
     var isAuthenticating by remember { mutableStateOf(false) }
-    
-    val triggerBiometric = {
+
+    val currentOnSuccess by rememberUpdatedState(onSuccess)
+    val currentOnError by rememberUpdatedState(onError)
+
+    fun launchBiometricPrompt() {
+        if (isAuthenticating) return
+        val currentActivity = activity ?: context.findFragmentActivity()
+
+        if (currentActivity == null) {
+            currentOnError("Biometric authentication requires a FragmentActivity")
+            return
+        }
+
         isAuthenticating = true
-        if (activity != null) {
+
+        currentActivity.runOnUiThread {
             val biometricManager = BiometricManager.from(context)
             val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
             val canAuthenticate = biometricManager.canAuthenticate(authenticators)
-            
+
             if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
                 val executor = ContextCompat.getMainExecutor(context)
                 val biometricPrompt = BiometricPrompt(
-                activity,
-                executor,
-                object : BiometricPrompt.AuthenticationCallback() {
-                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                        super.onAuthenticationSucceeded(result)
-                        activity.runOnUiThread {
+                    currentActivity,
+                    executor,
+                    object : BiometricPrompt.AuthenticationCallback() {
+                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                            super.onAuthenticationSucceeded(result)
                             isAuthenticating = false
-                            onSuccess()
+                            currentOnSuccess()
                         }
-                    }
 
-                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                        super.onAuthenticationError(errorCode, errString)
-                        activity.runOnUiThread {
+                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            super.onAuthenticationError(errorCode, errString)
                             isAuthenticating = false
-                            onError(errString.toString())
+                            // Ignore user cancellation (CANCELED = 10, USER_CANCELED = 13) without raising red error banners
+                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_CANCELED) {
+                                currentOnError(errString.toString())
+                            }
                         }
-                    }
 
-                    override fun onAuthenticationFailed() {
-                        super.onAuthenticationFailed()
-                        activity.runOnUiThread {
+                        override fun onAuthenticationFailed() {
+                            super.onAuthenticationFailed()
                             isAuthenticating = false
-                            onError("Authentication failed. Please try again.")
+                            currentOnError("Fingerprint not recognized. Please try again.")
                         }
                     }
+                )
+
+                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                    .setTitle(if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Verification")
+                    .setSubtitle(if (lang == "BN") "ফিঙ্গারপ্রিন্ট বা লক স্ক্রিন ব্যবহার করুন" else "Scan fingerprint or enter screen lock")
+                    .setAllowedAuthenticators(authenticators)
+                    .build()
+
+                try {
+                    biometricPrompt.authenticate(promptInfo)
+                } catch (e: Exception) {
+                    isAuthenticating = false
+                    currentOnError(e.localizedMessage ?: "Biometric prompt failed to launch")
                 }
-            )
-
-            val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle(if (lang == "BN") "সিকিউরিটি ভেরিফিকেশন" else "Security Verification")
-                .setSubtitle(if (lang == "BN") "ফিঙ্গারপ্রিন্ট বা লক স্ক্রিন ব্যবহার করুন" else "Verify using fingerprint or lock screen")
-                .setAllowedAuthenticators(authenticators)
-                .build()
-
-            try {
-                biometricPrompt.authenticate(promptInfo)
-            } catch (e: Exception) {
-                isAuthenticating = false
-                onError(e.localizedMessage ?: "Biometric authentication unavailable")
-            }
             } else {
                 isAuthenticating = false
-                when (canAuthenticate) {
-                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> onError("No biometric features available on this device.")
-                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> onError("Biometric features are currently unavailable.")
-                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> onError("No biometric credential enrolled.")
-                    else -> onError("Biometric authentication is not supported.")
+                val err = when (canAuthenticate) {
+                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "No biometric hardware on this device."
+                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Biometric hardware is currently unavailable."
+                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "No fingerprint or lock credentials enrolled on this device."
+                    else -> "Biometric authentication is not supported."
                 }
+                currentOnError(err)
             }
-        } else {
-            isAuthenticating = false
-            onError("Biometric authentication requires a FragmentActivity")
         }
     }
 
-    // Automatically trigger on first launch with 250ms beautiful simulation delay
+    // Auto-trigger immediately on launch
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(250)
-        triggerBiometric()
+        launchBiometricPrompt()
     }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
+            .padding(vertical = 8.dp)
     ) {
         Box(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                .clickable { 
-                    triggerBiometric()
+                .clickable {
+                    launchBiometricPrompt()
                 },
             contentAlignment = Alignment.Center
         ) {
