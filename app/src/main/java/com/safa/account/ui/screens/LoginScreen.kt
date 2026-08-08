@@ -53,12 +53,7 @@ fun LoginScreen(
     var actPin by remember { mutableStateOf("") }
     var actError by remember { mutableStateOf<String?>(null) }
 
-    // If database is completely clean (zero operators), automatically prompt SuperAdmin activation
-    LaunchedEffect(operators) {
-        if (operators.isEmpty()) {
-            showActivationFlow = true
-        }
-    }
+    // Auto activation flow on startup removed per requirements; Mobile + PIN required first.
 
     Box(
         modifier = modifier
@@ -212,7 +207,7 @@ fun LoginScreen(
                                 loginError = viewModel.t("pin_incorrect")
                                 return@Button
                             }
-                            viewModel.loginWithMobileAndPin(mobileInput, pinInput) { success, result ->
+                            viewModel.loginWithServer(mobileInput, pinInput) { success, result ->
                                 if (!success) {
                                     if (result == "NEEDS_ACTIVATION") {
                                         actMobile = mobileInput
@@ -376,7 +371,7 @@ fun LoginScreen(
                             return@Button
                         }
 
-                        viewModel.activateSuperAdmin(
+                        viewModel.activateSuperAdminServer(
                             name = actName,
                             email = actEmail,
                             mobile = actMobile,

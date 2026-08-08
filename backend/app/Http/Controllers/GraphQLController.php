@@ -49,7 +49,7 @@ class GraphQLController extends Controller
             return response()->json([
                 'errors' => [
                     [
-                        'message' => $e->getMessage(),
+                        'message' => config('app.debug') ? $e->getMessage() : 'Internal server error',
                         'trace' => config('app.debug') ? $e->getTraceAsString() : null
                     ]
                 ]

@@ -25,7 +25,7 @@ class SyncManager(
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
-    private fun getApiService(): ApiService {
+    fun getApiService(): ApiService {
         val baseUrl = tokenManager.getBaseUrl().let {
             if (it.endsWith("/")) it else "$it/"
         }

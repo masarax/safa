@@ -52,6 +52,7 @@ sealed class UnifiedLedgerEntry {
     abstract val name: String
     abstract val details: String
     abstract val typeLabel: String
+    open fun getTypeLabel(lang: String = "BN"): String = typeLabel
     abstract val amountBdt: Double
     abstract val amountSar: Double
     abstract val status: String
@@ -68,7 +69,10 @@ sealed class UnifiedLedgerEntry {
         override val amountSar: Double = tx.amountSar,
         override val status: String = tx.status,
         override val notes: String = tx.notes
-    ) : UnifiedLedgerEntry()
+    ) : UnifiedLedgerEntry() {
+        override fun getTypeLabel(lang: String): String =
+            if (lang == "BN") "কাস্টমার বিক্রয়" else "Customer Remittance"
+    }
 
     data class SupplierTx(
         val dep: com.safa.account.data.model.SupplierDeposit,
@@ -77,10 +81,8 @@ sealed class UnifiedLedgerEntry {
         override val key: String = "supp_tx_${dep.id}",
         override val details: String = dep.notes,
         override val typeLabel: String = when (dep.transactionType) {
-            "SAR_GIVEN" -> "রিয়াল প্রদান (ডিপোজিট)"
-            "SAR_DEPOSIT" -> "রিয়াল প্রদান (ডিপোজিট)"
-            "SAR_RECEIVED" -> "রিয়াল গ্রহণ (উত্তোলন)"
-            "SAR_SETTLEMENT" -> "রিয়াল গ্রহণ (উত্তোলন)"
+            "SAR_GIVEN", "SAR_DEPOSIT" -> "রিয়াল প্রদান (ডিপোজিট)"
+            "SAR_RECEIVED", "SAR_SETTLEMENT" -> "রিয়াল গ্রহণ (উত্তোলন)"
             "BDT_WITHDRAW" -> "তহবিল উত্তোলন"
             else -> "তহবিল বিবরণ"
         },
@@ -88,7 +90,23 @@ sealed class UnifiedLedgerEntry {
         override val amountSar: Double = dep.amountSar,
         override val status: String = "Delivered",
         override val notes: String = dep.notes
-    ) : UnifiedLedgerEntry()
+    ) : UnifiedLedgerEntry() {
+        override fun getTypeLabel(lang: String): String = if (lang == "BN") {
+            when (dep.transactionType) {
+                "SAR_GIVEN", "SAR_DEPOSIT" -> "রিয়াল প্রদান (ডিপোজিট)"
+                "SAR_RECEIVED", "SAR_SETTLEMENT" -> "রিয়াল গ্রহণ (উত্তোলন)"
+                "BDT_WITHDRAW" -> "তহবিল উত্তোলন"
+                else -> "তহবিল বিবরণ"
+            }
+        } else {
+            when (dep.transactionType) {
+                "SAR_GIVEN", "SAR_DEPOSIT" -> "SAR Deposit"
+                "SAR_RECEIVED", "SAR_SETTLEMENT" -> "SAR Withdrawal"
+                "BDT_WITHDRAW" -> "Funds Withdrawal"
+                else -> "Transaction Details"
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -273,7 +291,7 @@ fun DashboardScreen(
         items.sortedByDescending { it.timestamp }
     }
 
-    val filteredUnifiedTransactionsList = remember(unifiedTransactionsList, searchQuery) {
+    val filteredUnifiedTransactionsList = remember(unifiedTransactionsList, searchQuery, lang) {
         if (searchQuery.isBlank()) {
             unifiedTransactionsList
         } else {
@@ -281,6 +299,7 @@ fun DashboardScreen(
                 it.name.contains(searchQuery, ignoreCase = true) ||
                 it.details.contains(searchQuery, ignoreCase = true) ||
                 it.notes.contains(searchQuery, ignoreCase = true) ||
+                it.getTypeLabel(lang).contains(searchQuery, ignoreCase = true) ||
                 it.typeLabel.contains(searchQuery, ignoreCase = true)
             }
         }

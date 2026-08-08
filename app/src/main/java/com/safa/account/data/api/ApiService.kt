@@ -1,14 +1,8 @@
 package com.safa.account.data.api
 
-import com.safa.account.data.api.dto.GraphQlRequest
-import com.safa.account.data.api.dto.GraphQlResponse
-import com.safa.account.data.api.dto.SyncDownResponse
-import com.safa.account.data.api.dto.SyncUpPayload
+import com.safa.account.data.api.dto.*
 import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Query
+import retrofit2.http.*
 
 interface ApiService {
 
@@ -32,4 +26,36 @@ interface ApiService {
     suspend fun postGraphQl(
         @Body request: GraphQlRequest
     ): Response<GraphQlResponse>
+
+    // --- Server-Driven Auth & SuperAdmin Activation ---
+    @POST("auth/login")
+    suspend fun login(
+        @Body request: MobilePinLoginRequest
+    ): Response<Map<String, Any>>
+
+    @POST("auth/activate-superadmin")
+    suspend fun activateSuperAdmin(
+        @Body request: ActivateSuperAdminRequest
+    ): Response<Map<String, Any>>
+
+    // --- Server-Driven RBAC Operator Management ---
+    @GET("auth/operators")
+    suspend fun getOperators(): Response<Map<String, Any>>
+
+    @POST("auth/operators")
+    suspend fun createOperator(
+        @Body request: OperatorApiRequest
+    ): Response<Map<String, Any>>
+
+    @PUT("auth/operators/{id}")
+    suspend fun updateOperator(
+        @Path("id") id: Int,
+        @Body request: OperatorApiRequest
+    ): Response<Map<String, Any>>
+
+    @DELETE("auth/operators/{id}")
+    suspend fun deleteOperator(
+        @Path("id") id: Int
+    ): Response<Map<String, Any>>
 }
+

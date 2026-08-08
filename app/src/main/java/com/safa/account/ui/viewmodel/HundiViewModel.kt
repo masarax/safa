@@ -290,6 +290,7 @@ class HundiViewModel(
     fun updateCustomer(customer: Customer, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             repository.updateCustomer(customer)
+            syncManager?.syncAll()
             onComplete()
         }
     }
@@ -297,6 +298,7 @@ class HundiViewModel(
     fun updateSupplier(supplier: Supplier, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             repository.updateSupplier(supplier)
+            syncManager?.syncAll()
             onComplete()
         }
     }
@@ -468,7 +470,92 @@ class HundiViewModel(
         "login_button" to "লগইন করুন",
         "mobile_number" to "মোবাইল নম্বর",
         "enter_mobile_ph" to "যেমন: 01700000000",
-        "activate_super_admin" to "সুপার-এডমিন অ্যাক্টিভেশন"
+        "activate_super_admin" to "সুপার-এডমিন অ্যাক্টিভেশন",
+        "invalid_credentials" to "মোবাইল বা পিন ভুল হয়েছে",
+
+        "total_sar_received" to "মোট প্রাপ্ত বৈদেশিক কারেন্সি",
+        "total_bdt_delivered" to "মোট বিতরণকৃত লোকাল টাকা",
+        "total_bdt_pending" to "মোট পেন্ডিং লোকাল টাকা",
+        "estimated_profit" to "আজকের আনুমানিক মোট লাভ",
+        "net_profit_bdt" to "নিট লাভ (টাকা)",
+        "net_profit_sar" to "নিট লাভ (রিয়াল)",
+        "daily_operating_rates" to "লাইভ দৈনিক বিনিময় হার",
+        "customer_sale_rate" to "কাস্টমার বিনিময় হার",
+        "supplier_buy_rate" to "সাপ্লায়ার ক্রয় হার (খরচ)",
+
+        "customer_mgmt" to "গ্রাহক ডিরেক্টরি",
+        "add_customer" to "নতুন কাস্টমার যুক্ত করুন",
+        "customer_name" to "কাস্টমারের পূর্ণ নাম",
+        "phone_number" to "মোবাইল নম্বর",
+        "address" to "ঠিকানা / কর্মস্থল",
+        "save_customer" to "গ্রাহক নিবন্ধন করুন",
+        "total_customers" to "মোট নিবন্ধিত কাস্টমার",
+
+        "supplier_mgmt" to "সাপ্লায়ারসমূহ",
+        "add_supplier" to "নতুন সাপ্লায়ার যুক্ত করুন",
+        "supplier_name" to "সাপ্লায়ার গ্রুপ নাম",
+        "save_supplier" to "সাপ্লায়ার তথ্য সংরক্ষণ করুন",
+        "buy_bdt_pool" to "লোকাল ফান্ড ক্রয় করুন",
+        "amount_sar" to "ডেবিট বৈদেশিক পরিমাণ",
+        "rate_applied" to "বিনিময় হার (যেমন: ৩২.৫০)",
+        "purchase_success" to "লোকাল ফান্ড সফলভাবে প্রক্রিয়াজাত হয়েছে",
+        "total_deposited_sar" to "মোট জমা বৈদেশিক ফান্ড",
+        "acquired_bdt" to "অর্জিত লোকাল ফান্ড",
+        "pool_balance" to "সাপ্লায়ার বাকি ফান্ড",
+
+        "new_remittance" to "নতুন রেমিট্যান্স লেনদেন",
+        "select_customer" to "কাস্টমার নির্বাচন করুন",
+        "select_supplier" to "সাপ্লায়ার নির্বাচন করুন",
+        "saudi_amount" to "প্রাপ্ত বৈদেশিক পরিমাণ",
+        "customer_assigned_rate" to "কাস্টমার নির্ধারিত হার",
+        "supplier_rate_tx" to "প্রযোজ্য সাপ্লায়ার হার",
+        "receiver_bdt_amount" to "প্রাপকের লোকাল টাকা",
+        "receiver_name" to "প্রাপকের পূর্ণ নাম",
+        "receiver_phone" to "প্রাপকের মোবাইল নম্বর",
+        "payment_method" to "পেমেন্ট চ্যানেল",
+        "receiver_account_no" to "অ্যাকাউন্ট নং (বিকাশ/নগদ/ব্যাংক)",
+        "notes" to "অতিরিক্ত নির্দেশাবলী / নোট",
+        "status" to "লেনদেনের স্ট্যাটাস",
+        "status_pending" to "পেন্ডিং ট্রান্সমিট",
+        "status_delivered" to "সফলভাবে ডেলিভার্ড",
+        "status_cancelled" to "বাতিলকৃত লেনদেন",
+        "save_transaction" to "লেনদেন নিশ্চিত ও সংরক্ষণ করুন",
+
+        "expenses_overhead" to "অপারেটিং খরচ ও অন্যান্য",
+        "add_expense_income" to "আয়/ব্যয় এন্ট্রি করুন",
+        "title" to "বিবরণ (যেমন: অফিস ভাড়া, নাস্তা)",
+        "amount" to "পরিমাণ",
+        "is_expense" to "লেনদেনের ধরণ",
+        "expense" to "অপারেটিং ব্যয়",
+        "income" to "অপারেটিং আয়",
+        "category" to "ক্যাটাগরি",
+        "save_record" to "রেকর্ড সংরক্ষণ করুন",
+
+        "update_daily_rates" to "লাইভ বিনিময় হার প্রকাশ করুন",
+        "rate_saved" to "বিনিময় হার সফলভাবে সংরক্ষিত হয়েছে!",
+        "operator_list" to "অনুমোদিত অপারেটর ও কর্মী",
+        "create_new_operator" to "নতুন স্টাফ অ্যাকাউন্ট তৈরি করুন",
+        "pinCode" to "৪-ডিজিটের পিন অ্যাক্সেস",
+        "role" to "ইউজার রোল / অনুমতি",
+        "unsettled_supp" to "সাপ্লায়ার নিট দেনা/পাওনা",
+
+        "manage_operators" to "অপারেটর ও স্টাফ ইউজার ম্যানেজমেন্ট",
+        "operator_management_desc" to "সার্ভারে ইউজারদের ১৫টি দানাদার RBAC অনুমতি নিয়ন্ত্রণ করুন",
+        "view_customers" to "কাস্টমার দেখুন",
+        "add_customers" to "কাস্টমার যোগ করুন",
+        "edit_customers" to "কাস্টমার সম্পাদন",
+        "delete_customers" to "কাস্টমার মুছুন",
+        "view_suppliers" to "সাপ্লায়ার দেখুন",
+        "add_suppliers" to "সাপ্লায়ার যোগ করুন",
+        "edit_suppliers" to "সাপ্লায়ার সম্পাদন",
+        "delete_suppliers" to "সাপ্লায়ার মুছুন",
+        "view_transactions" to "লেনদেন দেখুন",
+        "add_transactions" to "লেনদেন যোগ করুন",
+        "edit_transactions" to "লেনদেন সম্পাদন",
+        "delete_transactions" to "লেনদেন মুছুন",
+        "manage_wallet" to "ওয়ালেট পরিচালনা",
+        "manage_expenses" to "আয়/ব্যয় পরিচালনা",
+        "view_reports" to "রিপোর্টস দেখুন"
     )
 
     val enMap = mapOf(
@@ -706,6 +793,110 @@ class HundiViewModel(
         }
     }
 
+    fun loginWithServer(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            if (mobile.isBlank() || pin.length < 4) {
+                onResult(false, t("pin_incorrect"))
+                return@launch
+            }
+            try {
+                val api = syncManager?.getApiService()
+                if (api != null) {
+                    val req = com.safa.account.data.api.dto.MobilePinLoginRequest(mobile = mobile.trim(), pin = pin)
+                    val response = api.login(req)
+                    if (response.isSuccessful && response.body() != null) {
+                        val body = response.body()!!
+                        @Suppress("UNCHECKED_CAST")
+                        val tokens = body["tokens"] as? Map<String, Any?>
+                        if (tokens != null) {
+                            tokenManager?.saveAllTokens(
+                                accessToken = tokens["access_token"]?.toString(),
+                                refreshToken = tokens["refresh_token"]?.toString(),
+                                deviceToken = tokens["device_token"]?.toString(),
+                                sessionToken = tokens["session_token"]?.toString(),
+                                fingerprintToken = tokens["fingerprint_token"]?.toString()
+                            )
+                        }
+
+                        @Suppress("UNCHECKED_CAST")
+                        val userMap = body["user"] as? Map<String, Any?>
+                        @Suppress("UNCHECKED_CAST")
+                        val permsMap = (userMap?.get("permissions") as? Map<String, Any?>)
+                            ?: (body["permissions"] as? Map<String, Any?>) ?: emptyMap()
+
+                        val isActivated = (userMap?.get("is_activated") as? Boolean) ?: true
+                        val role = userMap?.get("role")?.toString() ?: "SuperAdmin"
+                        val username = userMap?.get("name")?.toString() ?: "Operator"
+                        val email = userMap?.get("email")?.toString() ?: ""
+
+                        fun getPerm(key: String): Boolean {
+                            val v = permsMap[key]
+                            return if (v is Boolean) v else true
+                        }
+
+                        val hashedPin = com.safa.account.utils.HashUtils.hashPin(pin)
+                        val op = OperatorAccount(
+                            username = username,
+                            role = if (role.equals("superadmin", true) || role.equals("manager", true) || role.equals("owner", true)) "SuperAdmin" else "Staff",
+                            pin = hashedPin,
+                            mobile = mobile.trim(),
+                            email = email,
+                            isActivated = isActivated,
+                            isActive = true,
+                            canViewCustomers = getPerm("can_view_customers"),
+                            canAddCustomers = getPerm("can_add_customers"),
+                            canEditCustomers = getPerm("can_edit_customers"),
+                            canDeleteCustomers = getPerm("can_delete_customers"),
+                            canViewSuppliers = getPerm("can_view_suppliers"),
+                            canAddSuppliers = getPerm("can_add_suppliers"),
+                            canEditSuppliers = getPerm("can_edit_suppliers"),
+                            canDeleteSuppliers = getPerm("can_delete_suppliers"),
+                            canViewTransactions = getPerm("can_view_transactions"),
+                            canAddTransactions = getPerm("can_add_transactions"),
+                            canEditTransactions = getPerm("can_edit_transactions"),
+                            canDeleteTransactions = getPerm("can_delete_transactions"),
+                            canManageWallet = getPerm("can_manage_wallet"),
+                            canManageExpenses = getPerm("can_manage_expenses"),
+                            canViewReports = getPerm("can_view_reports")
+                        )
+
+                        val existing = repository.getOperatorByMobile(mobile.trim())
+                            ?: operators.value.find { it.mobile == mobile.trim() }
+                        val savedId = if (existing != null) {
+                            val updated = op.copy(id = existing.id)
+                            repository.updateOperator(updated)
+                            existing.id
+                        } else {
+                            repository.insertOperator(op).toInt()
+                        }
+                        val finalOp = op.copy(id = savedId)
+                        _currentOperator.value = finalOp
+                        _selectedLoginOperator.value = finalOp
+                        _pinError.value = null
+                        navigateTo(AppScreen.DASHBOARD)
+                        onResult(true, null)
+                        return@launch
+                    } else if (response.code() == 403) {
+                        onResult(false, "NEEDS_ACTIVATION")
+                        return@launch
+                    } else {
+                        val errorStr = response.errorBody()?.string() ?: ""
+                        if (errorStr.contains("is_activated\":false") || errorStr.contains("not activated") || errorStr.contains("activation is required")) {
+                            onResult(false, "NEEDS_ACTIVATION")
+                            return@launch
+                        }
+                        onResult(false, t("invalid_credentials"))
+                        return@launch
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            // Fallback to local Room authentication
+            loginWithMobileAndPin(mobile, pin, onResult)
+        }
+    }
+
     fun loginWithMobileAndPin(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             if (mobile.isBlank() || pin.length < 4) {
@@ -733,6 +924,48 @@ class HundiViewModel(
             } else {
                 onResult(false, t("no_account_found"))
             }
+        }
+    }
+
+    fun activateSuperAdminServer(
+        name: String,
+        email: String,
+        mobile: String,
+        pin: String,
+        onComplete: () -> Unit
+    ) {
+        viewModelScope.launch {
+            if (pin.length != 4 || !pin.all { it.isDigit() }) return@launch
+            try {
+                val api = syncManager?.getApiService()
+                if (api != null) {
+                    val req = com.safa.account.data.api.dto.ActivateSuperAdminRequest(
+                        name = name.trim(),
+                        email = email.trim(),
+                        mobile = mobile.trim(),
+                        pin = pin,
+                        newPin = pin
+                    )
+                    val response = api.activateSuperAdmin(req)
+                    if (response.isSuccessful && response.body() != null) {
+                        val body = response.body()!!
+                        @Suppress("UNCHECKED_CAST")
+                        val tokens = body["tokens"] as? Map<String, Any?>
+                        if (tokens != null) {
+                            tokenManager?.saveAllTokens(
+                                accessToken = tokens["access_token"]?.toString(),
+                                refreshToken = tokens["refresh_token"]?.toString(),
+                                deviceToken = tokens["device_token"]?.toString(),
+                                sessionToken = tokens["session_token"]?.toString(),
+                                fingerprintToken = tokens["fingerprint_token"]?.toString()
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            activateSuperAdmin(name, email, mobile, pin, onComplete)
         }
     }
 
@@ -808,6 +1041,189 @@ class HundiViewModel(
                 navigateTo(AppScreen.DASHBOARD)
                 onComplete()
             }
+        }
+    }
+
+    fun fetchOperatorsFromServer() {
+        viewModelScope.launch {
+            try {
+                val api = syncManager?.getApiService() ?: return@launch
+                val res = api.getOperators()
+                if (res.isSuccessful && res.body() != null) {
+                    val body = res.body()!!
+                    @Suppress("UNCHECKED_CAST")
+                    val rawOps = body["operators"] as? List<Map<String, Any?>> ?: emptyList()
+                    val currentOps = operators.value
+                    rawOps.forEach { opMap ->
+                        val mobile = opMap["mobile"]?.toString() ?: ""
+                        val name = opMap["name"]?.toString() ?: "Operator"
+                        val email = opMap["email"]?.toString() ?: ""
+                        val role = opMap["role"]?.toString() ?: "Staff"
+                        val isActivated = (opMap["is_activated"] as? Boolean) ?: true
+                        @Suppress("UNCHECKED_CAST")
+                        val permsMap = opMap["permissions"] as? Map<String, Any?> ?: emptyMap()
+
+                        fun getPerm(key: String): Boolean {
+                            val v = permsMap[key]
+                            return if (v is Boolean) v else true
+                        }
+
+                        val existing = currentOps.find { it.mobile == mobile && mobile.isNotBlank() }
+                        val hashedPin = existing?.pin ?: com.safa.account.utils.HashUtils.hashPin("1234")
+                        val op = OperatorAccount(
+                            id = existing?.id ?: 0,
+                            username = name,
+                            role = if (role.equals("manager", true) || role.equals("superadmin", true) || role.equals("owner", true)) "Owner" else "Staff",
+                            pin = hashedPin,
+                            mobile = mobile,
+                            email = email,
+                            isActivated = isActivated,
+                            isActive = true,
+                            canViewCustomers = getPerm("can_view_customers"),
+                            canAddCustomers = getPerm("can_add_customers"),
+                            canEditCustomers = getPerm("can_edit_customers"),
+                            canDeleteCustomers = getPerm("can_delete_customers"),
+                            canViewSuppliers = getPerm("can_view_suppliers"),
+                            canAddSuppliers = getPerm("can_add_suppliers"),
+                            canEditSuppliers = getPerm("can_edit_suppliers"),
+                            canDeleteSuppliers = getPerm("can_delete_suppliers"),
+                            canViewTransactions = getPerm("can_view_transactions"),
+                            canAddTransactions = getPerm("can_add_transactions"),
+                            canEditTransactions = getPerm("can_edit_transactions"),
+                            canDeleteTransactions = getPerm("can_delete_transactions"),
+                            canManageWallet = getPerm("can_manage_wallet"),
+                            canManageExpenses = getPerm("can_manage_expenses"),
+                            canViewReports = getPerm("can_view_reports")
+                        )
+                        if (existing != null) {
+                            repository.updateOperator(op)
+                        } else {
+                            repository.insertOperator(op)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun createOperatorOnServer(
+        name: String,
+        mobile: String,
+        email: String,
+        role: String,
+        pin: String,
+        permissionsMap: Map<String, Boolean>,
+        onComplete: () -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val api = syncManager?.getApiService()
+                if (api != null) {
+                    val apiRole = if (role.equals("Owner", true) || role.equals("Admin", true) || role.equals("SuperAdmin", true)) "manager" else "staff"
+                    val req = com.safa.account.data.api.dto.OperatorApiRequest(
+                        name = name.trim(),
+                        mobile = mobile.trim(),
+                        email = email.ifBlank { null },
+                        role = apiRole,
+                        pin = pin,
+                        isActivated = true,
+                        permissions = permissionsMap
+                    )
+                    api.createOperator(req)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            val hashedPin = com.safa.account.utils.HashUtils.hashPin(pin)
+            val op = OperatorAccount(
+                username = name,
+                mobile = mobile.trim(),
+                email = email.trim(),
+                role = role,
+                pin = hashedPin,
+                isActivated = true,
+                isActive = true,
+                canViewCustomers = permissionsMap["can_view_customers"] ?: true,
+                canAddCustomers = permissionsMap["can_add_customers"] ?: true,
+                canEditCustomers = permissionsMap["can_edit_customers"] ?: true,
+                canDeleteCustomers = permissionsMap["can_delete_customers"] ?: true,
+                canViewSuppliers = permissionsMap["can_view_suppliers"] ?: true,
+                canAddSuppliers = permissionsMap["can_add_suppliers"] ?: true,
+                canEditSuppliers = permissionsMap["can_edit_suppliers"] ?: true,
+                canDeleteSuppliers = permissionsMap["can_delete_suppliers"] ?: true,
+                canViewTransactions = permissionsMap["can_view_transactions"] ?: true,
+                canAddTransactions = permissionsMap["can_add_transactions"] ?: true,
+                canEditTransactions = permissionsMap["can_edit_transactions"] ?: true,
+                canDeleteTransactions = permissionsMap["can_delete_transactions"] ?: true,
+                canManageWallet = permissionsMap["can_manage_wallet"] ?: true,
+                canManageExpenses = permissionsMap["can_manage_expenses"] ?: true,
+                canViewReports = permissionsMap["can_view_reports"] ?: true
+            )
+            repository.insertOperator(op)
+            onComplete()
+        }
+    }
+
+    fun updateOperatorOnServer(
+        op: OperatorAccount,
+        newPin: String? = null,
+        onComplete: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                val api = syncManager?.getApiService()
+                if (api != null && op.id > 0) {
+                    val apiRole = if (op.role.equals("Owner", true) || op.role.equals("Admin", true) || op.role.equals("SuperAdmin", true)) "manager" else "staff"
+                    val permsMap = mapOf(
+                        "can_view_customers" to op.canViewCustomers,
+                        "can_add_customers" to op.canAddCustomers,
+                        "can_edit_customers" to op.canEditCustomers,
+                        "can_delete_customers" to op.canDeleteCustomers,
+                        "can_view_suppliers" to op.canViewSuppliers,
+                        "can_add_suppliers" to op.canAddSuppliers,
+                        "can_edit_suppliers" to op.canEditSuppliers,
+                        "can_delete_suppliers" to op.canDeleteSuppliers,
+                        "can_view_transactions" to op.canViewTransactions,
+                        "can_add_transactions" to op.canAddTransactions,
+                        "can_edit_transactions" to op.canEditTransactions,
+                        "can_delete_transactions" to op.canDeleteTransactions,
+                        "can_manage_wallet" to op.canManageWallet,
+                        "can_manage_expenses" to op.canManageExpenses,
+                        "can_view_reports" to op.canViewReports
+                    )
+                    val req = com.safa.account.data.api.dto.OperatorApiRequest(
+                        name = op.username,
+                        mobile = op.mobile,
+                        email = op.email.ifBlank { null },
+                        role = apiRole,
+                        pin = newPin.takeIf { !it.isNullOrBlank() && it.length == 4 },
+                        isActivated = op.isActivated,
+                        permissions = permsMap
+                    )
+                    api.updateOperator(op.id, req)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            repository.updateOperator(op)
+            onComplete()
+        }
+    }
+
+    fun deleteOperatorOnServer(op: OperatorAccount, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val api = syncManager?.getApiService()
+                if (api != null && op.id > 0) {
+                    api.deleteOperator(op.id)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            repository.deleteOperator(op)
+            onComplete()
         }
     }
 

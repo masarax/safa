@@ -399,11 +399,11 @@ fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) ->
             )
         }
 
-        if (activeOperator?.role == "Owner") {
+        if (activeOperator?.role in listOf("SuperAdmin", "Owner", "Admin", "Manager", "superadmin", "owner", "admin", "manager") || activeOperator == null) {
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.People,
-                    title = if (lang == "BN") "ব্যবহার কারি ম্যানেজম্যান" else "User Management",
+                    title = viewModel.t("manage_operators"),
                     onClick = { onNavigate(SettingsSubpage.USER_MGT) }
                 )
             }
@@ -783,48 +783,128 @@ fun PageHeader(
 fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val operators by viewModel.operators.collectAsStateWithLifecycle()
+    val activeOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+
     var isAddingOperator by remember { mutableStateOf(false) }
     var expandedOperatorId by remember { mutableStateOf<Int?>(null) }
-
     var editingOperator by remember { mutableStateOf<com.safa.account.data.model.OperatorAccount?>(null) }
     var showDeleteConfirmByOp by remember { mutableStateOf<com.safa.account.data.model.OperatorAccount?>(null) }
 
+    LaunchedEffect(Unit) {
+        viewModel.fetchOperatorsFromServer()
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
-        PageHeader(title = if (lang == "BN") "ব্যবহার কারি ম্যানেজম্যান" else "User Management", icon = Icons.Default.People, onBack = onBack)
+        PageHeader(title = viewModel.t("manage_operators"), icon = Icons.Default.People, onBack = onBack)
 
         if (isAddingOperator) {
-            var newUsername by remember { mutableStateOf("") }
+            var newName by remember { mutableStateOf("") }
+            var newMobile by remember { mutableStateOf("") }
+            var newEmail by remember { mutableStateOf("") }
             var newPin by remember { mutableStateOf("") }
             var newRole by remember { mutableStateOf("Staff") }
-            var perms by remember { mutableStateOf(setOf("edit", "create", "delete", "update")) }
+            var errorMsg by remember { mutableStateOf<String?>(null) }
+
+            var canViewCustomers by remember { mutableStateOf(true) }
+            var canAddCustomers by remember { mutableStateOf(true) }
+            var canEditCustomers by remember { mutableStateOf(true) }
+            var canDeleteCustomers by remember { mutableStateOf(true) }
+            var canViewSuppliers by remember { mutableStateOf(true) }
+            var canAddSuppliers by remember { mutableStateOf(true) }
+            var canEditSuppliers by remember { mutableStateOf(true) }
+            var canDeleteSuppliers by remember { mutableStateOf(true) }
+            var canViewTransactions by remember { mutableStateOf(true) }
+            var canAddTransactions by remember { mutableStateOf(true) }
+            var canEditTransactions by remember { mutableStateOf(true) }
+            var canDeleteTransactions by remember { mutableStateOf(true) }
+            var canManageWallet by remember { mutableStateOf(true) }
+            var canManageExpenses by remember { mutableStateOf(true) }
+            var canViewReports by remember { mutableStateOf(true) }
 
             Card(
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (lang == "BN") "নতুন ইউজার তৈরি করুন" else "Create New User", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = newUsername, onValueChange = { newUsername = it }, label = { Text(if (lang == "BN") "ইউজারনেম" else "Username") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = newPin, onValueChange = { if (it.length <= 4) newPin = it }, label = { Text(if (lang == "BN") "৪-ডিজিটের পিন" else "4-Digit PIN") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), modifier = Modifier.fillMaxWidth())
-                    
+                Column(
+                    modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        if (lang == "BN") "নতুন অপারেটর তৈরি করুন" else "Create New Operator",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it; errorMsg = null },
+                        label = { Text(viewModel.t("full_name")) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = newMobile,
+                        onValueChange = { newMobile = it; errorMsg = null },
+                        label = { Text(viewModel.t("mobile_number")) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = newEmail,
+                        onValueChange = { newEmail = it; errorMsg = null },
+                        label = { Text(viewModel.t("email")) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = newPin,
+                        onValueChange = { if (it.length <= 4) { newPin = it; errorMsg = null } },
+                        label = { Text(viewModel.t("enter_pin")) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     Text(if (lang == "BN") "রোল" else "Role", style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = newRole == "Owner", onClick = { newRole = "Owner" }, label = { Text("Owner") })
+                        FilterChip(selected = newRole == "Owner", onClick = { newRole = "Owner" }, label = { Text("Manager / Owner") })
                         FilterChip(selected = newRole == "Staff", onClick = { newRole = "Staff" }, label = { Text("Staff") })
                     }
 
-                    Text(if (lang == "BN") "অনুমতি (Permissions)" else "Permissions", style = MaterialTheme.typography.labelMedium)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("create" to "তৈরি করুন (Create)", "edit" to "এডিট করুন (Edit)", "delete" to "ডিলিট করুন (Delete)", "update" to "আপডেট করুন (Update)").forEach { (key, label) ->
-                            FilterChip(
-                                selected = perms.contains(key),
-                                onClick = {
-                                    perms = if (perms.contains(key)) perms - key else perms + key
-                                },
-                                label = { Text(label, fontSize = 12.sp) }
-                            )
-                        }
+                    Text(
+                        if (lang == "BN") "১৫টি দানাদার RBAC অনুমতিসমূহ" else "15 Granular RBAC Permissions",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(selected = canViewCustomers, onClick = { canViewCustomers = !canViewCustomers }, label = { Text("View Cust", fontSize = 11.sp) })
+                        FilterChip(selected = canAddCustomers, onClick = { canAddCustomers = !canAddCustomers }, label = { Text("Add Cust", fontSize = 11.sp) })
+                        FilterChip(selected = canEditCustomers, onClick = { canEditCustomers = !canEditCustomers }, label = { Text("Edit Cust", fontSize = 11.sp) })
+                        FilterChip(selected = canDeleteCustomers, onClick = { canDeleteCustomers = !canDeleteCustomers }, label = { Text("Del Cust", fontSize = 11.sp) })
+                        FilterChip(selected = canViewSuppliers, onClick = { canViewSuppliers = !canViewSuppliers }, label = { Text("View Supp", fontSize = 11.sp) })
+                        FilterChip(selected = canAddSuppliers, onClick = { canAddSuppliers = !canAddSuppliers }, label = { Text("Add Supp", fontSize = 11.sp) })
+                        FilterChip(selected = canEditSuppliers, onClick = { canEditSuppliers = !canEditSuppliers }, label = { Text("Edit Supp", fontSize = 11.sp) })
+                        FilterChip(selected = canDeleteSuppliers, onClick = { canDeleteSuppliers = !canDeleteSuppliers }, label = { Text("Del Supp", fontSize = 11.sp) })
+                        FilterChip(selected = canViewTransactions, onClick = { canViewTransactions = !canViewTransactions }, label = { Text("View Tx", fontSize = 11.sp) })
+                        FilterChip(selected = canAddTransactions, onClick = { canAddTransactions = !canAddTransactions }, label = { Text("Add Tx", fontSize = 11.sp) })
+                        FilterChip(selected = canEditTransactions, onClick = { canEditTransactions = !canEditTransactions }, label = { Text("Edit Tx", fontSize = 11.sp) })
+                        FilterChip(selected = canDeleteTransactions, onClick = { canDeleteTransactions = !canDeleteTransactions }, label = { Text("Del Tx", fontSize = 11.sp) })
+                        FilterChip(selected = canManageWallet, onClick = { canManageWallet = !canManageWallet }, label = { Text("Wallet", fontSize = 11.sp) })
+                        FilterChip(selected = canManageExpenses, onClick = { canManageExpenses = !canManageExpenses }, label = { Text("Expenses", fontSize = 11.sp) })
+                        FilterChip(selected = canViewReports, onClick = { canViewReports = !canViewReports }, label = { Text("Reports", fontSize = 11.sp) })
+                    }
+
+                    if (errorMsg != null) {
+                        Text(text = errorMsg!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
@@ -832,11 +912,39 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                             Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Button(
-                            onClick = { 
-                                viewModel.addOperator(newUsername, newPin, newRole, perms.joinToString(",")) {
+                            onClick = {
+                                if (newName.isBlank() || newMobile.isBlank() || newPin.length != 4) {
+                                    errorMsg = if (lang == "BN") "সব তথ্য দিন এবং পিন ৪ ডিজিট হতে হবে" else "Fill name, mobile, and 4-digit PIN"
+                                    return@Button
+                                }
+                                val permsMap = mapOf(
+                                    "can_view_customers" to canViewCustomers,
+                                    "can_add_customers" to canAddCustomers,
+                                    "can_edit_customers" to canEditCustomers,
+                                    "can_delete_customers" to canDeleteCustomers,
+                                    "can_view_suppliers" to canViewSuppliers,
+                                    "can_add_suppliers" to canAddSuppliers,
+                                    "can_edit_suppliers" to canEditSuppliers,
+                                    "can_delete_suppliers" to canDeleteSuppliers,
+                                    "can_view_transactions" to canViewTransactions,
+                                    "can_add_transactions" to canAddTransactions,
+                                    "can_edit_transactions" to canEditTransactions,
+                                    "can_delete_transactions" to canDeleteTransactions,
+                                    "can_manage_wallet" to canManageWallet,
+                                    "can_manage_expenses" to canManageExpenses,
+                                    "can_view_reports" to canViewReports
+                                )
+                                viewModel.createOperatorOnServer(
+                                    name = newName,
+                                    mobile = newMobile,
+                                    email = newEmail,
+                                    role = newRole,
+                                    pin = newPin,
+                                    permissionsMap = permsMap
+                                ) {
                                     isAddingOperator = false
                                 }
-                            }, 
+                            },
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(if (lang == "BN") "সংরক্ষণ" else "Save", maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -852,7 +960,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
             ) {
                 Icon(Icons.Default.PersonAdd, contentDescription = "")
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(if (lang == "BN") "নতুন ইউজার যুক্ত করুন" else "Add New User")
+                Text(if (lang == "BN") "নতুন অপারেটর যুক্ত করুন" else "Add New Operator")
             }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -862,17 +970,24 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.3f))
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha=0.1f)), contentAlignment = Alignment.Center) {
+                                    Box(
+                                        modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         Icon(Icons.Default.Person, contentDescription = "", tint = MaterialTheme.colorScheme.primary)
                                     }
                                     Column {
                                         Text(op.username, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                        Text("Role: ${op.role}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                        Text("Role: ${op.role} | ${op.mobile}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                     }
                                 }
                                 IconButton(onClick = { expandedOperatorId = if (isExpanded) null else op.id }) {
@@ -887,33 +1002,36 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(if (lang == "BN") "অনুমতিসমূহ" else "Permissions", style = MaterialTheme.typography.labelMedium)
+                                    Text(if (lang == "BN") "১৫টি দানাদার RBAC অনুমতিসমূহ" else "15 RBAC Permissions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                         IconButton(onClick = { editingOperator = op }) {
-                                            Icon(Icons.Default.Edit, contentDescription = "Edit User", tint = MaterialTheme.colorScheme.primary)
+                                            Icon(Icons.Default.Edit, contentDescription = "Edit Operator", tint = MaterialTheme.colorScheme.primary)
                                         }
-                                        val curOp by viewModel.currentOperator.collectAsStateWithLifecycle()
-                                        if (op.id != curOp?.id) {
+                                        if (op.id != activeOperator?.id) {
                                             IconButton(onClick = { showDeleteConfirmByOp = op }) {
-                                                Icon(Icons.Default.Delete, contentDescription = "Delete User", tint = MaterialTheme.colorScheme.error)
+                                                Icon(Icons.Default.Delete, contentDescription = "Delete Operator", tint = MaterialTheme.colorScheme.error)
                                             }
                                         }
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                
-                                val opPerms = op.permissions.split(",").map { it.trim() }.toSet()
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    listOf("create" to "Create", "edit" to "Edit", "delete" to "Delete", "update" to "Update").forEach { (key, label) ->
-                                        FilterChip(
-                                            selected = opPerms.contains(key),
-                                            onClick = {
-                                                val newPerms = if (opPerms.contains(key)) opPerms - key else opPerms + key
-                                                viewModel.updateOperator(op.copy(permissions = newPerms.joinToString(",")))
-                                            },
-                                            label = { Text(label, fontSize = 12.sp) }
-                                        )
-                                    }
+
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(selected = op.canViewCustomers, onClick = { viewModel.updateOperatorOnServer(op.copy(canViewCustomers = !op.canViewCustomers)) }, label = { Text("View Cust", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canAddCustomers, onClick = { viewModel.updateOperatorOnServer(op.copy(canAddCustomers = !op.canAddCustomers)) }, label = { Text("Add Cust", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canEditCustomers, onClick = { viewModel.updateOperatorOnServer(op.copy(canEditCustomers = !op.canEditCustomers)) }, label = { Text("Edit Cust", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canDeleteCustomers, onClick = { viewModel.updateOperatorOnServer(op.copy(canDeleteCustomers = !op.canDeleteCustomers)) }, label = { Text("Del Cust", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canViewSuppliers, onClick = { viewModel.updateOperatorOnServer(op.copy(canViewSuppliers = !op.canViewSuppliers)) }, label = { Text("View Supp", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canAddSuppliers, onClick = { viewModel.updateOperatorOnServer(op.copy(canAddSuppliers = !op.canAddSuppliers)) }, label = { Text("Add Supp", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canEditSuppliers, onClick = { viewModel.updateOperatorOnServer(op.copy(canEditSuppliers = !op.canEditSuppliers)) }, label = { Text("Edit Supp", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canDeleteSuppliers, onClick = { viewModel.updateOperatorOnServer(op.copy(canDeleteSuppliers = !op.canDeleteSuppliers)) }, label = { Text("Del Supp", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canViewTransactions, onClick = { viewModel.updateOperatorOnServer(op.copy(canViewTransactions = !op.canViewTransactions)) }, label = { Text("View Tx", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canAddTransactions, onClick = { viewModel.updateOperatorOnServer(op.copy(canAddTransactions = !op.canAddTransactions)) }, label = { Text("Add Tx", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canEditTransactions, onClick = { viewModel.updateOperatorOnServer(op.copy(canEditTransactions = !op.canEditTransactions)) }, label = { Text("Edit Tx", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canDeleteTransactions, onClick = { viewModel.updateOperatorOnServer(op.copy(canDeleteTransactions = !op.canDeleteTransactions)) }, label = { Text("Del Tx", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canManageWallet, onClick = { viewModel.updateOperatorOnServer(op.copy(canManageWallet = !op.canManageWallet)) }, label = { Text("Wallet", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canManageExpenses, onClick = { viewModel.updateOperatorOnServer(op.copy(canManageExpenses = !op.canManageExpenses)) }, label = { Text("Expenses", fontSize = 11.sp) })
+                                    FilterChip(selected = op.canViewReports, onClick = { viewModel.updateOperatorOnServer(op.copy(canViewReports = !op.canViewReports)) }, label = { Text("Reports", fontSize = 11.sp) })
                                 }
                             }
                         }
@@ -928,7 +1046,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
         var pinInput by remember(editingOperator) { mutableStateOf("") }
         var mobileInput by remember(editingOperator) { mutableStateOf(editingOperator!!.mobile) }
         var roleInput by remember(editingOperator) { mutableStateOf(editingOperator!!.role) }
-        
+
         var canViewCustomers by remember(editingOperator) { mutableStateOf(editingOperator!!.canViewCustomers) }
         var canAddCustomers by remember(editingOperator) { mutableStateOf(editingOperator!!.canAddCustomers) }
         var canEditCustomers by remember(editingOperator) { mutableStateOf(editingOperator!!.canEditCustomers) }
@@ -961,20 +1079,20 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     OutlinedTextField(
                         value = usernameInput,
                         onValueChange = { usernameInput = it },
-                        label = { Text("Name") },
+                        label = { Text(viewModel.t("full_name")) },
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = mobileInput,
                         onValueChange = { mobileInput = it },
-                        label = { Text("Mobile Number") },
+                        label = { Text(viewModel.t("mobile_number")) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = pinInput,
                         onValueChange = { if (it.length <= 4) pinInput = it },
-                        label = { Text("New 4-Digit PIN (Leave blank to keep)") },
+                        label = { Text(if (lang == "BN") "নতুন ৪-ডিজিটের পিন (ঐচ্ছিক)" else "New 4-Digit PIN (Optional)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -985,7 +1103,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     }
 
                     Text(if (lang == "BN") "দানাদার অনুমতিসমূহ (Granular RBAC)" else "Granular RBAC Permissions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                    
+
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         FilterChip(selected = canViewCustomers, onClick = { canViewCustomers = !canViewCustomers }, label = { Text("View Cust", fontSize = 11.sp) })
                         FilterChip(selected = canAddCustomers, onClick = { canAddCustomers = !canAddCustomers }, label = { Text("Add Cust", fontSize = 11.sp) })
@@ -1032,7 +1150,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                                 canManageExpenses = canManageExpenses,
                                 canViewReports = canViewReports
                             )
-                            viewModel.updateOperator(updated) {
+                            viewModel.updateOperatorOnServer(updated, pinInput.takeIf { it.length == 4 }) {
                                 editingOperator = null
                             }
                         }
@@ -1061,9 +1179,9 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
             },
             text = {
                 Text(
-                    text = if (lang == "BN") 
-                        "আপনি কি নিশ্চিতভাবে '${showDeleteConfirmByOp!!.username}' ইউজারটি মুছে ফেলতে চান? এই অ্যাকশনটি রিভার্স করা যাবে না।" 
-                        else 
+                    text = if (lang == "BN")
+                        "আপনি কি নিশ্চিতভাবে '${showDeleteConfirmByOp!!.username}' ইউজারটি মুছে ফেলতে চান? এই অ্যাকশনটি রিভার্স করা যাবে না।"
+                        else
                         "Are you sure you want to permanently delete user '${showDeleteConfirmByOp!!.username}'? This action is irreversible."
                 )
             },
@@ -1072,7 +1190,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
                     onClick = {
                         val victim = showDeleteConfirmByOp
                         if (victim != null) {
-                            viewModel.deleteOperatorAccount(victim) {
+                            viewModel.deleteOperatorOnServer(victim) {
                                 showDeleteConfirmByOp = null
                             }
                         }

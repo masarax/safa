@@ -335,7 +335,7 @@
             navigator.clipboard.writeText(urlText).then(() => {
                 const btn = document.querySelector('.btn-copy');
                 btn.innerText = currentLang === 'bn' ? '✅ কপি হয়েছে!' : '✅ Copied!';
-                setTimeout(() => { btn.innerText = '📋 Copy'; }, 2000);
+                setTimeout(() => { btn.innerText = currentLang === 'bn' ? '📋 কপি করুন' : '📋 Copy'; }, 2000);
             });
         }
 
