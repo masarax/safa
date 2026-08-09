@@ -29,9 +29,21 @@ Route::middleware([CheckInstalled::class])->group(function () {
         return view('welcome');
     })->name('home');
 
-    // Convenient API Database Update Endpoint
-    Route::get('/update-db', function () {
+    // Protected API Database Update Endpoint
+    Route::match(['get', 'post'], '/update-db', function (\Illuminate\Http\Request $request) {
+        $secretKey = env('DB_UPDATE_SECRET', 'safa_secure_update_key_2026');
+        $providedKey = $request->input('key') ?: $request->header('X-SAFA-UPDATE-KEY');
+        if ($providedKey !== $secretKey) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized database update request. Valid security key required.'
+            ], 403);
+        }
+
         try {
+            $migrationFiles = glob(database_path('migrations/*.php'));
+            InstallerController::autoHealExistingSchema($migrationFiles);
+
             Artisan::call('migrate', ['--force' => true]);
             Artisan::call('config:clear');
             Artisan::call('cache:clear');

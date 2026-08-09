@@ -107,6 +107,26 @@ class HundiViewModel(
     private val _currentLanguage = MutableStateFlow(tokenManager?.getLanguage() ?: "BN")
     val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
 
+    fun setLanguage(lang: String) {
+        _currentLanguage.value = lang
+        tokenManager?.saveLanguage(lang)
+    }
+
+    // Dark Mode Toggle (Default: loaded from TokenManager)
+    private val _isDarkMode = MutableStateFlow(tokenManager?.getDarkMode() ?: false)
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
+    fun toggleDarkMode() {
+        val newMode = !_isDarkMode.value
+        _isDarkMode.value = newMode
+        tokenManager?.saveDarkMode(newMode)
+    }
+
+    fun setDarkMode(isDark: Boolean) {
+        _isDarkMode.value = isDark
+        tokenManager?.saveDarkMode(isDark)
+    }
+
     // Persistent currencies (SAR vs BDT customize settings)
     private val _selectedForeignCurrency = MutableStateFlow(tokenManager?.getForeignCurrency() ?: "SAR")
     val selectedForeignCurrency: StateFlow<String> = _selectedForeignCurrency.asStateFlow()
@@ -161,7 +181,7 @@ class HundiViewModel(
     private val _customAppName = MutableStateFlow(tokenManager?.getCustomAppName() ?: "SAFA")
     val customAppName: StateFlow<String> = _customAppName.asStateFlow()
 
-    private val _customAppLogo = MutableStateFlow(tokenManager?.getCustomAppLogo() ?: "👑")
+    private val _customAppLogo = MutableStateFlow(tokenManager?.getCustomAppLogo() ?: "SAFA")
     val customAppLogo: StateFlow<String> = _customAppLogo.asStateFlow()
 
     private val _customAppLogoUri = MutableStateFlow<String?>(tokenManager?.getCustomAppLogoUri())
@@ -299,14 +319,6 @@ class HundiViewModel(
                 e.printStackTrace()
             }
         }
-    }
-
-    // Dark Mode Toggle (Default: false)
-    private val _isDarkMode = MutableStateFlow(false)
-    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
-
-    fun toggleDarkMode() {
-        _isDarkMode.value = !_isDarkMode.value
     }
 
     // Passcode protection / Multi-user login

@@ -256,17 +256,63 @@ class InstallerController extends Controller
 
             $executedMigrations = DB::table('migrations')->pluck('migration')->toArray();
 
-            // Mapping migration files to their primary table indicator
-            $migrationTableMap = [
-                '0001_01_01_000000_create_users_table' => 'users',
-                '0001_01_01_000001_create_cache_table' => 'cache',
-                '0001_01_01_000002_create_jobs_table' => 'jobs',
-                '2026_01_01_000000_create_safa_tables' => 'safa_users',
-                '2026_01_02_000000_expand_hundi_and_wallet_tables' => 'safa_wallets',
-                '2026_01_04_000000_create_device_bindings_and_tokens_tables' => 'safa_device_bindings',
-                '2026_01_05_000000_create_superadmin_and_rbac_tables' => 'safa_superadmins',
-                '2026_01_06_000000_create_account_shares_table' => 'safa_account_shares',
-                '2026_01_07_000000_create_system_settings_table' => 'system_settings',
+            // Detailed mapping of migration files to required tables & column schema contracts
+            $migrationSchemaMap = [
+                '0001_01_01_000000_create_users_table' => [
+                    'users' => ['id', 'name', 'email', 'password']
+                ],
+                '0001_01_01_000001_create_cache_table' => [
+                    'cache' => ['key', 'value', 'expiration'],
+                    'cache_locks' => ['key', 'owner', 'expiration']
+                ],
+                '0001_01_01_000002_create_jobs_table' => [
+                    'jobs' => ['id', 'queue', 'payload', 'attempts'],
+                    'job_batches' => ['id', 'name', 'total_jobs'],
+                    'failed_jobs' => ['id', 'uuid', 'connection']
+                ],
+                '2026_01_01_000000_create_safa_tables' => [
+                    'accounts' => ['id', 'name', 'balance'],
+                    'customers' => ['id', 'account_id', 'local_id', 'name', 'phone'],
+                    'suppliers' => ['id', 'account_id', 'local_id', 'name', 'phone'],
+                    'transactions' => ['id', 'account_id', 'local_id', 'type', 'amount'],
+                    'rates' => ['id', 'account_id', 'currency_pair', 'rate'],
+                    'safa_api_keys' => ['id', 'client_name', 'api_key', 'api_secret'],
+                    'audit_logs' => ['id', 'action', 'endpoint'],
+                    'app_versions' => ['id', 'platform', 'min_version_code'],
+                    'roles' => ['id', 'name', 'slug'],
+                    'permissions' => ['id', 'name', 'slug'],
+                    'role_permission' => ['role_id', 'permission_id']
+                ],
+                '2026_01_02_000000_expand_hundi_and_wallet_tables' => [
+                    'transactions' => ['customer_id', 'supplier_id', 'amount_sar', 'customer_rate', 'supplier_rate', 'amount_bdt', 'receiver_name'],
+                    'wallet_ledgers' => ['id', 'account_id', 'local_id', 'name'],
+                    'wallet_batches' => ['id', 'account_id', 'local_id', 'ledger_id', 'rate', 'initial_bdt', 'remaining_bdt'],
+                    'supplier_deposits' => ['id', 'account_id', 'local_id', 'supplier_id', 'amount_sar', 'rate', 'amount_bdt'],
+                    'expenses_incomes' => ['id', 'account_id', 'local_id', 'title', 'amount', 'currency', 'is_expense']
+                ],
+                '2026_01_03_000000_add_deleted_at_to_sync_tables' => [
+                    'customers' => ['timestamp', 'deleted_at'],
+                    'suppliers' => ['timestamp', 'deleted_at'],
+                    'transactions' => ['timestamp', 'deleted_at'],
+                    'supplier_deposits' => ['timestamp', 'deleted_at'],
+                    'expenses_incomes' => ['timestamp', 'deleted_at'],
+                    'wallet_batches' => ['timestamp', 'deleted_at'],
+                    'wallet_ledgers' => ['timestamp', 'deleted_at']
+                ],
+                '2026_01_04_000000_create_device_bindings_and_tokens_tables' => [
+                    'device_bindings' => ['id', 'user_id', 'device_uuid', 'fingerprint_hash'],
+                    'auth_sessions' => ['id', 'user_id', 'device_uuid', 'refresh_token', 'session_token']
+                ],
+                '2026_01_05_000000_create_superadmin_and_rbac_tables' => [
+                    'users' => ['mobile', 'pin_hash', 'role', 'permissions', 'is_activated'],
+                    'operator_accounts' => ['id', 'name', 'mobile', 'role']
+                ],
+                '2026_01_06_000000_create_account_shares_table' => [
+                    'user_account_shares' => ['id', 'owner_user_id', 'account_id', 'shared_with_user_id']
+                ],
+                '2026_01_07_000000_create_system_settings_table' => [
+                    'system_settings' => ['id', 'app_name', 'app_logo_url', 'app_version', 'local_currency', 'foreign_currency']
+                ],
             ];
 
             foreach ($migrationFiles as $file) {
@@ -275,9 +321,24 @@ class InstallerController extends Controller
                     continue;
                 }
 
-                if (isset($migrationTableMap[$name])) {
-                    $tableName = $migrationTableMap[$name];
-                    if (DB::schema()->hasTable($tableName)) {
+                if (isset($migrationSchemaMap[$name])) {
+                    $schemaContract = $migrationSchemaMap[$name];
+                    $hasCompleteSchema = true;
+
+                    foreach ($schemaContract as $tableName => $requiredColumns) {
+                        if (!DB::schema()->hasTable($tableName)) {
+                            $hasCompleteSchema = false;
+                            break;
+                        }
+                        foreach ($requiredColumns as $col) {
+                            if (!DB::schema()->hasColumn($tableName, $col)) {
+                                $hasCompleteSchema = false;
+                                break 2;
+                            }
+                        }
+                    }
+
+                    if ($hasCompleteSchema) {
                         DB::table('migrations')->insert([
                             'migration' => $name,
                             'batch' => 1,

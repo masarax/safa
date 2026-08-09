@@ -19,8 +19,9 @@ class TokenManager(private val context: Context) {
         private const val KEY_API_SECRET = "api_secret"
         private const val KEY_LAST_MOBILE = "last_mobile"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
-        private const val DEFAULT_API_KEY = "safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b"
-        private const val DEFAULT_API_SECRET = "safa_sec_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
+
+        private val DEFAULT_API_KEY: String = ""
+        private val DEFAULT_API_SECRET: String = ""
     }
 
     fun saveLastMobile(mobile: String) = prefs.edit { putString(KEY_LAST_MOBILE, mobile) }
@@ -95,15 +96,21 @@ class TokenManager(private val context: Context) {
 
     fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_URL) ?: DEFAULT_URL
     
-    // --- App Settings Persistence ---
+    // --- App Settings & Theme Persistence ---
     fun saveLanguage(lang: String) = prefs.edit { putString("app_lang", lang) }
     fun getLanguage(): String = prefs.getString("app_lang", "BN") ?: "BN"
+
+    fun saveDarkMode(isDark: Boolean) = prefs.edit { putBoolean("app_dark_mode", isDark) }
+    fun getDarkMode(): Boolean = prefs.getBoolean("app_dark_mode", false)
+
+    fun saveThemeMode(mode: String) = prefs.edit { putString("app_theme_mode", mode) } // "LIGHT" | "DARK" | "SYSTEM"
+    fun getThemeMode(): String = prefs.getString("app_theme_mode", "LIGHT") ?: "LIGHT"
     
     fun saveCustomAppName(name: String) = prefs.edit { putString("app_name", name) }
     fun getCustomAppName(): String = prefs.getString("app_name", "SAFA") ?: "SAFA"
     
     fun saveCustomAppLogo(logo: String) = prefs.edit { putString("app_logo", logo) }
-    fun getCustomAppLogo(): String = prefs.getString("app_logo", "👑") ?: "👑"
+    fun getCustomAppLogo(): String = prefs.getString("app_logo", "SAFA") ?: "SAFA"
     
     fun saveCustomAppLogoUri(uri: String?) = prefs.edit { putString("app_logo_uri", uri) }
     fun getCustomAppLogoUri(): String? = prefs.getString("app_logo_uri", "https://safa.masarax.com/safa-logo.png")

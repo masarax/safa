@@ -211,7 +211,114 @@ fun AppPrimaryButton(
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
         }
+        Text(text = text, style = MaterialTheme.typography.labelMedium)
     }
+}
+
+/**
+ * Standardized Confirmation Dialog (Save/Action)
+ */
+@Composable
+fun SafaConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String = "Save",
+    cancelText: String = "Cancel",
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+                shape = MaterialTheme.shapes.small,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text(text = confirmText, style = MaterialTheme.typography.labelMedium)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text(text = cancelText, style = MaterialTheme.typography.labelMedium)
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+/**
+ * Standardized Destructive Confirmation Dialog (Delete)
+ */
+@Composable
+fun SafaDestructiveDialog(
+    title: String,
+    message: String,
+    confirmText: String = "Delete",
+    cancelText: String = "Cancel",
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.error
+            )
+        },
+        text = {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+                shape = MaterialTheme.shapes.small,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text(text = confirmText, style = MaterialTheme.typography.labelMedium)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text(text = cancelText, style = MaterialTheme.typography.labelMedium)
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surface
+    )
 }
 
 /**
