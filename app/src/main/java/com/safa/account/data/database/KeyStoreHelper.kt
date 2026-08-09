@@ -2,6 +2,8 @@ package com.safa.account.data.database
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.security.SecureRandom
@@ -14,8 +16,17 @@ object KeyStoreHelper {
     fun getOrGenerateDbPassphrase(context: Context): ByteArray {
         // Try hardware-backed KeyStore MasterKey & EncryptedSharedPreferences first
         try {
+            val spec = KeyGenParameterSpec.Builder(
+                MasterKey.DEFAULT_MASTER_KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .build()
+
             val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .setKeyGenParameterSpec(spec)
                 .build()
 
             val prefs: SharedPreferences = EncryptedSharedPreferences.create(

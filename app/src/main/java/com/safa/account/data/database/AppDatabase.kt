@@ -103,15 +103,26 @@ abstract class AppDatabase : RoomDatabase() {
         fun getDatabase(context: Context, @Suppress("UNUSED_PARAMETER") scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val passphrase = KeyStoreHelper.getOrGenerateDbPassphrase(context.applicationContext)
-                val factory = SupportFactory(passphrase)
+                val factory = try {
+                    net.sqlcipher.database.SQLiteDatabase.loadLibs(context.applicationContext)
+                    SupportFactory(passphrase)
+                } catch (t: Throwable) {
+                    android.util.Log.e("SafaDB", "SQLCipher loadLibs native link error on Android 16: ${t.message}")
+                    null
+                }
 
-                Room.databaseBuilder(
+                val builder = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "safa_encrypted_db"
                 )
-                    .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+
+                if (factory != null) {
+                    builder.openHelperFactory(factory)
+                }
+
+                builder.addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+                    .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                     .also { INSTANCE = it }
             }
