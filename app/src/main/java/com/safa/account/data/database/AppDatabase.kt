@@ -103,14 +103,26 @@ abstract class AppDatabase : RoomDatabase() {
         fun getDatabase(context: Context, @Suppress("UNUSED_PARAMETER") scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val passphrase = KeyStoreHelper.getOrGenerateDbPassphrase(context.applicationContext)
-                val factory = SupportFactory(passphrase)
-                Room.databaseBuilder(
+                val factory = try {
+                    System.loadLibrary("sqlcipher")
+                    SupportFactory(passphrase)
+                } catch (t: Throwable) {
+                    // Fallback to standard Room SQLite helper if native SQLCipher link fails
+                    null
+                }
+
+                val builder = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "safa_encrypted_db"
                 )
-                    .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+
+                if (factory != null) {
+                    builder.openHelperFactory(factory)
+                }
+
+                builder.addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+                    .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                     .also { INSTANCE = it }
             }

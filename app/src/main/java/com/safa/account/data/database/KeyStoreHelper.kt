@@ -2,12 +2,9 @@ package com.safa.account.data.database
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.security.SecureRandom
-import java.util.Base64
 
 object KeyStoreHelper {
     private const val PREF_FILE = "safa_keystore_prefs"
@@ -35,8 +32,8 @@ object KeyStoreHelper {
                 prefs.edit().putString(KEY_PASSPHRASE, passphraseBase64).apply()
             }
             android.util.Base64.decode(passphraseBase64, android.util.Base64.NO_WRAP)
-        } catch (e: Exception) {
-            // Fallback for devices without Hardware KeyStore support or on Exception
+        } catch (t: Throwable) {
+            // Fallback for devices without Hardware KeyStore support, Android 16 KeyStore changes, or on Exception
             val fallbackPrefs = context.getSharedPreferences("safa_fallback_prefs", Context.MODE_PRIVATE)
             var fallbackBase64 = fallbackPrefs.getString(KEY_PASSPHRASE, null)
             if (fallbackBase64 == null) {

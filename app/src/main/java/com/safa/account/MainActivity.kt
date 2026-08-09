@@ -60,7 +60,11 @@ class MainActivity : FragmentActivity() {
         val factory = HundiViewModelFactory(repository, tokenManager)
 
         // Schedule periodic background sync when internet is connected
-        com.safa.account.data.network.AutoSyncWorker.schedulePeriodicSync(applicationContext)
+        try {
+            com.safa.account.data.network.AutoSyncWorker.schedulePeriodicSync(applicationContext)
+        } catch (e: Exception) {
+            android.util.Log.e("SafaApp", "Failed to schedule AutoSyncWorker: ${e.message}")
+        }
 
         enableEdgeToEdge()
 
