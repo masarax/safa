@@ -210,11 +210,47 @@ class SyncManager(
             )
 
             // 3. Perform SyncUp POST
-            val upRes = api.syncUp(payload)
+            val upRes = try {
+                api.syncUp(payload)
+            } catch (e: Exception) {
+                // Network timeout, socket error, connection failure -> Retryable error
+                pendingCustomers.forEach { repository.incrementCustomerRetry(it.id) }
+                pendingSuppliers.forEach { repository.incrementSupplierRetry(it.id) }
+                pendingTxns.forEach { repository.incrementTransactionRetry(it.id) }
+                pendingSupplierDeposits.forEach { repository.incrementSupplierDepositRetry(it.id) }
+                pendingExpensesIncomes.forEach { repository.incrementExpenseIncomeRetry(it.id) }
+                pendingWalletLedgers.forEach { repository.incrementWalletLedgerRetry(it.id) }
+                pendingWalletBatches.forEach { repository.incrementWalletBatchRetry(it.id) }
+
+                val errMsg = e.localizedMessage ?: "Network connection unavailable — Data saved locally."
+                _syncState.value = SyncState.Error(errMsg)
+                return@withContext Result.failure(e)
+            }
+
             if (!upRes.isSuccessful) {
-                val err = "SyncUp failed with HTTP ${upRes.code()}"
-                _syncState.value = SyncState.Error(err)
-                return@withContext Result.failure(Exception(err))
+                val code = upRes.code()
+                val errReason = "SyncUp failed with HTTP $code"
+                val isRetryable = code in listOf(408, 429, 500, 502, 503, 504)
+                if (isRetryable) {
+                    pendingCustomers.forEach { repository.incrementCustomerRetry(it.id) }
+                    pendingSuppliers.forEach { repository.incrementSupplierRetry(it.id) }
+                    pendingTxns.forEach { repository.incrementTransactionRetry(it.id) }
+                    pendingSupplierDeposits.forEach { repository.incrementSupplierDepositRetry(it.id) }
+                    pendingExpensesIncomes.forEach { repository.incrementExpenseIncomeRetry(it.id) }
+                    pendingWalletLedgers.forEach { repository.incrementWalletLedgerRetry(it.id) }
+                    pendingWalletBatches.forEach { repository.incrementWalletBatchRetry(it.id) }
+                } else {
+                    // Non-retryable permanent failure (e.g. 400, 422 validation failure)
+                    pendingCustomers.forEach { repository.markCustomerFailed(it.id, errReason) }
+                    pendingSuppliers.forEach { repository.markSupplierFailed(it.id, errReason) }
+                    pendingTxns.forEach { repository.markTransactionFailed(it.id, errReason) }
+                    pendingSupplierDeposits.forEach { repository.markSupplierDepositFailed(it.id, errReason) }
+                    pendingExpensesIncomes.forEach { repository.markExpenseIncomeFailed(it.id, errReason) }
+                    pendingWalletLedgers.forEach { repository.markWalletLedgerFailed(it.id, errReason) }
+                    pendingWalletBatches.forEach { repository.markWalletBatchFailed(it.id, errReason) }
+                }
+                _syncState.value = SyncState.Error(errReason)
+                return@withContext Result.failure(Exception(errReason))
             }
 
             val upBody = upRes.body()

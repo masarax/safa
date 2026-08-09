@@ -12,10 +12,11 @@ $pass = 0; $fail = 0
 
 function Get-Signature($method, $path, $secret, $body = "") {
     $ts = [string][math]::Floor([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
-    $payload = $method + $path + $ts + $body
+    $nonce = [System.Guid]::NewGuid().ToString()
+    $payload = $method + $path + $ts + $nonce + $body
     $hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret))
     $sig = ($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($payload)) | ForEach-Object { $_.ToString("x2") }) -join ""
-    return @{ sig = $sig; ts = $ts }
+    return @{ sig = $sig; ts = $ts; nonce = $nonce }
 }
 
 function Invoke-Api($method, $path, $body = $null, $expectedStatus = 200) {
@@ -27,6 +28,7 @@ function Invoke-Api($method, $path, $body = $null, $expectedStatus = 200) {
         "X-SAFA-API-KEY"   = $ApiKey
         "X-SAFA-SIGNATURE" = $signed.sig
         "X-SAFA-TIMESTAMP" = $signed.ts
+        "X-SAFA-NONCE"     = $signed.nonce
         "Content-Type"     = "application/json"
         "Accept"           = "application/json"
     }
@@ -43,7 +45,13 @@ function Invoke-Api($method, $path, $body = $null, $expectedStatus = 200) {
             $script:fail++
         }
     } catch {
-        Write-Host "  FAIL [$method $path] $($_.Exception.Message)" -ForegroundColor Red
+        $respBody = ""
+        if ($_.Exception.Response) {
+            $stream = $_.Exception.Response.GetResponseStream()
+            $reader = [System.IO.StreamReader]::new($stream)
+            $respBody = $reader.ReadToEnd()
+        }
+        Write-Host "  FAIL [$method $path] $($_.Exception.Message) - $respBody" -ForegroundColor Red
         $script:fail++
     }
 }

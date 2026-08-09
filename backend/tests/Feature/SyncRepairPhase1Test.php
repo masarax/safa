@@ -177,4 +177,88 @@ class SyncRepairPhase1Test extends TestCase
         $this->assertEquals('customers', $json['rejected'][0]['entity']);
         $this->assertEquals(999, $json['rejected'][0]['local_id']);
     }
+
+    public function test_idempotency_duplicate_upload_updates_existing_record_without_duplication()
+    {
+        $account = Account::create(['name' => 'Test Account']);
+        SafaApiKey::create([
+            'account_id'  => $account->id,
+            'api_key'     => $this->apiKey,
+            'api_secret'  => $this->apiSecret,
+            'client_name' => 'Test Client',
+            'is_active'   => true,
+        ]);
+
+        $payload1 = [
+            'customers' => [
+                [
+                    'local_id'  => 50,
+                    'name'      => 'Initial Name',
+                    'phone'     => '01700000050',
+                    'timestamp' => 1700000000,
+                ]
+            ],
+            'transactions' => [
+                [
+                    'local_id'       => 60,
+                    'customer_id'    => 50,
+                    'amount_sar'     => 100.0,
+                    'amount_bdt'     => 3200.0,
+                    'receiver_name'  => 'Receiver One',
+                    'receiver_phone' => '01800000060',
+                    'timestamp'      => 1700000000,
+                ]
+            ]
+        ];
+
+        // First upload
+        $res1 = $this->withHeaders(['X-SAFA-API-KEY' => $this->apiKey])->postJson('/api/sync/up', $payload1);
+        $res1->assertStatus(200);
+        $serverCustId1 = $res1->json('accepted.customers.0.server_id');
+        $serverTxId1   = $res1->json('accepted.transactions.0.server_id');
+
+        $this->assertEquals(1, Customer::where('account_id', $account->id)->where('local_id', 50)->count());
+        $this->assertEquals(1, Transaction::where('account_id', $account->id)->where('local_id', 60)->count());
+
+        // Second upload (duplicate with updated name and amount)
+        $payload2 = [
+            'customers' => [
+                [
+                    'local_id'  => 50,
+                    'name'      => 'Updated Name',
+                    'phone'     => '01700000050',
+                    'timestamp' => 1700000050,
+                ]
+            ],
+            'transactions' => [
+                [
+                    'local_id'       => 60,
+                    'customer_id'    => 50,
+                    'amount_sar'     => 150.0,
+                    'amount_bdt'     => 4800.0,
+                    'receiver_name'  => 'Receiver One Updated',
+                    'receiver_phone' => '01800000060',
+                    'timestamp'      => 1700000050,
+                ]
+            ]
+        ];
+
+        $res2 = $this->withHeaders(['X-SAFA-API-KEY' => $this->apiKey])->postJson('/api/sync/up', $payload2);
+        $res2->assertStatus(200);
+        $serverCustId2 = $res2->json('accepted.customers.0.server_id');
+        $serverTxId2   = $res2->json('accepted.transactions.0.server_id');
+
+        // MUST be exact same server primary keys (no duplicate rows created)
+        $this->assertEquals($serverCustId1, $serverCustId2);
+        $this->assertEquals($serverTxId1, $serverTxId2);
+
+        // Database must still have exactly 1 record for customer 50 and transaction 60
+        $this->assertEquals(1, Customer::where('account_id', $account->id)->where('local_id', 50)->count());
+        $this->assertEquals(1, Transaction::where('account_id', $account->id)->where('local_id', 60)->count());
+
+        // Verify updated values in DB
+        $this->assertEquals('Updated Name', Customer::find($serverCustId1)->name);
+        $this->assertEquals(150.0, Transaction::find($serverTxId1)->amount_sar);
+    }
 }
+

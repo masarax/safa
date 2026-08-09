@@ -55,7 +55,9 @@ data class Customer(
     val timestamp: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
     val syncStatus: Int = SyncStatus.PENDING_CREATE,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val retryCount: Int = 0,
+    val lastSyncAttemptAt: Long? = null
 )
 
 @Entity(tableName = "suppliers")
@@ -72,7 +74,9 @@ data class Supplier(
     val timestamp: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
     val syncStatus: Int = SyncStatus.PENDING_CREATE,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val retryCount: Int = 0,
+    val lastSyncAttemptAt: Long? = null
 )
 
 @Entity(
@@ -106,7 +110,9 @@ data class RemittanceTransaction(
     val timestamp: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
     val syncStatus: Int = SyncStatus.PENDING_CREATE,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val retryCount: Int = 0,
+    val lastSyncAttemptAt: Long? = null
 ) {
     fun getProfitBdt(): Double {
         val cr = java.math.BigDecimal(customerRate.toString())
@@ -142,7 +148,9 @@ data class SupplierDeposit(
     val timestamp: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
     val syncStatus: Int = SyncStatus.PENDING_CREATE,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val retryCount: Int = 0,
+    val lastSyncAttemptAt: Long? = null
 )
 
 @Entity(tableName = "expenses_incomes")
@@ -157,7 +165,9 @@ data class ExpenseIncome(
     val timestamp: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
     val syncStatus: Int = SyncStatus.PENDING_CREATE,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val retryCount: Int = 0,
+    val lastSyncAttemptAt: Long? = null
 )
 
 @Entity(tableName = "daily_rates")
@@ -175,7 +185,9 @@ data class WalletLedger(
     val timestamp: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
     val syncStatus: Int = SyncStatus.PENDING_CREATE,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val retryCount: Int = 0,
+    val lastSyncAttemptAt: Long? = null
 )
 
 @Entity(
@@ -199,6 +211,8 @@ data class WalletBatch(
     val timestamp: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
     val syncStatus: Int = SyncStatus.PENDING_CREATE,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val retryCount: Int = 0,
+    val lastSyncAttemptAt: Long? = null
 )
 

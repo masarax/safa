@@ -57,6 +57,11 @@ class AutoSyncWorker(
 
             val syncRequest = PeriodicWorkRequestBuilder<AutoSyncWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(constraints)
+                .setBackoffCriteria(
+                    androidx.work.BackoffPolicy.EXPONENTIAL,
+                    1,
+                    TimeUnit.MINUTES
+                )
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(

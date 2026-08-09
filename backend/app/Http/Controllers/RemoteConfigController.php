@@ -15,7 +15,7 @@ class RemoteConfigController extends Controller
     public function getRemoteConfig(Request $request)
     {
         $setting = SystemSetting::first();
-
+        if (!$setting) {
             $setting = SystemSetting::create([
                 'account_id' => null,
                 'app_name' => 'SAFA',

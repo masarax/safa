@@ -45,6 +45,31 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE customers ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE customers ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE suppliers ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE suppliers ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE transactions ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE transactions ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
+
+        db.execSQL("ALTER TABLE wallet_batches ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE wallet_batches ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
+    }
+}
+
 @Database(
     entities = [
         OperatorAccount::class,
@@ -57,7 +82,7 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         WalletLedger::class,
         WalletBatch::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -85,7 +110,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "safa_encrypted_db"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_3_4)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { INSTANCE = it }
             }
