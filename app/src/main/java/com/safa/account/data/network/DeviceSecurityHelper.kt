@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.security.MessageDigest
@@ -14,12 +16,21 @@ object DeviceSecurityHelper {
     private const val KEY_DEVICE_UUID = "safa_device_uuid"
 
     /**
-     * Generates or retrieves a persistent, hardware-backed Device UUID using Android KeyStore.
+     * Generates or retrieves a persistent Device UUID using KeyStore with safe fallback.
      */
     fun getOrCreateDeviceUuid(context: Context): String {
         return try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            val spec = KeyGenParameterSpec.Builder(
+                MasterKey.DEFAULT_MASTER_KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .build()
+
+            val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                .setKeyGenParameterSpec(spec)
                 .build()
 
             val prefs: SharedPreferences = EncryptedSharedPreferences.create(
@@ -50,7 +61,7 @@ object DeviceSecurityHelper {
     /**
      * Computes a SHA-256 Hardware Fingerprint Hash combining:
      * - KeyStore Device UUID
-     * - Android Build Serial / Hardware Fingerprint
+     * - Android Build Fingerprint
      * - App Signing Signature
      */
     fun getHardwareFingerprintHash(context: Context): String {
@@ -63,25 +74,7 @@ object DeviceSecurityHelper {
     }
 
     private fun getBuildInfo(): String {
-        val serial = try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
-                    Build.getSerial()
-                } catch (e: SecurityException) {
-                    Build.UNKNOWN
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                Build.SERIAL
-            }
-        } catch (e: Exception) {
-            Build.UNKNOWN
-        }
-
-        val serialInfo = if (serial != Build.UNKNOWN) serial else ""
-
         return listOf(
-            serialInfo,
             Build.FINGERPRINT,
             Build.MODEL,
             Build.MANUFACTURER,

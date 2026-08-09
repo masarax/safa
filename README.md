@@ -89,7 +89,7 @@ safa/
    ```env
    SAFA_API_KEY=your_api_key_here
    SAFA_API_SECRET=your_api_secret_here
-   SAFA_BASE_URL=http://10.0.2.2:8000/api/
+   SAFA_BASE_URL=http://safa.masarax.com/api/
    ```
 3. Sync Gradle and build/run on Emulator or physical device:
    ```powershell
