@@ -41,17 +41,28 @@ class MainActivity : FragmentActivity() {
 
     @OptIn(ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        android.util.Log.i("SafaApp", "STARTUP_000_PROCESS")
+        android.util.Log.i("SafaApp", "STARTUP_010_ACTIVITY_CREATED")
         super.onCreate(savedInstanceState)
-        
-        enableEdgeToEdge()
+        android.util.Log.i("SafaApp", "STARTUP_020_AFTER_SUPER_ON_CREATE")
 
         var initError: Throwable? = null
         var factory: SafaViewModelFactory? = null
 
         try {
-            android.util.Log.i("SafaApp", "STAGE: STARTUP_BEGIN")
+            android.util.Log.i("SafaApp", "STARTUP_030_BEFORE_EDGE_TO_EDGE")
+            try {
+                enableEdgeToEdge()
+            } catch (e: Throwable) {
+                android.util.Log.w("SafaApp", "enableEdgeToEdge warning: ${e.message}")
+            }
+            android.util.Log.i("SafaApp", "STARTUP_040_AFTER_EDGE_TO_EDGE")
+
+            android.util.Log.i("SafaApp", "STARTUP_050_BEFORE_KEYSTORE")
             val database = AppDatabase.getDatabase(applicationContext, lifecycleScope)
-            android.util.Log.i("SafaApp", "STAGE: ROOM_DATABASE_READY")
+            android.util.Log.i("SafaApp", "STARTUP_100_AFTER_ROOM")
+
+            android.util.Log.i("SafaApp", "STARTUP_110_BEFORE_REPOSITORY")
             val repository = AppRepository(
                 operatorDao           = database.operatorDao(),
                 customerDao           = database.customerDao(),
@@ -63,22 +74,32 @@ class MainActivity : FragmentActivity() {
                 walletLedgerDao       = database.walletLedgerDao(),
                 walletBatchDao        = database.walletBatchDao(),
             )
-            val tokenManager = com.safa.account.data.api.TokenManager(applicationContext)
-            android.util.Log.i("SafaApp", "STAGE: TOKEN_MANAGER_READY")
-            factory = SafaViewModelFactory(repository, tokenManager)
+            android.util.Log.i("SafaApp", "STARTUP_120_AFTER_REPOSITORY")
 
+            android.util.Log.i("SafaApp", "STARTUP_130_BEFORE_TOKEN_MANAGER")
+            val tokenManager = com.safa.account.data.api.TokenManager(applicationContext)
+            android.util.Log.i("SafaApp", "STARTUP_140_AFTER_TOKEN_MANAGER")
+
+            android.util.Log.i("SafaApp", "STARTUP_150_BEFORE_VIEWMODEL_FACTORY")
+            factory = SafaViewModelFactory(repository, tokenManager)
+            android.util.Log.i("SafaApp", "STARTUP_160_AFTER_VIEWMODEL_FACTORY")
+
+            android.util.Log.i("SafaApp", "STARTUP_170_BEFORE_WORK_MANAGER")
             try {
                 com.safa.account.data.network.AutoSyncWorker.schedulePeriodicSync(applicationContext)
-                android.util.Log.i("SafaApp", "STAGE: WORK_MANAGER_READY")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 android.util.Log.e("SafaApp", "Failed to schedule AutoSyncWorker: ${e.message}")
             }
+            android.util.Log.i("SafaApp", "STARTUP_180_AFTER_WORK_MANAGER")
         } catch (t: Throwable) {
             android.util.Log.e("SafaApp", "FATAL_STARTUP_ERROR: ${t.javaClass.simpleName} - ${t.message}", t)
             initError = t
         }
 
+        android.util.Log.i("SafaApp", "STARTUP_190_BEFORE_SET_CONTENT")
+
         setContent {
+            android.util.Log.i("SafaApp", "STARTUP_200_SET_CONTENT_STARTED")
             val currentInitError = initError
             val currentFactory = factory
 
@@ -113,6 +134,10 @@ class MainActivity : FragmentActivity() {
                     }
                 }
                 return@setContent
+            }
+
+            LaunchedEffect(Unit) {
+                android.util.Log.i("SafaApp", "STARTUP_210_FIRST_COMPOSE_FRAME")
             }
 
             val viewModel: SafaViewModel by viewModels { currentFactory }

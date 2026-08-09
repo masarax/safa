@@ -22,7 +22,7 @@ class Phase3BrandingTest {
         val content = foregroundFile.readText()
         assertFalse("ic_launcher_foreground.xml must NOT contain generic android robot vector path", content.contains("com.android"))
         assertFalse("ic_launcher_foreground.xml must NOT contain generic robot eye path", content.contains("M38,42 a4,4"))
-        assertTrue("ic_launcher_foreground.xml must contain SAFA branding asset path", content.contains("fillColor") || content.contains("path"))
+        assertTrue("ic_launcher_foreground.xml must contain SAFA branding asset path", content.contains("fillColor") || content.contains("path") || content.contains("safa_logo") || content.contains("bitmap"))
     }
 
     @Test

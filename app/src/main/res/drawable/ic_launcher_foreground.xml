@@ -1,20 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- SAFA Canonical Welcome Page Logo Asset Path (safa-logo.png) -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,28 C30,28 28,30 28,32 C28,34 30,36 32,36 L38,36 L46,60 L76,60 C78,60 80,58 80,56 L86,36 L44,36 L42,30 C41,29 39,28 37,28 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M48,68 C45,68 43,70 43,73 C43,76 45,78 48,78 C51,78 53,76 53,73 C53,70 51,68 48,68 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M70,68 C67,68 65,70 65,73 C65,76 67,78 70,78 C73,78 75,76 75,73 C75,70 73,68 70,68 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,84 L38,84 L38,87 L34,87 L34,89 L37,89 L37,92 L34,92 L34,96 L32,96 Z" />
-</vector>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/safa_logo"
+    android:gravity="center" />

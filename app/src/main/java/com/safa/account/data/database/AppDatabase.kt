@@ -101,8 +101,15 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context, @Suppress("UNUSED_PARAMETER") scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
+                android.util.Log.i("SafaApp", "STARTUP_050_BEFORE_KEYSTORE")
                 val passphrase = KeyStoreHelper.getOrGenerateDbPassphrase(context.applicationContext)
+                android.util.Log.i("SafaApp", "STARTUP_060_AFTER_KEYSTORE")
+
+                android.util.Log.i("SafaApp", "STARTUP_070_BEFORE_SQLCIPHER")
                 SQLiteDatabase.loadLibs(context.applicationContext)
+                android.util.Log.i("SafaApp", "STARTUP_080_AFTER_SQLCIPHER")
+
+                android.util.Log.i("SafaApp", "STARTUP_090_BEFORE_ROOM")
                 val factory = SupportFactory(passphrase)
 
                 Room.databaseBuilder(
