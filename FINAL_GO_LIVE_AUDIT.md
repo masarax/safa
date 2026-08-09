@@ -2,7 +2,7 @@
 
 **Audit Date**: August 9, 2026  
 **Repository Branch**: `main`  
-**HEAD Commit SHA**: `f97d2d89f76a524e930fca698888bfcae58d34b7`  
+**HEAD Commit SHA**: `96258988b0d6f3930d0e6291518c4466418e6469`  
 **Production Backend Base URL**: `https://safa.masarax.com`  
 **Target SDK**: 36 (Android 16)  
 **Compile SDK**: 36  
@@ -13,9 +13,9 @@
 
 ## 1. Technical Audit & Startup Architecture Improvements
 
-### A. MainActivity Startup Diagnostic Boundary & Fault Tolerance
-- **Refactored File**: [`MainActivity.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/MainActivity.kt#L45-L115)
-- **Diagnostic Stage Logging**: Added explicit stage logcat markers (`STARTUP_BEGIN`, `ROOM_DATABASE_READY`, `TOKEN_MANAGER_READY`, `WORK_MANAGER_READY`).
+### A. MainActivity Startup Diagnostic Boundary & Checkpoints
+- **Refactored File**: [`MainActivity.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/MainActivity.kt#L41-L115)
+- **Diagnostic Logcat Checkpoints**: Added sequential logcat markers (`STARTUP_000_PROCESS` through `STARTUP_210_FIRST_COMPOSE_FRAME`).
 - **Compose Diagnostic Fallback UI**: If any database, KeyStore, or initialization error occurs during `onCreate()`, the process does not abort. Instead, `setContent()` displays a clean error boundary screen displaying the exact Java exception class and error message alongside a "Retry Application Startup" button (`recreate()`).
 
 ### B. Valid SVG Favicon Web Route Contract
@@ -45,7 +45,7 @@
 - **Web Blade Views**:  
   Updated [`welcome.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/welcome.blade.php#L7-L9), [`install.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/install.blade.php#L8-L10), and [`install_update.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/install_update.blade.php#L8-L10) to link `<link rel="icon" type="image/png" href="{{ asset('safa-logo.png') }}">`.
 - **Android Launcher Drawables & Mipmaps**:  
-  Replaced all legacy `ic_launcher.webp` and `ic_launcher_round.webp` files across `mipmap-hdpi`, `mipmap-mdpi`, `mipmap-xhdpi`, `mipmap-xxhdpi`, `mipmap-xxxhdpi` with exact PNG copies of `backend/public/safa-logo.png`. Updated [`ic_launcher_foreground.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_foreground.xml#L1-L20) and [`ic_launcher_background.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_background.xml#L1-L10).
+  Replaced all legacy `ic_launcher.webp` and `ic_launcher_round.webp` files across `mipmap-hdpi`, `mipmap-mdpi`, `mipmap-xhdpi`, `mipmap-xxhdpi`, `mipmap-xxxhdpi` with exact PNG copies of `backend/public/safa-logo.png`. Updated [`ic_launcher_foreground.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_foreground.xml#L1-L5) to render `@drawable/safa_logo` bitmap directly.
 
 ---
 
@@ -62,18 +62,18 @@
 - **Debug APK**:
   - Path: [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk)
   - Absolute Path: `D:\Nazmus Sakib\safa\app\build\outputs\apk\debug\app-debug.apk`
-  - SHA-256 Checksum: `05E70FBE3CA3C8DAE47D317C3E8F4FB070459E62BAEE4DDF968CE7D514D9600A`
+  - SHA-256 Checksum: `35C2C71FE7553E3971BDAF8C6D275646F6876CEEF694165D6E08D3BB8996A9F9`
 - **Release APK**:
   - Path: [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk)
   - Absolute Path: `D:\Nazmus Sakib\safa\app\build\outputs\apk\release\app-release.apk`
-  - SHA-256 Checksum: `63AA931304C105B56B28D4D8BE68F32A3F96B5EC32C551654A1E438AFFC9D895`
+  - SHA-256 Checksum: `2C1064A17D86212C92B25646D98703B85388CBF6D80169537B6DEC8FF63416A9`
 
 ---
 
 ## 5. Physical Device Status Statement
 
 ```text
-UNVERIFIED — Physical handset unavailable in CI environment
+ROOT CAUSE NOT YET PROVEN (Physical handset unavailable in CI environment)
 ```
 (ADB physical device offline in CLI environment).
 
@@ -82,8 +82,8 @@ UNVERIFIED — Physical handset unavailable in CI environment
 ## 6. FINAL RELEASE STATUS
 
 ```text
-BLOCKED — NOT READY FOR GO LIVE
+BLOCKED — ROOT CAUSE NOT PROVEN / NOT READY FOR GO LIVE
 ```
 
 **Acceptance Condition**:
-Per `debugging_implement.md` Section 10, the release status remains `BLOCKED — NOT READY FOR GO LIVE` until the user installs [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk) (`05E70FBE3CA3C8DAE47D317C3E8F4FB070459E62BAEE4DDF968CE7D514D9600A`) or [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk) (`63AA931304C105B56B28D4D8BE68F32A3F96B5EC32C551654A1E438AFFC9D895`) on their physical Android device and confirms that tapping the app icon opens and keeps the application running without an immediate crash.
+Per `FORENSIC_STARTUP_CRASH_ISOLATION.md` Section 16, the release status remains `BLOCKED — ROOT CAUSE NOT PROVEN / NOT READY FOR GO LIVE` until the user installs [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk) (`35C2C71FE7553E3971BDAF8C6D275646F6876CEEF694165D6E08D3BB8996A9F9`) or [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk) (`2C1064A17D86212C92B25646D98703B85388CBF6D80169537B6DEC8FF63416A9`) on their physical Android device and confirms that tapping the app icon opens and keeps the application running without an immediate crash.
