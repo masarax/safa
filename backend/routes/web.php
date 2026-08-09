@@ -37,12 +37,28 @@ Route::get('/safa-logo.png', function () {
     return response()->file($path, ['Content-Type' => 'image/png']);
 })->name('branding.logo');
 
-Route::get('/favicon.svg', function () {
-    $path = public_path('favicon.svg');
+Route::get('/favicon.ico', function () {
+    $path = public_path('safa-logo.png');
     if (!file_exists($path)) {
         return response()->json(['status' => 'error', 'message' => 'Favicon asset not found'], 404);
     }
-    return response()->file($path, ['Content-Type' => 'image/svg+xml']);
+    return response()->file($path, ['Content-Type' => 'image/png']);
+})->name('branding.favicon.ico');
+
+Route::get('/favicon.png', function () {
+    $path = public_path('safa-logo.png');
+    if (!file_exists($path)) {
+        return response()->json(['status' => 'error', 'message' => 'Favicon asset not found'], 404);
+    }
+    return response()->file($path, ['Content-Type' => 'image/png']);
+})->name('branding.favicon.png');
+
+Route::get('/favicon.svg', function () {
+    $path = public_path('safa-logo.png');
+    if (!file_exists($path)) {
+        return response()->json(['status' => 'error', 'message' => 'Favicon asset not found'], 404);
+    }
+    return response()->file($path, ['Content-Type' => 'image/png']);
 })->name('branding.favicon');
 Route::middleware([EnsureNotInstalled::class])->group(function () {
     Route::get('/install', [InstallerController::class, 'index'])->name('install.index');

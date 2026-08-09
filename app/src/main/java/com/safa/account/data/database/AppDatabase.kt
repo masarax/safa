@@ -4,14 +4,13 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.safa.account.data.dao.*
 import com.safa.account.data.model.*
 import kotlinx.coroutines.CoroutineScope
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
-
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 
 val MIGRATION_3_4 = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -103,26 +102,16 @@ abstract class AppDatabase : RoomDatabase() {
         fun getDatabase(context: Context, @Suppress("UNUSED_PARAMETER") scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val passphrase = KeyStoreHelper.getOrGenerateDbPassphrase(context.applicationContext)
-                val factory = try {
-                    net.sqlcipher.database.SQLiteDatabase.loadLibs(context.applicationContext)
-                    SupportFactory(passphrase)
-                } catch (t: Throwable) {
-                    android.util.Log.e("SafaDB", "SQLCipher loadLibs native link error on Android 16: ${t.message}")
-                    null
-                }
+                SQLiteDatabase.loadLibs(context.applicationContext)
+                val factory = SupportFactory(passphrase)
 
-                val builder = Room.databaseBuilder(
+                Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "safa_encrypted_db"
                 )
-
-                if (factory != null) {
-                    builder.openHelperFactory(factory)
-                }
-
-                builder.addMigrations(MIGRATION_3_4, MIGRATION_4_5)
-                    .fallbackToDestructiveMigrationOnDowngrade()
+                    .openHelperFactory(factory)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { INSTANCE = it }
             }
