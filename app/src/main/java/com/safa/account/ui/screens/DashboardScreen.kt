@@ -81,8 +81,8 @@ sealed class UnifiedLedgerEntry {
         override val key: String = "supp_tx_${dep.id}",
         override val details: String = dep.notes,
         override val typeLabel: String = when (dep.transactionType) {
-            "SAR_GIVEN", "SAR_DEPOSIT" -> "রিয়াল প্রদান (ডিপোজিট)"
-            "SAR_RECEIVED", "SAR_SETTLEMENT" -> "রিয়াল গ্রহণ (উত্তোলন)"
+            "SAR_GIVEN", "SAR_DEPOSIT" -> "রিয়াল জমা"
+            "SAR_RECEIVED", "SAR_SETTLEMENT" -> "রিয়াল উত্তোলন"
             "BDT_WITHDRAW" -> "তহবিল উত্তোলন"
             else -> "তহবিল বিবরণ"
         },
@@ -93,8 +93,8 @@ sealed class UnifiedLedgerEntry {
     ) : UnifiedLedgerEntry() {
         override fun getTypeLabel(lang: String): String = if (lang == "BN") {
             when (dep.transactionType) {
-                "SAR_GIVEN", "SAR_DEPOSIT" -> "রিয়াল প্রদান (ডিপোজিট)"
-                "SAR_RECEIVED", "SAR_SETTLEMENT" -> "রিয়াল গ্রহণ (উত্তোলন)"
+                "SAR_GIVEN", "SAR_DEPOSIT" -> "রিয়াল জমা"
+                "SAR_RECEIVED", "SAR_SETTLEMENT" -> "রিয়াল উত্তোলন"
                 "BDT_WITHDRAW" -> "তহবিল উত্তোলন"
                 else -> "তহবিল বিবরণ"
             }
@@ -129,6 +129,9 @@ fun DashboardScreen(
     val localCurrency by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
 
     val currencyFormatter = remember { DecimalFormat("#,##0") }
+
+    // Dynamic exchange rate derived from system rates
+    val activeCustomerRate = remember(rawRates) { rawRates?.customerRate ?: 32.0 }
 
     // Interactive Search, Filter, and Custom Reports downloadable state
     var searchQuery by remember { mutableStateOf("") }
@@ -221,11 +224,11 @@ fun DashboardScreen(
         }
     }
 
-    val periodIncomeBdt = remember(filteredPeriodExpenses) {
-        filteredPeriodExpenses.filter { !it.isExpense }.sumOf { if (it.currency == "SAR") it.amount * 32.5 else it.amount }
+    val periodIncomeBdt = remember(filteredPeriodExpenses, activeCustomerRate) {
+        filteredPeriodExpenses.filter { !it.isExpense }.sumOf { if (it.currency == "SAR") it.amount * activeCustomerRate else it.amount }
     }
-    val periodExpenseBdt = remember(filteredPeriodExpenses) {
-        filteredPeriodExpenses.filter { it.isExpense }.sumOf { if (it.currency == "SAR") it.amount * 32.5 else it.amount }
+    val periodExpenseBdt = remember(filteredPeriodExpenses, activeCustomerRate) {
+        filteredPeriodExpenses.filter { it.isExpense }.sumOf { if (it.currency == "SAR") it.amount * activeCustomerRate else it.amount }
     }
     val periodBalanceBdt = remember(periodIncomeBdt, periodExpenseBdt) {
         periodIncomeBdt - periodExpenseBdt
@@ -239,19 +242,7 @@ fun DashboardScreen(
         }
     }
 
-    val finalCustomersList = remember(customers) {
-        if (customers.isNotEmpty()) {
-            customers
-        } else {
-            // Visual placeholder list mirroring screenshot when fresh
-            listOf(
-                com.safa.account.data.model.Customer(id = 991, name = "রানা ভাই", phone = "01700112233", address = "১ ঘণ্টা"),
-                com.safa.account.data.model.Customer(id = 992, name = "হাসেম ভাই", phone = "01700112244", address = "২ ঘণ্টা"),
-                com.safa.account.data.model.Customer(id = 993, name = "Fahim Rana", phone = "01511223344", address = "১ দিন"),
-                com.safa.account.data.model.Customer(id = 994, name = "নাজমুল চাচা", phone = "01999887766", address = "২ দিন")
-            )
-        }
-    }
+    val finalCustomersList = customers
 
     val filteredCustomersList = remember(finalCustomersList, searchQuery, currentFilterType, transactions) {
         var list = if (searchQuery.isBlank()) {

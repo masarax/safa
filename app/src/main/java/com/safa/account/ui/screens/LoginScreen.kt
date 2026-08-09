@@ -29,6 +29,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safa.account.ui.viewmodel.HundiViewModel
 
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
@@ -64,7 +69,7 @@ fun LoginScreen(
                 modifier = Modifier.height(36.dp).testTag("auth_lang_toggle")
             ) {
                 Text(
-                    text = if (currentLang == "BN") "EN | বাংলা" else "EN | বাংলা",
+                    text = if (currentLang == "BN") "English" else "বাংলা",
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -81,18 +86,19 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // App visual header icon
+            // SAFA Primary Branded Visual Logo Header
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape),
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = "Lock",
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                Image(
+                    painter = painterResource(id = com.safa.account.R.drawable.ic_launcher_foreground),
+                    contentDescription = "SAFA Logo",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
                 )
             }
 

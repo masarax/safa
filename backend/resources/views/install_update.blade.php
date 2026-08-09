@@ -251,6 +251,7 @@
 
             <form action="{{ route('install.update-process') }}" method="POST" onsubmit="handleUpdateSubmit(event)">
                 @csrf
+                <input type="hidden" name="update_token" value="{{ $updateToken ?? '' }}">
                 <button type="submit" class="btn-primary" id="btn-submit">
                     <span>🚀</span> <span id="btn-text">Run Database Migration Now</span>
                 </button>

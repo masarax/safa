@@ -286,7 +286,12 @@ fun HundiTopAppBar(
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
                     } else {
-                        Text(text = customAppLogo, fontSize = 14.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
+                            contentDescription = "SAFA Logo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        )
                     }
                 }
 

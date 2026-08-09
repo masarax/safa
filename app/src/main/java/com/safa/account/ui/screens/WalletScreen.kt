@@ -813,7 +813,7 @@ fun WalletScreen(
                         }
 
                         Text(
-                            text = if (lang == "BN") "${ledger.name} থেকে টাকা কমানো (উত্তোলন)" else "Reduce Funds - ${ledger.name}",
+                            text = if (lang == "BN") "${ledger.name} থেকে তহবিল উত্তোলন" else "Reduce Funds - ${ledger.name}",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,
@@ -853,7 +853,7 @@ fun WalletScreen(
                         OutlinedTextField(
                             value = deductFundBdtAmount,
                             onValueChange = { deductFundBdtAmount = it },
-                            label = { Text(if (lang == "BN") "টাকার পরিমাণ ${localCur} Amount" else "Amount ${localCur}") },
+                            label = { Text(if (lang == "BN") "টাকার পরিমাণ (${localCur})" else "Amount (${localCur})") },
                             singleLine = true,
                             isError = isOverLimit,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),

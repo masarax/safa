@@ -395,7 +395,10 @@ class InstallerController extends Controller
             return redirect()->route('home')->with('info', 'Database is already up to date.');
         }
 
-        return view('install_update', compact('pendingMigrations'));
+        $updateToken = Str::random(64);
+        session(['safa_update_token' => $updateToken]);
+
+        return view('install_update', compact('pendingMigrations', 'updateToken'));
     }
 
     /**
@@ -403,21 +406,18 @@ class InstallerController extends Controller
      */
     public function updateProcess(Request $request)
     {
+        $providedToken = $request->input('update_token');
+        $sessionToken = $request->session()->get('safa_update_token');
+        $tokenValid = !empty($providedToken) && !empty($sessionToken) && hash_equals((string) $sessionToken, (string) $providedToken);
+
         $secretKey = env('DB_UPDATE_SECRET');
         $providedKey = $request->input('key') ?: $request->header('X-SAFA-UPDATE-KEY');
+        $keyValid = !empty($secretKey) && !empty($providedKey) && hash_equals((string) $secretKey, (string) $providedKey);
 
-        // Verify authorization: requires configured DB_UPDATE_SECRET key matching request or authenticated session
-        $isAuthorized = false;
-        if (!empty($secretKey) && !empty($providedKey) && hash_equals((string) $secretKey, (string) $providedKey)) {
-            $isAuthorized = true;
-        } elseif ($request->session()->has('user_id') || auth()->check()) {
-            $isAuthorized = true;
-        } elseif (empty($secretKey) && env('APP_ENV') === 'testing') {
-            // Testing environment fallback if secret explicitly passed in test
-            if ($request->has('key') || $request->hasHeader('X-SAFA-UPDATE-KEY')) {
-                $isAuthorized = true;
-            }
-        }
+        $adminValid = auth()->check() && in_array(auth()->user()->role ?? '', ['superadmin', 'admin']);
+
+        // Verify strict authorization: valid single-use update token, valid DB_UPDATE_SECRET key, or real superadmin
+        $isAuthorized = $tokenValid || $keyValid || $adminValid;
 
         if (!$isAuthorized) {
             if ($request->expectsJson() || $request->isJson()) {
@@ -426,7 +426,11 @@ class InstallerController extends Controller
                     'message' => 'Unauthorized database update request. Valid authorization required.'
                 ], 403);
             }
-            return response('Unauthorized database update request. Valid security authorization key required.', 403);
+            return response('Unauthorized database update request. Valid security authorization key or token required.', 403);
+        }
+
+        if ($tokenValid) {
+            $request->session()->forget('safa_update_token');
         }
 
         try {

@@ -95,7 +95,31 @@ class Phase3InstallerSecurityTest extends TestCase
     }
 
     /**
-     * Test /install/update-process accepts authorized POST request.
+     * Test session spoofing: session user_id alone without valid token or admin fails with 403.
+     */
+    public function test_install_update_process_session_spoofing_rejected_with_403()
+    {
+        putenv('DB_UPDATE_SECRET=test_secret_key_2026');
+        $_ENV['DB_UPDATE_SECRET'] = 'test_secret_key_2026';
+
+        $response = $this->withSession(['user_id' => 9999])->post('/install/update-process');
+        $response->assertStatus(403);
+    }
+
+    /**
+     * Test valid single-use update token authorizes /install/update-process execution.
+     */
+    public function test_install_update_process_with_valid_update_token_succeeds()
+    {
+        $token = 'valid_session_update_token_12345';
+        $response = $this->withSession(['safa_update_token' => $token])
+            ->post('/install/update-process', ['update_token' => $token]);
+            
+        $this->assertTrue(in_array($response->status(), [200, 302]));
+    }
+
+    /**
+     * Test /install/update-process accepts valid secret key.
      */
     public function test_install_update_process_authorized_post_succeeds()
     {

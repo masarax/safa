@@ -16,7 +16,6 @@ class Phase3BrandingTest {
 
     @Test
     fun `verify launcher foreground icon does not contain generic android robot artwork`() {
-        // Path relative to execution root
         val foregroundFile = File("src/main/res/drawable/ic_launcher_foreground.xml")
         assertTrue("ic_launcher_foreground.xml must exist", foregroundFile.exists())
         
@@ -42,5 +41,33 @@ class Phase3BrandingTest {
         val tm = TokenManager(context)
         val defaultLogo = tm.getCustomAppLogo()
         assertNotEquals("Default app logo should not be crown emoji 👑", "👑", defaultLogo)
+    }
+
+    @Test
+    fun `verify DashboardScreen contains zero fake fallback placeholder customers`() {
+        val dashboardFile = File("src/main/java/com/safa/account/ui/screens/DashboardScreen.kt")
+        if (dashboardFile.exists()) {
+            val content = dashboardFile.readText()
+            assertFalse("DashboardScreen must NOT contain fake placeholder customer 'রানা ভাই'", content.contains("রানা ভাই"))
+            assertFalse("DashboardScreen must NOT contain fake placeholder customer 'হাসেম ভাই'", content.contains("হাসেম ভাই"))
+            assertFalse("DashboardScreen must NOT contain fake placeholder customer 'Fahim Rana'", content.contains("Fahim Rana"))
+            assertFalse("DashboardScreen must NOT contain fake placeholder customer 'নাজমুল চাচা'", content.contains("নাজমুল চাচা"))
+        }
+    }
+
+    @Test
+    fun `verify UI source contains no compound bilingual strings`() {
+        val loginFile = File("src/main/java/com/safa/account/ui/screens/LoginScreen.kt")
+        if (loginFile.exists()) {
+            val content = loginFile.readText()
+            assertFalse("LoginScreen must NOT contain compound string 'EN | বাংলা'", content.contains("EN | বাংলা"))
+        }
+
+        val dashboardFile = File("src/main/java/com/safa/account/ui/screens/DashboardScreen.kt")
+        if (dashboardFile.exists()) {
+            val content = dashboardFile.readText()
+            assertFalse("DashboardScreen must NOT contain compound string 'রিয়াল প্রদান (ডিপোজিট)'", content.contains("রিয়াল প্রদান (ডিপোজিট)"))
+            assertFalse("DashboardScreen must NOT contain compound string 'রিয়াল গ্রহণ (উত্তোলন)'", content.contains("রিয়াল গ্রহণ (উত্তোলন)"))
+        }
     }
 }

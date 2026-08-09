@@ -342,17 +342,17 @@ fun CalculatorButton(
     val isOperator = key in listOf("÷", "×", "-", "+", "=", "⌫", "C")
     val isAction = key in listOf("⌫", "C")
     
-    // Modern iOS Keyboard Colors
+    // Material 3 Responsive Harmonized Colors
     val containerColor = when {
-        isAction -> Color(0xFFD1D1D6) // Darker action gray
-        isOperator -> Color(0xFFD1D1D6) // Operators gray
-        else -> Color.White // Crisp clean white for numbers
+        isAction -> MaterialTheme.colorScheme.surfaceVariant
+        isOperator -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surface
     }
 
     val textColor = when {
-        isAction -> Color(0xFF1C1C1E)
-        isOperator -> MaterialTheme.colorScheme.primary // Highlight operators with primary
-        else -> Color(0xFF1C1C1E) // Dark bold text for digits
+        isAction -> MaterialTheme.colorScheme.onSurfaceVariant
+        isOperator -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
     }
 
     Card(

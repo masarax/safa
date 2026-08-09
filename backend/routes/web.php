@@ -38,7 +38,12 @@ Route::middleware([CheckInstalled::class])->group(function () {
     Route::get('/', function () {
         $pending = InstallerController::getPendingMigrations();
         if (!empty($pending)) {
-            return view('install_update', ['pendingMigrations' => $pending]);
+            $updateToken = \Illuminate\Support\Str::random(64);
+            session(['safa_update_token' => $updateToken]);
+            return view('install_update', [
+                'pendingMigrations' => $pending,
+                'updateToken' => $updateToken
+            ]);
         }
 
         return view('welcome');
