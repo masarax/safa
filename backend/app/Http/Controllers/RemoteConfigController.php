@@ -165,6 +165,8 @@ class RemoteConfigController extends Controller
         }
 
         $logoUrl = url('storage/logos/' . $fileName);
+        $targetFile = $destinationPath . '/' . $fileName;
+        @copy($targetFile, public_path('safa-logo.png'));
 
         $setting = SystemSetting::first();
         if (!$setting) {

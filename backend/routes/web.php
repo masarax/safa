@@ -8,6 +8,28 @@ use App\Http\Middleware\CheckInstalled;
 
 // Canonical Static Branding Asset Endpoints
 Route::get('/safa-logo.png', function () {
+    try {
+        $setting = \App\Models\SystemSetting::first();
+        if ($setting && !empty($setting->app_logo_url)) {
+            $pathInfo = parse_url($setting->app_logo_url, PHP_URL_PATH);
+            if ($pathInfo) {
+                $localStoragePath = public_path(ltrim($pathInfo, '/'));
+                if (file_exists($localStoragePath) && is_file($localStoragePath)) {
+                    $ext = pathinfo($localStoragePath, PATHINFO_EXTENSION);
+                    $mime = match(strtolower($ext)) {
+                        'png' => 'image/png',
+                        'jpg', 'jpeg' => 'image/jpeg',
+                        'svg' => 'image/svg+xml',
+                        'webp' => 'image/webp',
+                        'gif' => 'image/gif',
+                        default => 'image/png'
+                    };
+                    return response()->file($localStoragePath, ['Content-Type' => $mime]);
+                }
+            }
+        }
+    } catch (\Throwable $e) {}
+
     $path = public_path('safa-logo.png');
     if (!file_exists($path)) {
         return response()->json(['status' => 'error', 'message' => 'Logo asset not found'], 404);
