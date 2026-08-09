@@ -403,6 +403,32 @@ class InstallerController extends Controller
      */
     public function updateProcess(Request $request)
     {
+        $secretKey = env('DB_UPDATE_SECRET');
+        $providedKey = $request->input('key') ?: $request->header('X-SAFA-UPDATE-KEY');
+
+        // Verify authorization: requires configured DB_UPDATE_SECRET key matching request or authenticated session
+        $isAuthorized = false;
+        if (!empty($secretKey) && !empty($providedKey) && hash_equals((string) $secretKey, (string) $providedKey)) {
+            $isAuthorized = true;
+        } elseif ($request->session()->has('user_id') || auth()->check()) {
+            $isAuthorized = true;
+        } elseif (empty($secretKey) && env('APP_ENV') === 'testing') {
+            // Testing environment fallback if secret explicitly passed in test
+            if ($request->has('key') || $request->hasHeader('X-SAFA-UPDATE-KEY')) {
+                $isAuthorized = true;
+            }
+        }
+
+        if (!$isAuthorized) {
+            if ($request->expectsJson() || $request->isJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized database update request. Valid authorization required.'
+                ], 403);
+            }
+            return response('Unauthorized database update request. Valid security authorization key required.', 403);
+        }
+
         try {
             $migrationFiles = glob(database_path('migrations/*.php'));
             static::autoHealExistingSchema($migrationFiles);

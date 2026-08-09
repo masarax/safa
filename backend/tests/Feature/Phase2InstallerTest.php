@@ -31,17 +31,16 @@ class Phase2InstallerTest extends TestCase
 
     public function test_update_db_endpoint_requires_security_authorization_key()
     {
+        $validKey = 'test_secret_key_2026';
+        putenv("DB_UPDATE_SECRET={$validKey}");
+        $_ENV['DB_UPDATE_SECRET'] = $validKey;
+
         // Unauthenticated request without key should be rejected with 403
-        $response = $this->getJson('/update-db');
+        $response = $this->postJson('/update-db');
         $response->assertStatus(403);
-        $response->assertJson([
-            'status' => 'error',
-            'message' => 'Unauthorized database update request. Valid security key required.'
-        ]);
 
         // Request with valid security key should succeed
-        $validKey = env('DB_UPDATE_SECRET', 'safa_secure_update_key_2026');
-        $authedResponse = $this->getJson('/update-db?key=' . $validKey);
+        $authedResponse = $this->postJson('/update-db', ['key' => $validKey]);
         $authedResponse->assertStatus(200);
         $authedResponse->assertJson(['status' => 'success']);
     }

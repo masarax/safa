@@ -27,6 +27,24 @@ class Phase3BrandingAssetTest extends TestCase
     }
 
     /**
+     * Test HTTP GET /safa-logo.png returns 200.
+     */
+    public function test_http_get_safa_logo_returns_200()
+    {
+        $response = $this->get('/safa-logo.png');
+        $response->assertStatus(200);
+    }
+
+    /**
+     * Test HTTP GET /favicon.svg returns 200.
+     */
+    public function test_http_get_favicon_svg_returns_200()
+    {
+        $response = $this->get('/favicon.svg');
+        $response->assertStatus(200);
+    }
+
+    /**
      * Test welcome page contains valid branding asset link.
      */
     public function test_welcome_page_renders_logo()
@@ -42,7 +60,6 @@ class Phase3BrandingAssetTest extends TestCase
     public function test_update_page_renders_logo()
     {
         $response = $this->get('/install/update');
-        // Either 200 (if pending) or 302 (if up to date)
         $this->assertTrue(in_array($response->status(), [200, 302]));
     }
 }
