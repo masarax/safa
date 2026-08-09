@@ -75,6 +75,19 @@ class SyncController extends Controller
                 return (string) $raw;
             };
 
+            $sanitizeTimestamp = function ($raw) {
+                $ts = (int) ($raw ?? time());
+                if ($ts <= 0) return time();
+                if ($ts > 2000000000) {
+                    $ts = (int) ($ts / 1000);
+                }
+                $maxAllowed = time() + 86400;
+                if ($ts > $maxAllowed) {
+                    return time();
+                }
+                return $ts;
+            };
+
             $accepted = [
                 'customers'         => [],
                 'suppliers'         => [],
@@ -86,7 +99,7 @@ class SyncController extends Controller
             ];
             $rejected = [];
 
-            DB::transaction(function () use ($data, $accountId, $parseDeletedAt, &$accepted, &$rejected) {
+            DB::transaction(function () use ($data, $accountId, $parseDeletedAt, $sanitizeTimestamp, &$accepted, &$rejected) {
                 // Step 1: Customers Sync (Independent Root)
                 if (isset($data['customers']) && is_array($data['customers'])) {
                     foreach ($data['customers'] as $c) {
@@ -120,7 +133,7 @@ class SyncController extends Controller
                             [
                                 'name'      => substr((string) $c['name'], 0, 255),
                                 'phone'     => substr((string) ($c['phone'] ?? ''), 0, 50),
-                                'timestamp' => (int) ($c['timestamp'] ?? time()),
+                                'timestamp' => $sanitizeTimestamp($c['timestamp'] ?? null),
                             ]
                         );
 
@@ -175,7 +188,7 @@ class SyncController extends Controller
                             [
                                 'name'      => substr((string) $s['name'], 0, 255),
                                 'phone'     => substr((string) ($s['phone'] ?? ''), 0, 50),
-                                'timestamp' => (int) ($s['timestamp'] ?? time()),
+                                'timestamp' => $sanitizeTimestamp($s['timestamp'] ?? null),
                             ]
                         );
 
@@ -229,7 +242,7 @@ class SyncController extends Controller
                             ['account_id' => $accountId, 'local_id' => (int) $wl['local_id']],
                             [
                                 'name'      => substr((string) ($wl['name'] ?? ''), 0, 255),
-                                'timestamp' => (int) ($wl['timestamp'] ?? time()),
+                                'timestamp' => $sanitizeTimestamp($wl['timestamp'] ?? null),
                             ]
                         );
 
@@ -298,7 +311,7 @@ class SyncController extends Controller
                                 'paid_bdt'         => (float) ($sd['paid_bdt'] ?? 0),
                                 'transaction_type' => substr((string) ($sd['transaction_type'] ?? 'SAR_GIVEN'), 0, 50),
                                 'notes'            => $sd['notes'] ?? null,
-                                'timestamp'        => (int) ($sd['timestamp'] ?? time()),
+                                'timestamp'        => $sanitizeTimestamp($sd['timestamp'] ?? null),
                             ]
                         );
 
@@ -368,7 +381,7 @@ class SyncController extends Controller
                                 'supplier_id'         => $serverSupplierId,
                                 'supplier_deposit_id' => $serverDepositId,
                                 'notes'               => $b['notes'] ?? null,
-                                'timestamp'           => (int) ($b['timestamp'] ?? time()),
+                                'timestamp'           => $sanitizeTimestamp($b['timestamp'] ?? null),
                             ]
                         );
 
@@ -446,7 +459,7 @@ class SyncController extends Controller
                                 'wallet_batch_id'       => $serverBatchId,
                                 'notes'                 => $tx['notes'] ?? null,
                                 'hash'                  => $tx['hash'] ?? null,
-                                'timestamp'             => (int) ($tx['timestamp'] ?? time()),
+                                'timestamp'             => $sanitizeTimestamp($tx['timestamp'] ?? null),
                             ]
                         );
 
@@ -504,7 +517,7 @@ class SyncController extends Controller
                                 'currency'   => substr((string) ($e['currency'] ?? 'BDT'), 0, 10),
                                 'is_expense' => (bool) ($e['is_expense'] ?? true),
                                 'category'   => substr((string) ($e['category'] ?? 'General'), 0, 50),
-                                'timestamp'  => (int) ($e['timestamp'] ?? time()),
+                                'timestamp'  => $sanitizeTimestamp($e['timestamp'] ?? null),
                             ]
                         );
 

@@ -148,4 +148,43 @@ class Phase3InstallerSecurityTest extends TestCase
         $response = $this->post('/install/update-process', ['key' => $secretKey]);
         $this->assertTrue(in_array($response->status(), [200, 302]));
     }
+
+    /**
+     * Test syncUp clamps client timestamp spoofing (e.g. far-future timestamp).
+     */
+    public function test_sync_up_clamps_future_timestamp_spoofing()
+    {
+        $this->withoutMiddleware(\App\Http\Middleware\CheckApiSecurityKey::class);
+        Artisan::call('migrate', ['--force' => true]);
+
+        $account = \App\Models\Account::create(['name' => 'Test Account']);
+        $apiKey = 'test_api_key_sync_123';
+        $apiSecret = 'test_api_secret_sync_456';
+        
+        \App\Models\SafaApiKey::create([
+            'account_id' => $account->id,
+            'client_name' => 'Test Client',
+            'api_key' => $apiKey,
+            'api_secret' => $apiSecret,
+            'is_active' => true,
+        ]);
+
+        $futureTimestamp = 4102444800; // Jan 1, 2100
+        $data = [
+            'customers' => [
+                [
+                    'local_id' => 9999,
+                    'name' => 'Spoofed Timestamp Customer',
+                    'timestamp' => $futureTimestamp,
+                ]
+            ]
+        ];
+
+        $response = $this->withHeaders(['X-SAFA-API-KEY' => $apiKey])->postJson('/api/sync/up', $data);
+        $response->assertStatus(200);
+        
+        $customer = \App\Models\Customer::where('local_id', 9999)->first();
+        $this->assertNotNull($customer);
+        $this->assertLessThan($futureTimestamp, (int)$customer->timestamp, 'Future timestamp must be clamped to safe epoch range.');
+    }
 }
