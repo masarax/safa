@@ -2,7 +2,7 @@
 
 **Audit Date**: August 9, 2026  
 **Repository Branch**: `main`  
-**HEAD Commit SHA**: `7e9fc9da61c3c1ba83b4a2045decdd2dadc57683`  
+**HEAD Commit SHA**: `f97d2d89f76a524e930fca698888bfcae58d34b7`  
 **Production Backend Base URL**: `https://safa.masarax.com`  
 **Target SDK**: 36 (Android 16)  
 **Compile SDK**: 36  
@@ -44,8 +44,8 @@
   Copied `safa-logo.png` to [`backend/public/favicon.ico`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.ico) and [`backend/public/favicon.png`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.png), and created valid SVG vector [`backend/public/favicon.svg`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.svg).
 - **Web Blade Views**:  
   Updated [`welcome.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/welcome.blade.php#L7-L9), [`install.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/install.blade.php#L8-L10), and [`install_update.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/install_update.blade.php#L8-L10) to link `<link rel="icon" type="image/png" href="{{ asset('safa-logo.png') }}">`.
-- **Android Launcher Drawables**:  
-  Copied `safa-logo.png` to [`safa_logo.png`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/safa_logo.png) and updated [`ic_launcher_foreground.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_foreground.xml#L1-L20) and [`ic_launcher_background.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_background.xml#L1-L10).
+- **Android Launcher Drawables & Mipmaps**:  
+  Replaced all legacy `ic_launcher.webp` and `ic_launcher_round.webp` files across `mipmap-hdpi`, `mipmap-mdpi`, `mipmap-xhdpi`, `mipmap-xxhdpi`, `mipmap-xxxhdpi` with exact PNG copies of `backend/public/safa-logo.png`. Updated [`ic_launcher_foreground.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_foreground.xml#L1-L20) and [`ic_launcher_background.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_background.xml#L1-L10).
 
 ---
 
@@ -62,18 +62,18 @@
 - **Debug APK**:
   - Path: [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk)
   - Absolute Path: `D:\Nazmus Sakib\safa\app\build\outputs\apk\debug\app-debug.apk`
-  - SHA-256 Checksum: `EEF1D8881731CF9936B77D7AAB511269EBFFC88A3E44CDFDB40B49CEBECCFB43`
+  - SHA-256 Checksum: `05E70FBE3CA3C8DAE47D317C3E8F4FB070459E62BAEE4DDF968CE7D514D9600A`
 - **Release APK**:
   - Path: [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk)
   - Absolute Path: `D:\Nazmus Sakib\safa\app\build\outputs\apk\release\app-release.apk`
-  - SHA-256 Checksum: `43E0F7D26111ABB92C7539162A78CE67FD1DFB612F72C0FE447989993A54EDE3`
+  - SHA-256 Checksum: `63AA931304C105B56B28D4D8BE68F32A3F96B5EC32C551654A1E438AFFC9D895`
 
 ---
 
 ## 5. Physical Device Status Statement
 
 ```text
-UNVERIFIED — Android 16 runtime unavailable
+UNVERIFIED — Physical handset unavailable in CI environment
 ```
 (ADB physical device offline in CLI environment).
 
@@ -86,4 +86,4 @@ BLOCKED — NOT READY FOR GO LIVE
 ```
 
 **Acceptance Condition**:
-Per `agent_instruction.md` Section 17, the release status remains `BLOCKED — NOT READY FOR GO LIVE` until the user installs [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk) (`EEF1D8881731CF9936B77D7AAB511269EBFFC88A3E44CDFDB40B49CEBECCFB43`) or [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk) (`43E0F7D26111ABB92C7539162A78CE67FD1DFB612F72C0FE447989993A54EDE3`) on their physical Android 16 device and confirms that tapping the app icon opens and keeps the application running without an immediate crash.
+Per `debugging_implement.md` Section 10, the release status remains `BLOCKED — NOT READY FOR GO LIVE` until the user installs [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk) (`05E70FBE3CA3C8DAE47D317C3E8F4FB070459E62BAEE4DDF968CE7D514D9600A`) or [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk) (`63AA931304C105B56B28D4D8BE68F32A3F96B5EC32C551654A1E438AFFC9D895`) on their physical Android device and confirms that tapping the app icon opens and keeps the application running without an immediate crash.

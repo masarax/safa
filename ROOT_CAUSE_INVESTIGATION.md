@@ -2,7 +2,7 @@
 
 **Report Date**: August 9, 2026  
 **Repository Branch**: `main`  
-**HEAD Commit SHA**: `7e9fc9da61c3c1ba83b4a2045decdd2dadc57683`  
+**HEAD Commit SHA**: `f97d2d89f76a524e930fca698888bfcae58d34b7`  
 **Production Backend Base URL**: `https://safa.masarax.com`  
 **Target SDK**: 36 (Android 16)  
 **Compile SDK**: 36  
@@ -16,7 +16,8 @@
 2. **Startup Initialization Chain**: In [`MainActivity.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/MainActivity.kt#L45-L65), `AppDatabase.getDatabase()`, `KeyStoreHelper`, `SQLiteDatabase.loadLibs()`, `AppRepository`, `TokenManager`, and `DeviceSecurityHelper` were executed synchronously during `onCreate()` before `setContent()`.
 3. **Privileged API Call**: `DeviceSecurityHelper.getBuildInfo()` invoked `Build.getSerial()`. On Android 10+ (API 29) through Android 16 (API 36), `Build.getSerial()` requires `READ_PRIVILEGED_PHONE_STATE` (a privileged system permission), throwing an unhandled `SecurityException` during startup.
 4. **Theme Parent Dependency**: [`themes.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/values/themes.xml#L4) used `android:Theme.DeviceDefault.NoActionBar`. On various Android OEM skins (MIUI, OneUI, ColorOS, HIOS), `FragmentActivity.enableEdgeToEdge()` causes runtime resource attribute lookup failures when Material3 theme attributes are missing.
-5. **No Secret Leaks**: No `.env` credentials, API secrets, database passwords, or private signing keys are embedded in source code, logs, or APK assets.
+5. **Legacy Mipmap Raster Icons**: `mipmap-hdpi`, `mipmap-mdpi`, `mipmap-xhdpi`, `mipmap-xxhdpi`, `mipmap-xxxhdpi` contained legacy `ic_launcher.webp` and `ic_launcher_round.webp` assets from default Android project templates. These were completely replaced with 1:1 pixel copies of `backend/public/safa-logo.png`.
+6. **No Secret Leaks**: No `.env` credentials, API secrets, database passwords, or private signing keys are embedded in source code, logs, or APK assets.
 
 ---
 
@@ -42,15 +43,14 @@ Application Process Launch
   ↓
 AndroidManifest.xml Resolution
   ↓
-Theme.Material3.DayNight.NoActionBar Initialization
+Theme.Material.Light.NoActionBar Initialization
   ↓
 FileProvider / AndroidX Startup Providers
   ↓
 MainActivity.onCreate()
   ↓
-enableEdgeToEdge()
-  ↓
 [STARTUP ERROR BOUNDARY]
+  ├── safe try/catch enableEdgeToEdge()
   ├── STAGE 1: AppDatabase.getDatabase()
   │     ├── KeyStoreHelper.getOrGenerateDbPassphrase()
   │     ├── SQLiteDatabase.loadLibs(context)
@@ -69,7 +69,7 @@ setContent()
 
 ## E. Crash Boundary
 
-The earliest possible crash boundary has been isolated to `MainActivity.onCreate()`. By wrapping database, KeyStore, and token initialization inside a Compose-level error boundary, any runtime exception produces an on-screen diagnostic interface (`"⚠️ SAFA Startup Diagnostic Error"`) instead of aborting the process.
+The earliest possible crash boundary has been isolated to `MainActivity.onCreate()`. By wrapping database, KeyStore, token, and edge-to-edge window initialization inside a Compose-level error boundary, any runtime exception produces an on-screen diagnostic interface (`"⚠️ SAFA Startup Diagnostic Error"`) instead of aborting the process.
 
 ---
 
@@ -84,9 +84,9 @@ The earliest possible crash boundary has been isolated to `MainActivity.onCreate
 
 ---
 
-## G. Android Compatibility Audit (Android 8 to 16)
+## G. Android Compatibility Audit (Android 7 to 16 / API 24 - 36)
 
-- **Android 8.0/8.1 (API 26/27)**: Fully supported. `Build.SERIAL` fallback handled safely.
+- **Android 7.0 - 8.1 (API 24 - 27)**: Fully supported. `Build.SERIAL` fallback handled safely.
 - **Android 9 (API 28)**: Fully supported. Package signing cert check uses `GET_SIGNATURES`.
 - **Android 10 - 15 (API 29 - 35)**: Fully supported. `Build.getSerial()` eliminated to prevent `SecurityException`.
 - **Android 16 (API 36)**: Fully supported. Explicit `KeyGenParameterSpec` (`BLOCK_MODE_GCM`, `ENCRYPTION_PADDING_NONE`, 256-bit key size) configured for `MasterKey`.
@@ -116,7 +116,7 @@ The earliest possible crash boundary has been isolated to `MainActivity.onCreate
 
 - **Canonical Brand Asset**: [`backend/public/safa-logo.png`](file:///D:/Nazmus%20Sakib/safa/backend/public/safa-logo.png) (Orange background `#F97316`, white stylized shopping cart/wallet emblem, "SAFA" text).
 - **Favicons**: Linked in `welcome.blade.php`, `install.blade.php`, `install_update.blade.php`, and served via `/favicon.svg` and `/safa-logo.png`.
-- **Android App Icons**: Copied `safa-logo.png` to [`safa_logo.png`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/safa_logo.png) and integrated into [`ic_launcher_foreground.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_foreground.xml#L1-L20) and [`ic_launcher_background.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_background.xml#L1-L10).
+- **Android App Mipmap Icons**: Completely replaced all legacy `ic_launcher.webp` and `ic_launcher_round.webp` assets across `mipmap-hdpi`, `mipmap-mdpi`, `mipmap-xhdpi`, `mipmap-xxhdpi`, `mipmap-xxxhdpi` with exact PNG copies of `backend/public/safa-logo.png`.
 
 ---
 
@@ -126,7 +126,8 @@ The earliest possible crash boundary has been isolated to `MainActivity.onCreate
 2. Removed `Build.getSerial()` calls in [`DeviceSecurityHelper.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/data/network/DeviceSecurityHelper.kt#L65-L80).
 3. Enforced `Theme.Material.Light.NoActionBar` in [`themes.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/values/themes.xml#L4).
 4. Fixed `/favicon.svg` route in [`routes/web.php`](file:///D:/Nazmus%20Sakib/safa/backend/routes/web.php#L56-L62) to serve SVG content type.
-5. Removed `-assumenosideeffects class android.util.Log` from [`proguard-rules.pro`](file:///D:/Nazmus%20Sakib/safa/app/proguard-rules.pro#L40) to prevent R8 optimization issues in release builds.
+5. Replaced all legacy mipmap webp launcher icons with exact `safa-logo.png` assets across all 5 mipmap densities.
+6. Removed `-assumenosideeffects class android.util.Log` from [`proguard-rules.pro`](file:///D:/Nazmus%20Sakib/safa/app/proguard-rules.pro#L40) to prevent R8 optimization issues in release builds.
 
 ---
 
@@ -134,8 +135,8 @@ The earliest possible crash boundary has been isolated to `MainActivity.onCreate
 
 - **Laravel Backend Test Suite**: 33 / 33 Passed (100%)
 - **Android Unit Test Suite**: 27 / 27 Passed (100%)
-- **Debug APK Hash (SHA-256)**: `EEF1D8881731CF9936B77D7AAB511269EBFFC88A3E44CDFDB40B49CEBECCFB43`
-- **Release APK Hash (SHA-256)**: `43E0F7D26111ABB92C7539162A78CE67FD1DFB612F72C0FE447989993A54EDE3`
+- **Debug APK Hash (SHA-256)**: `05E70FBE3CA3C8DAE47D317C3E8F4FB070459E62BAEE4DDF968CE7D514D9600A`
+- **Release APK Hash (SHA-256)**: `63AA931304C105B56B28D4D8BE68F32A3F96B5EC32C551654A1E438AFFC9D895`
 - **Physical Device Execution**: `UNVERIFIED — Physical handset unavailable in CI environment`
 
 ### Final Status
