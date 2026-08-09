@@ -35,6 +35,10 @@ Route::middleware(['verify.multilevel.token', AuditLogMiddleware::class])->group
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TransactionController;
+
 // Sync & Config REST Endpoints
 Route::middleware([CheckApiSecurityKey::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
     Route::post('/sync/up', [SyncController::class, 'syncUp']);
@@ -43,4 +47,20 @@ Route::middleware([CheckApiSecurityKey::class, AuditLogMiddleware::class, 'throt
     Route::post('/config/update', [RemoteConfigController::class, 'updateConfig']);
     Route::post('/upload/logo', [RemoteConfigController::class, 'uploadLogo']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
+
+    // Direct REST CRUD Endpoints
+    Route::get('/customers', [CustomerController::class, 'index']);
+    Route::post('/customers', [CustomerController::class, 'store']);
+    Route::put('/customers/{id}', [CustomerController::class, 'update']);
+    Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
+
+    Route::get('/suppliers', [SupplierController::class, 'index']);
+    Route::post('/suppliers', [SupplierController::class, 'store']);
+    Route::put('/suppliers/{id}', [SupplierController::class, 'update']);
+    Route::delete('/suppliers/{id}', [SupplierController::class, 'destroy']);
+
+    Route::get('/transactions', [TransactionController::class, 'index']);
+    Route::post('/transactions', [TransactionController::class, 'store']);
+    Route::put('/transactions/{id}', [TransactionController::class, 'update']);
+    Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
 });

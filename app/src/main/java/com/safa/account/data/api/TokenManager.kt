@@ -21,8 +21,8 @@ class TokenManager(private val context: Context) {
         private const val KEY_LAST_MOBILE = "last_mobile"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
 
-        private val DEFAULT_API_KEY: String = BuildConfig.SAFA_API_KEY.ifBlank { "safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b" }
-        private val DEFAULT_API_SECRET: String = BuildConfig.SAFA_API_SECRET.ifBlank { "safa_sec_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b" }
+        private val DEFAULT_API_KEY: String = BuildConfig.SAFA_API_KEY
+        private val DEFAULT_API_SECRET: String = BuildConfig.SAFA_API_SECRET
     }
 
     fun saveLastMobile(mobile: String) = prefs.edit { putString(KEY_LAST_MOBILE, mobile) }

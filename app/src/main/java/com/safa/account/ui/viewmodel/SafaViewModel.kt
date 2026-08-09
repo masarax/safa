@@ -547,6 +547,16 @@ class SafaViewModel(
         } catch (e: Throwable) {
             android.util.Log.e("SafaApp", "fetchRemoteConfig init error: ${e.message}")
         }
+        try {
+            fetchOperatorsFromServer()
+        } catch (e: Throwable) {
+            android.util.Log.e("SafaApp", "fetchOperatorsFromServer init error: ${e.message}")
+        }
+        try {
+            triggerFullSync()
+        } catch (e: Throwable) {
+            android.util.Log.e("SafaApp", "triggerFullSync init error: ${e.message}")
+        }
     }
 
     fun refreshTodayRates() {
@@ -1208,29 +1218,27 @@ class SafaViewModel(
                     }
 
                     // Purge old orphan local operators or old duplicates
-                    if (validMobiles.isNotEmpty() || validIds.isNotEmpty()) {
-                        val updatedOps = operators.value
-                        val superAdmins = updatedOps.filter { it.role == "SuperAdmin" }
-                        if (superAdmins.size > 1) {
-                            val mainSuperAdmin = superAdmins.find { it.id == _currentOperator.value?.id } ?: superAdmins.last()
-                            superAdmins.forEach { sa ->
-                                if (sa.id != mainSuperAdmin.id) {
-                                    repository.deleteOperator(sa)
-                                }
+                    val updatedOps = operators.value
+                    val superAdmins = updatedOps.filter { it.role == "SuperAdmin" }
+                    if (superAdmins.size > 1) {
+                        val mainSuperAdmin = superAdmins.find { it.id == _currentOperator.value?.id } ?: superAdmins.last()
+                        superAdmins.forEach { sa ->
+                            if (sa.id != mainSuperAdmin.id) {
+                                repository.deleteOperator(sa)
                             }
                         }
+                    }
 
-                        currentOps.forEach { localOp ->
-                            val isServerMobileMatch = validMobiles.contains(localOp.mobile.trim())
-                            val isServerIdMatch = validIds.contains(localOp.id)
-                            val isCurrentSuperAdmin = localOp.role == "SuperAdmin" && rawOps.any {
-                                val r = it["role"]?.toString() ?: ""
-                                r.equals("manager", true) || r.equals("superadmin", true) || r.equals("owner", true)
-                            }
+                    currentOps.forEach { localOp ->
+                        val isServerMobileMatch = validMobiles.contains(localOp.mobile.trim())
+                        val isServerIdMatch = validIds.contains(localOp.id)
+                        val isCurrentSuperAdmin = localOp.role == "SuperAdmin" && rawOps.any {
+                            val r = it["role"]?.toString() ?: ""
+                            r.equals("manager", true) || r.equals("superadmin", true) || r.equals("owner", true)
+                        }
 
-                            if (!isServerMobileMatch && !isServerIdMatch && !isCurrentSuperAdmin) {
-                                repository.deleteOperator(localOp)
-                            }
+                        if (!isServerMobileMatch && !isServerIdMatch && !isCurrentSuperAdmin) {
+                            repository.deleteOperator(localOp)
                         }
                     }
                 }
