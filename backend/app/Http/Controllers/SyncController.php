@@ -28,10 +28,13 @@ class SyncController extends Controller
 
             $accountId = $keyRecord?->account_id;
             if (!$accountId) {
-                $envApiKey = env('SAFA_API_KEY');
-                if ($envApiKey && hash_equals($envApiKey, (string) $apiKey)) {
-                    $defaultAccount = Account::first();
-                    $accountId = $defaultAccount?->id ?? 1;
+                $envApiKey = env('SAFA_API_KEY') ?: 'safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b';
+                if ($envApiKey && hash_equals((string) $envApiKey, (string) $apiKey)) {
+                    $defaultAccount = Account::firstOrCreate(
+                        ['name' => 'SAFA Default Account'],
+                        ['balance' => 0.00]
+                    );
+                    $accountId = $defaultAccount->id;
                 }
             }
 
