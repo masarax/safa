@@ -2,7 +2,7 @@
 
 **Report Date**: August 9, 2026  
 **Repository Branch**: `main`  
-**HEAD Commit SHA**: `3d3c6a66fddbff50ff0632f6e6b5848f1579d51f`  
+**HEAD Commit SHA**: `7e9fc9da61c3c1ba83b4a2045decdd2dadc57683`  
 **Production Backend Base URL**: `https://safa.masarax.com`  
 **Target SDK**: 36 (Android 16)  
 **Compile SDK**: 36  
@@ -124,7 +124,7 @@ The earliest possible crash boundary has been isolated to `MainActivity.onCreate
 
 1. Added safe startup diagnostic error boundary in [`MainActivity.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/MainActivity.kt#L45-L115).
 2. Removed `Build.getSerial()` calls in [`DeviceSecurityHelper.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/data/network/DeviceSecurityHelper.kt#L65-L80).
-3. Enforced `Theme.Material3.DayNight.NoActionBar` in [`themes.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/values/themes.xml#L4).
+3. Enforced `Theme.Material.Light.NoActionBar` in [`themes.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/values/themes.xml#L4).
 4. Fixed `/favicon.svg` route in [`routes/web.php`](file:///D:/Nazmus%20Sakib/safa/backend/routes/web.php#L56-L62) to serve SVG content type.
 5. Removed `-assumenosideeffects class android.util.Log` from [`proguard-rules.pro`](file:///D:/Nazmus%20Sakib/safa/app/proguard-rules.pro#L40) to prevent R8 optimization issues in release builds.
 
@@ -134,8 +134,8 @@ The earliest possible crash boundary has been isolated to `MainActivity.onCreate
 
 - **Laravel Backend Test Suite**: 33 / 33 Passed (100%)
 - **Android Unit Test Suite**: 27 / 27 Passed (100%)
-- **Debug APK Build**: Successful
-- **Release APK Build**: Successful
+- **Debug APK Hash (SHA-256)**: `EEF1D8881731CF9936B77D7AAB511269EBFFC88A3E44CDFDB40B49CEBECCFB43`
+- **Release APK Hash (SHA-256)**: `43E0F7D26111ABB92C7539162A78CE67FD1DFB612F72C0FE447989993A54EDE3`
 - **Physical Device Execution**: `UNVERIFIED — Physical handset unavailable in CI environment`
 
 ### Final Status

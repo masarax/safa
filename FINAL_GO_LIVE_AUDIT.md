@@ -2,7 +2,7 @@
 
 **Audit Date**: August 9, 2026  
 **Repository Branch**: `main`  
-**HEAD Commit SHA**: `3d3c6a66fddbff50ff0632f6e6b5848f1579d51f`  
+**HEAD Commit SHA**: `7e9fc9da61c3c1ba83b4a2045decdd2dadc57683`  
 **Production Backend Base URL**: `https://safa.masarax.com`  
 **Target SDK**: 36 (Android 16)  
 **Compile SDK**: 36  
@@ -62,11 +62,11 @@
 - **Debug APK**:
   - Path: [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk)
   - Absolute Path: `D:\Nazmus Sakib\safa\app\build\outputs\apk\debug\app-debug.apk`
-  - SHA-256 Checksum: `BAA0BE3B553E48F40DABBBD7E84436620FD8953F530FB4D9D2B426AEA347C0AC`
+  - SHA-256 Checksum: `EEF1D8881731CF9936B77D7AAB511269EBFFC88A3E44CDFDB40B49CEBECCFB43`
 - **Release APK**:
   - Path: [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk)
   - Absolute Path: `D:\Nazmus Sakib\safa\app\build\outputs\apk\release\app-release.apk`
-  - SHA-256 Checksum: `93E148EB4CE9E93683FA9D262ABA510C732B669DF58F125F6255913535ABA09E`
+  - SHA-256 Checksum: `43E0F7D26111ABB92C7539162A78CE67FD1DFB612F72C0FE447989993A54EDE3`
 
 ---
 
@@ -86,4 +86,4 @@ BLOCKED — NOT READY FOR GO LIVE
 ```
 
 **Acceptance Condition**:
-Per `Investigation.md` Section 19, the release status remains `BLOCKED — NOT READY FOR GO LIVE` until the user installs [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk) (`BAA0BE3B553E48F40DABBBD7E84436620FD8953F530FB4D9D2B426AEA347C0AC`) or [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk) (`93E148EB4CE9E93683FA9D262ABA510C732B669DF58F125F6255913535ABA09E`) on their physical Android 16 device and confirms that tapping the app icon opens and keeps the application running without an immediate crash.
+Per `agent_instruction.md` Section 17, the release status remains `BLOCKED — NOT READY FOR GO LIVE` until the user installs [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk) (`EEF1D8881731CF9936B77D7AAB511269EBFFC88A3E44CDFDB40B49CEBECCFB43`) or [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk) (`43E0F7D26111ABB92C7539162A78CE67FD1DFB612F72C0FE447989993A54EDE3`) on their physical Android 16 device and confirms that tapping the app icon opens and keeps the application running without an immediate crash.
