@@ -119,6 +119,24 @@ class Phase3InstallerSecurityTest extends TestCase
     }
 
     /**
+     * Test single-use token replay is rejected on second attempt.
+     */
+    public function test_install_update_process_single_use_token_replay_rejected_with_403()
+    {
+        putenv('DB_UPDATE_SECRET=test_secret_key_2026');
+        $_ENV['DB_UPDATE_SECRET'] = 'test_secret_key_2026';
+
+        $token = 'single_use_token_998877';
+        $firstResponse = $this->withSession(['safa_update_token' => $token])
+            ->post('/install/update-process', ['update_token' => $token]);
+        $this->assertTrue(in_array($firstResponse->status(), [200, 302]));
+
+        // Second request reusing the same token without active session token returns 403
+        $secondResponse = $this->post('/install/update-process', ['update_token' => $token]);
+        $secondResponse->assertStatus(403);
+    }
+
+    /**
      * Test /install/update-process accepts valid secret key.
      */
     public function test_install_update_process_authorized_post_succeeds()

@@ -246,7 +246,7 @@ class InstallerController extends Controller
     public static function autoHealExistingSchema(array $migrationFiles): void
     {
         try {
-            if (!DB::schema()->hasTable('migrations')) {
+            if (!Schema::hasTable('migrations')) {
                 try {
                     Artisan::call('migrate:install');
                 } catch (\Throwable $th) {
@@ -259,7 +259,9 @@ class InstallerController extends Controller
             // Detailed mapping of migration files to required tables & column schema contracts
             $migrationSchemaMap = [
                 '0001_01_01_000000_create_users_table' => [
-                    'users' => ['id', 'name', 'email', 'password']
+                    'users' => ['id', 'name', 'email', 'password'],
+                    'password_reset_tokens' => ['email', 'token'],
+                    'sessions' => ['id', 'user_id', 'payload', 'last_activity']
                 ],
                 '0001_01_01_000001_create_cache_table' => [
                     'cache' => ['key', 'value', 'expiration'],
@@ -267,8 +269,8 @@ class InstallerController extends Controller
                 ],
                 '0001_01_01_000002_create_jobs_table' => [
                     'jobs' => ['id', 'queue', 'payload', 'attempts'],
-                    'job_batches' => ['id', 'name', 'total_jobs'],
-                    'failed_jobs' => ['id', 'uuid', 'connection']
+                    'job_batches' => ['id', 'name', 'total_jobs', 'pending_jobs', 'failed_jobs'],
+                    'failed_jobs' => ['id', 'uuid', 'connection', 'queue', 'payload', 'exception']
                 ],
                 '2026_01_01_000000_create_safa_tables' => [
                     'accounts' => ['id', 'name', 'balance'],
@@ -284,7 +286,7 @@ class InstallerController extends Controller
                     'role_permission' => ['role_id', 'permission_id']
                 ],
                 '2026_01_02_000000_expand_hundi_and_wallet_tables' => [
-                    'transactions' => ['customer_id', 'supplier_id', 'amount_sar', 'customer_rate', 'supplier_rate', 'amount_bdt', 'receiver_name'],
+                    'transactions' => ['customer_id', 'supplier_id', 'amount_sar', 'customer_rate', 'supplier_rate', 'amount_bdt', 'receiver_name', 'receiver_phone', 'receiver_account_type', 'receiver_account_no', 'wallet_batch_id', 'notes'],
                     'wallet_ledgers' => ['id', 'account_id', 'local_id', 'name'],
                     'wallet_batches' => ['id', 'account_id', 'local_id', 'ledger_id', 'rate', 'initial_bdt', 'remaining_bdt'],
                     'supplier_deposits' => ['id', 'account_id', 'local_id', 'supplier_id', 'amount_sar', 'rate', 'amount_bdt'],
@@ -301,7 +303,7 @@ class InstallerController extends Controller
                 ],
                 '2026_01_04_000000_create_device_bindings_and_tokens_tables' => [
                     'device_bindings' => ['id', 'user_id', 'device_uuid', 'fingerprint_hash'],
-                    'auth_sessions' => ['id', 'user_id', 'device_uuid', 'refresh_token', 'session_token']
+                    'auth_sessions' => ['id', 'user_id', 'device_uuid', 'access_token', 'refresh_token', 'session_token']
                 ],
                 '2026_01_05_000000_create_superadmin_and_rbac_tables' => [
                     'users' => ['mobile', 'pin_hash', 'role', 'permissions', 'is_activated'],
@@ -326,12 +328,12 @@ class InstallerController extends Controller
                     $hasCompleteSchema = true;
 
                     foreach ($schemaContract as $tableName => $requiredColumns) {
-                        if (!DB::schema()->hasTable($tableName)) {
+                        if (!Schema::hasTable($tableName)) {
                             $hasCompleteSchema = false;
                             break;
                         }
                         foreach ($requiredColumns as $col) {
-                            if (!DB::schema()->hasColumn($tableName, $col)) {
+                            if (!Schema::hasColumn($tableName, $col)) {
                                 $hasCompleteSchema = false;
                                 break 2;
                             }
@@ -365,7 +367,7 @@ class InstallerController extends Controller
             // Perform auto-healing for any pre-existing tables before checking pending status
             static::autoHealExistingSchema($migrationFiles);
 
-            if (!DB::schema()->hasTable('migrations')) {
+            if (!Schema::hasTable('migrations')) {
                 return array_map(fn($f) => basename($f, '.php'), $migrationFiles);
             }
 
