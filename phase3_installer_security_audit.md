@@ -41,7 +41,7 @@ This document provides an independent adversarial audit of SAFA's database migra
   - `0001_01_01_000001_create_cache_table`: `cache`, `cache_locks`
   - `0001_01_01_000002_create_jobs_table`: `jobs`, `job_batches`, `failed_jobs`
   - `2026_01_01_000000_create_safa_tables`: `accounts`, `customers`, `suppliers`, `transactions`, `rates`, `safa_api_keys`, `audit_logs`, `app_versions`, `roles`, `permissions`, `role_permission`
-  - `2026_01_02_000000_expand_hundi_and_wallet_tables`: `transactions` (columns `customer_id`, `supplier_id`, `amount_sar`, `customer_rate`, `supplier_rate`, `amount_bdt`, `receiver_name`), `wallet_ledgers`, `wallet_batches`, `supplier_deposits`, `expenses_incomes`
+  - `2026_01_02_000000_expand_safa_and_wallet_tables`: `transactions` (columns `customer_id`, `supplier_id`, `amount_sar`, `customer_rate`, `supplier_rate`, `amount_bdt`, `receiver_name`), `wallet_ledgers`, `wallet_batches`, `supplier_deposits`, `expenses_incomes`
   - `2026_01_03_000000_add_deleted_at_to_sync_tables`: `customers`, `suppliers`, `transactions`, `supplier_deposits`, `expenses_incomes`, `wallet_batches`, `wallet_ledgers` (columns `timestamp`, `deleted_at`)
   - `2026_01_04_000000_create_device_bindings_and_tokens_tables`: `device_bindings`, `auth_sessions`
   - `2026_01_05_000000_create_superadmin_and_rbac_tables`: `users` (columns `mobile`, `pin_hash`, `role`, `permissions`, `is_activated`), `operator_accounts`

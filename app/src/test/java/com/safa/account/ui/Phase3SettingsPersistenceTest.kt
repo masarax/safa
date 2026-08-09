@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.safa.account.data.api.TokenManager
 import com.safa.account.data.repository.AppRepository
-import com.safa.account.ui.viewmodel.HundiViewModel
+import com.safa.account.ui.viewmodel.SafaViewModel
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -28,7 +28,7 @@ class Phase3SettingsPersistenceTest {
     fun `verify dark mode persistence across ViewModel instances`() {
         val tm1 = TokenManager(context)
         val repo = mock(AppRepository::class.java)
-        val vm1 = HundiViewModel(repo, tm1)
+        val vm1 = SafaViewModel(repo, tm1)
 
         // Enable dark mode
         vm1.setDarkMode(true)
@@ -36,7 +36,7 @@ class Phase3SettingsPersistenceTest {
 
         // Simulate app restart by instantiating new TokenManager and ViewModel
         val tm2 = TokenManager(context)
-        val vm2 = HundiViewModel(repo, tm2)
+        val vm2 = SafaViewModel(repo, tm2)
 
         assertTrue("vm2 isDarkMode should persist as true after restart", vm2.isDarkMode.value)
     }
@@ -45,13 +45,13 @@ class Phase3SettingsPersistenceTest {
     fun `verify language persistence across ViewModel instances`() {
         val tm1 = TokenManager(context)
         val repo = mock(AppRepository::class.java)
-        val vm1 = HundiViewModel(repo, tm1)
+        val vm1 = SafaViewModel(repo, tm1)
 
         vm1.setLanguage("EN")
         assertEquals("EN", vm1.currentLanguage.value)
 
         val tm2 = TokenManager(context)
-        val vm2 = HundiViewModel(repo, tm2)
+        val vm2 = SafaViewModel(repo, tm2)
 
         assertEquals("EN", vm2.currentLanguage.value)
     }

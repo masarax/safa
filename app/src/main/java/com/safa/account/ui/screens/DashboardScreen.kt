@@ -26,7 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safa.account.ui.viewmodel.AppScreen
-import com.safa.account.ui.viewmodel.HundiViewModel
+import com.safa.account.ui.viewmodel.SafaViewModel
 import java.text.DecimalFormat
 import java.util.Calendar
 import java.util.Date
@@ -112,7 +112,7 @@ sealed class UnifiedLedgerEntry {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    viewModel: HundiViewModel,
+    viewModel: SafaViewModel,
     modifier: Modifier = Modifier
 ) {
     val stats by viewModel.financialStats.collectAsStateWithLifecycle()
@@ -1149,7 +1149,7 @@ fun CustomSegmentButton(
 
 @Composable
 fun ServiceShortcutGrid(
-    viewModel: HundiViewModel,
+    viewModel: SafaViewModel,
     onEditRatesClick: () -> Unit
 ) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()

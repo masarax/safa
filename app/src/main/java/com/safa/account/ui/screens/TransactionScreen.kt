@@ -39,7 +39,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.safa.account.data.model.Customer
 import com.safa.account.data.model.RemittanceTransaction
 import com.safa.account.data.model.Supplier
-import com.safa.account.ui.viewmodel.HundiViewModel
+import com.safa.account.ui.viewmodel.SafaViewModel
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -49,7 +49,7 @@ import kotlin.random.Random
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionScreen(
-    viewModel: HundiViewModel,
+    viewModel: SafaViewModel,
     modifier: Modifier = Modifier
 ) {
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()

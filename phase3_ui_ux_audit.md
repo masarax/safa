@@ -22,11 +22,11 @@ This report documents the UI/UX audit, design system parameter verification, loc
 ## 2. Dark Mode & Preference Persistence Audit
 
 ### 2.1 Dark Mode Persistence Across Restart
-- **Files**: `HundiViewModel.kt`, `TokenManager.kt`, `MainActivity.kt`
+- **Files**: `SafaViewModel.kt`, `TokenManager.kt`, `MainActivity.kt`
 - **Problem**: Previously flagged risk of dark mode resetting upon activity lifecycle destruction.
 - **Audit Findings**:
   - `TokenManager.kt` persists `app_dark_mode` boolean in SharedPreferences `safa_secure_prefs`.
-  - `HundiViewModel.kt` initializes `_isDarkMode` with `tokenManager?.getDarkMode() ?: false`.
+  - `SafaViewModel.kt` initializes `_isDarkMode` with `tokenManager?.getDarkMode() ?: false`.
   - Calling `setDarkMode(Boolean)` or `toggleDarkMode()` saves setting to `TokenManager`.
 - **Automated Test**: `com.safa.account.ui.Phase3SettingsPersistenceTest::verify dark mode persistence across ViewModel instances`
 - **Status**: **PASS**
@@ -36,7 +36,7 @@ This report documents the UI/UX audit, design system parameter verification, loc
 ## 3. Localization & Language System Audit
 
 ### 3.1 Clean Single-Language Display (No Duplicated Bilingual Text)
-- **Files**: `HundiViewModel.kt` (bnMap/enMap), `SettingsScreen.kt`, `DashboardScreen.kt`
+- **Files**: `SafaViewModel.kt` (bnMap/enMap), `SettingsScreen.kt`, `DashboardScreen.kt`
 - **Audit Findings**:
   - Language toggle switches cleanly between `"BN"` (Bengali) and `"EN"` (English).
   - UI displays ONE language at a time based on active locale selection.
@@ -63,7 +63,7 @@ This report documents the UI/UX audit, design system parameter verification, loc
 ## 5. Offline-First & Sync UX Audit
 
 ### 5.1 Local Save & Sync Status Badges
-- **Files**: `SyncState.kt`, `HundiViewModel.kt`, `DashboardScreen.kt`
+- **Files**: `SyncState.kt`, `SafaViewModel.kt`, `DashboardScreen.kt`
 - **Audit Findings**:
   - Offline transaction creation saves immediately to local Room database.
   - Sync state badges accurately display `সংরক্ষিত` / `Saved`, `সিঙ্ক হচ্ছে` / `Syncing`, `সিঙ্ক সম্পন্ন` / `Synced`, `সিঙ্ক ব্যর্থ` / `Sync Failed`.

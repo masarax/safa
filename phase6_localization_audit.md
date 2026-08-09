@@ -22,7 +22,7 @@ A static string analysis and runtime localization audit was performed to elimina
 ### 2.2 Currency & Terminology Standardization
 - `SAR` / `রিয়াল`: Saudi Riyal currency designation standardized.
 - `BDT` / `টাকা`: Bangladeshi Taka currency designation standardized.
-- `Hundi` / `হুন্ডি`: Hundi transaction type designation standardized.
+- `Safa` / `সাফা`: Safa transaction type designation standardized.
 
 ---
 

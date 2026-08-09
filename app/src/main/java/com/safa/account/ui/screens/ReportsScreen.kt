@@ -27,7 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.safa.account.ui.viewmodel.HundiViewModel
+import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.viewmodel.AppScreen
 import java.io.File
 import java.io.FileWriter
@@ -38,7 +38,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsScreen(
-    viewModel: HundiViewModel,
+    viewModel: SafaViewModel,
     modifier: Modifier = Modifier
 ) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()

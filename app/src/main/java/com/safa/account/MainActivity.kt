@@ -34,8 +34,8 @@ import com.safa.account.ui.screens.*
 import com.safa.account.ui.theme.MyApplicationTheme
 import com.safa.account.ui.viewmodel.AppScreen
 import com.safa.account.ui.viewmodel.NavDirection
-import com.safa.account.ui.viewmodel.HundiViewModel
-import com.safa.account.ui.viewmodel.HundiViewModelFactory
+import com.safa.account.ui.viewmodel.SafaViewModel
+import com.safa.account.ui.viewmodel.SafaViewModelFactory
 
 class MainActivity : FragmentActivity() {
 
@@ -57,7 +57,7 @@ class MainActivity : FragmentActivity() {
             walletBatchDao        = database.walletBatchDao(),
         )
         val tokenManager = com.safa.account.data.api.TokenManager(applicationContext)
-        val factory = HundiViewModelFactory(repository, tokenManager)
+        val factory = SafaViewModelFactory(repository, tokenManager)
 
         // Schedule periodic background sync when internet is connected
         try {
@@ -69,7 +69,7 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            val viewModel: HundiViewModel by viewModels { factory }
+            val viewModel: SafaViewModel by viewModels { factory }
             
             val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
             val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
@@ -157,7 +157,7 @@ class MainActivity : FragmentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
                             if (showBars) {
-                                HundiTopAppBar(
+                                SafaTopAppBar(
                                     viewModel = viewModel,
                                     title = viewModel.t("app_title"),
                                     operatorName = currentOperator?.username ?: "",
@@ -167,7 +167,7 @@ class MainActivity : FragmentActivity() {
                         },
                         bottomBar = {
                             if (!isKeyboardVisible && showBars) {
-                                HundiBottomNavigationBar(
+                                SafaBottomNavigationBar(
                                     viewModel = viewModel,
                                     currentScreen = currentScreen
                                 )
@@ -240,8 +240,8 @@ class MainActivity : FragmentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HundiTopAppBar(
-    viewModel: HundiViewModel,
+fun SafaTopAppBar(
+    viewModel: SafaViewModel,
     title: String,
     operatorName: String,
     onLogoutClick: () -> Unit
@@ -373,8 +373,8 @@ fun HundiTopAppBar(
 }
 
 @Composable
-fun HundiBottomNavigationBar(
-    viewModel: HundiViewModel,
+fun SafaBottomNavigationBar(
+    viewModel: SafaViewModel,
     currentScreen: AppScreen
 ) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()

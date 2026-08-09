@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safa.account.data.model.OperatorAccount
-import com.safa.account.ui.viewmodel.HundiViewModel
+import com.safa.account.ui.viewmodel.SafaViewModel
 import kotlinx.coroutines.launch
 
 enum class SettingsSubpage {
@@ -42,7 +42,7 @@ enum class SettingsSubpage {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: HundiViewModel,
+    viewModel: SafaViewModel,
     modifier: Modifier = Modifier
 ) {
     var currentPage by remember { mutableStateOf(SettingsSubpage.MAIN) }
@@ -68,7 +68,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun SettingsMainPage(viewModel: HundiViewModel, onNavigate: (SettingsSubpage) -> Unit) {
+fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> Unit) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val activeOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
 
@@ -687,7 +687,7 @@ fun SettingsMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CurrencyPage(viewModel: HundiViewModel, onBack: () -> Unit) {
+fun CurrencyPage(viewModel: SafaViewModel, onBack: () -> Unit) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val baseForeignCurrency by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
     val baseLocalCurrency by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
@@ -733,7 +733,7 @@ fun CurrencyPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
+fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
@@ -838,7 +838,7 @@ fun BrandingPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-fun LanguagePage(viewModel: HundiViewModel, onBack: () -> Unit) {
+fun LanguagePage(viewModel: SafaViewModel, onBack: () -> Unit) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
@@ -933,7 +933,7 @@ fun PageHeader(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
+fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val operators by viewModel.operators.collectAsStateWithLifecycle()
     val activeOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
@@ -1364,7 +1364,7 @@ fun UserManagementPage(viewModel: HundiViewModel, onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PinChangePage(viewModel: HundiViewModel, onBack: () -> Unit) {
+fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     
     var oldPin by remember { mutableStateOf("") }

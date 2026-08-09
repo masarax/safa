@@ -5,16 +5,11 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Emerald Shield Base (Safe Zone 18..90) -->
-    <path
-        android:fillColor="#047857"
-        android:pathData="M54,20 L80,33 V57 C80,75 64,88 54,93 C44,88 28,75 28,57 V33 Z" />
-    
-    <!-- Gold Shield Border -->
+    <!-- Outer Gold Shield Outline derived 1:1 from backend/public/favicon.svg -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#F59E0B"
-        android:strokeWidth="5.5"
+        android:strokeWidth="6"
         android:strokeLineJoin="round"
         android:pathData="M54,20 L80,33 V57 C80,75 64,88 54,93 C44,88 28,75 28,57 V33 Z" />
 
@@ -22,14 +17,15 @@
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FCD34D"
-        android:strokeWidth="2"
-        android:pathData="M54,26 L74,36 V55 C74,70 60,81 54,85 C48,81 34,70 34,55 V36 Z" />
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M54,24 L76,35 V56 C76,71 61,83 54,87 C47,83 32,71 32,56 V35 Z" />
 
-    <!-- White Remittance Checkmark Symbol -->
+    <!-- White Remittance Checkmark Path from backend/public/favicon.svg -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="6"
+        android:strokeWidth="7"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="M44,56 L51,63 L65,47" />

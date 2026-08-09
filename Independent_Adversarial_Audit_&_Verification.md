@@ -399,7 +399,7 @@ Create tests/static checks that fail if production secrets are hardcoded into An
 Inspect:
 
 ```text
-HundiViewModel.kt
+SafaViewModel.kt
 TokenManager.kt
 SettingsScreen.kt
 theme files

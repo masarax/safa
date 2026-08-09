@@ -10,7 +10,7 @@ This document provides an audit of all visual branding elements, launcher icon v
 ### 1.1 Android Branding & Fallback Chain
 - **Launcher Icon**: Uses custom golden shield emblem vector drawable (`R.drawable.ic_launcher_foreground`). No generic Android robot artwork.
 - **Login Screen Header**: Displays primary SAFA branded visual logo image in container (`ic_launcher_foreground`), replacing generic lock icon.
-- **Top App Bar (`HundiTopAppBar`)**:
+- **Top App Bar (`SafaTopAppBar`)**:
   - Primary: Remote server logo URL (`customAppLogoUri`).
   - Fallback: Bundled SAFA logo image (`ic_launcher_foreground`).
   - No text or emoji fallback (`👑` removed).

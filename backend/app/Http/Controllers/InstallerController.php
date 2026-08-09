@@ -285,7 +285,7 @@ class InstallerController extends Controller
                     'permissions' => ['id', 'name', 'slug'],
                     'role_permission' => ['role_id', 'permission_id']
                 ],
-                '2026_01_02_000000_expand_hundi_and_wallet_tables' => [
+                '2026_01_02_000000_expand_safa_and_wallet_tables' => [
                     'transactions' => ['customer_id', 'supplier_id', 'amount_sar', 'customer_rate', 'supplier_rate', 'amount_bdt', 'receiver_name', 'receiver_phone', 'receiver_account_type', 'receiver_account_no', 'wallet_batch_id', 'notes'],
                     'wallet_ledgers' => ['id', 'account_id', 'local_id', 'name'],
                     'wallet_batches' => ['id', 'account_id', 'local_id', 'ledger_id', 'rate', 'initial_bdt', 'remaining_bdt'],

@@ -34,7 +34,7 @@
   - `0001_01_01_000001_create_cache_table.php`
   - `0001_01_01_000002_create_jobs_table.php`
   - `2026_01_01_000000_create_safa_tables.php`
-  - `2026_01_02_000000_expand_hundi_and_wallet_tables.php`
+  - `2026_01_02_000000_expand_safa_and_wallet_tables.php`
   - `2026_01_03_000000_add_deleted_at_to_sync_tables.php`
   - `2026_01_04_000000_create_device_bindings_and_tokens_tables.php`
   - `2026_01_05_000000_create_superadmin_and_rbac_tables.php`

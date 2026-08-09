@@ -56,7 +56,7 @@ data class FinancialStats(
     val supplierUnsettledBdt: Double = 0.0
 )
 
-class HundiViewModel(
+class SafaViewModel(
     val repository: AppRepository,
     val tokenManager: TokenManager? = null
 ) : ViewModel() {
@@ -1587,7 +1587,7 @@ class HundiViewModel(
         }
     }
 
-    // 4. Create Remittance Transaction (Hundi Entry)
+    // 4. Create Remittance Transaction (Safa Entry)
     fun createRemittance(
         customerId: Int,
         walletBatchId: Int,
@@ -1816,14 +1816,14 @@ class HundiViewModel(
     }
 }
 
-class HundiViewModelFactory(
+class SafaViewModelFactory(
     private val repository: AppRepository,
     private val tokenManager: TokenManager? = null
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(HundiViewModel::class.java)) {
+        if (modelClass.isAssignableFrom(SafaViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HundiViewModel(repository, tokenManager) as T
+            return SafaViewModel(repository, tokenManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

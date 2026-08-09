@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safa.account.data.model.Customer
 import com.safa.account.data.model.RemittanceTransaction
-import com.safa.account.ui.viewmodel.HundiViewModel
+import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.BiometricTriggerButton
 import com.safa.account.ui.screens.CalculatorDialog
 import java.text.DecimalFormat
@@ -48,7 +48,7 @@ import android.widget.Toast
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerScreen(
-    viewModel: HundiViewModel,
+    viewModel: SafaViewModel,
     modifier: Modifier = Modifier,
     isProfileView: Boolean = false,
     isAddView: Boolean = false
@@ -672,7 +672,7 @@ fun CustomerProfileView(
     onBack: () -> Unit,
     onUpdate: (Customer) -> Unit,
     onDelete: () -> Unit,
-    viewModel: HundiViewModel
+    viewModel: SafaViewModel
 ) {
     DisposableEffect(Unit) {
         viewModel.setSubPageActive(true)
@@ -1745,7 +1745,7 @@ fun CustomerProfileView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (lang == "BN") "লেনদেন এবং হিসাব খাতা" else "Hundi Audit Logs",
+                        text = if (lang == "BN") "লেনদেন এবং হিসাব খাতা" else "Safa Audit Logs",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -4203,7 +4203,7 @@ fun AddCustomerPage(
     onContactPicker: () -> Unit,
     onCancel: () -> Unit,
     onSubmit: () -> Unit,
-    viewModel: HundiViewModel
+    viewModel: SafaViewModel
 ) {
     DisposableEffect(Unit) {
         viewModel.setSubPageActive(true)

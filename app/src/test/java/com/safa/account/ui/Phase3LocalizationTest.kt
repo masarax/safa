@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.safa.account.data.api.TokenManager
 import com.safa.account.data.repository.AppRepository
-import com.safa.account.ui.viewmodel.HundiViewModel
+import com.safa.account.ui.viewmodel.SafaViewModel
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class Phase3LocalizationTest {
 
-    private lateinit var viewModel: HundiViewModel
+    private lateinit var viewModel: SafaViewModel
     private lateinit var tokenManager: TokenManager
 
     @Before
@@ -25,7 +25,7 @@ class Phase3LocalizationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         tokenManager = TokenManager(context)
         val repository = mock(AppRepository::class.java)
-        viewModel = HundiViewModel(repository, tokenManager)
+        viewModel = SafaViewModel(repository, tokenManager)
     }
 
     @Test

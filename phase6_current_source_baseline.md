@@ -10,7 +10,7 @@
 ## 1. Executive Summary & Verification Methodology
 In accordance with the Phase 6 Independent Adversarial Verification protocol, all claims and system behaviors were independently re-tested against current `main` HEAD (`a0fcc7b4dd82a848050e6c7b898756d5e823e80b`). No previous Phase 4 or Phase 5 reports were treated as truth without direct empirical verification against live source code and test execution.
 
-All findings in this report represent the exact current implementation state of SAFA Hundi & Wallet Management System across both backend (Laravel 11 API / Web) and frontend (Android Native Jetpack Compose / Room DB).
+All findings in this report represent the exact current implementation state of SAFA Safa & Wallet Management System across both backend (Laravel 11 API / Web) and frontend (Android Native Jetpack Compose / Room DB).
 
 ---
 
@@ -34,7 +34,7 @@ All findings in this report represent the exact current implementation state of 
   2. `0001_01_01_000001_create_cache_table.php` (`cache`, `cache_locks`)
   3. `0001_01_01_000002_create_jobs_table.php` (`jobs`, `job_batches`, `failed_jobs`)
   4. `2026_01_01_000000_create_safa_tables.php` (`accounts`, `customers`, `suppliers`, `transactions`, `rates`, `safa_api_keys`, `audit_logs`, `app_versions`, `roles`, `permissions`, `role_permission`)
-  5. `2026_01_02_000000_expand_hundi_and_wallet_tables.php` (`transactions` extensions, `wallet_ledgers`, `wallet_batches`, `supplier_deposits`, `expenses_incomes`)
+  5. `2026_01_02_000000_expand_safa_and_wallet_tables.php` (`transactions` extensions, `wallet_ledgers`, `wallet_batches`, `supplier_deposits`, `expenses_incomes`)
   6. `2026_01_03_000000_add_deleted_at_to_sync_tables.php` (`deleted_at` & `timestamp` columns across sync tables)
   7. `2026_01_04_000000_create_device_bindings_and_tokens_tables.php` (`device_bindings`, `auth_sessions`)
   8. `2026_01_05_000000_create_superadmin_and_rbac_tables.php` (`users` extensions, `operator_accounts`, SuperAdmin seeding)
@@ -48,7 +48,7 @@ All findings in this report represent the exact current implementation state of 
   - `LoginScreen.kt`: Material 3 design, single-locale toggle (`Bengali` / `English`), SAFA brand logo header.
   - `DashboardScreen.kt`: Zero hardcoded mock arrays, dynamic exchange rate calculation using customer rate, clean locale rendering.
   - `WalletScreen.kt`: Material 3 wallet ledgers and batches, single-locale fund deduction strings.
-  - `CalculatorDialog.kt`: MaterialTheme color scheme integration, dynamic Hundi SAR-to-BDT calculation.
+  - `CalculatorDialog.kt`: MaterialTheme color scheme integration, dynamic Safa SAR-to-BDT calculation.
 
 ---
 

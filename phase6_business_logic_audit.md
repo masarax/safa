@@ -12,7 +12,7 @@ An in-depth business logic audit was conducted to verify financial calculation p
 
 ## 2. Business Logic Modules & Verification
 
-### 2.1 Hundi Exchange Math & Calculation
+### 2.1 Safa Exchange Math & Calculation
 - **SAR to BDT Calculation**: `Amount_BDT = Amount_SAR * Customer_Rate`.
 - **Margin / Profit Math**: `Profit_BDT = Amount_SAR * (Customer_Rate - Supplier_Rate)`.
 - **Verification**: Verified using arbitrary decimal values (e.g. 1000.00 SAR @ 32.5000 rate = 32,500.00 BDT). Precision preserved up to 4 decimal places for rates and 2 decimal places for currency amounts without floating-point rounding loss.
@@ -33,5 +33,5 @@ An in-depth business logic audit was conducted to verify financial calculation p
 | :--- | :--- | :--- | :--- |
 | **Customer BDT Payout** | `SAR * Customer_Rate` | Automated Unit Test | **PASS** |
 | **Supplier BDT Cost** | `SAR * Supplier_Rate` | Automated Unit Test | **PASS** |
-| **Hundi Profit Calculation** | `SAR * (Cust_Rate - Supp_Rate)` | Automated Unit Test | **PASS** |
+| **Safa Profit Calculation** | `SAR * (Cust_Rate - Supp_Rate)` | Automated Unit Test | **PASS** |
 | **Wallet FIFO Depletion** | Chronological Batch Consumption | `WalletBatchTest` | **PASS** |

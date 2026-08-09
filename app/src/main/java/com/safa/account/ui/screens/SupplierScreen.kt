@@ -33,7 +33,7 @@ import com.safa.account.data.model.Supplier
 import com.safa.account.data.model.SupplierDeposit
 import com.safa.account.data.model.RemittanceTransaction
 import com.safa.account.data.model.WalletLedger
-import com.safa.account.ui.viewmodel.HundiViewModel
+import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.BiometricTriggerButton
 import com.safa.account.ui.screens.CalculatorDialog
 import java.text.DecimalFormat
@@ -66,7 +66,7 @@ sealed class SupplierLedgerItem {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SupplierScreen(
-    viewModel: HundiViewModel,
+    viewModel: SafaViewModel,
     modifier: Modifier = Modifier,
     isProfileView: Boolean = false,
     isAddView: Boolean = false
@@ -675,7 +675,7 @@ fun SupplierProfileView(
     onBack: () -> Unit,
     onUpdate: (Supplier) -> Unit,
     onDelete: () -> Unit,
-    viewModel: HundiViewModel,
+    viewModel: SafaViewModel,
     modifier: Modifier = Modifier
 ) {
     DisposableEffect(Unit) {
@@ -2563,7 +2563,7 @@ fun AddSupplierPage(
     onContactPicker: () -> Unit,
     onCancel: () -> Unit,
     onSubmit: () -> Unit,
-    viewModel: HundiViewModel
+    viewModel: SafaViewModel
 ) {
     DisposableEffect(Unit) {
         viewModel.setSubPageActive(true)

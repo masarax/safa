@@ -247,7 +247,7 @@ Audit:
 
 ## Critical finding to verify
 
-`HundiTopAppBar` currently has a fallback path where `customAppLogo` can be displayed as text.
+`SafaTopAppBar` currently has a fallback path where `customAppLogo` can be displayed as text.
 
 The application should use the actual bundled SAFA logo image when no remote logo URI is available.
 

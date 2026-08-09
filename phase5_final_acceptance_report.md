@@ -10,7 +10,7 @@ This report summarizes the adversarial product audit, security fixes, real UI/UX
 | Requirement | Category | Result | Evidence / Verification |
 | --- | --- | --- | --- |
 | **SAFA Logo on Login Screen** | Branding | **PASS** | `LoginScreen.kt` displays primary SAFA branded visual logo image (`ic_launcher_foreground`) |
-| **Top App Bar Logo Fallback** | Branding | **PASS** | `HundiTopAppBar` uses bundled SAFA logo image (`ic_launcher_foreground`) when `logoUri` is null |
+| **Top App Bar Logo Fallback** | Branding | **PASS** | `SafaTopAppBar` uses bundled SAFA logo image (`ic_launcher_foreground`) when `logoUri` is null |
 | **Launcher Icon Vector** | Branding | **PASS** | Launcher foreground uses custom golden shield vector drawable without generic robot artwork |
 | **Web Logo & Favicon HTTP 200** | Branding | **PASS** | `GET /safa-logo.png` and `GET /favicon.svg` return HTTP 200 with proper MIME headers |
 | **Bengali Only (BN)** | Localization | **PASS** | All BN UI strings render Bengali copy without compound bilingual text |

@@ -14,7 +14,7 @@ This report documents the deep audit and verification of the `masarax/safa` repo
 | P4-SEC-03 | P0 Critical | `TokenManager.kt` | Contained XOR-encoded hardcoded static API keys (`safa_key_...`, `safa_sec_...`) | APK must not contain static production secrets | Removed byte arrays and hardcoded defaults from `TokenManager.kt` | PASS |
 | P4-MIG-01 | P0 Critical | `InstallerController.php` | `autoHealExistingSchema()` map had incorrect table names (`safa_users`, `safa_customers`) and missed migration `2026_01_03_000000_add_deleted_at_to_sync_tables.php` | 1:1 table and column contract definitions for all 10 migrations | Refactored `$migrationSchemaMap` to define exact table/column arrays | PASS |
 | P4-BRAND-01 | P1 High | `routes/web.php` & Blade views | Direct file references for `safa-logo.png` and `favicon.svg` returned 404 in Laravel internal routing test | Webserver and internal route engine serve static assets with HTTP 200 and valid MIME type | Created canonical static asset endpoints in `web.php` returning HTTP 200 | PASS |
-| P4-UI-01 | P2 Medium | `HundiViewModel.kt` | Default custom logo fell back to crown emoji `"👑"` | Bundled logo or canonical branding fallback | Updated default logo fallback to `"SAFA"` | PASS |
+| P4-UI-01 | P2 Medium | `SafaViewModel.kt` | Default custom logo fell back to crown emoji `"👑"` | Bundled logo or canonical branding fallback | Updated default logo fallback to `"SAFA"` | PASS |
 | P4-UI-02 | P2 Medium | UI Screens | Potential bilingual compound labels (`Bangla (English)`) | Clean single-language locale display (`BN` or `EN`) | Audit confirmed clean single-language rendering across all screens and Blade templates | PASS |
 
 ---

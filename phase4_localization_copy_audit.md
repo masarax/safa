@@ -11,7 +11,7 @@ This document provides an audit of all user-facing copy, locale switching behavi
 - **Rule**: When language is set to `"BN"` (Bengali), the UI renders Bengali text exclusively. When set to `"EN"` (English), the UI renders English text exclusively.
 - **Audit Findings**:
   - No compound duplicated labels like `Bangla (English)` or `English (Bangla)` exist on UI buttons, headers, or form fields.
-  - `HundiViewModel.kt` maintains isolated `bnMap` and `enMap` key-value pairs.
+  - `SafaViewModel.kt` maintains isolated `bnMap` and `enMap` key-value pairs.
   - Translation helper `t(key, lang)` returns single-locale strings cleanly.
 
 ### 1.2 Copy Quality & Density Refinement

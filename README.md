@@ -1,7 +1,7 @@
-# SAFA (সাফা) - Hundi & Multi-Currency Account Management System
+# SAFA (সাফা) - Safa & Multi-Currency Account Management System
 
 ## Project Overview
-SAFA is an offline-first enterprise financial accounting & Hundi (Hawala) multi-currency ledger application built with **Android (Kotlin, Jetpack Compose, Encrypted Room/SQLCipher)** and **Laravel 13 Backend (REST API, HMAC Authentication, SQLite/PostgreSQL)**.
+SAFA is an offline-first enterprise financial accounting & Safa (Hawala) multi-currency ledger application built with **Android (Kotlin, Jetpack Compose, Encrypted Room/SQLCipher)** and **Laravel 13 Backend (REST API, HMAC Authentication, SQLite/PostgreSQL)**.
 
 ---
 
@@ -30,7 +30,7 @@ SAFA is an offline-first enterprise financial accounting & Hundi (Hawala) multi-
 
 ## Core Features
 
-1. **Multi-Currency Hundi / Hawala Transaction Engine**
+1. **Multi-Currency Safa / Hawala Transaction Engine**
    - Direct support for AED, BDT, USD, SAR, MYR, INR, OMR, QAR, KWD.
    - Dual-currency rate calculation (Send Currency vs Pay Currency).
    - Instant dynamic profit margin analysis.

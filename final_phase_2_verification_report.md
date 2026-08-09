@@ -61,7 +61,7 @@ Laravel tests: PASS
 
 ### Part C & D & E — Language System, Design Tokens & Dialog System
 1. **Language & Dark Mode Persistence:**  
-   Bound `isDarkMode` and `currentLanguage` state in [HundiViewModel.kt](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/ui/viewmodel/HundiViewModel.kt) to [TokenManager.kt](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/data/api/TokenManager.kt) `SharedPreferences` so preferences survive application restarts.
+   Bound `isDarkMode` and `currentLanguage` state in [SafaViewModel.kt](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt) to [TokenManager.kt](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/data/api/TokenManager.kt) `SharedPreferences` so preferences survive application restarts.
 2. **Standardized Dialogs:**  
    Created `SafaConfirmDialog` and `SafaDestructiveDialog` in [DesignSystemComponents.kt](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/ui/components/DesignSystemComponents.kt) enforcing unified corner radius (16.dp), button hierarchy, and M3 design tokens.
 

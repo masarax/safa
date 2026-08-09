@@ -34,7 +34,7 @@ class Phase3SchemaContractTest extends TestCase
         Artisan::call('migrate', ['--force' => true]);
 
         // Remove migration entry from migrations table to test auto-healing contract validation
-        DB::table('migrations')->where('migration', '2026_01_02_000000_expand_hundi_and_wallet_tables')->delete();
+        DB::table('migrations')->where('migration', '2026_01_02_000000_expand_safa_and_wallet_tables')->delete();
 
         // Drop 'receiver_account_no' column from transactions table so contract is incomplete
         Schema::table('transactions', function ($table) {
@@ -42,13 +42,13 @@ class Phase3SchemaContractTest extends TestCase
         });
 
         $migrationFiles = [
-            database_path('migrations/2026_01_02_000000_expand_hundi_and_wallet_tables.php')
+            database_path('migrations/2026_01_02_000000_expand_safa_and_wallet_tables.php')
         ];
 
         InstallerController::autoHealExistingSchema($migrationFiles);
 
         $executedAfter = DB::table('migrations')->pluck('migration')->toArray();
-        $this->assertNotContains('2026_01_02_000000_expand_hundi_and_wallet_tables', $executedAfter, 'Migration must remain pending when required column receiver_account_no is missing.');
+        $this->assertNotContains('2026_01_02_000000_expand_safa_and_wallet_tables', $executedAfter, 'Migration must remain pending when required column receiver_account_no is missing.');
     }
 
     /**

@@ -36,7 +36,7 @@
 - `com.safa.account.ui.Phase2UiAndBrandingTest` -> **PASS**
 - `com.safa.account.data.api.SyncRetryHardeningTest` -> **PASS**
 - `com.safa.account.data.repository.AppRepositoryTest` -> **PASS**
-- `com.safa.account.ui.viewmodel.HundiViewModelTest` -> **PASS**
+- `com.safa.account.ui.viewmodel.SafaViewModelTest` -> **PASS**
 - `com.example.ExampleRobolectricTest` -> **PASS**
 - `com.example.ExampleUnitTest` -> **PASS**
 

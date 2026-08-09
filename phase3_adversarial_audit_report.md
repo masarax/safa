@@ -42,10 +42,10 @@ This document summarizes the findings, fixes, automated tests, and verification 
 
 ### 4. Branding & Logo Asset Strategy
 - **Previous Claim**: "Branding assets completely aligned."
-- **Actual Source Evidence**: `welcome.blade.php`, `install.blade.php`, and `RemoteConfigController.php` reference `/safa-logo.png`. `HundiViewModel.kt` defaulted custom logo to `"👑"`.
+- **Actual Source Evidence**: `welcome.blade.php`, `install.blade.php`, and `RemoteConfigController.php` reference `/safa-logo.png`. `SafaViewModel.kt` defaulted custom logo to `"👑"`.
 - **Problem**: Inconsistent fallback logos and potential missing image references.
 - **Severity**: **P0 Critical / P1 High**
-- **Required Fix**: Verified `safa-logo.png` (53,321 bytes) and `favicon.svg` (830 bytes) exist in `backend/public/` and are tracked by Git. Replaced crown emoji default in `HundiViewModel.kt` with canonical `"SAFA"` / server logo fallback.
+- **Required Fix**: Verified `safa-logo.png` (53,321 bytes) and `favicon.svg` (830 bytes) exist in `backend/public/` and are tracked by Git. Replaced crown emoji default in `SafaViewModel.kt` with canonical `"SAFA"` / server logo fallback.
 - **Automated Test**: `Tests\Feature\Phase3BrandingAssetTest` & `com.safa.account.ui.Phase3BrandingTest`
 - **Verification Result**: **PASS**
 
@@ -53,7 +53,7 @@ This document summarizes the findings, fixes, automated tests, and verification 
 
 ### 5. Dark Mode & Settings Persistence
 - **Previous Claim**: "Dark mode persisted."
-- **Actual Source Evidence**: `HundiViewModel.kt` uses `_isDarkMode` backed by `TokenManager.getDarkMode()`.
+- **Actual Source Evidence**: `SafaViewModel.kt` uses `_isDarkMode` backed by `TokenManager.getDarkMode()`.
 - **Problem**: Needed automated test verification to guarantee persistence across app restarts.
 - **Severity**: **P1 High**
 - **Required Fix**: Verified `saveDarkMode()` writes to `SharedPreferences`.
@@ -64,7 +64,7 @@ This document summarizes the findings, fixes, automated tests, and verification 
 
 ### 6. Localization & Single-Language UX
 - **Previous Claim**: "Localization implemented."
-- **Actual Source Evidence**: Verified translation maps in `HundiViewModel.kt`.
+- **Actual Source Evidence**: Verified translation maps in `SafaViewModel.kt`.
 - **Problem**: Prevent ugly duplicated compound labels such as `ডাটাবেস আপডেট (Database Update)`.
 - **Severity**: **P2 Medium**
 - **Required Fix**: Ensured clean single-language rendering for Bengali (`"BN"`) and English (`"EN"`).

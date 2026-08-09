@@ -62,7 +62,7 @@ Verify the actual current versions of:
 * AppDaos.kt
 * AppDatabase.kt
 * Models.kt
-* HundiViewModel.kt
+* SafaViewModel.kt
 * MainActivity.kt
 * DesignSystemComponents.kt
 * Theme files
@@ -319,7 +319,7 @@ Especially verify:
 
 ```text
 2026_01_01_000000_create_safa_tables
-2026_01_02_000000_expand_hundi_and_wallet_tables
+2026_01_02_000000_expand_safa_and_wallet_tables
 2026_01_03_000000_add_deleted_at_to_sync_tables
 2026_01_04_000000_create_device_bindings_and_tokens_tables
 2026_01_05_000000_create_superadmin_and_rbac_tables

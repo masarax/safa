@@ -3,7 +3,7 @@ package com.safa.account.ui.viewmodel
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class HundiViewModelTest {
+class SafaViewModelTest {
     @Test
     fun testInitialState() {
         // Simple test to ensure test environment is setup

@@ -1,7 +1,7 @@
 # SAFA — Complete Offline-to-Cloud Sync Audit & Repair Specification
 
 > **Document Type:** AI Coding Agent Task Specification
-> **Project:** SAFA — Hundi & Multi-Currency Account Management System
+> **Project:** SAFA — Safa & Multi-Currency Account Management System
 > **Repository:** `masarax/safa`
 > **Primary Goal:** Fix and harden the complete Android → Laravel → Production Database synchronization pipeline.
 

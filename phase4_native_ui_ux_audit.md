@@ -12,7 +12,7 @@ This document outlines the deep UI/UX audit, component parameter verification, d
 | Screen | App Bar / Header | Cards (`AppCard`) | CTA Buttons | Dialogs | State Presentation | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Login** | Custom Lock Title | Surface container card | `AppPrimaryButton` (48dp height) | PIN error snackbar | Concise pin error | PASS |
-| **Dashboard** | `HundiTopAppBar` with logo & operator badge | `AppCard` & `AppMetricCard` | Quick Action Buttons | Logout Confirmation | Live stats, skeleton loading | PASS |
+| **Dashboard** | `SafaTopAppBar` with logo & operator badge | `AppCard` & `AppMetricCard` | Quick Action Buttons | Logout Confirmation | Live stats, skeleton loading | PASS |
 | **Customers** | Sub-page header with back action | Standardized card list | Primary add customer CTA | Delete Customer (`SafaDestructiveDialog`) | Empty state with CTA | PASS |
 | **Suppliers** | Sub-page header with back action | Standardized card list | Primary add supplier CTA | Delete Supplier (`SafaDestructiveDialog`) | Empty state with CTA | PASS |
 | **Transactions** | Sub-page header with back action | Remittance card item | Commit & Save CTA | Cancel/Delete Tx (`SafaDestructiveDialog`) | Pending/Delivered/Cancelled chips | PASS |

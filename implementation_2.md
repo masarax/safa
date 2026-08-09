@@ -19,7 +19,7 @@ Clearly separate what was implemented from:
 * AppDaos.kt
 * AppRepository.kt
 * SyncManager.kt
-* HundiViewModel.kt
+* SafaViewModel.kt
 
 ### Backend sync implementation
 
