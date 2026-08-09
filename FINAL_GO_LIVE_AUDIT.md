@@ -11,35 +11,41 @@
 
 ---
 
-## 1. Technical Audit & Code Refactoring
+## 1. Technical Audit & Startup Architecture Improvements
 
-### A. Removal of Unsafe Unencrypted SQLite Fallback
+### A. MainActivity Startup Diagnostic Boundary & Fault Tolerance
+- **Refactored File**: [`MainActivity.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/MainActivity.kt#L45-L115)
+- **Diagnostic Stage Logging**: Added explicit stage logcat markers (`STARTUP_BEGIN`, `ROOM_DATABASE_READY`, `TOKEN_MANAGER_READY`, `WORK_MANAGER_READY`).
+- **Compose Diagnostic Fallback UI**: If any database, KeyStore, or initialization error occurs during `onCreate()`, the process does not abort. Instead, `setContent()` displays a clean error boundary screen displaying the exact Java exception class and error message alongside a "Retry Application Startup" button (`recreate()`).
+
+### B. Valid SVG Favicon Web Route Contract
+- **Refactored Files**: [`routes/web.php`](file:///D:/Nazmus%20Sakib/safa/backend/routes/web.php#L56-L62) and [`backend/public/favicon.svg`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.svg#L1-L15)
+- **Change Made**: Updated `/favicon.svg` route to return the authentic SVG vector file with `Content-Type: image/svg+xml`. Updated `favicon.svg` vector path to represent the orange `safa-logo.png` visual brand identity.
+
+### C. Strict SQLCipher Database Encryption (No Unencrypted Fallback)
 - **Refactored File**: [`AppDatabase.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/data/database/AppDatabase.kt#L69-L89)
-- **Change Made**: Removed the unsafe `try-catch { null }` block that allowed Room to open unencrypted SQLite if SQLCipher library initialization failed.
-- **Enforcement**: Room is now explicitly configured with `.openHelperFactory(factory)` using `SupportFactory(passphrase)` unconditionally. If SQLCipher cannot initialize, the application fails safely in a diagnosable manner rather than silently exposing unencrypted financial data.
+- **Enforcement**: Room is explicitly configured with `.openHelperFactory(factory)` using `SupportFactory(passphrase)` unconditionally. Unencrypted SQLite fallbacks are strictly prohibited.
 
-### B. Removal of `Build.getSerial()` SecurityException Risk
+### D. Removal of `Build.getSerial()` SecurityException Risk
 - **Refactored File**: [`DeviceSecurityHelper.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/data/network/DeviceSecurityHelper.kt#L65-L80)
-- **Change Made**: Completely eliminated calls to `Build.getSerial()` during `TokenManager` / `MainActivity.onCreate()` initialization.
-- **Rationale**: On Android 10+ through Android 16 (API 36), `Build.getSerial()` requires `READ_PRIVILEGED_PHONE_STATE` (a system-only permission) and throws an unhandled `SecurityException` at startup. Hardware fingerprinting now uses non-privileged `Build` parameters (`FINGERPRINT`, `MODEL`, `MANUFACTURER`, `HARDWARE`, `BOARD`, `DEVICE`, `PRODUCT`).
+- **Rationale**: On Android 10+ through Android 16 (API 36), `Build.getSerial()` requires `READ_PRIVILEGED_PHONE_STATE` (a system permission) and throws an unhandled `SecurityException` at startup. Hardware fingerprinting uses non-privileged `Build` parameters (`FINGERPRINT`, `MODEL`, `MANUFACTURER`, `HARDWARE`, `BOARD`, `DEVICE`, `PRODUCT`).
 
-### C. Hardware KeyStore MasterKey Spec Hardening & Passphrase Protection
+### E. Hardware KeyStore MasterKey Spec Hardening & Zero Key Deletion
 - **Refactored Files**: [`KeyStoreHelper.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/data/database/KeyStoreHelper.kt#L12-L55) and [`DeviceSecurityHelper.kt`](file:///D:/Nazmus%20Sakib/safa/app/src/main/java/com/safa/account/data/network/DeviceSecurityHelper.kt#L18-L48)
-- **Specification**: Explicit `KeyGenParameterSpec` (`PURPOSE_ENCRYPT or PURPOSE_DECRYPT`, `BLOCK_MODE_GCM`, `ENCRYPTION_PADDING_NONE`, 256-bit key size).
-- **Zero Key Deletion Policy**: `keyStore.deleteEntry(...)` calls were eliminated to prevent master key deletion and passphrase loss on app update. Persistent passphrase storage (`safa_secure_passphrase_store`) preserves existing encrypted local database records across hardware KeyStore exceptions and OS updates.
+- **Specification**: Explicit `KeyGenParameterSpec` (`PURPOSE_ENCRYPT or PURPOSE_DECRYPT`, `BLOCK_MODE_GCM`, `ENCRYPTION_PADDING_NONE`, 256-bit key size). Zero key deletion policy prevents passphrase and local database data loss during app updates.
 
 ---
 
 ## 2. 100% Original Logo & Favicon Integration
 
 - **Original Brand Asset**:  
-  [`backend/public/safa-logo.png`](file:///D:/Nazmus%20Sakib/safa/backend/public/safa-logo.png) is the canonical SAFA brand artwork (Orange background `#F97316`, white stylized shopping cart/wallet emblem, "SAFA" brand lettering).
-- **Website Favicon**:  
-  Copied `safa-logo.png` to [`backend/public/favicon.ico`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.ico) and [`backend/public/favicon.png`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.png), and updated `/favicon.ico`, `/favicon.png`, and `/favicon.svg` web routes in [`routes/web.php`](file:///D:/Nazmus%20Sakib/safa/backend/routes/web.php#L40-L55).
+  [`backend/public/safa-logo.png`](file:///D:/Nazmus%20Sakib/safa/backend/public/safa-logo.png) (Orange background `#F97316`, white stylized shopping cart/wallet emblem, "SAFA" brand lettering).
+- **Website Favicons**:  
+  Copied `safa-logo.png` to [`backend/public/favicon.ico`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.ico) and [`backend/public/favicon.png`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.png), and created valid SVG vector [`backend/public/favicon.svg`](file:///D:/Nazmus%20Sakib/safa/backend/public/favicon.svg).
 - **Web Blade Views**:  
   Updated [`welcome.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/welcome.blade.php#L7-L9), [`install.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/install.blade.php#L8-L10), and [`install_update.blade.php`](file:///D:/Nazmus%20Sakib/safa/backend/resources/views/install_update.blade.php#L8-L10) to link `<link rel="icon" type="image/png" href="{{ asset('safa-logo.png') }}">`.
 - **Android Launcher Drawables**:  
-  Copied `safa-logo.png` to [`safa_logo.png`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/safa_logo.png) and updated [`ic_launcher_foreground.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_foreground.xml#L1-L20) and [`ic_launcher_background.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_background.xml#L1-L10) so the Android app launcher icon renders your exact original `safa-logo.png` artwork.
+  Copied `safa-logo.png` to [`safa_logo.png`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/safa_logo.png) and updated [`ic_launcher_foreground.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_foreground.xml#L1-L20) and [`ic_launcher_background.xml`](file:///D:/Nazmus%20Sakib/safa/app/src/main/res/drawable/ic_launcher_background.xml#L1-L10).
 
 ---
 
@@ -56,18 +62,18 @@
 - **Debug APK**:
   - Path: [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk)
   - Absolute Path: `D:\Nazmus Sakib\safa\app\build\outputs\apk\debug\app-debug.apk`
-  - SHA-256 Checksum: `E2E5F71A8B316CACFE6E8CB0235661657AB63447BB23356186BE920C79B3F6A8`
+  - SHA-256 Checksum: `BAA0BE3B553E48F40DABBBD7E84436620FD8953F530FB4D9D2B426AEA347C0AC`
 - **Release APK**:
   - Path: [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk)
   - Absolute Path: `D:\Nazmus Sakib\safa\app\build\outputs\apk\release\app-release.apk`
-  - SHA-256 Checksum: `BD208BC0D043ACDCE6625AA2A9BE6ADB4A268B5EC007D6AEADD97992414C040A`
+  - SHA-256 Checksum: `93E148EB4CE9E93683FA9D262ABA510C732B669DF58F125F6255913535ABA09E`
 
 ---
 
 ## 5. Physical Device Status Statement
 
 ```text
-PHYSICAL DEVICE VERIFICATION NOT PERFORMED
+UNVERIFIED — Android 16 runtime unavailable
 ```
 (ADB physical device offline in CLI environment).
 
@@ -80,4 +86,4 @@ BLOCKED — NOT READY FOR GO LIVE
 ```
 
 **Acceptance Condition**:
-Per `STOP_GUESSING.md` Section 16, the release status remains `BLOCKED — NOT READY FOR GO LIVE` until the user installs [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk) (`E2E5F71A8B316CACFE6E8CB0235661657AB63447BB23356186BE920C79B3F6A8`) or [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk) (`BD208BC0D043ACDCE6625AA2A9BE6ADB4A268B5EC007D6AEADD97992414C040A`) on their physical Android 16 device and confirms that the app opens and remains running without stopping.
+Per `Investigation.md` Section 19, the release status remains `BLOCKED — NOT READY FOR GO LIVE` until the user installs [`app-debug.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/debug/app-debug.apk) (`BAA0BE3B553E48F40DABBBD7E84436620FD8953F530FB4D9D2B426AEA347C0AC`) or [`app-release.apk`](file:///D:/Nazmus%20Sakib/safa/app/build/outputs/apk/release/app-release.apk) (`93E148EB4CE9E93683FA9D262ABA510C732B669DF58F125F6255913535ABA09E`) on their physical Android 16 device and confirms that tapping the app icon opens and keeps the application running without an immediate crash.

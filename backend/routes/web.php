@@ -54,11 +54,11 @@ Route::get('/favicon.png', function () {
 })->name('branding.favicon.png');
 
 Route::get('/favicon.svg', function () {
-    $path = public_path('safa-logo.png');
+    $path = public_path('favicon.svg');
     if (!file_exists($path)) {
         return response()->json(['status' => 'error', 'message' => 'Favicon asset not found'], 404);
     }
-    return response()->file($path, ['Content-Type' => 'image/png']);
+    return response()->file($path, ['Content-Type' => 'image/svg+xml']);
 })->name('branding.favicon');
 Route::middleware([EnsureNotInstalled::class])->group(function () {
     Route::get('/install', [InstallerController::class, 'index'])->name('install.index');

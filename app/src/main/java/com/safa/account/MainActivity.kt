@@ -43,33 +43,79 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Setup local Room DB reactive layer & API TokenManager
-        val database = AppDatabase.getDatabase(applicationContext, lifecycleScope)
-        val repository = AppRepository(
-            operatorDao           = database.operatorDao(),
-            customerDao           = database.customerDao(),
-            supplierDao           = database.supplierDao(),
-            transactionDao        = database.transactionDao(),
-            supplierDepositDao    = database.supplierDepositDao(),
-            expenseIncomeDao      = database.expenseIncomeDao(),
-            dailyRateDao          = database.dailyRateDao(),
-            walletLedgerDao       = database.walletLedgerDao(),
-            walletBatchDao        = database.walletBatchDao(),
-        )
-        val tokenManager = com.safa.account.data.api.TokenManager(applicationContext)
-        val factory = SafaViewModelFactory(repository, tokenManager)
-
-        // Schedule periodic background sync when internet is connected
-        try {
-            com.safa.account.data.network.AutoSyncWorker.schedulePeriodicSync(applicationContext)
-        } catch (e: Exception) {
-            android.util.Log.e("SafaApp", "Failed to schedule AutoSyncWorker: ${e.message}")
-        }
-
         enableEdgeToEdge()
 
+        var initError: Throwable? = null
+        var factory: SafaViewModelFactory? = null
+
+        try {
+            android.util.Log.i("SafaApp", "STAGE: STARTUP_BEGIN")
+            val database = AppDatabase.getDatabase(applicationContext, lifecycleScope)
+            android.util.Log.i("SafaApp", "STAGE: ROOM_DATABASE_READY")
+            val repository = AppRepository(
+                operatorDao           = database.operatorDao(),
+                customerDao           = database.customerDao(),
+                supplierDao           = database.supplierDao(),
+                transactionDao        = database.transactionDao(),
+                supplierDepositDao    = database.supplierDepositDao(),
+                expenseIncomeDao      = database.expenseIncomeDao(),
+                dailyRateDao          = database.dailyRateDao(),
+                walletLedgerDao       = database.walletLedgerDao(),
+                walletBatchDao        = database.walletBatchDao(),
+            )
+            val tokenManager = com.safa.account.data.api.TokenManager(applicationContext)
+            android.util.Log.i("SafaApp", "STAGE: TOKEN_MANAGER_READY")
+            factory = SafaViewModelFactory(repository, tokenManager)
+
+            try {
+                com.safa.account.data.network.AutoSyncWorker.schedulePeriodicSync(applicationContext)
+                android.util.Log.i("SafaApp", "STAGE: WORK_MANAGER_READY")
+            } catch (e: Exception) {
+                android.util.Log.e("SafaApp", "Failed to schedule AutoSyncWorker: ${e.message}")
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("SafaApp", "FATAL_STARTUP_ERROR: ${t.javaClass.simpleName} - ${t.message}", t)
+            initError = t
+        }
+
         setContent {
-            val viewModel: SafaViewModel by viewModels { factory }
+            val currentInitError = initError
+            val currentFactory = factory
+
+            if (currentInitError != null || currentFactory == null) {
+                MyApplicationTheme(darkTheme = false) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFFFF1F1))
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                text = "⚠️ SAFA Startup Diagnostic Error",
+                                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF991B1B))
+                            )
+                            Text(
+                                text = "An error occurred while initializing application services:\n\n${currentInitError?.javaClass?.simpleName}: ${currentInitError?.message}",
+                                style = TextStyle(fontSize = 14.sp, color = Color(0xFF7F1D1D))
+                            )
+                            Button(
+                                onClick = { this@MainActivity.recreate() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                            ) {
+                                Text("Retry Application Startup", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+                return@setContent
+            }
+
+            val viewModel: SafaViewModel by viewModels { currentFactory }
             
             val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
             val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
