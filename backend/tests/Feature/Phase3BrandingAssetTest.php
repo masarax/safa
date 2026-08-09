@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class Phase3BrandingAssetTest extends TestCase
 {
+    use RefreshDatabase;
+
     /**
      * Test public safa-logo.png file existence and readability.
      */
@@ -61,5 +64,41 @@ class Phase3BrandingAssetTest extends TestCase
     {
         $response = $this->get('/install/update');
         $this->assertTrue(in_array($response->status(), [200, 302]));
+    }
+
+    /**
+     * Test security: uploadLogo rejects invalid base64 image data.
+     */
+    public function test_upload_logo_rejects_php_file_upload()
+    {
+        $apiKey = 'test_api_key_12345';
+        $apiSecret = 'test_api_secret_67890';
+        
+        \App\Models\SafaApiKey::create([
+            'client_name' => 'Test Client',
+            'api_key' => $apiKey,
+            'api_secret' => $apiSecret,
+            'is_active' => true,
+        ]);
+
+        $data = ['logo_base64' => 'data:image/exe;base64,invalid_executable_content'];
+        $body = json_encode($data);
+        $timestamp = time();
+        $nonce = 'nonce_test_12345678';
+        
+        $payload = 'POST/api/upload/logo' . $timestamp . $nonce . $body;
+        $signature = hash_hmac('sha256', $payload, $apiSecret);
+
+        $response = $this->postJson('/api/upload/logo', $data, [
+            'X-SAFA-API-KEY' => $apiKey,
+            'X-SAFA-SIGNATURE' => $signature,
+            'X-SAFA-TIMESTAMP' => $timestamp,
+            'X-SAFA-NONCE' => $nonce,
+        ]);
+
+        $response->assertStatus(400);
+        $response->assertJson([
+            'status' => 'error'
+        ]);
     }
 }

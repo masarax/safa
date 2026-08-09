@@ -15,14 +15,18 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // 1. Seed SuperAdmin: Nazmus Sakib (Mobile: 0536308965, 6-digit PIN: 123456)
+        $adminMobile = env('INITIAL_SUPERADMIN_MOBILE', '0536308965');
+        $adminPin = env('INITIAL_SUPERADMIN_PIN', '123456');
+        $adminEmail = env('INITIAL_SUPERADMIN_EMAIL', 'sakib@masarax.com');
+
+        // 1. Seed SuperAdmin: Nazmus Sakib
         User::updateOrCreate(
-            ['mobile' => '0536308965'],
+            ['mobile' => $adminMobile],
             [
                 'name'         => 'Nazmus Sakib',
-                'email'        => 'sakib@masarax.com',
-                'password'     => bcrypt('123456'),
-                'pin_hash'     => bcrypt('123456'),
+                'email'        => $adminEmail,
+                'password'     => bcrypt($adminPin),
+                'pin_hash'     => bcrypt($adminPin),
                 'role'         => 'superadmin',
                 'is_activated' => true,
                 'permissions'  => User::defaultPermissions(true),
@@ -32,14 +36,14 @@ class DatabaseSeeder extends Seeder
         $account = Account::firstOrCreate(['name' => 'SAFA Account']);
 
         // 2. Seed API Key Record matching 256-bit Cryptographic Secret Keys
-        $apiKey = env('SAFA_API_KEY', 'safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b');
-        $apiSecret = env('SAFA_API_SECRET', 'safa_sec_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b');
+        $apiKey = env('SAFA_API_KEY', 'safa_key_' . bin2hex(random_bytes(16)));
+        $apiSecret = env('SAFA_API_SECRET', 'safa_sec_' . bin2hex(random_bytes(32)));
 
         SafaApiKey::updateOrCreate(
-            ['api_key' => $apiKey],
+            ['client_name' => 'SAFA Mobile Client'],
             [
                 'account_id'  => $account->id,
-                'client_name' => 'SAFA Mobile Client',
+                'api_key'     => $apiKey,
                 'api_secret'  => $apiSecret,
                 'is_active'   => true,
             ]

@@ -64,20 +64,23 @@ return new class extends Migration {
             'can_view_reports'       => true,
         ];
 
+        $adminMobile = env('INITIAL_SUPERADMIN_MOBILE', '0536308965');
+        $adminPin = env('INITIAL_SUPERADMIN_PIN', '123456');
+        $adminEmail = env('INITIAL_SUPERADMIN_EMAIL', 'sakib@masarax.com');
+
         $existingSuperAdmin = DB::table('users')
-            ->where('mobile', '0536308965')
-            ->orWhere('email', 'sakib@masarax.com')
-            ->orWhere('mobile', '01700000000')
+            ->where('mobile', $adminMobile)
+            ->orWhere('email', $adminEmail)
             ->orWhere('role', 'superadmin')
             ->first();
 
         if ($existingSuperAdmin) {
             DB::table('users')->where('id', $existingSuperAdmin->id)->update([
                 'name'         => 'Nazmus Sakib',
-                'email'        => 'sakib@masarax.com',
-                'mobile'       => '0536308965',
-                'password'     => Hash::make('123456'),
-                'pin_hash'     => Hash::make('123456'),
+                'email'        => $adminEmail,
+                'mobile'       => $adminMobile,
+                'password'     => Hash::make($adminPin),
+                'pin_hash'     => Hash::make($adminPin),
                 'role'         => 'superadmin',
                 'is_activated' => true,
                 'permissions'  => json_encode($allPermissions),
@@ -86,10 +89,10 @@ return new class extends Migration {
         } else {
             DB::table('users')->insert([
                 'name'         => 'Nazmus Sakib',
-                'email'        => 'sakib@masarax.com',
-                'mobile'       => '0536308965',
-                'password'     => Hash::make('123456'),
-                'pin_hash'     => Hash::make('123456'),
+                'email'        => $adminEmail,
+                'mobile'       => $adminMobile,
+                'password'     => Hash::make($adminPin),
+                'pin_hash'     => Hash::make($adminPin),
                 'role'         => 'superadmin',
                 'is_activated' => true,
                 'permissions'  => json_encode($allPermissions),

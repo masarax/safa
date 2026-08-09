@@ -2,7 +2,6 @@
 
 # --- Obfuscation ---
 -repackageclasses ''
--flattenpackagehierarchy ''
 -keepattributes Signature,*Annotation*,Exceptions,InnerClasses
 
 # --- Data models (Room entities & API DTOs must not be obfuscated) ---
@@ -54,6 +53,15 @@
 # --- Compose (required for reflection-based tooling) ---
 -keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
+
+# --- Security & Crypto (Google Tink & AndroidX Security) ---
+-keep class androidx.security.crypto.** { *; }
+-dontwarn androidx.security.crypto.**
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn org.checkerframework.**
+-dontwarn javax.annotation.**
 
 # Preserve line numbers for production crash reporting
 -keepattributes SourceFile,LineNumberTable

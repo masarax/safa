@@ -125,9 +125,18 @@ class RemoteConfigController extends Controller
 
         $fileName = null;
 
+        $allowedExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
+
         if ($request->hasFile('logo') || $request->hasFile('image') || $request->hasFile('file')) {
             $file = $request->file('logo') ?? $request->file('image') ?? $request->file('file');
-            $ext = $file->getClientOriginalExtension() ?: 'png';
+            $guessedExt = strtolower($file->guessExtension() ?? '');
+            $rawExt = strtolower($file->getClientOriginalExtension() ?? '');
+
+            $ext = in_array($guessedExt, $allowedExtensions) ? $guessedExt : (in_array($rawExt, $allowedExtensions) ? $rawExt : null);
+            if (!$ext) {
+                return response()->json(['status' => 'error', 'message' => 'Invalid logo file type. Only image files (PNG, JPG, WEBP, SVG) are permitted.'], 400);
+            }
+
             $fileName = 'logo_' . time() . '_' . Str::random(6) . '.' . $ext;
             $file->move($destinationPath, $fileName);
         } elseif ($request->input('logo') || $request->input('image') || $request->input('base64') || $request->input('logo_base64')) {
@@ -135,7 +144,14 @@ class RemoteConfigController extends Controller
             $ext = 'png';
             if (preg_match('/^data:image\/(\w+);base64,/', $base64String, $type)) {
                 $base64String = substr($base64String, strpos($base64String, ',') + 1);
-                $ext = strtolower($type[1]);
+                $detected = strtolower($type[1]);
+                if (!in_array($detected, $allowedExtensions)) {
+                    return response()->json(['status' => 'error', 'message' => 'Invalid image extension in base64 payload.'], 400);
+                }
+                $ext = $detected;
+            }
+            if (!in_array($ext, $allowedExtensions)) {
+                return response()->json(['status' => 'error', 'message' => 'Invalid image format'], 400);
             }
             $imageData = base64_decode($base64String);
             if ($imageData !== false) {
