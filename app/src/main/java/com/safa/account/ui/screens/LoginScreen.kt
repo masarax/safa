@@ -95,7 +95,7 @@ fun LoginScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(id = com.safa.account.R.drawable.ic_launcher_foreground),
+                    painter = painterResource(id = com.safa.account.R.drawable.safa_logo),
                     contentDescription = "SAFA Logo",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit

@@ -362,7 +362,7 @@ fun SafaTopAppBar(
                         )
                     } else {
                         androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(id = R.drawable.safa_logo),
+                            painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
                             contentDescription = "SAFA Logo",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = androidx.compose.ui.layout.ContentScale.Fit

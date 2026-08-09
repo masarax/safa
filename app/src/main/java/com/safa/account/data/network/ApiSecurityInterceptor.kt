@@ -155,10 +155,15 @@ class ApiSecurityInterceptor(
     }
 
     private fun generateHmac(payload: String, secret: String): String {
-        val mac = Mac.getInstance("HmacSHA256")
-        val secretKeySpec = SecretKeySpec(secret.toByteArray(), "HmacSHA256")
-        mac.init(secretKeySpec)
-        val hmacBytes = mac.doFinal(payload.toByteArray())
-        return hmacBytes.joinToString("") { "%02x".format(it) }
+        if (secret.isEmpty()) return ""
+        return try {
+            val mac = Mac.getInstance("HmacSHA256")
+            val secretKeySpec = SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256")
+            mac.init(secretKeySpec)
+            val hmacBytes = mac.doFinal(payload.toByteArray(Charsets.UTF_8))
+            hmacBytes.joinToString("") { "%02x".format(it) }
+        } catch (e: Exception) {
+            ""
+        }
     }
 }

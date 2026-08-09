@@ -537,16 +537,8 @@ class SafaViewModel(
 
     init {
         // Automatically check/load rates for today on startup
-        try {
-            refreshTodayRates()
-        } catch (e: Throwable) {
-            android.util.Log.e("SafaApp", "refreshTodayRates init error: ${e.message}")
-        }
-        try {
-            fetchRemoteConfig()
-        } catch (e: Throwable) {
-            android.util.Log.e("SafaApp", "fetchRemoteConfig init error: ${e.message}")
-        }
+        refreshTodayRates()
+        fetchRemoteConfig()
     }
 
     fun refreshTodayRates() {
