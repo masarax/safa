@@ -8,19 +8,10 @@ import com.safa.account.BuildConfig
 import com.safa.account.data.network.DeviceSecurityHelper
 
 class TokenManager(private val context: Context) {
-
     private val legacyPrefs = context.getSharedPreferences("safa_secure_prefs", Context.MODE_PRIVATE)
-    private val prefs = EncryptedSharedPreferences.create(
-        context,
-        "safa_secure_prefs_v2",
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private val prefs = EncryptedSharedPreferences.create(context, "safa_secure_prefs_v2", MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(), EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
 
-    init {
-        migrateLegacyPreferences()
-    }
+    init { migrateLegacyPreferences() }
 
     companion object {
         private const val KEY_ACCESS_TOKEN = "auth_token"
@@ -33,6 +24,9 @@ class TokenManager(private val context: Context) {
         private const val KEY_API_SECRET = "api_secret"
         private const val KEY_LAST_MOBILE = "last_mobile"
         private const val KEY_ACTIVE_ACCOUNT_ID = "active_account_id"
+        private const val KEY_BIOMETRIC_ENABLED = "biometric_quick_unlock_enabled"
+        private const val KEY_BIOMETRIC_USER_ID = "biometric_quick_unlock_user_id"
+        private const val KEY_BIOMETRIC_MOBILE = "biometric_quick_unlock_mobile"
         private const val KEY_MIGRATION_COMPLETE = "secure_prefs_migration_complete"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
         private const val PRODUCTION_API_KEY = "safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b"
@@ -46,20 +40,12 @@ class TokenManager(private val context: Context) {
         if (legacyPrefs.all.isNotEmpty()) {
             prefs.edit {
                 legacyPrefs.all.forEach { (key, value) ->
-                    when (value) {
-                        is String -> putString(key, value)
-                        is Boolean -> putBoolean(key, value)
-                        is Int -> putInt(key, value)
-                        is Long -> putLong(key, value)
-                        is Float -> putFloat(key, value)
-                    }
+                    when (value) { is String -> putString(key, value); is Boolean -> putBoolean(key, value); is Int -> putInt(key, value); is Long -> putLong(key, value); is Float -> putFloat(key, value) }
                 }
                 putBoolean(KEY_MIGRATION_COMPLETE, true)
             }
             legacyPrefs.edit { clear() }
-        } else {
-            prefs.edit { putBoolean(KEY_MIGRATION_COMPLETE, true) }
-        }
+        } else prefs.edit { putBoolean(KEY_MIGRATION_COMPLETE, true) }
     }
 
     fun getContext(): Context = context
@@ -77,40 +63,26 @@ class TokenManager(private val context: Context) {
     fun saveRefreshToken(token: String?) = prefs.edit { putString(KEY_REFRESH_TOKEN, token) }
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
     fun saveDeviceToken(token: String?) = prefs.edit { putString(KEY_DEVICE_TOKEN, token) }
-    fun getDeviceToken(): String {
-        var token = prefs.getString(KEY_DEVICE_TOKEN, null)
-        if (token.isNullOrBlank()) {
-            token = DeviceSecurityHelper.getOrCreateDeviceUuid(context)
-            saveDeviceToken(token)
-        }
-        return token
-    }
+    fun getDeviceToken(): String { var token = prefs.getString(KEY_DEVICE_TOKEN, null); if (token.isNullOrBlank()) { token = DeviceSecurityHelper.getOrCreateDeviceUuid(context); saveDeviceToken(token) }; return token }
     fun saveSessionToken(token: String?) = prefs.edit { putString(KEY_SESSION_TOKEN, token) }
     fun getSessionToken(): String? = prefs.getString(KEY_SESSION_TOKEN, null)
     fun saveFingerprintToken(token: String?) = prefs.edit { putString(KEY_FINGERPRINT_TOKEN, token) }
-    fun getFingerprintToken(): String {
-        var token = prefs.getString(KEY_FINGERPRINT_TOKEN, null)
-        if (token.isNullOrBlank()) {
-            token = DeviceSecurityHelper.getHardwareFingerprintHash(context)
-            saveFingerprintToken(token)
-        }
-        return token
-    }
-    fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) = prefs.edit {
-        putString(KEY_ACCESS_TOKEN, accessToken); putString(KEY_REFRESH_TOKEN, refreshToken); putString(KEY_DEVICE_TOKEN, deviceToken); putString(KEY_SESSION_TOKEN, sessionToken); putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
-    }
-    fun clearAllTokens() = prefs.edit {
-        remove(KEY_ACCESS_TOKEN); remove(KEY_REFRESH_TOKEN); remove(KEY_DEVICE_TOKEN); remove(KEY_SESSION_TOKEN); remove(KEY_FINGERPRINT_TOKEN); remove(KEY_ACTIVE_ACCOUNT_ID)
-    }
+    fun getFingerprintToken(): String { var token = prefs.getString(KEY_FINGERPRINT_TOKEN, null); if (token.isNullOrBlank()) { token = DeviceSecurityHelper.getHardwareFingerprintHash(context); saveFingerprintToken(token) }; return token }
+    fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, accessToken); putString(KEY_REFRESH_TOKEN, refreshToken); putString(KEY_DEVICE_TOKEN, deviceToken); putString(KEY_SESSION_TOKEN, sessionToken); putString(KEY_FINGERPRINT_TOKEN, fingerprintToken) }
+    fun clearAllTokens() = prefs.edit { remove(KEY_ACCESS_TOKEN); remove(KEY_REFRESH_TOKEN); remove(KEY_DEVICE_TOKEN); remove(KEY_SESSION_TOKEN); remove(KEY_FINGERPRINT_TOKEN); remove(KEY_ACTIVE_ACCOUNT_ID); remove(KEY_BIOMETRIC_ENABLED); remove(KEY_BIOMETRIC_USER_ID); remove(KEY_BIOMETRIC_MOBILE) }
+
+    /** Quick unlock is local only: it never creates a server login or new session. */
+    fun enableBiometricQuickUnlock(userId: Int, mobile: String) = prefs.edit { putBoolean(KEY_BIOMETRIC_ENABLED, true); putInt(KEY_BIOMETRIC_USER_ID, userId); putString(KEY_BIOMETRIC_MOBILE, mobile.trim()) }
+    fun disableBiometricQuickUnlock() = prefs.edit { remove(KEY_BIOMETRIC_ENABLED); remove(KEY_BIOMETRIC_USER_ID); remove(KEY_BIOMETRIC_MOBILE) }
+    fun isBiometricQuickUnlockEnabled(): Boolean = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
+    fun getBiometricQuickUnlockUserId(): Int? = prefs.getInt(KEY_BIOMETRIC_USER_ID, 0).takeIf { it > 0 }
+    fun getBiometricQuickUnlockMobile(): String = prefs.getString(KEY_BIOMETRIC_MOBILE, "") ?: ""
+    fun hasValidLocalSessionForQuickUnlock(): Boolean = isBiometricQuickUnlockEnabled() && !getAccessToken().isNullOrBlank() && !getSessionToken().isNullOrBlank() && getBiometricQuickUnlockUserId() != null
+
     fun saveActiveAccountId(accountId: Int?) = prefs.edit { if (accountId == null || accountId <= 0) remove(KEY_ACTIVE_ACCOUNT_ID) else putInt(KEY_ACTIVE_ACCOUNT_ID, accountId) }
     fun getActiveAccountId(): Int? = prefs.getInt(KEY_ACTIVE_ACCOUNT_ID, 0).takeIf { it > 0 }
     fun saveBaseUrl(url: String) = prefs.edit { putString(KEY_BASE_URL, url.trim().removeSuffix("/") + "/") }
-    fun getBaseUrl(): String {
-        val stored = prefs.getString(KEY_BASE_URL, null)?.trim().orEmpty()
-        if (stored.isBlank()) return DEFAULT_URL
-        val normalized = if (stored.endsWith("/")) stored else "$stored/"
-        return if (normalized.startsWith("https://safa.masarax.com/api/", ignoreCase = true)) normalized else DEFAULT_URL
-    }
+    fun getBaseUrl(): String { val stored = prefs.getString(KEY_BASE_URL, null)?.trim().orEmpty(); if (stored.isBlank()) return DEFAULT_URL; val normalized = if (stored.endsWith("/")) stored else "$stored/"; return if (normalized.startsWith("https://safa.masarax.com/api/", true)) normalized else DEFAULT_URL }
     fun saveLanguage(lang: String) = prefs.edit { putString("app_lang", lang) }
     fun getLanguage(): String = prefs.getString("app_lang", "BN") ?: "BN"
     fun saveDarkMode(isDark: Boolean) = prefs.edit { putBoolean("app_dark_mode", isDark) }
@@ -129,7 +101,7 @@ class TokenManager(private val context: Context) {
     fun getAppVersion(): String = prefs.getString("app_version", "1.0") ?: "1.0"
     fun saveLocalCurrency(curr: String) = prefs.edit { putString("local_curr", curr) }
     fun getLocalCurrency(): String = prefs.getString("local_curr", "BDT") ?: "BDT"
-    fun saveForeignCurrency(curr: String) = prefs.edit { putString("foreign_curr", curr) }
+    fun saveForeignCurrency(curr: String) = prefs.edit { putString("foreign_curr", curr) ?: "SAR" }
     fun getForeignCurrency(): String = prefs.getString("foreign_curr", "SAR") ?: "SAR"
     fun saveRateFeatureEnabled(enabled: Boolean) = prefs.edit { putBoolean("rate_feature", enabled) }
     fun getRateFeatureEnabled(): Boolean = prefs.getBoolean("rate_feature", true)
