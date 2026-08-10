@@ -22,30 +22,29 @@ class AutoSyncWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        return@withContext try {
+        if (!SyncTrigger.begin()) return@withContext Result.success()
+        try {
             val db = AppDatabase.getDatabase(applicationContext, GlobalScope)
             val repository = AppRepository(
-                operatorDao           = db.operatorDao(),
-                customerDao           = db.customerDao(),
-                supplierDao           = db.supplierDao(),
-                transactionDao        = db.transactionDao(),
-                supplierDepositDao    = db.supplierDepositDao(),
-                expenseIncomeDao      = db.expenseIncomeDao(),
-                dailyRateDao          = db.dailyRateDao(),
-                walletLedgerDao       = db.walletLedgerDao(),
-                walletBatchDao        = db.walletBatchDao(),
+                operatorDao = db.operatorDao(),
+                customerDao = db.customerDao(),
+                supplierDao = db.supplierDao(),
+                transactionDao = db.transactionDao(),
+                supplierDepositDao = db.supplierDepositDao(),
+                expenseIncomeDao = db.expenseIncomeDao(),
+                dailyRateDao = db.dailyRateDao(),
+                walletLedgerDao = db.walletLedgerDao(),
+                walletBatchDao = db.walletBatchDao(),
+                syncOutboxDao = db.syncOutboxDao(),
             )
             val tokenManager = TokenManager(applicationContext)
             val syncManager = SyncManager(repository, tokenManager)
-
             val res = syncManager.syncAll()
-            if (res.isSuccess) {
-                Result.success()
-            } else {
-                Result.retry()
-            }
-        } catch (e: Exception) {
+            if (res.isSuccess) Result.success() else Result.retry()
+        } catch (_: Exception) {
             Result.retry()
+        } finally {
+            SyncTrigger.end()
         }
     }
 
