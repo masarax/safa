@@ -7,25 +7,27 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
-     * Register the production API credentials in the database so the
-     * HMAC middleware uses the same credentials as the Laravel environment.
-     *
-     * Secrets are intentionally read from .env and are never hard-coded here.
+     * Register the production API credentials in the database so the HMAC
+     * middleware uses the same credentials as the Laravel environment.
      */
     public function up(): void
     {
         $apiKey = trim((string) env('SAFA_API_KEY', ''));
         $apiSecret = trim((string) env('SAFA_API_SECRET', ''));
 
+        // Tests must be reproducible without requiring real production secrets.
         if ($apiKey === '' || $apiSecret === '') {
-            throw new RuntimeException(
-                'SAFA_API_KEY and SAFA_API_SECRET must be configured in the backend .env before running migrations.'
-            );
+            if (app()->environment('testing')) {
+                $apiKey = 'safa_testing_key';
+                $apiSecret = 'safa_testing_secret';
+            } else {
+                throw new RuntimeException(
+                    'SAFA_API_KEY and SAFA_API_SECRET must be configured in the backend .env before running migrations.'
+                );
+            }
         }
 
-        $account = Account::firstOrCreate(
-            ['name' => 'SAFA Account']
-        );
+        $account = Account::firstOrCreate(['name' => 'SAFA Account']);
 
         DB::table('safa_api_keys')->updateOrInsert(
             ['client_name' => 'SAFA Mobile Client'],
@@ -39,7 +41,6 @@ return new class extends Migration
             ]
         );
 
-        // Ensure there is never another active record using this API key.
         DB::table('safa_api_keys')
             ->where('api_key', $apiKey)
             ->where('client_name', '!=', 'SAFA Mobile Client')
@@ -52,6 +53,9 @@ return new class extends Migration
     public function down(): void
     {
         $apiKey = trim((string) env('SAFA_API_KEY', ''));
+        if ($apiKey === '' && app()->environment('testing')) {
+            $apiKey = 'safa_testing_key';
+        }
 
         if ($apiKey !== '') {
             DB::table('safa_api_keys')
