@@ -23,13 +23,13 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
     }
 
     suspend fun checkServerHealth():Result<String> = withContext(Dispatchers.IO){runCatching{
-        // Health is deliberately checked through a public endpoint. The login
-        // screen has no authenticated session yet, so pre-auth connectivity must
-        // not depend on HMAC credentials or a database API-key record.
-        val r=getApiService().checkServerHealth()
-        if(!r.isSuccessful) error("Server returned ${r.code()}")
-        val status=r.body()?.get("status")?.toString().orEmpty()
-        if(status != "ok") error("Server health check failed")
+        // Liveness must not depend on API credentials, database records, JWTs,
+        // route cache, sessions, or Laravel bootstrapping. The standalone
+        // endpoint is deployed alongside the Laravel entry point.
+        val r=RetrofitClient.getHealthApiService(tokenManager.getBaseUrl()).checkServerHealth()
+        if(!r.isSuccessful) error("Health endpoint returned HTTP ${r.code()}")
+        val status=r.body()?.get("status")?.toString()?.trim().orEmpty()
+        if(status != "ok") error("Health endpoint returned an invalid status")
         "Server Connected Successfully (${tokenManager.getBaseUrl()})"
     }}
 
