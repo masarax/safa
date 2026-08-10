@@ -12,19 +12,24 @@ class DatabaseUpdateController extends Controller
 {
     /**
      * Return migrations that are not recorded as executed.
-     * Existing legacy schemas are registered only when their required contract
-     * is already complete, so an update never destroys existing business data.
+     * A completely fresh database must be treated as needing every migration.
+     * Database/update errors must never be converted into an empty list,
+     * otherwise the application would continue into DB-dependent routes and
+     * produce a generic 500 page before the update screen can be shown.
      */
     public static function pendingMigrations(): array
     {
-        try {
-            $files = glob(database_path('migrations/*.php')) ?: [];
-            if (!$files) {
-                return [];
-            }
+        $files = glob(database_path('migrations/*.php')) ?: [];
+        $migrationNames = array_map(fn ($file) => basename($file, '.php'), $files);
 
+        if (!$files) {
+            return [];
+        }
+
+        try {
             if (!Schema::hasTable('migrations')) {
-                return array_map(fn ($file) => basename($file, '.php'), $files);
+                // Fresh database: nothing has been executed yet.
+                return $migrationNames;
             }
 
             self::healLegacyMigrationRecords($files);
@@ -32,12 +37,15 @@ class DatabaseUpdateController extends Controller
             $ran = array_flip($ran);
 
             return array_values(array_filter(
-                array_map(fn ($file) => basename($file, '.php'), $files),
+                $migrationNames,
                 fn ($name) => !isset($ran[$name])
             ));
         } catch (\Throwable $e) {
             report($e);
-            return [];
+
+            // Fail closed for the installer: if the migration state cannot be
+            // read, show the update screen instead of executing the normal app.
+            return $migrationNames;
         }
     }
 
