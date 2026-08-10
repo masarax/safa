@@ -19,6 +19,7 @@ use App\Http\Middleware\RequireBusinessPermission;
 use App\Http\Middleware\RequireGraphQLPermission;
 use App\Http\Middleware\ResolveGraphQLAccountContext;
 use App\Http\Middleware\RequireSuperAdmin;
+use App\Http\Middleware\ValidateLogoUpload;
 
 Route::prefix('auth')->group(function () {
     Route::get('/health', function () {
@@ -120,6 +121,6 @@ Route::middleware([
 
     Route::middleware([RequireSuperAdmin::class])->group(function () {
         Route::post('/config/update', [RemoteConfigController::class, 'updateConfig']);
-        Route::post('/upload/logo', [RemoteConfigController::class, 'uploadLogo']);
+        Route::post('/upload/logo', [ValidateLogoUpload::class, RequireSuperAdmin::class,]);
     });
 });
