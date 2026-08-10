@@ -9,7 +9,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Dedicated mobile authentication endpoint.
@@ -42,12 +41,9 @@ class MobileLoginController extends Controller
             return response()->json(['status' => 'error', 'message' => 'This account is inactive. Please contact an administrator.'], 403);
         }
 
-        $hashes = array_filter([
-            $user->pin_hash,
-            $user->password,
-        ]);
-
+        $hashes = array_filter([$user->pin_hash, $user->password]);
         $pinValid = false;
+
         foreach ($hashes as $hash) {
             try {
                 if (Hash::check($pin, $hash)) {
