@@ -119,8 +119,8 @@ Route::middleware([
     Route::put('/expenses-incomes/{id}', [RemoteBusinessController::class, 'updateExpenseIncome']);
     Route::delete('/expenses-incomes/{id}', [RemoteBusinessController::class, 'destroyExpenseIncome']);
 
-    Route::middleware([RequireSuperAdmin::class])->group(function () {
-        Route::post('/config/update', [RemoteConfigController::class, 'updateConfig']);
-        Route::post('/upload/logo', [ValidateLogoUpload::class, RequireSuperAdmin::class,]);
-    });
+    Route::post('/config/update', [RemoteConfigController::class, 'updateConfig'])
+        ->middleware(RequireSuperAdmin::class);
+    Route::post('/upload/logo', [RemoteConfigController::class, 'uploadLogo'])
+        ->middleware([RequireSuperAdmin::class, ValidateLogoUpload::class]);
 });
