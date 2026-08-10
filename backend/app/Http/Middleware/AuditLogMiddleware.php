@@ -13,22 +13,50 @@ class AuditLogMiddleware
     {
         $response = $next($request);
 
-        if (in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
+        if (in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
             try {
-                // Strip sensitive fields before persisting to audit log
-                $safePayload = collect($request->all())
-                    ->except(['password', 'api_secret', 'api_key', 'token', 'pin'])
-                    ->toArray();
+                $sensitive = [
+                    'password',
+                    'pin',
+                    'api_secret',
+                    'api_key',
+                    'token',
+                    'access_token',
+                    'refresh_token',
+                    'device_token',
+                    'session_token',
+                    'fingerprint_token',
+                    'fingerprint_hash',
+                    'authorization',
+                ];
+
+                $redact = function ($value) use (&$redact, $sensitive) {
+                    if (!is_array($value)) {
+                        return $value;
+                    }
+
+                    $result = [];
+                    foreach ($value as $key => $item) {
+                        $normalized = strtolower((string) $key);
+                        if (in_array($normalized, $sensitive, true)) {
+                            $result[$key] = '[REDACTED]';
+                        } else {
+                            $result[$key] = is_array($item) ? $redact($item) : $item;
+                        }
+                    }
+                    return $result;
+                };
 
                 AuditLog::create([
-                    'user_id'    => Auth::id() ?? 0,
-                    'action'     => $request->method(),
-                    'endpoint'   => $request->path(),
-                    'payload'    => $safePayload,
+                    'user_id' => Auth::id(),
+                    'action' => $request->method(),
+                    'endpoint' => $request->path(),
+                    'payload' => $redact($request->all()),
                     'ip_address' => $request->ip(),
                 ]);
-            } catch (\Exception $e) {
-                // Fail silently so audit never breaks the response
+            } catch (\Throwable $e) {
+                // Auditing must never break a successful business request.
+                report($e);
             }
         }
 
