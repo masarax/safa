@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.safa.account.BuildConfig
 import com.safa.account.data.network.DeviceSecurityHelper
 
 class TokenManager(private val context: Context) {
@@ -18,9 +17,7 @@ class TokenManager(private val context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    init {
-        migrateLegacyPreferences()
-    }
+    init { migrateLegacyPreferences() }
 
     companion object {
         private const val KEY_ACCESS_TOKEN = "auth_token"
@@ -30,15 +27,11 @@ class TokenManager(private val context: Context) {
         private const val KEY_FINGERPRINT_TOKEN = "fingerprint_token"
         private const val KEY_BASE_URL = "base_url"
         private const val KEY_API_KEY = "api_key"
-        private const val KEY_API_SECRET = "api_secret"
         private const val KEY_LAST_MOBILE = "last_mobile"
         private const val KEY_ACTIVE_ACCOUNT_ID = "active_account_id"
         private const val KEY_MIGRATION_COMPLETE = "secure_prefs_migration_complete"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
-        private const val PRODUCTION_API_KEY = "safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b"
-        private const val PRODUCTION_API_SECRET = "safa_sec_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
-        @Suppress("unused") private val DEFAULT_API_KEY: String = BuildConfig.SAFA_API_KEY
-        @Suppress("unused") private val DEFAULT_API_SECRET: String = BuildConfig.SAFA_API_SECRET
+        private const val PUBLIC_API_KEY = "safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b"
     }
 
     private fun migrateLegacyPreferences() {
@@ -65,10 +58,15 @@ class TokenManager(private val context: Context) {
     fun getContext(): Context = context
     fun saveLastMobile(mobile: String) = prefs.edit { putString(KEY_LAST_MOBILE, mobile) }
     fun getLastMobile(): String = prefs.getString(KEY_LAST_MOBILE, "") ?: ""
+
+    /** Public client identifier. It is not a secret and is safe to ship in the APK. */
     fun saveApiKey(key: String) = prefs.edit { putString(KEY_API_KEY, key) }
-    fun getApiKey(): String = PRODUCTION_API_KEY
-    fun saveApiSecret(secret: String) = prefs.edit { putString(KEY_API_SECRET, secret) }
-    fun getApiSecret(): String = PRODUCTION_API_SECRET
+    fun getApiKey(): String = prefs.getString(KEY_API_KEY, null)?.takeIf { it.isNotBlank() } ?: PUBLIC_API_KEY
+
+    /** Kept as a source-compatible no-op for old call sites; server secrets never live in the APK. */
+    fun saveApiSecret(@Suppress("UNUSED_PARAMETER") secret: String) = Unit
+    fun getApiSecret(): String = ""
+
     fun saveAccessToken(token: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
     fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
     fun saveToken(token: String) = saveAccessToken(token)
@@ -97,7 +95,11 @@ class TokenManager(private val context: Context) {
         return token
     }
     fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) = prefs.edit {
-        putString(KEY_ACCESS_TOKEN, accessToken); putString(KEY_REFRESH_TOKEN, refreshToken); putString(KEY_DEVICE_TOKEN, deviceToken); putString(KEY_SESSION_TOKEN, sessionToken); putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
+        putString(KEY_ACCESS_TOKEN, accessToken)
+        putString(KEY_REFRESH_TOKEN, refreshToken)
+        putString(KEY_DEVICE_TOKEN, deviceToken)
+        putString(KEY_SESSION_TOKEN, sessionToken)
+        putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
     }
     fun clearAllTokens() = prefs.edit {
         remove(KEY_ACCESS_TOKEN); remove(KEY_REFRESH_TOKEN); remove(KEY_DEVICE_TOKEN); remove(KEY_SESSION_TOKEN); remove(KEY_FINGERPRINT_TOKEN); remove(KEY_ACTIVE_ACCOUNT_ID)
