@@ -30,13 +30,7 @@ class ProvisionSuperAdmin extends Command
             return self::FAILURE;
         }
 
-        $user = User::where('mobile', $mobile)->orWhere('email', $email)->first();
-        $now = now();
-
-        if (!$user) {
-            $user = new User();
-        }
-
+        $user = User::where('mobile', $mobile)->orWhere('email', $email)->first() ?? new User();
         $user->name = $name;
         $user->mobile = $mobile;
         $user->email = $email;
@@ -55,8 +49,6 @@ class ProvisionSuperAdmin extends Command
             $account->owner_user_id = $user->id;
             $account->save();
         }
-
-        $user->ownedAccountShares()->delete();
 
         $this->info('SAFA SuperAdmin provisioned successfully.');
         $this->line('User ID: ' . $user->id);
