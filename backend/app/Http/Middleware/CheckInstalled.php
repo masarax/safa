@@ -9,13 +9,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckInstalled
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param Closure(Request): (Response) $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
+        // The migration/update endpoints must remain usable when the database
+        // is completely empty. They must never depend on the sessions table.
+        if ($request->is('install/update*') || $request->is('install*')) {
+            return $next($request);
+        }
+
         $isInstalled = file_exists(storage_path('installed'))
             || env('APP_INSTALLED') == true
             || env('APP_INSTALLED') === 'true';
@@ -28,13 +29,11 @@ class CheckInstalled
                 ], 503);
             }
 
-            if (!$request->expectsJson() && !$request->is('install*')) {
+            if (!$request->expectsJson()) {
                 return redirect('/install');
             }
         } else {
-            // Never call the old InstallerController::getPendingMigrations() helper.
-            // DatabaseUpdateController owns the current migration detection/healing logic.
-            if (!$request->is('install/update*')) {
+            try {
                 $pending = DatabaseUpdateController::pendingMigrations();
 
                 if (!empty($pending)) {
@@ -50,6 +49,10 @@ class CheckInstalled
                         return redirect()->route('install.update-view');
                     }
                 }
+            } catch (\Throwable $e) {
+                report($e);
+                // Never block the migration/installer flow because migration
+                // inspection itself encountered a database problem.
             }
         }
 
