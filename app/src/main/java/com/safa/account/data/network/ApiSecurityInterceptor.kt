@@ -12,9 +12,10 @@ import java.util.concurrent.TimeUnit
 /**
  * Adds the public SAFA API client identifier and authenticated session headers.
  *
- * The Android APK is an untrusted client: it must never contain a server secret.
- * Request authenticity after login comes from the short-lived access token and
- * active server-side session, while the API key is only a public client id.
+ * An Android APK is an untrusted client, so it must never contain a server-side
+ * secret. The API key is only a public client id. Confidentiality and
+ * authorization come from TLS, user credentials, short-lived JWTs and active
+ * server-side sessions.
  */
 class ApiSecurityInterceptor(
     private val apiKey: String,
@@ -57,13 +58,19 @@ class ApiSecurityInterceptor(
             .header("X-SAFA-API-KEY", apiKey)
             .header("X-SAFA-CLIENT", "android")
 
+        // Device identity is safe to send during login and is required for
+        // server-side device binding. Credentials/tokens remain excluded until
+        // the login response has successfully issued them.
+        tokenManager?.let { tm ->
+            tm.getDeviceToken().takeIf { it.isNotBlank() }?.let { builder.header("X-SAFA-DEVICE-TOKEN", it) }
+            tm.getFingerprintToken().takeIf { it.isNotBlank() }?.let { builder.header("X-SAFA-FINGERPRINT-TOKEN", it) }
+        }
+
         if (includeAuthTokens) {
             tokenManager?.let { tm ->
                 tm.getAccessToken()?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
                 tm.getRefreshToken()?.takeIf { it.isNotBlank() }?.let { builder.header("X-SAFA-REFRESH-TOKEN", it) }
-                tm.getDeviceToken().takeIf { it.isNotBlank() }?.let { builder.header("X-SAFA-DEVICE-TOKEN", it) }
                 tm.getSessionToken()?.takeIf { it.isNotBlank() }?.let { builder.header("X-SAFA-SESSION-TOKEN", it) }
-                tm.getFingerprintToken().takeIf { it.isNotBlank() }?.let { builder.header("X-SAFA-FINGERPRINT-TOKEN", it) }
                 tm.getActiveAccountId()?.let { builder.header("X-SAFA-ACCOUNT-ID", it.toString()) }
             }
         }
