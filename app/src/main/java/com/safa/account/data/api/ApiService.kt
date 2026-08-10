@@ -37,15 +37,14 @@ interface ApiService {
     @GET("wallet-batches") suspend fun getWalletBatches(): Response<Map<String, Any?>>
     @POST("wallet-batches") suspend fun createWalletBatch(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("wallet-batches/{id}") suspend fun updateWalletBatch(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
-    @DELETE("wallet-batches/{id}") suspend fun deleteWalletBatchApi(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
+    @DELETE("wallet-batches/{id}") suspend fun deleteWalletBatch(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
     @GET("expenses-incomes") suspend fun getExpensesIncomes(): Response<Map<String, Any?>>
     @POST("expenses-incomes") suspend fun createExpenseIncome(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("expenses-incomes/{id}") suspend fun updateExpenseIncome(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("expenses-incomes/{id}") suspend fun deleteExpenseIncome(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
-    // This method is used only with RetrofitClient.getHealthApiService().
-    // That client has no HMAC/JWT/session interceptor.
+    // Used only with RetrofitClient.getHealthApiService(); no HMAC/JWT/session headers.
     @GET("health.php") suspend fun checkServerHealth(): Response<Map<String, Any>>
 
     @GET("config/remote") suspend fun getRemoteConfig(): Response<Map<String, Any>>
