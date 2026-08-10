@@ -3,12 +3,13 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 return new class extends Migration {
     /**
      * Run the migrations.
+     *
+     * This migration is schema-only. Initial users must be provisioned by
+     * DatabaseSeeder and must never be created as a side effect of a migration.
      */
     public function up(): void
     {
@@ -43,62 +44,6 @@ return new class extends Migration {
                 $table->json('permissions')->nullable();
                 $table->timestamps();
             });
-        }
-
-        // Seed initial SuperAdmin user: Nazmus Sakib (Mobile: 0536308965, 6-digit PIN: 123456)
-        $allPermissions = [
-            'can_view_customers'     => true,
-            'can_add_customers'      => true,
-            'can_edit_customers'     => true,
-            'can_delete_customers'   => true,
-            'can_view_suppliers'     => true,
-            'can_add_suppliers'      => true,
-            'can_edit_suppliers'     => true,
-            'can_delete_suppliers'   => true,
-            'can_view_transactions'  => true,
-            'can_add_transactions'   => true,
-            'can_edit_transactions'  => true,
-            'can_delete_transactions' => true,
-            'can_manage_wallet'      => true,
-            'can_manage_expenses'    => true,
-            'can_view_reports'       => true,
-        ];
-
-        $adminMobile = env('INITIAL_SUPERADMIN_MOBILE', '0536308965');
-        $adminPin = env('INITIAL_SUPERADMIN_PIN', '123456');
-        $adminEmail = env('INITIAL_SUPERADMIN_EMAIL', 'sakib@masarax.com');
-
-        $existingSuperAdmin = DB::table('users')
-            ->where('mobile', $adminMobile)
-            ->orWhere('email', $adminEmail)
-            ->orWhere('role', 'superadmin')
-            ->first();
-
-        if ($existingSuperAdmin) {
-            DB::table('users')->where('id', $existingSuperAdmin->id)->update([
-                'name'         => 'Nazmus Sakib',
-                'email'        => $adminEmail,
-                'mobile'       => $adminMobile,
-                'password'     => Hash::make($adminPin),
-                'pin_hash'     => Hash::make($adminPin),
-                'role'         => 'superadmin',
-                'is_activated' => true,
-                'permissions'  => json_encode($allPermissions),
-                'updated_at'   => now(),
-            ]);
-        } else {
-            DB::table('users')->insert([
-                'name'         => 'Nazmus Sakib',
-                'email'        => $adminEmail,
-                'mobile'       => $adminMobile,
-                'password'     => Hash::make($adminPin),
-                'pin_hash'     => Hash::make($adminPin),
-                'role'         => 'superadmin',
-                'is_activated' => true,
-                'permissions'  => json_encode($allPermissions),
-                'created_at'   => now(),
-                'updated_at'   => now(),
-            ]);
         }
     }
 
