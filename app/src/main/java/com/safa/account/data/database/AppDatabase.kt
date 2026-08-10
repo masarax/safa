@@ -4,10 +4,12 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.InvalidationTracker
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.safa.account.data.dao.*
 import com.safa.account.data.model.*
+import com.safa.account.data.network.SyncTrigger
 import kotlinx.coroutines.CoroutineScope
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
@@ -17,27 +19,21 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("ALTER TABLE customers ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE customers ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE customers ADD COLUMN syncError TEXT DEFAULT NULL")
-
         db.execSQL("ALTER TABLE suppliers ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE suppliers ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE suppliers ADD COLUMN syncError TEXT DEFAULT NULL")
-
         db.execSQL("ALTER TABLE transactions ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE transactions ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE transactions ADD COLUMN syncError TEXT DEFAULT NULL")
-
         db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN syncError TEXT DEFAULT NULL")
-
         db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN syncError TEXT DEFAULT NULL")
-
         db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN syncError TEXT DEFAULT NULL")
-
         db.execSQL("ALTER TABLE wallet_batches ADD COLUMN serverId INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE wallet_batches ADD COLUMN syncStatus INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE wallet_batches ADD COLUMN syncError TEXT DEFAULT NULL")
@@ -48,22 +44,16 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE customers ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE customers ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
-
         db.execSQL("ALTER TABLE suppliers ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE suppliers ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
-
         db.execSQL("ALTER TABLE transactions ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE transactions ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
-
         db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE supplier_deposits ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
-
         db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE expenses_incomes ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
-
         db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE wallet_ledgers ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
-
         db.execSQL("ALTER TABLE wallet_batches ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE wallet_batches ADD COLUMN lastSyncAttemptAt INTEGER DEFAULT NULL")
     }
@@ -108,7 +98,6 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
-
     abstract fun operatorDao(): OperatorDao
     abstract fun customerDao(): CustomerDao
     abstract fun supplierDao(): SupplierDao
@@ -122,29 +111,48 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
+        private var observerRegistered = false
 
         fun getDatabase(context: Context, @Suppress("UNUSED_PARAMETER") scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                android.util.Log.i("SafaApp", "STARTUP_050_BEFORE_KEYSTORE")
-                val passphrase = KeyStoreHelper.getOrGenerateDbPassphrase(context.applicationContext)
-                android.util.Log.i("SafaApp", "STARTUP_060_AFTER_KEYSTORE")
+                INSTANCE ?: run {
+                    android.util.Log.i("SafaApp", "STARTUP_050_BEFORE_KEYSTORE")
+                    val passphrase = KeyStoreHelper.getOrGenerateDbPassphrase(context.applicationContext)
+                    android.util.Log.i("SafaApp", "STARTUP_060_AFTER_KEYSTORE")
+                    SQLiteDatabase.loadLibs(context.applicationContext)
+                    android.util.Log.i("SafaApp", "STARTUP_080_AFTER_SQLCIPHER")
+                    val factory = SupportFactory(passphrase)
+                    val database = Room.databaseBuilder(
+                        context.applicationContext,
+                        AppDatabase::class.java,
+                        "safa_encrypted_db"
+                    )
+                        .openHelperFactory(factory)
+                        .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                        .build()
 
-                android.util.Log.i("SafaApp", "STARTUP_070_BEFORE_SQLCIPHER")
-                SQLiteDatabase.loadLibs(context.applicationContext)
-                android.util.Log.i("SafaApp", "STARTUP_080_AFTER_SQLCIPHER")
-
-                android.util.Log.i("SafaApp", "STARTUP_090_BEFORE_ROOM")
-                val factory = SupportFactory(passphrase)
-
-                Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "safa_encrypted_db"
-                )
-                    .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
-                    .build()
-                    .also { INSTANCE = it }
+                    INSTANCE = database
+                    if (!observerRegistered) {
+                        observerRegistered = true
+                        database.invalidationTracker.addObserver(object : InvalidationTracker.Observer(
+                            "customers",
+                            "suppliers",
+                            "transactions",
+                            "supplier_deposits",
+                            "expenses_incomes",
+                            "wallet_ledgers",
+                            "wallet_batches",
+                            "sync_outbox"
+                        ) {
+                            override fun onInvalidated(tables: Set<String>) {
+                                // Any local mutation is a sync trigger. The worker has
+                                // an atomic guard so its own reconciliation cannot loop.
+                                SyncTrigger.schedule(context.applicationContext)
+                            }
+                        })
+                    }
+                    database
+                }
             }
         }
     }
