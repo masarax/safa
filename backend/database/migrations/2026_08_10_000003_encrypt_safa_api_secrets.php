@@ -1,13 +1,21 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        // Laravel encrypted values are longer than the legacy varchar(255)
+        // column can safely hold. Expand the column before writing ciphertext.
+        Schema::table('safa_api_keys', function (Blueprint $table) {
+            $table->text('api_secret')->change();
+        });
+
         DB::table('safa_api_keys')->orderBy('id')->chunkById(100, function ($rows) {
             foreach ($rows as $row) {
                 $secret = (string) ($row->api_secret ?? '');
@@ -54,6 +62,11 @@ return new class extends Migration
                         'updated_at' => now(),
                     ]);
             }
+        });
+
+        // Restore the original schema only after plaintext restoration.
+        Schema::table('safa_api_keys', function (Blueprint $table) {
+            $table->string('api_secret', 255)->change();
         });
     }
 };
