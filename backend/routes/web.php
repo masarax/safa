@@ -2,12 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\InstallerController;
-use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\DatabaseUpdateController;
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\CheckInstalled;
-use App\Http\Middleware\CheckApiSecurityKey;
-use App\Http\Middleware\AuditLogMiddleware;
 
 Route::get('/safa-logo.png', function () {
     try {
@@ -68,12 +65,6 @@ Route::middleware([EnsureNotInstalled::class])->group(function () {
 // Database update flow is intentionally independent from the DB-backed session table.
 Route::get('/install/update', [DatabaseUpdateController::class, 'show'])->name('install.update-view');
 Route::post('/install/update-process', [DatabaseUpdateController::class, 'process'])->name('install.update-process');
-
-Route::middleware([CheckInstalled::class, CheckApiSecurityKey::class, AuditLogMiddleware::class])->prefix('api')->group(function () {
-    Route::get('/accounts', [AccountContextController::class, 'index']);
-    Route::post('/accounts/switch', [AccountContextController::class, 'switch']);
-    Route::post('/accounts/share', [AccountContextController::class, 'share']);
-});
 
 Route::middleware([CheckInstalled::class])->group(function () {
     Route::get('/', function () {
