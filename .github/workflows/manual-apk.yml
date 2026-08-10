@@ -3,14 +3,11 @@ name: Manual Android APK
 on:
   workflow_dispatch:
     inputs:
-      variant:
-        description: "APK variant"
+      clean_build:
+        description: "Run a clean build before assembling the APK"
         required: true
-        default: "debug"
-        type: choice
-        options:
-          - debug
-          - release
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -21,7 +18,7 @@ env:
 
 jobs:
   build-apk:
-    name: Build ${{ inputs.variant }} APK
+    name: Manual debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -39,15 +36,14 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      - name: Build APK
+      - name: Assemble APK
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ inputs.variant }}" == "release" ]]; then
-            ./gradlew assembleRelease --no-daemon --stacktrace
-          else
-            ./gradlew assembleDebug --no-daemon --stacktrace
+          if [[ "${{ inputs.clean_build }}" == "true" ]]; then
+            ./gradlew clean --no-daemon
           fi
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Locate APK
         id: apk
@@ -62,7 +58,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SAFA-${{ inputs.variant }}-APK-${{ github.run_number }}
+          name: SAFA-debug-APK-${{ github.run_number }}
           path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
           retention-days: 14
