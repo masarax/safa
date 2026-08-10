@@ -9,10 +9,12 @@ return new class extends Migration {
     {
         Schema::create('accounts', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('owner_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('name');
             $table->decimal('balance', 15, 2)->default(0.0);
             $table->string('hash')->nullable();
             $table->timestamps();
+            $table->index('owner_user_id');
         });
 
         Schema::create('customers', function (Blueprint $table) {
@@ -23,6 +25,8 @@ return new class extends Migration {
             $table->string('phone', 50)->nullable();
             $table->string('hash')->nullable();
             $table->timestamps();
+            $table->unsignedBigInteger('timestamp')->nullable();
+            $table->softDeletes();
             $table->unique(['account_id', 'local_id']);
         });
 
@@ -34,6 +38,8 @@ return new class extends Migration {
             $table->string('phone', 50)->nullable();
             $table->string('hash')->nullable();
             $table->timestamps();
+            $table->unsignedBigInteger('timestamp')->nullable();
+            $table->softDeletes();
             $table->unique(['account_id', 'local_id']);
         });
 
@@ -41,12 +47,29 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
             $table->unsignedBigInteger('local_id')->default(0)->comment('Android Room PK for deduplication');
+            $table->unsignedBigInteger('customer_id')->default(0);
+            $table->unsignedBigInteger('supplier_id')->default(0);
             $table->string('type', 20);
             $table->decimal('amount', 15, 2);
+            $table->decimal('amount_sar', 15, 2)->default(0.00);
+            $table->decimal('customer_rate', 10, 4)->default(0.0000);
+            $table->decimal('supplier_rate', 10, 4)->default(0.0000);
+            $table->decimal('amount_bdt', 15, 2)->default(0.00);
+            $table->string('receiver_name')->nullable();
+            $table->string('receiver_phone', 50)->nullable();
+            $table->string('receiver_account_type', 50)->nullable();
+            $table->string('receiver_account_no', 100)->nullable();
+            $table->unsignedBigInteger('wallet_batch_id')->default(0);
+            $table->text('notes')->nullable();
+            $table->timestamps();
             $table->unsignedBigInteger('timestamp')->nullable();
             $table->string('hash')->nullable();
-            $table->timestamps();
+            $table->softDeletes();
             $table->unique(['account_id', 'local_id']);
+            $table->index('customer_id');
+            $table->index('supplier_id');
+            $table->index('wallet_batch_id');
+            $table->index('timestamp');
         });
 
         Schema::create('rates', function (Blueprint $table) {
@@ -62,9 +85,8 @@ return new class extends Migration {
             $table->foreignId('account_id')->nullable()->constrained('accounts')->onDelete('set null');
             $table->string('client_name');
             $table->string('api_key', 128)->unique();
-            // API secrets are encrypted at rest by the SafaApiKey model and
-            // migrated to encrypted storage by the later hardening migration.
-            $table->string('api_secret', 255);
+            // Secrets are encrypted by the SafaApiKey model when seeded.
+            $table->text('api_secret');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
@@ -109,10 +131,80 @@ return new class extends Migration {
             $table->foreignId('permission_id')->constrained('permissions')->onDelete('cascade');
             $table->primary(['role_id', 'permission_id']);
         });
+
+        Schema::create('wallet_ledgers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+            $table->unsignedBigInteger('local_id')->default(0);
+            $table->string('name');
+            $table->unsignedBigInteger('timestamp')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+            $table->unique(['account_id', 'local_id']);
+        });
+
+        Schema::create('wallet_batches', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+            $table->unsignedBigInteger('local_id')->default(0);
+            $table->unsignedBigInteger('ledger_id')->default(0);
+            $table->decimal('rate', 10, 4);
+            $table->decimal('initial_bdt', 15, 2);
+            $table->decimal('remaining_bdt', 15, 2);
+            $table->unsignedBigInteger('supplier_id')->default(0);
+            $table->unsignedBigInteger('supplier_deposit_id')->default(0);
+            $table->text('notes')->nullable();
+            $table->unsignedBigInteger('timestamp')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+            $table->unique(['account_id', 'local_id']);
+            $table->index('ledger_id');
+            $table->index('supplier_id');
+            $table->index('supplier_deposit_id');
+            $table->index('timestamp');
+        });
+
+        Schema::create('supplier_deposits', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+            $table->unsignedBigInteger('local_id')->default(0);
+            $table->unsignedBigInteger('supplier_id')->default(0);
+            $table->decimal('amount_sar', 15, 2);
+            $table->decimal('rate', 10, 4);
+            $table->decimal('amount_bdt', 15, 2);
+            $table->decimal('paid_bdt', 15, 2)->default(0.00);
+            $table->string('transaction_type', 50)->default('SAR_GIVEN');
+            $table->text('notes')->nullable();
+            $table->unsignedBigInteger('timestamp')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+            $table->unique(['account_id', 'local_id']);
+            $table->index('supplier_id');
+            $table->index('timestamp');
+        });
+
+        Schema::create('expenses_incomes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade');
+            $table->unsignedBigInteger('local_id')->default(0);
+            $table->string('title');
+            $table->decimal('amount', 15, 2);
+            $table->string('currency', 10)->default('BDT');
+            $table->boolean('is_expense')->default(true);
+            $table->string('category', 50)->default('General');
+            $table->unsignedBigInteger('timestamp')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+            $table->unique(['account_id', 'local_id']);
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('expenses_incomes');
+        Schema::dropIfExists('supplier_deposits');
+        Schema::dropIfExists('wallet_batches');
+        Schema::dropIfExists('wallet_ledgers');
         Schema::dropIfExists('role_permission');
         Schema::dropIfExists('permissions');
         Schema::dropIfExists('roles');
