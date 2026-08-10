@@ -117,7 +117,12 @@ class TokenManager(private val context: Context) {
     fun saveActiveAccountId(accountId: Int?) = prefs.edit { if (accountId == null || accountId <= 0) remove(KEY_ACTIVE_ACCOUNT_ID) else putInt(KEY_ACTIVE_ACCOUNT_ID, accountId) }
     fun getActiveAccountId(): Int? = prefs.getInt(KEY_ACTIVE_ACCOUNT_ID, 0).takeIf { it > 0 }
     fun saveBaseUrl(url: String) = prefs.edit { putString(KEY_BASE_URL, url.trim().removeSuffix("/") + "/") }
-    fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_URL)?.trim()?.let { if (it.endsWith("/")) it else "$it/" } ?: DEFAULT_URL
+    fun getBaseUrl(): String {
+        val stored = prefs.getString(KEY_BASE_URL, null)?.trim().orEmpty()
+        if (stored.isBlank()) return DEFAULT_URL
+        val normalized = if (stored.endsWith("/")) stored else "$stored/"
+        return if (normalized.startsWith("https://safa.masarax.com/api/", ignoreCase = true)) normalized else DEFAULT_URL
+    }
     fun saveLanguage(lang: String) = prefs.edit { putString("app_lang", lang) }
     fun getLanguage(): String = prefs.getString("app_lang", "BN") ?: "BN"
     fun saveDarkMode(isDark: Boolean) = prefs.edit { putBoolean("app_dark_mode", isDark) }
