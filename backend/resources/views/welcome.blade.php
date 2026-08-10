@@ -4,216 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAFA System</title>
-    <link rel="icon" type="image/png" href="{{ asset('safa-logo.png') }}">
-    <link rel="alternate icon" type="image/png" href="{{ asset('safa-logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('safa-logo.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ route('branding.logo') }}">
+    <link rel="apple-touch-icon" href="{{ route('branding.logo') }}">
     <style>
-        :root {
-            --bg-color: #f8fafc;
-            --card-bg: #ffffff;
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --success: #16a34a;
-            --warning: #d97706;
-            --danger: #dc2626;
-            --text-dark: #0f172a;
-            --text-muted: #64748b;
-            --border-color: #e2e8f0;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-dark);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem 0.75rem;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 480px;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        }
-
-        .brand-badge {
-            display: inline-block;
-            background: var(--primary);
-            color: #fff;
-            font-weight: 700;
-            font-size: 1.1rem;
-            padding: 0.35rem 1.2rem;
-            border-radius: 20px;
-            margin-bottom: 1rem;
-            letter-spacing: 0.5px;
-        }
-
-        h1 {
-            font-size: 1.35rem;
-            font-weight: 700;
-            color: var(--text-dark);
-            margin-bottom: 0.5rem;
-        }
-
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.35rem 0.85rem;
-            border-radius: 20px;
-            font-size: 0.82rem;
-            font-weight: 600;
-            background: #dcfce7;
-            color: var(--success);
-            border: 1px solid #86efac;
-            margin-top: 0.75rem;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--success);
-            border-radius: 50%;
-        }
-
-        .update-box {
-            background: #fef3c7;
-            border: 1px solid #fde68a;
-            border-radius: 12px;
-            padding: 1.25rem;
-            margin-top: 1rem;
-            text-align: left;
-        }
-
-        .update-title {
-            font-size: 0.98rem;
-            font-weight: 700;
-            color: #92400e;
-            margin-bottom: 0.4rem;
-        }
-
-        .update-desc {
-            font-size: 0.84rem;
-            color: #78350f;
-            line-height: 1.4;
-            margin-bottom: 0.85rem;
-        }
-
-        .btn-update {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            width: 100%;
-            padding: 0.75rem 1.2rem;
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            text-decoration: none;
-        }
-
-        .btn-update:hover {
-            background: var(--primary-hover);
-        }
-
-        .alert-success {
-            background: #dcfce7;
-            border: 1px solid #86efac;
-            color: var(--success);
-            padding: 0.75rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .alert-error {
-            background: #fee2e2;
-            border: 1px solid #fca5a5;
-            color: var(--danger);
-            padding: 0.75rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
+        *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:#f4f7f5;color:#10231d;font-family:Inter,Arial,sans-serif}.card{width:min(440px,100%);background:#fff;border:1px solid #dce7e2;border-radius:16px;padding:24px;text-align:center}.logo{width:72px;height:72px;object-fit:contain;display:block;margin:0 auto 12px}.brand{font-size:11px;letter-spacing:.14em;font-weight:700;color:#d4a72c;text-transform:uppercase}.title{font-size:22px;font-weight:700;margin:7px 0}.status{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:16px;font-size:12px;font-weight:600;background:#ecfdf3;color:#067647;border:1px solid #abefc6;margin-top:8px}.dot{width:7px;height:7px;border-radius:50%;background:#12b76a}.update{margin-top:18px;padding:14px;border:1px solid #f0d98c;background:#fff8df;border-radius:12px;text-align:left}.update-title{font-size:13px;font-weight:700;color:#6e5310;margin-bottom:4px}.update-desc{font-size:12px;line-height:1.45;color:#735f2a;margin:0 0 11px}.btn{width:100%;border:0;border-radius:10px;padding:12px;background:#064e3b;color:#fff;font:700 13px Arial,sans-serif;cursor:pointer;text-align:center;text-decoration:none;display:block}.alert{padding:10px 12px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:12px}.success{background:#ecfdf3;color:#067647;border:1px solid #abefc6}.error{background:#fff1f0;color:#b42318;border:1px solid #f5c6c2}.footer{margin-top:16px;color:#667a72;font-size:10px}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card">
-            <div style="margin-bottom: 1rem; text-align: center;">
-                <img src="{{ asset('safa-logo.png') }}" alt="SAFA Logo" style="height: 72px; max-width: 100%; object-fit: contain;">
-            </div>
-            <div class="brand-badge">SAFA</div>
-            <h1>SAFA System Online</h1>
+<div class="card">
+    <img class="logo" src="{{ route('branding.logo') }}" alt="SAFA">
+    <div class="brand">SAFA</div>
+    <div class="title">SAFA System</div>
 
-            @if(session('success'))
-                <div class="alert-success">
-                    ✅ {{ session('success') }}
-                </div>
-            @endif
+    @if(session('success'))<div class="alert success">{{ session('success') }}</div>@endif
+    @if(session('error'))<div class="alert error">{{ session('error') }}</div>@endif
 
-            @if(session('error'))
-                <div class="alert-error">
-                    ⚠️ {{ session('error') }}
-                </div>
-            @endif
+    @php
+        $isInstalled = file_exists(storage_path('installed')) || env('APP_INSTALLED') == true || env('APP_INSTALLED') === 'true';
+        $pendingMigrations = \App\Http\Controllers\DatabaseUpdateController::pendingMigrations();
+        $updateUrl = !empty($pendingMigrations)
+            ? \Illuminate\Support\Facades\URL::temporarySignedRoute('install.update-process', now()->addMinutes(15))
+            : null;
+    @endphp
 
-            @php
-                $isInstalled = file_exists(storage_path('installed')) || env('APP_INSTALLED') == true || env('APP_INSTALLED') === 'true';
-                $pendingMigrations = \App\Http\Controllers\InstallerController::getPendingMigrations();
-            @endphp
-
-            @if (!$isInstalled)
-                <script>window.location.href = "{{ url('/install') }}";</script>
-            @elseif (!empty($pendingMigrations))
-                <div class="update-box">
-                    <div class="update-title">
-                        ⚡ ডাটাবেস আপডেট প্রয়োজন (Database Update Required)
-                    </div>
-                    <p class="update-desc">
-                        নতুন স্কিমা বা টেবিল যুক্ত হয়েছে। নিচে ক্লিক করে ডাটাবেস আপডেট করুন।
-                    </p>
-
-                    <form action="{{ route('install.update-process') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="btn-update">
-                            ⚡ ডাটাবেস আপডেট করুন
-                        </button>
-                    </form>
-                </div>
-            @else
-                <div class="status-pill">
-                    <span class="status-dot"></span>
-                    সিস্টেম একটিভ ও সিঙ্কড
-                </div>
-            @endif
+    @if (!$isInstalled)
+        <script>window.location.href = "{{ url('/install') }}";</script>
+    @elseif (!empty($pendingMigrations))
+        <div class="update">
+            <div class="update-title">Database update required</div>
+            <p class="update-desc">{{ count($pendingMigrations) }} migration(s) are ready.</p>
+            <a class="btn" href="{{ route('install.update-view') }}">Run Migration</a>
         </div>
-    </div>
+    @else
+        <div class="status"><span class="dot"></span>System Ready</div>
+    @endif
+
+    <div class="footer">SAFA • Secure system</div>
+</div>
 </body>
 </html>
