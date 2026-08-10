@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Supplier;
-use App\Models\SafaApiKey;
-use App\Models\Account;
 use Illuminate\Support\Facades\Validator;
 
 class SupplierController extends Controller
@@ -18,14 +16,12 @@ class SupplierController extends Controller
         if (isset($context['error'])) return $context['error'];
         $accountId = $context['account_id'];
 
-        $suppliers = Supplier::where('account_id', $accountId)
-            ->whereNull('deleted_at')
-            ->orderBy('name', 'asc')
-            ->get();
-
         return response()->json([
             'status' => 'success',
-            'suppliers' => $suppliers
+            'suppliers' => Supplier::where('account_id', $accountId)
+                ->whereNull('deleted_at')
+                ->orderBy('name', 'asc')
+                ->get()
         ]);
     }
 
@@ -38,26 +34,35 @@ class SupplierController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:50',
-            'local_id' => 'nullable|integer',
+            'address' => 'nullable|string|max:500',
+            'local_id' => 'nullable|integer|min:1',
+            'timestamp' => 'nullable|integer|min:1',
         ]);
-
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
         }
 
         $localId = (int) ($request->input('local_id') ?? 0);
+        $lookupLocalId = $localId > 0 ? $localId : (int) floor(microtime(true) * 1000);
+        $timestamp = (int) ($request->input('timestamp') ?? time());
+        if ($timestamp > 2000000000) $timestamp = (int) floor($timestamp / 1000);
+        if ($timestamp <= 0 || $timestamp > time() + 86400) $timestamp = time();
+
         $supplier = Supplier::updateOrCreate(
-            ['account_id' => $accountId, 'local_id' => $localId > 0 ? $localId : time()],
+            ['account_id' => $accountId, 'local_id' => $lookupLocalId],
             [
                 'name' => substr($request->input('name'), 0, 255),
                 'phone' => substr((string) ($request->input('phone') ?? ''), 0, 50),
-                'timestamp' => time(),
+                'address' => substr((string) ($request->input('address') ?? ''), 0, 500),
+                'timestamp' => $timestamp,
+                'deleted_at' => null,
             ]
         );
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Supplier created successfully.',
+            'message' => 'Supplier saved successfully.',
+            'id' => (int) $supplier->id,
             'supplier' => $supplier
         ], 201);
     }
@@ -73,20 +78,20 @@ class SupplierController extends Controller
                 $q->where('id', (int) $id)->orWhere('local_id', (int) $id);
             })
             ->first();
-
-        if (!$supplier) {
-            return response()->json(['status' => 'error', 'message' => 'Supplier not found.'], 404);
-        }
+        if (!$supplier) return response()->json(['status' => 'error', 'message' => 'Supplier not found.'], 404);
 
         if ($request->has('name')) $supplier->name = substr($request->input('name'), 0, 255);
         if ($request->has('phone')) $supplier->phone = substr((string) ($request->input('phone') ?? ''), 0, 50);
+        if ($request->has('address')) $supplier->address = substr((string) ($request->input('address') ?? ''), 0, 500);
+        if ($request->has('timestamp')) {
+            $timestamp = (int) $request->input('timestamp');
+            if ($timestamp > 2000000000) $timestamp = (int) floor($timestamp / 1000);
+            if ($timestamp > 0 && $timestamp <= time() + 86400) $supplier->timestamp = $timestamp;
+        }
+        $supplier->deleted_at = null;
         $supplier->save();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Supplier updated successfully.',
-            'supplier' => $supplier
-        ]);
+        return response()->json(['status' => 'success', 'message' => 'Supplier updated successfully.', 'id' => (int) $supplier->id, 'supplier' => $supplier]);
     }
 
     public function destroy(Request $request, $id)
@@ -100,16 +105,9 @@ class SupplierController extends Controller
                 $q->where('id', (int) $id)->orWhere('local_id', (int) $id);
             })
             ->first();
-
-        if (!$supplier) {
-            return response()->json(['status' => 'error', 'message' => 'Supplier not found.'], 404);
-        }
+        if (!$supplier) return response()->json(['status' => 'error', 'message' => 'Supplier not found.'], 404);
 
         $supplier->delete();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Supplier deleted successfully.'
-        ]);
+        return response()->json(['status' => 'success', 'message' => 'Supplier deleted successfully.', 'id' => (int) $supplier->id]);
     }
 }
