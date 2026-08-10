@@ -1,0 +1,155 @@
+name: One-time SAFA UI and sync hardening
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[one-time-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply targeted production fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+
+          # 1) Android must only classify a network as online when Internet is validated.
+          p = root / 'app/src/main/java/com/safa/account/utils/ConnectivityMonitor.kt'
+          p.write_text('''package com.safa.account.utils
+
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+
+object ConnectivityMonitor {
+    /** Returns true only when the active network is validated for Internet access. */
+    fun isOnline(context: Context?): Boolean {
+        if (context == null) return false
+        return try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                ?: return false
+            val activeNetwork = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        } catch (_: Exception) {
+            false
+        }
+    }
+}
+''', encoding='utf-8')
+
+          # 2) Add a confirmation gate to every destructive ViewModel action.
+          # The original implementation is retained as performDeleteX and is only
+          # reached after the user explicitly confirms the native modal.
+          vm = root / 'app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt'
+          text = vm.read_text(encoding='utf-8')
+
+          def find_function(src, name):
+              needle = re.compile(r'(?m)^    fun ' + re.escape(name) + r'\\s*\\([^\\n]*\\)\\s*(?::\\s*[^\\n{]+)?\\s*\\{')
+              m = needle.search(src)
+              if not m:
+                  return None
+              start = m.start()
+              brace = src.find('{', m.start())
+              depth = 0
+              i = brace
+              in_str = False
+              esc = False
+              while i < len(src):
+                  ch = src[i]
+                  if in_str:
+                      if esc:
+                          esc = False
+                      elif ch == '\\\\':
+                          esc = True
+                      elif ch == '"':
+                          in_str = False
+                  else:
+                      if ch == '"':
+                          in_str = True
+                      elif ch == '{':
+                          depth += 1
+                      elif ch == '}':
+                          depth -= 1
+                          if depth == 0:
+                              return start, i + 1, src[start:i+1]
+                  i += 1
+              raise RuntimeError(f'Unbalanced function: {name}')
+
+          destructive = [
+              ('deleteCustomer', 'id', 'Customer'),
+              ('deleteSupplier', 'id', 'Supplier'),
+              ('deleteSupplierDeposit', 'id', 'Supplier deposit'),
+              ('deleteExpenseIncome', 'id', 'Expense / income record'),
+              ('deleteWalletLedger', 'id', 'Wallet ledger'),
+              ('deleteWalletBatch', 'id', 'Wallet batch'),
+              ('deleteTransaction', 'id', 'Transaction'),
+          ]
+
+          for name, arg, label in destructive:
+              found = find_function(text, name)
+              if not found:
+                  continue
+              start, end, original = found
+              # Skip if already guarded.
+              if f'perform{name[0].upper() + name[1:]}' in text[start:end+80]:
+                  continue
+              perform = 'perform' + name[0].upper() + name[1:]
+              original_renamed = re.sub(r'(?m)^    fun ' + re.escape(name) + r'(\\s*\\()', '    fun ' + perform + r'\\1', original, count=1)
+              dialog = f'''    fun {name}({arg}: Int) {{
+        val context = tokenManager?.getContext() ?: return
+        android.app.AlertDialog.Builder(context)
+            .setTitle(if (_currentLanguage.value == "BN") "নিশ্চিত করুন" else "Confirm deletion")
+            .setMessage(if (_currentLanguage.value == "BN") "এই {label}টি মুছে ফেলতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।" else "Are you sure you want to delete this {label.lower()}? This action cannot be undone.")
+            .setNegativeButton(if (_currentLanguage.value == "BN") "বাতিল" else "Cancel", null)
+            .setPositiveButton(if (_currentLanguage.value == "BN") "মুছে ফেলুন" else "Delete") {{ _, _ ->
+                viewModelScope.launch {{
+                    {perform}({arg})
+                }}
+            }}
+            .show()
+    }}
+
+'''
+              text = text[:start] + dialog + original_renamed + text[end:]
+
+          vm.write_text(text, encoding='utf-8')
+
+          # 3) Keep the foreground app aggressively synchronized as a safety net.
+          # This does not replace server-first CRUD; it retries pending outbox data
+          # and reconciles server changes when a mutation path or transient network
+          # failure prevented the immediate request.
+          main = root / 'app/src/main/java/com/safa/account/MainActivity.kt'
+          mt = main.read_text(encoding='utf-8')
+          marker = '            val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()\n'
+          block = '''\n            LaunchedEffect(currentOperator?.id) {\n                if (currentOperator != null) {\n                    while (kotlinx.coroutines.currentCoroutineContext().isActive) {\n                        viewModel.triggerFullSync { _, _ -> }\n                        kotlinx.coroutines.delay(5000)\n                    }\n                }\n            }\n'''
+          if 'while (kotlinx.coroutines.currentCoroutineContext().isActive)' not in mt:
+              mt = mt.replace(marker, marker + block, 1)
+          main.write_text(mt, encoding='utf-8')
+
+          # Remove this one-time workflow after applying the changes.
+          Path('.github/workflows/one_time_ui_sync_fix.yml').unlink(missing_ok=True)
+
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/safa/account/utils/ConnectivityMonitor.kt \
+                  app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt \
+                  app/src/main/java/com/safa/account/MainActivity.kt \
+                  .github/workflows/one_time_ui_sync_fix.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: confirm destructive actions and harden realtime sync [one-time-fix]"
+          git push
