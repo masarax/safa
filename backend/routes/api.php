@@ -6,6 +6,7 @@ use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\AuthJWTController;
 use App\Http\Controllers\GraphQLController;
 use App\Http\Controllers\AccountContextController;
+use App\Http\Controllers\RemoteBusinessController;
 use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
 
@@ -67,4 +68,25 @@ Route::middleware([CheckApiSecurityKey::class, AuditLogMiddleware::class, 'throt
     Route::post('/transactions', [TransactionController::class, 'store']);
     Route::put('/transactions/{id}', [TransactionController::class, 'update']);
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
+
+    // Server-authoritative endpoints for the remaining business resources.
+    Route::get('/wallet-ledgers', [RemoteBusinessController::class, 'walletLedgers']);
+    Route::post('/wallet-ledgers', [RemoteBusinessController::class, 'storeWalletLedger']);
+    Route::put('/wallet-ledgers/{id}', [RemoteBusinessController::class, 'updateWalletLedger']);
+    Route::delete('/wallet-ledgers/{id}', [RemoteBusinessController::class, 'destroyWalletLedger']);
+
+    Route::get('/supplier-deposits', [RemoteBusinessController::class, 'supplierDeposits']);
+    Route::post('/supplier-deposits', [RemoteBusinessController::class, 'storeSupplierDeposit']);
+    Route::put('/supplier-deposits/{id}', [RemoteBusinessController::class, 'updateSupplierDeposit']);
+    Route::delete('/supplier-deposits/{id}', [RemoteBusinessController::class, 'destroySupplierDeposit']);
+
+    Route::get('/wallet-batches', [RemoteBusinessController::class, 'walletBatches']);
+    Route::post('/wallet-batches', [RemoteBusinessController::class, 'storeWalletBatch']);
+    Route::put('/wallet-batches/{id}', [RemoteBusinessController::class, 'updateWalletBatch']);
+    Route::delete('/wallet-batches/{id}', [RemoteBusinessController::class, 'destroyWalletBatch']);
+
+    Route::get('/expenses-incomes', [RemoteBusinessController::class, 'expensesIncomes']);
+    Route::post('/expenses-incomes', [RemoteBusinessController::class, 'storeExpenseIncome']);
+    Route::put('/expenses-incomes/{id}', [RemoteBusinessController::class, 'updateExpenseIncome']);
+    Route::delete('/expenses-incomes/{id}', [RemoteBusinessController::class, 'destroyExpenseIncome']);
 });
