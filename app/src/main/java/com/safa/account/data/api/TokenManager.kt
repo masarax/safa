@@ -2,12 +2,22 @@ package com.safa.account.data.api
 
 import android.content.Context
 import androidx.core.content.edit
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.safa.account.BuildConfig
 import com.safa.account.data.network.DeviceSecurityHelper
 
 class TokenManager(private val context: Context) {
 
-    private val prefs = context.getSharedPreferences("safa_secure_prefs", Context.MODE_PRIVATE)
+    private val prefs = EncryptedSharedPreferences.create(
+        context,
+        "safa_secure_prefs",
+        MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build(),
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
 
     companion object {
         private const val KEY_ACCESS_TOKEN = "auth_token"
@@ -33,22 +43,15 @@ class TokenManager(private val context: Context) {
 
     fun saveApiKey(key: String) = prefs.edit { putString(KEY_API_KEY, key) }
     fun getApiKey(): String {
-        // Build-time secrets are the source of truth for the production app.
-        // Older installations may still contain credentials saved by a previous
-        // configuration; prefer the current build secret when it is configured.
         val buildKey = DEFAULT_API_KEY.trim()
-        if (buildKey.isNotBlank() && !buildKey.equals("your_api_key_here", ignoreCase = true)) {
-            return buildKey
-        }
+        if (buildKey.isNotBlank() && !buildKey.equals("your_api_key_here", ignoreCase = true)) return buildKey
         return prefs.getString(KEY_API_KEY, buildKey)?.trim().orEmpty().ifBlank { buildKey }
     }
 
     fun saveApiSecret(secret: String) = prefs.edit { putString(KEY_API_SECRET, secret) }
     fun getApiSecret(): String {
         val buildSecret = DEFAULT_API_SECRET.trim()
-        if (buildSecret.isNotBlank() && !buildSecret.equals("your_api_secret_here", ignoreCase = true)) {
-            return buildSecret
-        }
+        if (buildSecret.isNotBlank() && !buildSecret.equals("your_api_secret_here", ignoreCase = true)) return buildSecret
         return prefs.getString(KEY_API_SECRET, buildSecret)?.trim().orEmpty().ifBlank { buildSecret }
     }
 
@@ -84,13 +87,7 @@ class TokenManager(private val context: Context) {
         return token
     }
 
-    fun saveAllTokens(
-        accessToken: String?,
-        refreshToken: String?,
-        deviceToken: String?,
-        sessionToken: String?,
-        fingerprintToken: String?
-    ) {
+    fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) {
         prefs.edit {
             putString(KEY_ACCESS_TOKEN, accessToken)
             putString(KEY_REFRESH_TOKEN, refreshToken)
@@ -110,19 +107,13 @@ class TokenManager(private val context: Context) {
     }
 
     fun saveActiveAccountId(accountId: Int?) = prefs.edit {
-        if (accountId == null || accountId <= 0) remove(KEY_ACTIVE_ACCOUNT_ID)
-        else putInt(KEY_ACTIVE_ACCOUNT_ID, accountId)
+        if (accountId == null || accountId <= 0) remove(KEY_ACTIVE_ACCOUNT_ID) else putInt(KEY_ACTIVE_ACCOUNT_ID, accountId)
     }
 
-    fun getActiveAccountId(): Int? {
-        val id = prefs.getInt(KEY_ACTIVE_ACCOUNT_ID, 0)
-        return id.takeIf { it > 0 }
-    }
+    fun getActiveAccountId(): Int? = prefs.getInt(KEY_ACTIVE_ACCOUNT_ID, 0).takeIf { it > 0 }
 
     fun saveBaseUrl(url: String) = prefs.edit { putString(KEY_BASE_URL, url.trim().removeSuffix("/") + "/") }
-    fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_URL)?.trim()?.let {
-        if (it.endsWith("/")) it else "$it/"
-    } ?: DEFAULT_URL
+    fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_URL)?.trim()?.let { if (it.endsWith("/")) it else "$it/" } ?: DEFAULT_URL
 
     fun saveLanguage(lang: String) = prefs.edit { putString("app_lang", lang) }
     fun getLanguage(): String = prefs.getString("app_lang", "BN") ?: "BN"
