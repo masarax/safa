@@ -27,6 +27,8 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
     private var periodicJob: Job? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
+    init { runCatching { start() } }
+
     fun getApiService(): ApiService {
         val base = tokenManager.getBaseUrl().let { if (it.endsWith("/")) it else "$it/" }
         return RetrofitClient.getApiService(base, tokenManager.getApiKey(), tokenManager.getApiSecret(), tokenManager)
@@ -35,7 +37,8 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
     /** Starts periodic and reconnect-triggered sync. Safe to call more than once. */
     fun start() {
         if (periodicJob != null) return
-        val cm = tokenManager.getContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val context = tokenManager.getContext()
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) { scope.launch { syncAll() } }
         }
@@ -51,8 +54,8 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
     fun stop() {
         periodicJob?.cancel()
         periodicJob = null
-        val cm = tokenManager.getContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        networkCallback?.let { runCatching { cm.unregisterNetworkCallback(it) } }
+        val cm = runCatching { tokenManager.getContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager }.getOrNull()
+        networkCallback?.let { callback -> cm?.let { runCatching { it.unregisterNetworkCallback(callback) } } }
         networkCallback = null
     }
 
