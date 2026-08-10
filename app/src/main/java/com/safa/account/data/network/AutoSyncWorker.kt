@@ -12,7 +12,6 @@ import com.safa.account.data.api.TokenManager
 import com.safa.account.data.database.AppDatabase
 import com.safa.account.data.repository.AppRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
@@ -24,7 +23,7 @@ class AutoSyncWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         if (!SyncTrigger.begin()) return@withContext Result.success()
         try {
-            val db = AppDatabase.getDatabase(applicationContext, GlobalScope)
+            val db = AppDatabase.getDatabase(applicationContext)
             val repository = AppRepository(
                 operatorDao = db.operatorDao(),
                 customerDao = db.customerDao(),
