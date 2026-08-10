@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
@@ -34,6 +33,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 
+private fun normalizeDigits(value: String): String = buildString(value.length) {
+    value.forEach { ch ->
+        when (ch) {
+            in '০'..'৯' -> append(('0'.code + (ch.code - '০'.code)).toChar())
+            in '٠'..'٩' -> append(('0'.code + (ch.code - '٠'.code)).toChar())
+            else -> append(ch)
+        }
+    }
+}
+
+private fun serverErrorMessage(raw: String): String? {
+    val match = Regex("\\\"message\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"").find(raw)
+    return match?.groupValues?.getOrNull(1)
+        ?.replace("\\u0027", "'")
+        ?.replace("\\\\\\\"", "\\\"")
+        ?.takeIf { it.isNotBlank() }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
@@ -54,7 +71,6 @@ fun LoginScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
-        // Top Language Switcher Bar - Clean Pill Button without Brackets
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -86,7 +102,6 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // SAFA Primary Branded Visual Logo Header
             Box(
                 modifier = Modifier
                     .size(88.dp)
@@ -103,7 +118,7 @@ fun LoginScreen(
             }
 
             Text(
-                text = viewModel.t("login_title", currentLang),
+                text = if (currentLang == "BN") "SAFA - সাফা" else "SAFA",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp
@@ -114,55 +129,44 @@ fun LoginScreen(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Direct Flat Input Layout without Card or Shadow
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Mobile Number Input
                 OutlinedTextField(
                     value = mobileInput,
                     onValueChange = {
                         mobileInput = it
                         loginError = null
                     },
-                    label = { Text(viewModel.t("mobile_number", currentLang)) },
-                    placeholder = { Text(viewModel.t("enter_mobile_ph", currentLang)) },
-                    leadingIcon = {
-                        Icon(Icons.Default.Phone, contentDescription = "Mobile")
-                    },
+                    label = { Text(if (currentLang == "BN") "মোবাইল" else "Mobile") },
+                    placeholder = { Text(if (currentLang == "BN") "01700000000" else "01700000000") },
+                    leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "Mobile") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("login_mobile_input"),
+                    modifier = Modifier.fillMaxWidth().testTag("login_mobile_input"),
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                // 6-Digit Security PIN Input
                 OutlinedTextField(
                     value = pinInput,
                     onValueChange = {
-                        if (it.length <= 6) {
-                            pinInput = it
+                        val normalized = normalizeDigits(it)
+                        if (normalized.length <= 6 && normalized.all(Char::isDigit)) {
+                            pinInput = normalized
                             loginError = null
                         }
                     },
-                    label = { Text(viewModel.t("enter_pin", currentLang)) },
-                    leadingIcon = {
-                        Icon(Icons.Default.Security, contentDescription = "PIN")
-                    },
+                    label = { Text(if (currentLang == "BN") "পিন" else "PIN") },
+                    leadingIcon = { Icon(Icons.Default.Security, contentDescription = "PIN") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("login_pin_input"),
+                    modifier = Modifier.fillMaxWidth().testTag("login_pin_input"),
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                // Error feedback
                 AnimatedVisibility(
                     visible = loginError != null,
                     enter = fadeIn(),
@@ -173,12 +177,11 @@ fun LoginScreen(
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                         textAlign = TextAlign.Center,
-                        maxLines = 2,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Biometric option if matching operator has biometric enabled
                 val matchingOp = remember(mobileInput, operators) {
                     operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
                         ?: operators.find { it.isBiometricEnabled }
@@ -191,30 +194,31 @@ fun LoginScreen(
                     )
                 }
 
-                // Login Button
                 Button(
                     onClick = {
-                        if (mobileInput.isBlank()) {
-                            loginError = if (currentLang == "BN") "মোবাইল নম্বর দিন" else "Please enter mobile number"
+                        val normalizedMobile = mobileInput.trim()
+                        val normalizedPin = normalizeDigits(pinInput).trim()
+                        if (normalizedMobile.isBlank()) {
+                            loginError = if (currentLang == "BN") "মোবাইল দিন" else "Enter mobile"
                             return@Button
                         }
-                        if (pinInput.isBlank()) {
-                            loginError = viewModel.t("pin_incorrect", currentLang)
+                        if (normalizedPin.length != 6) {
+                            loginError = if (currentLang == "BN") "৬ ডিজিটের পিন দিন" else "Enter 6-digit PIN"
                             return@Button
                         }
                         isLoading = true
-                        viewModel.loginWithServer(mobileInput, pinInput) { success, result ->
+                        viewModel.loginWithServer(normalizedMobile, normalizedPin) { success, result ->
                             isLoading = false
                             if (!success) {
-                                loginError = result ?: viewModel.t("invalid_credentials", currentLang)
+                                val parsed = result?.let(::serverErrorMessage)
+                                loginError = parsed
+                                    ?: result?.takeIf { it.isNotBlank() }
+                                    ?: viewModel.t("invalid_credentials", currentLang)
                             }
                         }
                     },
                     enabled = !isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("login_submit_btn"),
+                    modifier = Modifier.fillMaxWidth().height(50.dp).testTag("login_submit_btn"),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
                 ) {
@@ -226,7 +230,7 @@ fun LoginScreen(
                         )
                     } else {
                         Text(
-                            text = viewModel.t("login_button", currentLang),
+                            text = if (currentLang == "BN") "লগইন" else "Login",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
