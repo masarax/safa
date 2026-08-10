@@ -582,103 +582,100 @@ class SafaViewModel(
     val bnMap = mapOf(
         "app_title" to "SAFA",
         "dashboard" to "ড্যাশবোর্ড",
-        "wallet" to "ওয়ালেট",
-        "customers" to "গ্রাহকগণ",
+        "wallet" to "ওয়ালেট", // Wallet
+        "customers" to "কাস্টমার", // Customers
         "suppliers" to "সাপ্লায়ার",
-        "transactions" to "লেনদেন সমূহ",
+        "transactions" to "লেনদেন", // Transactions
         "expenses" to "আয়/ব্যায়",
         "settings" to "সেটিংস",
-        "login_title" to "SAFA সিকিউরিটি লক",
-        "select_operator" to "ইউজার অ্যাকাউন্ট নির্বাচন করুন",
-        "enter_pin" to "৬-ডিজিটের সিকিউরিটি পিন দিন",
-        "pin_incorrect" to "ভুল পিন নম্বর! আবার চেষ্টা করুন।",
+        "login_title" to "SAFA - সাফা",
+        "select_operator" to "ইউজার নির্বাচন করুন", // Select User
+        "enter_pin" to "৬-ডিজিটের পিন", // 6-Digit PIN
+        "pin_incorrect" to "ভুল পিন! আবার চেষ্টা করুন।", // Wrong PIN! Try again.
         "logout" to "লগ আউট",
-        "change_role" to "রোল পরিবর্তন করুন",
+        "change_role" to "রোল পরিবর্তন", // Change Role
         "role_owner" to "মালিক",
         "role_staff" to "স্টাফ",
-        "operator_blocked" to "অ্যাকাউন্টটি সাময়িকভাবে স্থগিত আছে।",
+        "operator_blocked" to "অ্যাকাউন্ট স্থগিত।", // Account suspended.
         "access_denied" to "অনুমতি নেই",
-        "permission_required" to "এই ফিচারের জন্য আপনার অনুমতি প্রয়োজন।",
-        "no_account_found" to "এই মোবাইল নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি",
+        "permission_required" to "অনুমতি প্রয়োজন।", // Permission required.
+        "no_account_found" to "অ্যাকাউন্ট পাওয়া যায়নি।", // Account not found.
         "activation_title" to "সুপার-এডমিন অ্যাক্টিভেশন",
-        "activation_desc" to "আপনার অ্যাডমিনিস্ট্রেটর অ্যাকাউন্ট সেটআপ করুন",
+        "activation_desc" to "অ্যাডমিন অ্যাকাউন্ট সেটআপ করুন।", // Set up Admin Account.
         "full_name" to "পূর্ণ নাম",
-        "email" to "ইমেইল ঠিকানা",
-        "complete_activation" to "অ্যাক্টিভেশন সম্পন্ন করুন",
-        "login_button" to "লগইন করুন",
+        "email" to "ইমেইল", // Email
+        "complete_activation" to "অ্যাক্টিভেশন সম্পন্ন", // Complete Activation
+        "login_button" to "লগইন", // Log In
         "mobile_number" to "মোবাইল নম্বর",
         "enter_mobile_ph" to "যেমন: 01700000000",
         "activate_super_admin" to "সুপার-এডমিন অ্যাক্টিভেশন",
-        "invalid_credentials" to "মোবাইল বা পিন ভুল হয়েছে",
+        "invalid_credentials" to "ভুল মোবাইল বা পিন।", // Wrong mobile or PIN.
 
-        "total_sar_received" to "মোট প্রাপ্ত বৈদেশিক কারেন্সি",
-        "total_bdt_delivered" to "মোট বিতরণকৃত লোকাল টাকা",
-        "total_bdt_pending" to "মোট পেন্ডিং লোকাল টাকা",
-        "estimated_profit" to "আজকের আনুমানিক মোট লাভ",
-        "net_profit_bdt" to "নিট লাভ (টাকা)",
-        "net_profit_sar" to "নিট লাভ (রিয়াল)",
-        "daily_operating_rates" to "লাইভ দৈনিক বিনিময় হার",
-        "customer_sale_rate" to "কাস্টমার বিনিময় হার",
-        "supplier_buy_rate" to "সাপ্লায়ার ক্রয় হার (খরচ)",
+        "total_sar_received" to "মোট প্রাপ্ত বৈদেশিক", // Total Received Foreign
+        "total_bdt_delivered" to "মোট বিতরণকৃত লোকাল", // Total Local Disbursed
+        "total_bdt_pending" to "মোট পেন্ডিং লোকাল", // Total Local Pending
+        "estimated_profit" to "আজকের আনুমানিক লাভ", // Estimated Profit Today
+        "net_profit_bdt" to "নিট লাভ (লোকাল)", // Net Profit (Local)
+        "net_profit_sar" to "নিট লাভ (বৈদেশিক)", // Net Profit (Foreign)
+        "daily_operating_rates" to "দৈনিক বিনিময় হার", // Daily Exchange Rates
+        "customer_sale_rate" to "কাস্টমার রেট", // Customer Rate
+        "supplier_buy_rate" to "সাপ্লায়ার রেট (খরচ)", // Supplier Rate (Cost)
 
-        "customer_mgmt" to "গ্রাহক ডিরেক্টরি",
-        "add_customer" to "নতুন কাস্টমার যুক্ত করুন",
-        "customer_name" to "কাস্টমারের পূর্ণ নাম",
+        "customer_mgmt" to "কাস্টমার তালিকা", // Customer Directory
+        "add_customer" to "নতুন কাস্টমার যোগ করুন", // Add New Customer
+        "customer_name" to "কাস্টমারের নাম", // Customer Name
         "phone_number" to "মোবাইল নম্বর",
-        "address" to "ঠিকানা / কর্মস্থল",
-        "save_customer" to "গ্রাহক নিবন্ধন করুন",
-        "total_customers" to "মোট নিবন্ধিত কাস্টমার",
+        "address" to "ঠিকানা", // Address
+        "save_customer" to "কাস্টমার নিবন্ধন", // Register Customer
+        "total_customers" to "মোট কাস্টমার", // Total Customers
 
-        "supplier_mgmt" to "সাপ্লায়ারসমূহ",
-        "add_supplier" to "নতুন সাপ্লায়ার যুক্ত করুন",
-        "supplier_name" to "সাপ্লায়ার গ্রুপ নাম",
-        "save_supplier" to "সাপ্লায়ার তথ্য সংরক্ষণ করুন",
-        "buy_bdt_pool" to "লোকাল ফান্ড ক্রয় করুন",
-        "amount_sar" to "ডেবিট বৈদেশিক পরিমাণ",
-        "rate_applied" to "বিনিময় হার (যেমন: ৩২.৫০)",
-        "purchase_success" to "লোকাল ফান্ড সফলভাবে প্রক্রিয়াজাত হয়েছে",
-        "total_deposited_sar" to "মোট জমা বৈদেশিক ফান্ড",
-        "acquired_bdt" to "অর্জিত লোকাল ফান্ড",
-        "pool_balance" to "সাপ্লায়ার বাকি ফান্ড",
+        "supplier_mgmt" to "সাপ্লায়ার", // Suppliers
+        "add_supplier" to "নতুন সাপ্লায়ার যোগ করুন", // Add New Supplier
+        "supplier_name" to "সাপ্লায়ারের নাম", // Supplier Name
+        "save_supplier" to "সাপ্লায়ার সংরক্ষণ", // Save Supplier
+        "buy_bdt_pool" to "লোকাল ফান্ড কিনুন", // Acquire Local Fund
+        "amount_sar" to "ডেবিট বৈদেশিক", // Debit Foreign Amount
+        "rate_applied" to "বিনিময় হার", // Exchange Rate
+        "purchase_success" to "লোকাল ফান্ড সফল।", // Local Fund Processed.
+        "total_deposited_sar" to "মোট জমা বৈদেশিক", // Total Deposited Foreign
+        "acquired_bdt" to "অর্জিত লোকাল", // Acquired Local Funds
+        "pool_balance" to "সাপ্লায়ার ফান্ড", // Supplier Funds
 
-        "new_remittance" to "নতুন রেমিট্যান্স লেনদেন",
-        "select_customer" to "কাস্টমার নির্বাচন করুন",
-        "select_supplier" to "সাপ্লায়ার নির্বাচন করুন",
-        "saudi_amount" to "প্রাপ্ত বৈদেশিক পরিমাণ",
-        "customer_assigned_rate" to "কাস্টমার নির্ধারিত হার",
-        "supplier_rate_tx" to "প্রযোজ্য সাপ্লায়ার হার",
-        "receiver_bdt_amount" to "প্রাপকের লোকাল টাকা",
-        "receiver_name" to "প্রাপকের পূর্ণ নাম",
-        "receiver_phone" to "প্রাপকের মোবাইল নম্বর",
+        "new_remittance" to "নতুন লেনদেন", // New Transaction
+        "select_customer" to "কাস্টমার নির্বাচন", // Select Customer
+        "select_supplier" to "সাপ্লায়ার নির্বাচন", // Select Supplier
+        "saudi_amount" to "প্রাপ্ত বৈদেশিক", // Received Foreign Amount
+        "customer_assigned_rate" to "কাস্টমার রেট", // Customer Rate
+        "supplier_rate_tx" to "সাপ্লায়ার রেট", // Supplier Rate
+        "receiver_bdt_amount" to "প্রাপকের লোকাল", // Local Payout
+        "receiver_name" to "প্রাপকের নাম", // Receiver Name
+        "receiver_phone" to "প্রাপকের মোবাইল", // Receiver Mobile
         "payment_method" to "পেমেন্ট চ্যানেল",
-        "receiver_account_no" to "অ্যাকাউন্ট নং (বিকাশ/নগদ/ব্যাংক)",
-        "notes" to "অতিরিক্ত নির্দেশাবলী / নোট",
-        "status" to "লেনদেনের স্ট্যাটাস",
-        "status_pending" to "পেন্ডিং ট্রান্সমিট",
-        "status_delivered" to "সফলভাবে ডেলিভার্ড",
-        "status_cancelled" to "বাতিলকৃত লেনদেন",
-        "save_transaction" to "লেনদেন নিশ্চিত ও সংরক্ষণ করুন",
+        "receiver_account_no" to "অ্যাকাউন্ট নং", // Account No
+        "notes" to "নোট", // Notes
+        "status" to "স্ট্যাটাস", // Status
+        "status_pending" to "পেন্ডিং", // Pending
+        "status_delivered" to "ডেলিভার্ড", // Delivered
+        "status_cancelled" to "বাতিল", // Cancelled
+        "save_transaction" to "লেনদেন সংরক্ষণ", // Save Transaction
 
-        "expenses_overhead" to "অপারেটিং খরচ ও অন্যান্য",
-        "add_expense_income" to "আয়/ব্যয় এন্ট্রি করুন",
-        "title" to "বিবরণ (যেমন: অফিস ভাড়া, নাস্তা)",
+        "expenses_overhead" to "খরচ ও অন্যান্য", // Expenses & Others
+        "add_expense_income" to "আয়/ব্যয় যোগ করুন", // Add Expense/Income
+        "title" to "বিবরণ", // Description
         "amount" to "পরিমাণ",
-        "is_expense" to "লেনদেনের ধরণ",
-        "expense" to "অপারেটিং ব্যয়",
-        "income" to "অপারেটিং আয়",
+        "is_expense" to "ধরণ", // Type
+        "expense" to "ব্যয়", // Expense
+        "income" to "আয়", // Income
         "category" to "ক্যাটাগরি",
-        "save_record" to "রেকর্ড সংরক্ষণ করুন",
+        "save_record" to "রেকর্ড সংরক্ষণ", // Save Record
 
-        "update_daily_rates" to "লাইভ বিনিময় হার প্রকাশ করুন",
-        "rate_saved" to "বিনিময় হার সফলভাবে সংরক্ষিত হয়েছে!",
-        "operator_list" to "অনুমোদিত অপারেটর ও কর্মী",
-        "create_new_operator" to "নতুন স্টাফ অ্যাকাউন্ট তৈরি করুন",
-        "pinCode" to "৬-ডিজিটের পিন অ্যাক্সেস",
-        "role" to "ইউজার রোল / অনুমতি",
-        "unsettled_supp" to "সাপ্লায়ার নিট দেনা/পাওনা",
-
-        "manage_operators" to "অপারেটর ও স্টাফ ইউজার ম্যানেজমেন্ট",
-        "operator_management_desc" to "সার্ভারে ইউজারদের ১৫টি দানাদার RBAC অনুমতি নিয়ন্ত্রণ করুন",
+        "update_daily_rates" to "বিনিময় হার প্রকাশ", // Publish Exchange Rates
+        "rate_saved" to "হার সংরক্ষিত!", // Rates Saved!
+        "operator_list" to "অপারেটর ও কর্মী", // Operators & Staff
+        "create_new_operator" to "নতুন স্টাফ অ্যাকাউন্ট", // Create Staff Account
+        "pinCode" to "৬-ডিজিটের পিন", // 6-Digit PIN
+        "role" to "রোল", // Role
+        "unsettled_supp" to "সাপ্লায়ার দেনা/পাওনা",
         "view_customers" to "কাস্টমার দেখুন",
         "add_customers" to "কাস্টমার যোগ করুন",
         "edit_customers" to "কাস্টমার সম্পাদন",
@@ -1390,47 +1387,202 @@ class SafaViewModel(
     // 1. Save Customer
     fun registerCustomer(name: String, phone: String, address: String, onComplete: () -> Unit) {
         viewModelScope.launch {
-            if (name.isNotBlank() && phone.isNotBlank()) {
-                repository.insertCustomer(
-                    Customer(name = name, phone = phone, address = address)
-                )
-                onComplete()
-                // Auto Sync with backend
-                syncManager?.syncAll()
+            if (name.isBlank() || phone.isBlank()) return@launch
+            val ctx = tokenManager?.getContext()
+            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
+
+            if (isOnline && syncManager != null) {
+                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create customer: $name")
+                try {
+                    val api = syncManager.getApiService()
+                    val res = api.createCustomer(mapOf("name" to name, "phone" to phone, "address" to address))
+                    if (res.isSuccessful && res.body() != null) {
+                        val body = res.body()!!
+                        val serverId = (body["id"] as? Number)?.toInt()
+                            ?: ((body["customer"] as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
+                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server created customer id=$serverId")
+                        repository.insertCustomer(
+                            Customer(serverId = serverId, name = name, phone = phone, address = address, syncStatus = SyncStatus.SYNCED)
+                        )
+                        onComplete()
+                        return@launch
+                    } else {
+                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
+                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Create customer failed: $err")
+                        setPinError(err)
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                }
             }
+
+            // Offline or fallback to outbox queue
+            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create customer: $name")
+            val localId = repository.insertCustomer(
+                Customer(name = name, phone = phone, address = address, syncStatus = SyncStatus.PENDING_CREATE)
+            ).toInt()
+
+            val payloadJson = org.json.JSONObject(mapOf("local_id" to localId, "name" to name, "phone" to phone, "address" to address)).toString()
+            repository.enqueueOutbox(
+                SyncOutbox(
+                    userId = _currentOperator.value?.id ?: 0,
+                    entityType = "CUSTOMER",
+                    entityLocalId = localId,
+                    operation = OutboxOperation.CREATE,
+                    payloadJson = payloadJson,
+                    status = OutboxStatus.PENDING
+                )
+            )
+            com.safa.account.utils.SafaLogger.log("OUTBOX_ENQUEUED", "Enqueued outbox CREATE for customer localId=$localId")
+            onComplete()
+            triggerFullSync()
         }
     }
 
     suspend fun updateCustomerProfile(customer: Customer) {
-        repository.updateCustomer(customer)
-        syncManager?.syncAll()
+        updateCustomer(customer)
     }
 
     fun deleteCustomer(id: Int) {
         viewModelScope.launch {
+            val target = repository.getCustomerById(id) ?: return@launch
+            val ctx = tokenManager?.getContext()
+            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
+
+            if (isOnline && syncManager != null && target.serverId > 0) {
+                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online delete customer serverId=${target.serverId}")
+                try {
+                    val api = syncManager.getApiService()
+                    val res = api.deleteCustomerApi(target.serverId)
+                    if (res.isSuccessful) {
+                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server deleted customer serverId=${target.serverId}")
+                        repository.deleteCustomerById(id)
+                        return@launch
+                    } else {
+                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
+                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Delete customer failed: $err")
+                        setPinError(err)
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                }
+            }
+
+            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline delete customer localId=$id")
             repository.softDeleteCustomerById(id)
-            syncManager?.syncAll()
+            val payloadJson = org.json.JSONObject(mapOf("local_id" to id, "server_id" to target.serverId)).toString()
+            repository.enqueueOutbox(
+                SyncOutbox(
+                    userId = _currentOperator.value?.id ?: 0,
+                    entityType = "CUSTOMER",
+                    entityLocalId = id,
+                    entityServerId = target.serverId,
+                    operation = OutboxOperation.DELETE,
+                    payloadJson = payloadJson,
+                    status = OutboxStatus.PENDING
+                )
+            )
+            triggerFullSync()
         }
     }
 
     // 2. Save Supplier
     fun registerSupplier(name: String, phone: String, address: String, onComplete: () -> Unit) {
         viewModelScope.launch {
-            if (name.isNotBlank()) {
-                repository.insertSupplier(
-                    Supplier(name = name, phone = phone, address = address)
-                )
-                onComplete()
-                // Auto Sync with backend
-                syncManager?.syncAll()
+            if (name.isBlank()) return@launch
+            val ctx = tokenManager?.getContext()
+            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
+
+            if (isOnline && syncManager != null) {
+                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create supplier: $name")
+                try {
+                    val api = syncManager.getApiService()
+                    val res = api.createSupplier(mapOf("name" to name, "phone" to phone, "address" to address))
+                    if (res.isSuccessful && res.body() != null) {
+                        val body = res.body()!!
+                        val serverId = (body["id"] as? Number)?.toInt()
+                            ?: ((body["supplier"] as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
+                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server created supplier id=$serverId")
+                        repository.insertSupplier(
+                            Supplier(serverId = serverId, name = name, phone = phone, address = address, syncStatus = SyncStatus.SYNCED)
+                        )
+                        onComplete()
+                        return@launch
+                    } else {
+                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
+                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Create supplier failed: $err")
+                        setPinError(err)
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                }
             }
+
+            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create supplier: $name")
+            val localId = repository.insertSupplier(
+                Supplier(name = name, phone = phone, address = address, syncStatus = SyncStatus.PENDING_CREATE)
+            ).toInt()
+
+            val payloadJson = org.json.JSONObject(mapOf("local_id" to localId, "name" to name, "phone" to phone, "address" to address)).toString()
+            repository.enqueueOutbox(
+                SyncOutbox(
+                    userId = _currentOperator.value?.id ?: 0,
+                    entityType = "SUPPLIER",
+                    entityLocalId = localId,
+                    operation = OutboxOperation.CREATE,
+                    payloadJson = payloadJson,
+                    status = OutboxStatus.PENDING
+                )
+            )
+            onComplete()
+            triggerFullSync()
         }
     }
 
     fun deleteSupplier(id: Int) {
         viewModelScope.launch {
+            val target = repository.getSupplierById(id) ?: return@launch
+            val ctx = tokenManager?.getContext()
+            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
+
+            if (isOnline && syncManager != null && target.serverId > 0) {
+                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online delete supplier serverId=${target.serverId}")
+                try {
+                    val api = syncManager.getApiService()
+                    val res = api.deleteSupplierApi(target.serverId)
+                    if (res.isSuccessful) {
+                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server deleted supplier serverId=${target.serverId}")
+                        repository.deleteSupplierById(id)
+                        return@launch
+                    } else {
+                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
+                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Delete supplier failed: $err")
+                        setPinError(err)
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                }
+            }
+
+            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline delete supplier localId=$id")
             repository.softDeleteSupplierById(id)
-            syncManager?.syncAll()
+            val payloadJson = org.json.JSONObject(mapOf("local_id" to id, "server_id" to target.serverId)).toString()
+            repository.enqueueOutbox(
+                SyncOutbox(
+                    userId = _currentOperator.value?.id ?: 0,
+                    entityType = "SUPPLIER",
+                    entityLocalId = id,
+                    entityServerId = target.serverId,
+                    operation = OutboxOperation.DELETE,
+                    payloadJson = payloadJson,
+                    status = OutboxStatus.PENDING
+                )
+            )
+            triggerFullSync()
         }
     }
 
@@ -1462,7 +1614,6 @@ class SafaViewModel(
                     )
                 )
                 
-                // If purchasing BDT and ledger is selected, add as a Wallet Batch
                 if ((transactionType == "SAR_GIVEN" || transactionType == "SAR_DEPOSIT") && ledgerId > 0) {
                     val supplierName = suppliers.value.find { it.id == supplierId }?.name ?: "Supplier"
                     repository.insertWalletBatch(
@@ -1572,7 +1723,7 @@ class SafaViewModel(
             viewModelScope.launch {
                 val batches = repository.allWalletBatches.firstOrNull()
                     ?.filter { it.ledgerId == ledgerId && it.remainingBdt > 0.01 }
-                    ?.sortedBy { it.timestamp } ?: emptyList()  // Oldest first
+                    ?.sortedBy { it.timestamp } ?: emptyList()
                 var remainingToDeduct = java.math.BigDecimal(amountBdtToDeduct.toString())
                 for (b in batches) {
                     if (remainingToDeduct.compareTo(java.math.BigDecimal.ZERO) <= 0) break
@@ -1630,39 +1781,132 @@ class SafaViewModel(
             val actualSarCollected = sarCollected ?: amountSar
             val actualBdtDisbursed = bdtDisbursed ?: amountBdt
             val actualTimestamp = timestamp ?: System.currentTimeMillis()
-            
-            repository.insertTransaction(
-                RemittanceTransaction(
-                    customerId = customerId,
-                    supplierId = resolvedSupplierId,
-                    amountSar = amountSar,
-                    customerRate = customerRate,
-                    supplierRate = resolvedSupplierRate,
-                    amountBdt = amountBdt,
-                    receiverName = receiverName,
-                    receiverPhone = receiverPhone,
-                    receiverAccountType = receiverAccountType,
-                    receiverAccountNo = receiverAccountNo,
-                    status = status,
-                    operatorId = operatorId,
-                    notes = notes,
-                    sarCollected = actualSarCollected,
-                    bdtDisbursed = actualBdtDisbursed,
-                    timestamp = actualTimestamp,
-                    walletBatchId = walletBatchId
-                )
-            )
 
-            // Deduct BDT count from the corresponding batch balance
+            val ctx = tokenManager?.getContext()
+            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
+
+            if (isOnline && syncManager != null) {
+                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create transaction amountSar=$amountSar receiver=$receiverName")
+                try {
+                    val api = syncManager.getApiService()
+                    val reqMap = mapOf(
+                        "type" to status,
+                        "amount_sar" to amountSar,
+                        "customer_id" to customerId,
+                        "supplier_id" to resolvedSupplierId,
+                        "customer_rate" to customerRate,
+                        "supplier_rate" to resolvedSupplierRate,
+                        "amount_bdt" to amountBdt,
+                        "receiver_name" to receiverName,
+                        "receiver_phone" to receiverPhone,
+                        "receiver_account_type" to receiverAccountType,
+                        "receiver_account_no" to receiverAccountNo,
+                        "wallet_batch_id" to walletBatchId,
+                        "notes" to notes
+                    )
+                    val res = api.createTransactionApi(reqMap)
+                    if (res.isSuccessful && res.body() != null) {
+                        val body = res.body()!!
+                        val serverId = (body["id"] as? Number)?.toInt()
+                            ?: ((body["transaction"] as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
+                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server created transaction serverId=$serverId")
+                        repository.insertTransaction(
+                            RemittanceTransaction(
+                                serverId = serverId,
+                                customerId = customerId,
+                                supplierId = resolvedSupplierId,
+                                amountSar = amountSar,
+                                customerRate = customerRate,
+                                supplierRate = resolvedSupplierRate,
+                                amountBdt = amountBdt,
+                                receiverName = receiverName,
+                                receiverPhone = receiverPhone,
+                                receiverAccountType = receiverAccountType,
+                                receiverAccountNo = receiverAccountNo,
+                                status = status,
+                                operatorId = operatorId,
+                                notes = notes,
+                                sarCollected = actualSarCollected,
+                                bdtDisbursed = actualBdtDisbursed,
+                                timestamp = actualTimestamp,
+                                walletBatchId = walletBatchId,
+                                syncStatus = SyncStatus.SYNCED
+                            )
+                        )
+                        if (batch != null) {
+                            val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(amountBdt.toString())).toDouble()
+                            repository.updateWalletBatch(batch.copy(remainingBdt = rem.coerceAtLeast(0.0)))
+                        }
+                        onComplete()
+                        return@launch
+                    } else {
+                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
+                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Create transaction failed: $err")
+                        setPinError(err)
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                }
+            }
+
+            // Offline or fallback to outbox queue
+            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create transaction amountSar=$amountSar")
+            val localTx = RemittanceTransaction(
+                customerId = customerId,
+                supplierId = resolvedSupplierId,
+                amountSar = amountSar,
+                customerRate = customerRate,
+                supplierRate = resolvedSupplierRate,
+                amountBdt = amountBdt,
+                receiverName = receiverName,
+                receiverPhone = receiverPhone,
+                receiverAccountType = receiverAccountType,
+                receiverAccountNo = receiverAccountNo,
+                status = status,
+                operatorId = operatorId,
+                notes = notes,
+                sarCollected = actualSarCollected,
+                bdtDisbursed = actualBdtDisbursed,
+                timestamp = actualTimestamp,
+                walletBatchId = walletBatchId,
+                syncStatus = SyncStatus.PENDING_CREATE
+            )
+            val localId = repository.insertTransaction(localTx).toInt()
+
             if (batch != null) {
                 val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(amountBdt.toString())).toDouble()
-                val newRemaining = rem.coerceAtLeast(0.0)
-                repository.updateWalletBatch(batch.copy(remainingBdt = newRemaining))
+                repository.updateWalletBatch(batch.copy(remainingBdt = rem.coerceAtLeast(0.0)))
             }
-            onComplete()
 
-            // Background Auto Sync with Server (if internet connected)
-            syncManager?.syncAll()
+            val payloadMap = mapOf(
+                "local_id" to localId,
+                "type" to status,
+                "amount_sar" to amountSar,
+                "customer_id" to customerId,
+                "supplier_id" to resolvedSupplierId,
+                "customer_rate" to customerRate,
+                "supplier_rate" to resolvedSupplierRate,
+                "amount_bdt" to amountBdt,
+                "receiver_name" to receiverName,
+                "receiver_phone" to receiverPhone,
+                "receiver_account_type" to receiverAccountType,
+                "receiver_account_no" to receiverAccountNo,
+                "wallet_batch_id" to walletBatchId,
+                "notes" to notes
+            )
+            repository.enqueueOutbox(
+                SyncOutbox(
+                    userId = _currentOperator.value?.id ?: 0,
+                    entityType = "TRANSACTION",
+                    entityLocalId = localId,
+                    operation = OutboxOperation.CREATE,
+                    payloadJson = org.json.JSONObject(payloadMap).toString(),
+                    status = OutboxStatus.PENDING
+                )
+            )
+            onComplete()
+            triggerFullSync()
         }
     }
 

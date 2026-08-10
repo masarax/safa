@@ -18,29 +18,14 @@ use Illuminate\Support\Facades\Log;
 
 class SyncController extends Controller
 {
+    use AuthorizeAccountContext;
+
     public function syncUp(Request $request)
     {
         try {
-            $apiKey  = $request->header('X-SAFA-API-KEY');
-            $keyRecord = SafaApiKey::where('api_key', $apiKey)
-                ->where('is_active', true)
-                ->first();
-
-            $accountId = $keyRecord?->account_id;
-            if (!$accountId) {
-                $envApiKey = env('SAFA_API_KEY') ?: 'safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b';
-                if ($envApiKey && hash_equals((string) $envApiKey, (string) $apiKey)) {
-                    $defaultAccount = Account::firstOrCreate(
-                        ['name' => 'SAFA Default Account'],
-                        ['balance' => 0.00]
-                    );
-                    $accountId = $defaultAccount->id;
-                }
-            }
-
-            if (!$accountId) {
-                return response()->json(['message' => 'Unauthorized. Account not found.'], 401);
-            }
+            $context = $this->resolveAuthorizedAccountContext($request);
+            if (isset($context['error'])) return $context['error'];
+            $accountId = $context['account_id'];
 
             $validator = Validator::make($request->all(), [
                 'transactions'      => 'nullable|array',
@@ -574,34 +559,10 @@ class SyncController extends Controller
     public function syncDown(Request $request)
     {
         try {
-            $apiKey    = $request->header('X-SAFA-API-KEY');
-            $keyRecord = SafaApiKey::where('api_key', $apiKey)
-                ->where('is_active', true)
-                ->first();
-
-            $accountId = $keyRecord?->account_id;
-            if (!$accountId) {
-                $envApiKey = env('SAFA_API_KEY');
-                if ($envApiKey && hash_equals($envApiKey, (string) $apiKey)) {
-                    $defaultAccount = Account::first();
-                    $accountId = $defaultAccount?->id ?? 1;
-                }
-            }
-
-            if (!$accountId) {
-                return response()->json(['message' => 'Unauthorized. Account not found.'], 401);
-            }
-
-            $user = $request->user();
-            if (!$user) {
-                $token = $request->bearerToken() ?? $request->header('X-SAFA-ACCESS-TOKEN');
-                if ($token) {
-                    $payload = AuthJWTController::verifyJwt($token);
-                    if ($payload && isset($payload['user_id'])) {
-                        $user = \App\Models\User::find($payload['user_id']);
-                    }
-                }
-            }
+            $context = $this->resolveAuthorizedAccountContext($request);
+            if (isset($context['error'])) return $context['error'];
+            $accountId = $context['account_id'];
+            $user = $context['user'];
             $permissions = $user ? $user->getFormattedPermissions() : \App\Models\User::defaultPermissions(true);
 
             return response()->json([

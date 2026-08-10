@@ -18,6 +18,10 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+import com.safa.account.data.model.OutboxStatus
+import com.safa.account.utils.SafaLogger
+import org.json.JSONObject
+
 class SyncManager(
     private val repository: AppRepository,
     private val tokenManager: TokenManager
@@ -32,6 +36,137 @@ class SyncManager(
         val key = tokenManager.getApiKey()
         val sec = tokenManager.getApiSecret()
         return RetrofitClient.getApiService(baseUrl, key, sec, tokenManager)
+    }
+
+    private fun JSONObject.toMap(): Map<String, Any?> {
+        val map = mutableMapOf<String, Any?>()
+        val keys = this.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            var value = this.get(key)
+            if (value === JSONObject.NULL) value = null
+            map[key] = value
+        }
+        return map
+    }
+
+    suspend fun processOutbox(): Result<Int> = withContext(Dispatchers.IO) {
+        val pendingOutbox = repository.getPendingOutbox()
+        if (pendingOutbox.isEmpty()) return@withContext Result.success(0)
+
+        var successCount = 0
+        val api = getApiService()
+
+        for (item in pendingOutbox) {
+            SafaLogger.log("OUTBOX_PROCESSING", "Processing outbox #${item.id} entity=${item.entityType} op=${item.operation} localId=${item.entityLocalId}")
+            try {
+                var code = 200
+                var bodyStr: String? = null
+
+                when (item.entityType.uppercase(Locale.US)) {
+                    "CUSTOMER" -> {
+                        when (item.operation.uppercase(Locale.US)) {
+                            "CREATE" -> {
+                                val map = JSONObject(item.payloadJson).toMap()
+                                val res = api.createCustomer(map)
+                                code = res.code()
+                                bodyStr = res.body()?.toString() ?: res.errorBody()?.string()
+                                if (res.isSuccessful) {
+                                    val createdMap = res.body()
+                                    val serverId = (createdMap?.get("id") as? Number)?.toInt()
+                                        ?: ((createdMap?.get("customer") as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
+                                    if (serverId > 0) repository.markCustomerSynced(item.entityLocalId, serverId)
+                                }
+                            }
+                            "UPDATE" -> {
+                                val map = JSONObject(item.payloadJson).toMap()
+                                val targetId = if (item.entityServerId > 0) item.entityServerId else item.entityLocalId
+                                val res = api.updateCustomerApi(targetId, map)
+                                code = res.code()
+                                bodyStr = res.body()?.toString() ?: res.errorBody()?.string()
+                                if (res.isSuccessful) repository.markCustomerSynced(item.entityLocalId, targetId)
+                            }
+                            "DELETE" -> {
+                                val targetId = if (item.entityServerId > 0) item.entityServerId else item.entityLocalId
+                                val res = api.deleteCustomerApi(targetId)
+                                code = res.code()
+                                bodyStr = res.body()?.toString() ?: res.errorBody()?.string()
+                                if (res.isSuccessful) repository.deleteCustomerById(item.entityLocalId)
+                            }
+                        }
+                    }
+                    "SUPPLIER" -> {
+                        when (item.operation.uppercase(Locale.US)) {
+                            "CREATE" -> {
+                                val map = JSONObject(item.payloadJson).toMap()
+                                val res = api.createSupplier(map)
+                                code = res.code()
+                                bodyStr = res.body()?.toString() ?: res.errorBody()?.string()
+                                if (res.isSuccessful) {
+                                    val createdMap = res.body()
+                                    val serverId = (createdMap?.get("id") as? Number)?.toInt()
+                                        ?: ((createdMap?.get("supplier") as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
+                                    if (serverId > 0) repository.markSupplierSynced(item.entityLocalId, serverId)
+                                }
+                            }
+                            "UPDATE" -> {
+                                val map = JSONObject(item.payloadJson).toMap()
+                                val targetId = if (item.entityServerId > 0) item.entityServerId else item.entityLocalId
+                                val res = api.updateSupplierApi(targetId, map)
+                                code = res.code()
+                                bodyStr = res.body()?.toString() ?: res.errorBody()?.string()
+                                if (res.isSuccessful) repository.markSupplierSynced(item.entityLocalId, targetId)
+                            }
+                            "DELETE" -> {
+                                val targetId = if (item.entityServerId > 0) item.entityServerId else item.entityLocalId
+                                val res = api.deleteSupplierApi(targetId)
+                                code = res.code()
+                                bodyStr = res.body()?.toString() ?: res.errorBody()?.string()
+                                if (res.isSuccessful) repository.deleteSupplierById(item.entityLocalId)
+                            }
+                        }
+                    }
+                    "TRANSACTION" -> {
+                        when (item.operation.uppercase(Locale.US)) {
+                            "CREATE" -> {
+                                val map = JSONObject(item.payloadJson).toMap()
+                                val res = api.createTransactionApi(map)
+                                code = res.code()
+                                bodyStr = res.body()?.toString() ?: res.errorBody()?.string()
+                                if (res.isSuccessful) {
+                                    val createdMap = res.body()
+                                    val serverId = (createdMap?.get("id") as? Number)?.toInt()
+                                        ?: ((createdMap?.get("transaction") as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
+                                    if (serverId > 0) repository.markTransactionSynced(item.entityLocalId, serverId)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (code in 200..299) {
+                    repository.updateOutboxStatus(item.id, OutboxStatus.SYNCED)
+                    SafaLogger.log("OUTBOX_SUCCESS", "Outbox #${item.id} synced successfully.")
+                    successCount++
+                } else if (code == 401) {
+                    SafaLogger.warn("AUTH_401", "Unauthorized error during outbox processing.")
+                    tokenManager.clearAllTokens()
+                    return@withContext Result.failure(Exception("AUTH_401 Unauthorized"))
+                } else if (code == 403) {
+                    SafaLogger.warn("AUTH_403", "Forbidden outbox item #${item.id}: $bodyStr")
+                    repository.markOutboxFailed(item.id, OutboxStatus.FAILED, bodyStr ?: "403 Forbidden")
+                } else if (code in 400..499) {
+                    SafaLogger.error("OUTBOX_FAILED", "Outbox item #${item.id} non-retryable error ($code): $bodyStr")
+                    repository.markOutboxFailed(item.id, OutboxStatus.FAILED, bodyStr ?: "HTTP $code Error")
+                } else {
+                    SafaLogger.warn("OUTBOX_RETRY", "Outbox item #${item.id} retryable server error ($code)")
+                }
+            } catch (e: Exception) {
+                SafaLogger.error("OUTBOX_FAILED", "Network error processing outbox #${item.id}", e)
+            }
+        }
+        repository.purgeSyncedOutbox()
+        return@withContext Result.success(successCount)
     }
 
     suspend fun executeGraphQl(
@@ -93,6 +228,13 @@ class SyncManager(
         _syncState.value = SyncState.Syncing
         return@withContext try {
             val api = getApiService()
+
+            // 0. Process durable outbox queue first
+            try {
+                processOutbox()
+            } catch (e: Exception) {
+                SafaLogger.warn("OUTBOX_PROCESSING_ERROR", "Error during outbox processing: ${e.message}")
+            }
 
             // 1. Collect pending local Room data (where syncStatus != SYNCED)
             val pendingTxns = repository.getPendingTransactions()

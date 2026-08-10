@@ -14,7 +14,15 @@ class AppRepository(
     private val dailyRateDao: DailyRateDao,
     private val walletLedgerDao: WalletLedgerDao,
     private val walletBatchDao: WalletBatchDao,
+    private val syncOutboxDao: SyncOutboxDao? = null
 ) {
+    // ─── Sync Outbox ──────────────────────────────────────────────────────────
+    suspend fun getPendingOutbox(): List<SyncOutbox> = syncOutboxDao?.getPendingOutbox() ?: emptyList()
+    suspend fun enqueueOutbox(outbox: SyncOutbox): Long = syncOutboxDao?.insert(outbox) ?: -1L
+    suspend fun updateOutboxStatus(id: Int, status: String) = syncOutboxDao?.updateStatus(id, status)
+    suspend fun markOutboxFailed(id: Int, status: String, error: String?) = syncOutboxDao?.markFailed(id, status, error)
+    suspend fun deleteOutboxById(id: Int) = syncOutboxDao?.deleteById(id)
+    suspend fun purgeSyncedOutbox() = syncOutboxDao?.purgeSynced()
     // ─── Operators ────────────────────────────────────────────────────────────
     val allOperators: Flow<List<OperatorAccount>> = operatorDao.getAll()
     suspend fun insertOperator(op: OperatorAccount) = operatorDao.insert(op)

@@ -73,6 +73,7 @@ class MainActivity : FragmentActivity() {
                 dailyRateDao          = database.dailyRateDao(),
                 walletLedgerDao       = database.walletLedgerDao(),
                 walletBatchDao        = database.walletBatchDao(),
+                syncOutboxDao         = database.syncOutboxDao(),
             )
             android.util.Log.i("SafaApp", "STARTUP_120_AFTER_REPOSITORY")
 

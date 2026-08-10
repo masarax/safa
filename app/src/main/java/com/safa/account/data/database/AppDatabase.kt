@@ -69,6 +69,28 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `sync_outbox` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `userId` INTEGER NOT NULL DEFAULT 0,
+                `accountId` INTEGER NOT NULL DEFAULT 0,
+                `entityType` TEXT NOT NULL,
+                `entityLocalId` INTEGER NOT NULL,
+                `entityServerId` INTEGER NOT NULL DEFAULT 0,
+                `operation` TEXT NOT NULL,
+                `payloadJson` TEXT NOT NULL,
+                `status` TEXT NOT NULL DEFAULT 'PENDING',
+                `retryCount` INTEGER NOT NULL DEFAULT 0,
+                `lastError` TEXT DEFAULT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+    }
+}
+
 @Database(
     entities = [
         OperatorAccount::class,
@@ -80,8 +102,9 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         DailyRate::class,
         WalletLedger::class,
         WalletBatch::class,
+        SyncOutbox::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -95,6 +118,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun dailyRateDao(): DailyRateDao
     abstract fun walletLedgerDao(): WalletLedgerDao
     abstract fun walletBatchDao(): WalletBatchDao
+    abstract fun syncOutboxDao(): SyncOutboxDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -118,7 +142,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "safa_encrypted_db"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                     .also { INSTANCE = it }
             }

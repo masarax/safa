@@ -10,29 +10,14 @@ use Illuminate\Support\Facades\Validator;
 
 class TransactionController extends Controller
 {
-    private function resolveAccountId(Request $request): int
-    {
-        $apiKey = $request->header('X-SAFA-API-KEY');
-        if ($apiKey) {
-            $keyRecord = SafaApiKey::where('api_key', $apiKey)->where('is_active', true)->first();
-            if ($keyRecord && $keyRecord->account_id) {
-                return (int) $keyRecord->account_id;
-            }
-        }
-        $headerAccountId = $request->header('X-SAFA-ACCOUNT-ID') ?? $request->input('account_id');
-        if ($headerAccountId && is_numeric($headerAccountId)) {
-            return (int) $headerAccountId;
-        }
-        $defaultAccount = Account::firstOrCreate(
-            ['name' => 'SAFA Default Account'],
-            ['balance' => 0.00]
-        );
-        return (int) $defaultAccount->id;
-    }
+    use AuthorizeAccountContext;
 
     public function index(Request $request)
     {
-        $accountId = $this->resolveAccountId($request);
+        $context = $this->resolveAuthorizedAccountContext($request);
+        if (isset($context['error'])) return $context['error'];
+        $accountId = $context['account_id'];
+
         $transactions = Transaction::where('account_id', $accountId)
             ->whereNull('deleted_at')
             ->orderBy('id', 'desc')
@@ -46,7 +31,10 @@ class TransactionController extends Controller
 
     public function store(Request $request)
     {
-        $accountId = $this->resolveAccountId($request);
+        $context = $this->resolveAuthorizedAccountContext($request);
+        if (isset($context['error'])) return $context['error'];
+        $accountId = $context['account_id'];
+
         $validator = Validator::make($request->all(), [
             'amount_sar' => 'nullable|numeric',
             'amount' => 'nullable|numeric',
@@ -91,7 +79,10 @@ class TransactionController extends Controller
 
     public function update(Request $request, $id)
     {
-        $accountId = $this->resolveAccountId($request);
+        $context = $this->resolveAuthorizedAccountContext($request);
+        if (isset($context['error'])) return $context['error'];
+        $accountId = $context['account_id'];
+
         $transaction = Transaction::where('account_id', $accountId)
             ->where(function ($q) use ($id) {
                 $q->where('id', (int) $id)->orWhere('local_id', (int) $id);
@@ -119,7 +110,10 @@ class TransactionController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        $accountId = $this->resolveAccountId($request);
+        $context = $this->resolveAuthorizedAccountContext($request);
+        if (isset($context['error'])) return $context['error'];
+        $accountId = $context['account_id'];
+
         $transaction = Transaction::where('account_id', $accountId)
             ->where(function ($q) use ($id) {
                 $q->where('id', (int) $id)->orWhere('local_id', (int) $id);

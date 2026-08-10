@@ -25,6 +25,8 @@ class TokenManager(private val context: Context) {
         private val DEFAULT_API_SECRET: String = BuildConfig.SAFA_API_SECRET
     }
 
+    fun getContext(): Context = context
+
     fun saveLastMobile(mobile: String) = prefs.edit { putString(KEY_LAST_MOBILE, mobile) }
     fun getLastMobile(): String = prefs.getString(KEY_LAST_MOBILE, "") ?: ""
 

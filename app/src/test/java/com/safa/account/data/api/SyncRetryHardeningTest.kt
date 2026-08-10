@@ -33,6 +33,7 @@ class SyncRetryHardeningTest {
             whenever(repository.getPendingExpensesIncomes()).thenReturn(emptyList())
             whenever(repository.getPendingWalletBatches()).thenReturn(emptyList())
             whenever(repository.getPendingWalletLedgers()).thenReturn(emptyList())
+            whenever(repository.getPendingOutbox()).thenReturn(emptyList())
 
             whenever(repository.allCustomersRaw).thenReturn(kotlinx.coroutines.flow.flowOf(emptyList()))
             whenever(repository.allSuppliersRaw).thenReturn(kotlinx.coroutines.flow.flowOf(emptyList()))
@@ -77,6 +78,7 @@ class SyncRetryHardeningTest {
             whenever(repository.getPendingExpensesIncomes()).thenReturn(emptyList())
             whenever(repository.getPendingWalletBatches()).thenReturn(emptyList())
             whenever(repository.getPendingWalletLedgers()).thenReturn(emptyList())
+            whenever(repository.getPendingOutbox()).thenReturn(emptyList())
 
             // Return HTTP 500 Internal Server Error
             whenever(apiService.syncUp(any())).thenReturn(Response.error(500, "Internal Error".toResponseBody()))
@@ -111,6 +113,7 @@ class SyncRetryHardeningTest {
             whenever(repository.getPendingExpensesIncomes()).thenReturn(emptyList())
             whenever(repository.getPendingWalletBatches()).thenReturn(emptyList())
             whenever(repository.getPendingWalletLedgers()).thenReturn(emptyList())
+            whenever(repository.getPendingOutbox()).thenReturn(emptyList())
 
             // Return HTTP 422 Unprocessable Entity
             whenever(apiService.syncUp(any())).thenReturn(Response.error(422, "Validation Failed".toResponseBody()))

@@ -609,9 +609,18 @@ class AuthJWTController extends Controller
         $opId = $id ?? $request->input('id') ?? $request->input('operator_id');
         $operator = User::find($opId);
 
-        if (!$operator || $operator->role === 'superadmin') {
-            return response()->json(['status' => 'error', 'message' => 'Operator not found or cannot be deleted.'], 404);
+        if (!$operator) {
+            return response()->json(['status' => 'error', 'message' => 'Operator not found.'], 404);
         }
+
+        if ($operator->id === $superAdmin->id) {
+            return response()->json(['status' => 'error', 'message' => 'Forbidden. SuperAdmin cannot delete their own account.'], 400);
+        }
+
+        // Revoke active sessions, device bindings, and account shares
+        AuthSession::where('user_id', $operator->id)->delete();
+        DeviceBinding::where('user_id', $operator->id)->delete();
+        UserAccountShare::where('owner_user_id', $operator->id)->orWhere('shared_with_user_id', $operator->id)->delete();
 
         if (Schema::hasTable('operator_accounts')) {
             DB::table('operator_accounts')->where('user_id', $operator->id)->orWhere('mobile', $operator->mobile)->delete();
