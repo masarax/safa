@@ -150,8 +150,7 @@ private fun SafaRoot(viewModel: SafaViewModel) {
                 confirmButton = {
                     TextButton(onClick = {
                         showExitDialog = false
-                        // FragmentActivity.finish() is handled by the system back path;
-                        // navigateBack() already owns application navigation state.
+                        finish()
                     }) {
                         Text(if (currentLanguage == "BN") "ঠিক আছে" else "OK")
                     }
@@ -169,8 +168,6 @@ private fun SafaRoot(viewModel: SafaViewModel) {
             return@MyApplicationTheme
         }
 
-        val isKeyboardVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
-
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
@@ -184,7 +181,7 @@ private fun SafaRoot(viewModel: SafaViewModel) {
                 }
             },
             bottomBar = {
-                if (!isKeyboardVisible && showBars) {
+                if (showBars) {
                     SafaBottomNavigationBar(viewModel, currentScreen)
                 }
             }
