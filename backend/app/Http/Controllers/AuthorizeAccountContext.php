@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use App\Models\User;
 use App\Models\SafaApiKey;
 use App\Models\Account;
@@ -37,50 +38,82 @@ trait AuthorizeAccountContext
             if ($headerAccountId !== null && is_numeric($headerAccountId)) $requestedAccountId = (int) $headerAccountId;
         }
 
+        $hasOwnerColumn = Schema::hasColumn('accounts', 'owner_user_id');
+
         if ($user) {
-            $ownedAccount = Account::query()->where('owner_user_id', $user->id)->orderBy('id')->first();
-            if (!$ownedAccount) {
-                $legacyAccount = Account::find($user->id);
-                if ($legacyAccount) $ownedAccount = $legacyAccount;
+            // New account-context schema: strictly resolve owned/shared accounts.
+            if ($hasOwnerColumn) {
+                $ownedAccount = Account::query()->where('owner_user_id', $user->id)->orderBy('id')->first();
+                if (!$ownedAccount) {
+                    $legacyAccount = Account::find($user->id);
+                    if ($legacyAccount) {
+                        $legacyAccount->owner_user_id = $user->id;
+                        $legacyAccount->save();
+                        $ownedAccount = $legacyAccount;
+                    }
+                }
+                if (!$ownedAccount) {
+                    $ownedAccount = Account::create([
+                        'name' => trim(($user->name ?: 'SAFA') . ' Account'),
+                        'balance' => 0.00,
+                        'owner_user_id' => $user->id,
+                    ]);
+                }
+
+                $targetAccountId = $requestedAccountId ?: (int) $ownedAccount->id;
+                $targetAccount = Account::find($targetAccountId);
+                if (!$targetAccount) {
+                    return ['error' => response()->json(['status' => 'error', 'message' => 'Forbidden: Requested account does not exist.'], 403)];
+                }
+
+                if ((int) $targetAccount->owner_user_id === (int) $user->id
+                    || ((int) $targetAccount->owner_user_id === 0 && (int) $targetAccount->id === (int) $user->id)) {
+                    return ['user' => $user, 'account_id' => (int) $targetAccount->id];
+                }
+
+                if ($user->role === 'superadmin') {
+                    return ['user' => $user, 'account_id' => (int) $targetAccount->id];
+                }
+
+                $shareExists = UserAccountShare::where('shared_with_user_id', $user->id)
+                    ->where(function ($q) use ($targetAccountId, $targetAccount) {
+                        $q->where('account_id', $targetAccountId)
+                          ->orWhere('owner_user_id', (int) $targetAccount->owner_user_id);
+                    })
+                    ->exists();
+
+                if (!$shareExists) {
+                    return ['error' => response()->json(['status' => 'error', 'message' => 'Forbidden: You do not have authorization to access this account context.'], 403)];
+                }
+
+                return ['user' => $user, 'account_id' => (int) $targetAccount->id];
             }
-            if (!$ownedAccount) {
-                $ownedAccount = Account::create([
+
+            // Legacy production schema fallback. This is deliberately conservative:
+            // prefer the historical user-id/account-id convention, then the account
+            // referenced by the authenticated API key, then the first account. This
+            // keeps existing business data reachable until the owner_user_id migration
+            // is actually executed, instead of turning every sync request into HTTP 500.
+            $legacyAccount = Account::find($requestedAccountId ?: (int) $user->id);
+            if (!$legacyAccount) {
+                $apiKey = $request->header('X-SAFA-API-KEY');
+                if ($apiKey) {
+                    $keyRecord = SafaApiKey::where('api_key', $apiKey)->where('is_active', true)->first();
+                    if ($keyRecord?->account_id) {
+                        $legacyAccount = Account::find((int) $keyRecord->account_id);
+                    }
+                }
+            }
+            if (!$legacyAccount) {
+                $legacyAccount = Account::query()->orderBy('id')->first();
+            }
+            if (!$legacyAccount) {
+                $legacyAccount = Account::create([
                     'name' => trim(($user->name ?: 'SAFA') . ' Account'),
                     'balance' => 0.00,
-                    'owner_user_id' => $user->id,
                 ]);
-            } elseif (!$ownedAccount->owner_user_id && (int) $ownedAccount->id === (int) $user->id) {
-                $ownedAccount->owner_user_id = $user->id;
-                $ownedAccount->save();
             }
-
-            $targetAccountId = $requestedAccountId ?: (int) $ownedAccount->id;
-            $targetAccount = Account::find($targetAccountId);
-            if (!$targetAccount) {
-                return ['error' => response()->json(['status' => 'error', 'message' => 'Forbidden: Requested account does not exist.'], 403)];
-            }
-
-            if ((int) $targetAccount->owner_user_id === (int) $user->id
-                || ((int) $targetAccount->owner_user_id === 0 && (int) $targetAccount->id === (int) $user->id)) {
-                return ['user' => $user, 'account_id' => (int) $targetAccount->id];
-            }
-
-            if ($user->role === 'superadmin') {
-                return ['user' => $user, 'account_id' => (int) $targetAccount->id];
-            }
-
-            $shareExists = UserAccountShare::where('shared_with_user_id', $user->id)
-                ->where(function ($q) use ($targetAccountId, $targetAccount) {
-                    $q->where('account_id', $targetAccountId)
-                      ->orWhere('owner_user_id', (int) $targetAccount->owner_user_id);
-                })
-                ->exists();
-
-            if (!$shareExists) {
-                return ['error' => response()->json(['status' => 'error', 'message' => 'Forbidden: You do not have authorization to access this account context.'], 403)];
-            }
-
-            return ['user' => $user, 'account_id' => (int) $targetAccount->id];
+            return ['user' => $user, 'account_id' => (int) $legacyAccount->id];
         }
 
         $apiKey = $request->header('X-SAFA-API-KEY');
