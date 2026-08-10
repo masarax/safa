@@ -44,6 +44,11 @@ interface ApiService {
     @PUT("expenses-incomes/{id}") suspend fun updateExpenseIncome(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("expenses-incomes/{id}") suspend fun deleteExpenseIncome(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
+    // Public pre-auth connectivity check. This endpoint is intentionally outside
+    // the HMAC-protected business API so the login screen can verify reachability
+    // before an authenticated session exists.
+    @GET("auth/health") suspend fun checkServerHealth(): Response<Map<String, Any>>
+
     @GET("config/remote") suspend fun getRemoteConfig(): Response<Map<String, Any>>
     @POST("config/update") suspend fun updateConfig(@Body config: Map<String, Any?>): Response<Map<String, Any>>
     @Multipart @POST("upload/logo") suspend fun uploadLogo(@Part logo: MultipartBody.Part): Response<Map<String, Any>>
