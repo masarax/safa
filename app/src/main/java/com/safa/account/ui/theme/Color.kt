@@ -2,11 +2,12 @@ package com.safa.account.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-/** SAFA global design tokens: deep emerald + premium gold, with neutral financial states. */
+/** SAFA global design tokens: light emerald + premium gold, with neutral financial states. */
 object AppColors {
-    val PrimaryRed = Color(0xFF064E3B)
-    val PrimaryRedContainer = Color(0xFFE8F5F0)
-    val PrimaryOnRedContainer = Color(0xFF022C22)
+    // Primary brand green: intentionally lighter and fresher than the previous deep emerald.
+    val PrimaryRed = Color(0xFF0F766E)
+    val PrimaryRedContainer = Color(0xFFE6F5F2)
+    val PrimaryOnRedContainer = Color(0xFF064E3B)
 
     val GoldSecondary = Color(0xFFC49A3A)
     val GoldSecondaryContainer = Color(0xFFFFF8E7)
@@ -55,7 +56,7 @@ val LightOnSurface = AppColors.TextPrimary
 
 val DarkBluePrimary = Color(0xFF34D399)
 val DarkBlueOnPrimary = Color(0xFF00382B)
-val DarkBluePrimaryContainer = Color(0xFF065F46)
+val DarkBluePrimaryContainer = Color(0xFF087F67)
 val DarkBlueOnPrimaryContainer = Color(0xFFB7F7DD)
 val DarkSlateSecondary = Color(0xFFD8C27A)
 val DarkSlateOnSecondary = Color(0xFF3A2B05)
