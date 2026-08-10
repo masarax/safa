@@ -2,6 +2,7 @@ package com.safa.account
 
 import android.app.Activity
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -18,13 +19,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Store
@@ -86,15 +92,11 @@ class MainActivity : FragmentActivity() {
                 dailyRateDao = database.dailyRateDao(),
                 walletLedgerDao = database.walletLedgerDao(),
                 walletBatchDao = database.walletBatchDao(),
-                syncOutboxDao = database.syncOutboxDao(),
+                syncOutboxDao = database.syncOutboxDao()
             )
             val tokenManager = TokenManager(applicationContext)
             factory = SafaViewModelFactory(repository, tokenManager)
-            try {
-                AutoSyncWorker.schedulePeriodicSync(applicationContext)
-            } catch (e: Throwable) {
-                android.util.Log.e("SafaApp", "Failed to schedule AutoSyncWorker", e)
-            }
+            AutoSyncWorker.schedulePeriodicSync(applicationContext)
         } catch (t: Throwable) {
             initError = t
             android.util.Log.e("SafaApp", "STARTUP_INIT_FAILED", t)
@@ -121,10 +123,22 @@ private fun StartupErrorScreen(error: Throwable?, onRetry: () -> Unit) {
         modifier = Modifier.fillMaxSize().background(Color(0xFFFFF1F1)).padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("⚠️ SAFA Startup Diagnostic Error", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF991B1B)))
-            Text("${error?.javaClass?.simpleName}: ${error?.message}", style = TextStyle(fontSize = 14.sp, color = Color(0xFF7F1D1D)))
-            Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                "⚠️ SAFA Startup Diagnostic Error",
+                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF991B1B))
+            )
+            Text(
+                "${error?.javaClass?.simpleName}: ${error?.message}",
+                style = TextStyle(fontSize = 14.sp, color = Color(0xFF7F1D1D))
+            )
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+            ) {
                 Text("Retry Application Startup", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
@@ -140,60 +154,110 @@ private fun SafaRoot(viewModel: SafaViewModel) {
     val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
     val activity = androidx.compose.ui.platform.LocalContext.current as? Activity
-    val isMainScreen = currentScreen in listOf(AppScreen.DASHBOARD, AppScreen.CUSTOMERS, AppScreen.SUPPLIERS, AppScreen.WALLET, AppScreen.EXPENSES)
+
+    val isMainScreen = currentScreen in listOf(
+        AppScreen.DASHBOARD,
+        AppScreen.CUSTOMERS,
+        AppScreen.SUPPLIERS,
+        AppScreen.WALLET,
+        AppScreen.EXPENSES
+    )
     val showBars = isMainScreen && !isSubPageActive
 
     MyApplicationTheme(darkTheme = isDarkMode) {
         var showExitDialog by remember { mutableStateOf(false) }
+
         if (currentScreen != AppScreen.LOCK_SCREEN) {
-            androidx.activity.compose.BackHandler { if (!viewModel.navigateBack()) showExitDialog = true }
+            BackHandler {
+                if (!viewModel.navigateBack()) showExitDialog = true
+            }
         }
+
         if (showExitDialog) {
             AlertDialog(
                 onDismissRequest = { showExitDialog = false },
                 title = { Text(if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application") },
                 text = { Text(if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?") },
-                confirmButton = { TextButton(onClick = { showExitDialog = false; activity?.finish() }) { Text(if (currentLanguage == "BN") "হ্যাঁ" else "Yes") } },
-                dismissButton = { TextButton(onClick = { showExitDialog = false }) { Text(if (currentLanguage == "BN") "না" else "No") } }
+                confirmButton = {
+                    TextButton(onClick = { showExitDialog = false; activity?.finish() }) {
+                        Text(if (currentLanguage == "BN") "হ্যাঁ" else "Yes")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text(if (currentLanguage == "BN") "না" else "No")
+                    }
+                }
             )
         }
+
         if (currentScreen == AppScreen.LOCK_SCREEN) {
-            LoginScreen(viewModel)
+            LoginScreen(viewModel = viewModel)
         } else {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                topBar = { if (showBars) SafaTopAppBar(viewModel, viewModel.t("app_title"), currentOperator?.username ?: "") { viewModel.logout() } },
-                bottomBar = { if (showBars) SafaBottomNavigationBar(viewModel, currentScreen) }
+                topBar = {
+                    if (showBars) {
+                        SafaTopAppBar(
+                            viewModel = viewModel,
+                            title = viewModel.t("app_title"),
+                            operatorName = currentOperator?.username ?: "",
+                            onLogoutClick = { viewModel.logout() }
+                        )
+                    }
+                },
+                bottomBar = {
+                    if (showBars) SafaBottomNavigationBar(viewModel, currentScreen)
+                }
             ) { innerPadding ->
-                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(innerPadding).imePadding()) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(innerPadding)
+                ) {
                     AnimatedContent(
                         targetState = currentScreen,
                         transitionSpec = {
                             val backward = navDirection == NavDirection.BACKWARD
                             if (backward) {
-                                slideInHorizontally({ -it }, tween(160, easing = FastOutSlowInEasing)) + fadeIn(tween(110)) togetherWith slideOutHorizontally({ it }, tween(160, easing = FastOutSlowInEasing)) + fadeOut(tween(110))
+                                slideInHorizontally(
+                                    initialOffsetX = { -it },
+                                    animationSpec = tween(160, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(110)) togetherWith
+                                    slideOutHorizontally(
+                                        targetOffsetX = { it },
+                                        animationSpec = tween(160, easing = FastOutSlowInEasing)
+                                    ) + fadeOut(animationSpec = tween(110))
                             } else {
-                                slideInHorizontally({ it }, tween(160, easing = FastOutSlowInEasing)) + fadeIn(tween(110)) togetherWith slideOutHorizontally({ -it }, tween(160, easing = FastOutSlowInEasing)) + fadeOut(tween(110))
+                                slideInHorizontally(
+                                    initialOffsetX = { it },
+                                    animationSpec = tween(160, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(110)) togetherWith
+                                    slideOutHorizontally(
+                                        targetOffsetX = { -it },
+                                        animationSpec = tween(160, easing = FastOutSlowInEasing)
+                                    ) + fadeOut(animationSpec = tween(110))
                             }
                         },
                         label = "SafaScreenTransition",
                         modifier = Modifier.fillMaxSize()
                     ) { target ->
                         when (target) {
-                            AppScreen.DASHBOARD -> DashboardScreen(viewModel)
-                            AppScreen.CUSTOMERS -> CustomerScreen(viewModel, false, false)
-                            AppScreen.CUSTOMER_PROFILE -> CustomerScreen(viewModel, true, false)
-                            AppScreen.CUSTOMER_ADD -> CustomerScreen(viewModel, false, true)
-                            AppScreen.SUPPLIERS -> SupplierScreen(viewModel, false, false)
-                            AppScreen.SUPPLIER_PROFILE -> SupplierScreen(viewModel, true, false)
-                            AppScreen.SUPPLIER_ADD -> SupplierScreen(viewModel, false, true)
-                            AppScreen.TRANSACTIONS -> TransactionScreen(viewModel)
-                            AppScreen.WALLET -> WalletScreen(viewModel)
-                            AppScreen.EXPENSES -> ExpenseScreen(viewModel, false)
-                            AppScreen.EXPENSE_ADD -> ExpenseScreen(viewModel, true)
-                            AppScreen.SETTINGS -> SettingsScreen(viewModel)
-                            AppScreen.REPORTS -> ReportsScreen(viewModel)
-                            else -> DashboardScreen(viewModel)
+                            AppScreen.DASHBOARD -> DashboardScreen(viewModel = viewModel)
+                            AppScreen.CUSTOMERS -> CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = false)
+                            AppScreen.CUSTOMER_PROFILE -> CustomerScreen(viewModel = viewModel, isProfileView = true, isAddView = false)
+                            AppScreen.CUSTOMER_ADD -> CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = true)
+                            AppScreen.SUPPLIERS -> SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = false)
+                            AppScreen.SUPPLIER_PROFILE -> SupplierScreen(viewModel = viewModel, isProfileView = true, isAddView = false)
+                            AppScreen.SUPPLIER_ADD -> SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = true)
+                            AppScreen.TRANSACTIONS -> TransactionScreen(viewModel = viewModel)
+                            AppScreen.WALLET -> WalletScreen(viewModel = viewModel)
+                            AppScreen.EXPENSES -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = false)
+                            AppScreen.EXPENSE_ADD -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = true)
+                            AppScreen.SETTINGS -> SettingsScreen(viewModel = viewModel)
+                            AppScreen.REPORTS -> ReportsScreen(viewModel = viewModel)
+                            else -> DashboardScreen(viewModel = viewModel)
                         }
                     }
                 }
@@ -202,17 +266,30 @@ private fun SafaRoot(viewModel: SafaViewModel) {
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String, onLogoutClick: () -> Unit) {
+private fun SafaTopAppBar(
+    viewModel: SafaViewModel,
+    title: String,
+    operatorName: String,
+    onLogoutClick: () -> Unit
+) {
+    val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     TopAppBar(
         title = {
             Column {
                 Text(if (title.isBlank()) "SAFA" else title)
-                if (operatorName.isNotBlank()) Text("Operator: $operatorName", style = MaterialTheme.typography.labelSmall)
+                if (operatorName.isNotBlank()) {
+                    Text("Operator: $operatorName", style = MaterialTheme.typography.labelSmall)
+                }
             }
         },
         actions = {
+            IconButton(onClick = { viewModel.toggleDarkMode() }) {
+                Icon(
+                    imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                    contentDescription = "Theme"
+                )
+            }
             IconButton(onClick = onLogoutClick) {
                 Icon(Icons.Default.ReceiptLong, contentDescription = "Logout")
             }
