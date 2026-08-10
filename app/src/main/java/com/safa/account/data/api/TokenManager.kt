@@ -37,8 +37,8 @@ class TokenManager(private val context: Context) {
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
         private const val PRODUCTION_API_KEY = "safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b"
         private const val PRODUCTION_API_SECRET = "safa_sec_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
-        private val DEFAULT_API_KEY: String = BuildConfig.SAFA_API_KEY
-        private val DEFAULT_API_SECRET: String = BuildConfig.SAFA_API_SECRET
+        @Suppress("unused") private val DEFAULT_API_KEY: String = BuildConfig.SAFA_API_KEY
+        @Suppress("unused") private val DEFAULT_API_SECRET: String = BuildConfig.SAFA_API_SECRET
     }
 
     private fun migrateLegacyPreferences() {
@@ -66,21 +66,9 @@ class TokenManager(private val context: Context) {
     fun saveLastMobile(mobile: String) = prefs.edit { putString(KEY_LAST_MOBILE, mobile) }
     fun getLastMobile(): String = prefs.getString(KEY_LAST_MOBILE, "") ?: ""
     fun saveApiKey(key: String) = prefs.edit { putString(KEY_API_KEY, key) }
-    fun getApiKey(): String {
-        val buildKey = DEFAULT_API_KEY.trim()
-        if (buildKey.isNotBlank() && !buildKey.equals("your_api_key_here", ignoreCase = true)) return buildKey
-        val stored = prefs.getString(KEY_API_KEY, "")?.trim().orEmpty()
-        if (stored.isNotBlank() && !stored.equals("your_api_key_here", ignoreCase = true)) return stored
-        return PRODUCTION_API_KEY
-    }
+    fun getApiKey(): String = PRODUCTION_API_KEY
     fun saveApiSecret(secret: String) = prefs.edit { putString(KEY_API_SECRET, secret) }
-    fun getApiSecret(): String {
-        val buildSecret = DEFAULT_API_SECRET.trim()
-        if (buildSecret.isNotBlank() && !buildSecret.equals("your_api_secret_here", ignoreCase = true)) return buildSecret
-        val stored = prefs.getString(KEY_API_SECRET, "")?.trim().orEmpty()
-        if (stored.isNotBlank() && !stored.equals("your_api_secret_here", ignoreCase = true)) return stored
-        return PRODUCTION_API_SECRET
-    }
+    fun getApiSecret(): String = PRODUCTION_API_SECRET
     fun saveAccessToken(token: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
     fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
     fun saveToken(token: String) = saveAccessToken(token)
