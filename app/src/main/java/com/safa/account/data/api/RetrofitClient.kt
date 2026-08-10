@@ -3,13 +3,14 @@ package com.safa.account.data.api
 import com.safa.account.data.network.ApiSecurityInterceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import java.util.concurrent.TimeUnit
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
-import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
     @Volatile private var instance: Retrofit? = null
+    @Volatile private var instanceConfig: String? = null
 
     fun getInstance(
         baseUrl: String,
@@ -18,13 +19,14 @@ object RetrofitClient {
         tokenManager: TokenManager? = null
     ): Retrofit {
         val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val configKey = "$normalizedUrl\u0000$apiKey\u0000$apiSecret"
         val current = instance
-        if (current != null && current.baseUrl().toString() == normalizedUrl) {
+        if (current != null && instanceConfig == configKey) {
             return current
         }
         return synchronized(this) {
             val currentInSync = instance
-            if (currentInSync != null && currentInSync.baseUrl().toString() == normalizedUrl) {
+            if (currentInSync != null && instanceConfig == configKey) {
                 currentInSync
             } else {
                 val logging = HttpLoggingInterceptor().apply {
@@ -43,7 +45,10 @@ object RetrofitClient {
                     .client(client)
                     .addConverterFactory(MoshiConverterFactory.create())
                     .build()
-                    .also { instance = it }
+                    .also {
+                        instance = it
+                        instanceConfig = configKey
+                    }
             }
         }
     }
@@ -59,5 +64,6 @@ object RetrofitClient {
 
     fun clearCache() {
         instance = null
+        instanceConfig = null
     }
 }

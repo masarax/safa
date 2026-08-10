@@ -32,10 +32,25 @@ class TokenManager(private val context: Context) {
     fun getLastMobile(): String = prefs.getString(KEY_LAST_MOBILE, "") ?: ""
 
     fun saveApiKey(key: String) = prefs.edit { putString(KEY_API_KEY, key) }
-    fun getApiKey(): String = prefs.getString(KEY_API_KEY, DEFAULT_API_KEY)?.ifBlank { DEFAULT_API_KEY } ?: DEFAULT_API_KEY
+    fun getApiKey(): String {
+        // Build-time secrets are the source of truth for the production app.
+        // Older installations may still contain credentials saved by a previous
+        // configuration; prefer the current build secret when it is configured.
+        val buildKey = DEFAULT_API_KEY.trim()
+        if (buildKey.isNotBlank() && !buildKey.equals("your_api_key_here", ignoreCase = true)) {
+            return buildKey
+        }
+        return prefs.getString(KEY_API_KEY, buildKey)?.trim().orEmpty().ifBlank { buildKey }
+    }
 
     fun saveApiSecret(secret: String) = prefs.edit { putString(KEY_API_SECRET, secret) }
-    fun getApiSecret(): String = prefs.getString(KEY_API_SECRET, DEFAULT_API_SECRET)?.ifBlank { DEFAULT_API_SECRET } ?: DEFAULT_API_SECRET
+    fun getApiSecret(): String {
+        val buildSecret = DEFAULT_API_SECRET.trim()
+        if (buildSecret.isNotBlank() && !buildSecret.equals("your_api_secret_here", ignoreCase = true)) {
+            return buildSecret
+        }
+        return prefs.getString(KEY_API_SECRET, buildSecret)?.trim().orEmpty().ifBlank { buildSecret }
+    }
 
     fun saveAccessToken(token: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
     fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
