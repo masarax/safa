@@ -9,6 +9,7 @@ use App\Http\Middleware\CheckInstalled;
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\VerifyMultiLevelToken;
+use App\Http\Middleware\VerifyActiveAuthSession;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ensure.not.installed' => EnsureNotInstalled::class,
             'security.headers' => SecurityHeaders::class,
             'verify.multilevel.token' => VerifyMultiLevelToken::class,
+            'verify.active.session' => VerifyActiveAuthSession::class,
         ]);
 
         $middleware->appendToGroup('web', CheckInstalled::class);
