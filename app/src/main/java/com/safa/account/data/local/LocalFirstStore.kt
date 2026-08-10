@@ -210,19 +210,38 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
             }
         }
 
-    fun getReadyOutbox(limit: Int = 50): List<OutboxRecord> =
-        readableDatabase.rawQuery(
-            "SELECT id,entity,local_id,server_id,operation,payload,status,retry_count,last_error FROM outbox WHERE status=? AND next_attempt_at<=? AND retry_count<? ORDER BY id LIMIT ?",
-            arrayOf(OUTBOX_PENDING, System.currentTimeMillis().toString(), MAX_RETRIES.toString(), limit.toString())
-        ).use { c ->
-            buildList {
+    /**
+     * Atomically claims ready outbox rows for one sync attempt.
+     * SELECT + PROCESSING transition share one SQLite transaction, preventing duplicate uploads.
+     * Abandoned PROCESSING rows are recovered only after the safety timeout.
+     */
+    fun getReadyOutbox(limit: Int = 50): List<OutboxRecord> {
+        resetStaleProcessing()
+        return writableDatabase.transactionResult {
+            val now = System.currentTimeMillis()
+            val rows = mutableListOf<OutboxRecord>()
+            rawQuery(
+                "SELECT id,entity,local_id,server_id,operation,payload,status,retry_count,last_error FROM outbox WHERE status=? AND next_attempt_at<=? AND retry_count<? ORDER BY id LIMIT ?",
+                arrayOf(OUTBOX_PENDING, now.toString(), MAX_RETRIES.toString(), limit.coerceIn(1, 100).toString())
+            ).use { c ->
                 while (c.moveToNext()) {
-                    add(OutboxRecord(c.getLong(0), c.getString(1), c.getInt(2), c.getInt(3), c.getString(4), PayloadCipher.decrypt(c.getBlob(5)), c.getString(6), c.getInt(7), c.getString(8)))
+                    rows += OutboxRecord(
+                        c.getLong(0), c.getString(1), c.getInt(2), c.getInt(3), c.getString(4),
+                        PayloadCipher.decrypt(c.getBlob(5)), c.getString(6), c.getInt(7), c.getString(8)
+                    )
                 }
             }
+            rows.forEach { row ->
+                execSQL(
+                    "UPDATE outbox SET status=?, updated_at=? WHERE id=? AND status=?",
+                    arrayOf(OUTBOX_PROCESSING, now, row.id, OUTBOX_PENDING)
+                )
+            }
+            rows
         }
+    }
 
-    /** Atomically marks a batch as in-flight so one sync cycle owns it. */
+    /** Compatibility hook; rows are already atomically claimed by getReadyOutbox(). */
     fun markOutboxProcessing(ids: List<Long>) {
         if (ids.isEmpty()) return
         val now = System.currentTimeMillis()
