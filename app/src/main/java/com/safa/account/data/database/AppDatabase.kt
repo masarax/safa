@@ -10,7 +10,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.safa.account.data.dao.*
 import com.safa.account.data.model.*
 import com.safa.account.data.network.SyncTrigger
-import kotlinx.coroutines.CoroutineScope
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
 
@@ -113,7 +112,7 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile private var INSTANCE: AppDatabase? = null
         private var observerRegistered = false
 
-        fun getDatabase(context: Context, @Suppress("UNUSED_PARAMETER") scope: CoroutineScope): AppDatabase {
+        fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
                     android.util.Log.i("SafaApp", "STARTUP_050_BEFORE_KEYSTORE")
@@ -145,8 +144,6 @@ abstract class AppDatabase : RoomDatabase() {
                             "sync_outbox"
                         ) {
                             override fun onInvalidated(tables: Set<String>) {
-                                // Any local mutation is a sync trigger. The worker has
-                                // an atomic guard so its own reconciliation cannot loop.
                                 SyncTrigger.schedule(context.applicationContext)
                             }
                         })
