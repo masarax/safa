@@ -15,30 +15,20 @@ use App\Http\Middleware\AuditLogMiddleware;
 use App\Http\Middleware\VerifyRefreshRequest;
 use App\Http\Middleware\VerifyActiveAuthSession;
 use App\Http\Middleware\RejectInactiveLogin;
+use App\Http\Middleware\RequireBusinessPermission;
+use App\Http\Middleware\RequireSuperAdmin;
 
-/*
- |--------------------------------------------------------------------------
- | Authentication / account-context routes
- |--------------------------------------------------------------------------
- | Health is the only intentionally unauthenticated endpoint. Login and
- | first-time activation still require the application HMAC credential and
- | are rate limited. Every endpoint that exposes account/user data requires
- | the complete multi-level session after authentication.
- */
 Route::prefix('auth')->group(function () {
     Route::get('/health', function () {
-        return response()->json([
-            'status' => 'ok',
-            'service' => 'SAFA API',
-        ]);
+        return response()->json(['status' => 'ok', 'service' => 'SAFA API']);
     });
 
     Route::post('/login', [AuthJWTController::class, 'login'])
         ->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
 
-    // Refresh remains reachable without HMAC so existing installations can
-    // recover an expired access token; the refresh secret, device and
-    // fingerprint are still mandatory and the refresh token is rotated.
+    // Refresh uses the refresh secret + device + fingerprint and rotates the
+    // refresh token. It intentionally remains compatible with older clients
+    // that do not sign the refresh request with HMAC.
     Route::post('/refresh', [AuthJWTController::class, 'refreshToken'])
         ->middleware([VerifyRefreshRequest::class, 'throttle:20,1']);
 
@@ -55,7 +45,6 @@ Route::prefix('auth')->group(function () {
         Route::delete('/operators/{id?}', [AuthJWTController::class, 'deleteOperator']);
         Route::match(['get', 'post', 'put', 'patch', 'delete'], '/operators/{id?}', [AuthJWTController::class, 'operators']);
 
-        // Legacy account endpoints retained for compatibility, but no longer public.
         Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
         Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
         Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
@@ -66,13 +55,11 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
-Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:60,1'])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
     Route::post('/sync/up', [SyncController::class, 'syncUp']);
 
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
-    Route::post('/config/update', [RemoteConfigController::class, 'updateConfig']);
-    Route::post('/upload/logo', [RemoteConfigController::class, 'uploadLogo']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
 
     Route::get('/accounts', [AccountContextController::class, 'index']);
@@ -113,4 +100,9 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
     Route::post('/expenses-incomes', [RemoteBusinessController::class, 'storeExpenseIncome']);
     Route::put('/expenses-incomes/{id}', [RemoteBusinessController::class, 'updateExpenseIncome']);
     Route::delete('/expenses-incomes/{id}', [RemoteBusinessController::class, 'destroyExpenseIncome']);
+
+    Route::middleware([RequireSuperAdmin::class])->group(function () {
+        Route::post('/config/update', [RemoteConfigController::class, 'updateConfig']);
+        Route::post('/upload/logo', [RemoteConfigController::class, 'uploadLogo']);
+    });
 });
