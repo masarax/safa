@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** Remote-only repository. Laravel/MySQL is the authoritative data store. */
 class AppRepository(private val api: ApiService) {
-    /** Legacy constructor kept only so old callers compile; it creates no local database. */
+    constructor(context: Context) : this(remoteApi(context))
     constructor(a: Context, b: Context, c: Context, d: Context, e: Context, f: Context, g: Context, h: Context, i: Context, j: Context) : this(remoteApi(a))
 
     private companion object {
@@ -50,80 +50,28 @@ class AppRepository(private val api: ApiService) {
     val allWalletBatches: Flow<List<WalletBatch>> = _batches.asStateFlow()
     val allWalletBatchesRaw = allWalletBatches
 
-    private fun Any?.i(): Int = when (this) {
-        is Number -> this.toInt()
-        else -> this?.toString()?.toIntOrNull() ?: 0
-    }
-
-    private fun Any?.d(): Double = when (this) {
-        is Number -> this.toDouble()
-        else -> this?.toString()?.toDoubleOrNull() ?: 0.0
-    }
-
+    private fun Any?.i(): Int = when (this) { is Number -> this.toInt(); else -> this?.toString()?.toIntOrNull() ?: 0 }
+    private fun Any?.d(): Double = when (this) { is Number -> this.toDouble(); else -> this?.toString()?.toDoubleOrNull() ?: 0.0 }
     private fun Any?.s(): String = this?.toString() ?: ""
-
     private fun Any?.b(): Boolean = this == true || this?.toString()?.lowercase() in setOf("1", "true", "yes", "on")
-
     private fun Map<String, Any?>.v(vararg keys: String): Any? = keys.firstNotNullOfOrNull { this[it] }
-
     private fun rows(body: Map<String, Any?>?, vararg keys: String): List<Map<String, Any?>> {
         val raw = keys.asSequence().mapNotNull { body?.get(it) }.firstOrNull() ?: body?.get("data")
         return (raw as? List<*>)?.mapNotNull { it as? Map<String, Any?> } ?: emptyList()
     }
-
     private fun responseId(body: Map<String, Any?>?): Int {
         val direct = body?.get("id").i()
         if (direct > 0) return direct
-        val data = body?.get("data") as? Map<*, *>
-        return data?.get("id").i()
+        return (body?.get("data") as? Map<*, *>)?.get("id").i()
     }
 
-    private fun customer(m: Map<String, Any?>) = Customer(
-        id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(),
-        name = m.v("name").s(), phone = m.v("phone").s(), address = m.v("address").s(),
-        securityNotes = m.v("security_notes").s(), syncStatus = SyncStatus.SYNCED
-    )
-
-    private fun supplier(m: Map<String, Any?>) = Supplier(
-        id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(),
-        name = m.v("name").s(), phone = m.v("phone").s(), address = m.v("address").s(),
-        tradeLicense = m.v("trade_license").s(), securityNotes = m.v("security_notes").s(), syncStatus = SyncStatus.SYNCED
-    )
-
-    private fun transaction(m: Map<String, Any?>) = RemittanceTransaction(
-        id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(),
-        customerId = m.v("customer_id").i(), supplierId = m.v("supplier_id").i(),
-        amountSar = m.v("amount_sar", "amount").d(), customerRate = m.v("customer_rate").d(),
-        supplierRate = m.v("supplier_rate").d(), amountBdt = m.v("amount_bdt").d(),
-        receiverName = m.v("receiver_name").s(), receiverPhone = m.v("receiver_phone").s(),
-        receiverAccountType = m.v("receiver_account_type").s(), receiverAccountNo = m.v("receiver_account_no").s(),
-        status = m.v("status", "type").s().ifBlank { "Pending" }, operatorId = m.v("operator_id").i(),
-        walletBatchId = m.v("wallet_batch_id").i(), notes = m.v("notes").s(), syncStatus = SyncStatus.SYNCED
-    )
-
-    private fun deposit(m: Map<String, Any?>) = SupplierDeposit(
-        id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), supplierId = m.v("supplier_id").i(),
-        amountSar = m.v("amount_sar", "amount").d(), rate = m.v("rate", "supplier_rate").d(),
-        amountBdt = m.v("amount_bdt").d(), paidBdt = m.v("paid_bdt").d(),
-        transactionType = m.v("transaction_type", "type").s().ifBlank { "SAR_GIVEN" }, notes = m.v("notes").s(), syncStatus = SyncStatus.SYNCED
-    )
-
-    private fun expense(m: Map<String, Any?>) = ExpenseIncome(
-        id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(),
-        title = m.v("title", "name").s(), amount = m.v("amount").d(),
-        currency = m.v("currency").s().ifBlank { "BDT" }, isExpense = m.v("is_expense").b(),
-        category = m.v("category").s().ifBlank { "General" }, syncStatus = SyncStatus.SYNCED
-    )
-
-    private fun ledger(m: Map<String, Any?>) = WalletLedger(
-        id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), name = m.v("name").s(), syncStatus = SyncStatus.SYNCED
-    )
-
-    private fun batch(m: Map<String, Any?>) = WalletBatch(
-        id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), ledgerId = m.v("ledger_id").i(),
-        rate = m.v("rate").d(), initialBdt = m.v("initial_bdt").d(), remainingBdt = m.v("remaining_bdt").d(),
-        supplierId = m.v("supplier_id").i(), supplierDepositId = m.v("supplier_deposit_id").i(), notes = m.v("notes").s(), syncStatus = SyncStatus.SYNCED
-    )
+    private fun customer(m: Map<String, Any?>) = Customer(id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), name = m.v("name").s(), phone = m.v("phone").s(), address = m.v("address").s(), securityNotes = m.v("security_notes").s())
+    private fun supplier(m: Map<String, Any?>) = Supplier(id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), name = m.v("name").s(), phone = m.v("phone").s(), address = m.v("address").s(), tradeLicense = m.v("trade_license").s(), securityNotes = m.v("security_notes").s())
+    private fun transaction(m: Map<String, Any?>) = RemittanceTransaction(id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), customerId = m.v("customer_id").i(), supplierId = m.v("supplier_id").i(), amountSar = m.v("amount_sar", "amount").d(), customerRate = m.v("customer_rate").d(), supplierRate = m.v("supplier_rate").d(), amountBdt = m.v("amount_bdt").d(), receiverName = m.v("receiver_name").s(), receiverPhone = m.v("receiver_phone").s(), receiverAccountType = m.v("receiver_account_type").s(), receiverAccountNo = m.v("receiver_account_no").s(), status = m.v("status", "type").s().ifBlank { "Pending" }, operatorId = m.v("operator_id").i(), walletBatchId = m.v("wallet_batch_id").i(), notes = m.v("notes").s())
+    private fun deposit(m: Map<String, Any?>) = SupplierDeposit(id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), supplierId = m.v("supplier_id").i(), amountSar = m.v("amount_sar", "amount").d(), rate = m.v("rate", "supplier_rate").d(), amountBdt = m.v("amount_bdt").d(), paidBdt = m.v("paid_bdt").d(), transactionType = m.v("transaction_type", "type").s().ifBlank { "SAR_GIVEN" }, notes = m.v("notes").s())
+    private fun expense(m: Map<String, Any?>) = ExpenseIncome(id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), title = m.v("title", "name").s(), amount = m.v("amount").d(), currency = m.v("currency").s().ifBlank { "BDT" }, isExpense = m.v("is_expense").b(), category = m.v("category").s().ifBlank { "General" })
+    private fun ledger(m: Map<String, Any?>) = WalletLedger(id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), name = m.v("name").s())
+    private fun batch(m: Map<String, Any?>) = WalletBatch(id = m.v("id", "server_id").i(), serverId = m.v("server_id", "id").i(), ledgerId = m.v("ledger_id").i(), rate = m.v("rate").d(), initialBdt = m.v("initial_bdt").d(), remainingBdt = m.v("remaining_bdt").d(), supplierId = m.v("supplier_id").i(), supplierDepositId = m.v("supplier_deposit_id").i(), notes = m.v("notes").s())
 
     suspend fun refreshAll(): Result<Unit> = runCatching {
         api.getCustomers().takeIf { it.isSuccessful }?.body()?.let { _customers.value = rows(it, "customers").map(::customer) }
@@ -133,15 +81,7 @@ class AppRepository(private val api: ApiService) {
         api.getExpensesIncomes().takeIf { it.isSuccessful }?.body()?.let { _expenses.value = rows(it, "expenses_incomes", "expensesIncomes").map(::expense) }
         api.getWalletLedgers().takeIf { it.isSuccessful }?.body()?.let { _ledgers.value = rows(it, "wallet_ledgers", "walletLedgers").map(::ledger) }
         api.getWalletBatches().takeIf { it.isSuccessful }?.body()?.let { _batches.value = rows(it, "wallet_batches", "walletBatches").map(::batch) }
-        api.getOperators().takeIf { it.isSuccessful }?.body()?.let {
-            _operators.value = rows(it, "operators", "users").map { m ->
-                OperatorAccount(
-                    id = m.v("id").i(), username = m.v("username", "name", "email").s(),
-                    role = m.v("role").s().ifBlank { "Staff" }, mobile = m.v("mobile", "phone").s(),
-                    email = m.v("email").s(), isActive = m.v("is_active", "active").b()
-                )
-            }
-        }
+        api.getOperators().takeIf { it.isSuccessful }?.body()?.let { _operators.value = rows(it, "operators", "users").map { m -> OperatorAccount(id = m.v("id").i(), username = m.v("username", "name", "email").s(), role = m.v("role").s().ifBlank { "Staff" }, mobile = m.v("mobile", "phone").s(), email = m.v("email").s(), isActive = m.v("is_active", "active").b()) } }
     }
 
     private fun cp(c: Customer) = mapOf("name" to c.name, "phone" to c.phone, "address" to c.address, "security_notes" to c.securityNotes, "local_id" to c.id, "timestamp" to c.timestamp)
@@ -157,60 +97,35 @@ class AppRepository(private val api: ApiService) {
     suspend fun deleteCustomerById(id: Int) { check(api.deleteCustomerApi(id, true).isSuccessful); refreshAll() }
     suspend fun softDeleteCustomerById(id: Int, deletedAt: Long = 0) = deleteCustomerById(id)
     suspend fun getCustomerById(id: Int) = _customers.value.firstOrNull { it.id == id || it.serverId == id }
-    suspend fun getPendingCustomers() = emptyList<Customer>()
-    suspend fun markCustomerSynced(id: Int, serverId: Int) {}
-    suspend fun markCustomerFailed(id: Int, error: String) {}
-    suspend fun incrementCustomerRetry(id: Int) {}
-    suspend fun resetCustomerRetry(id: Int, targetStatus: Int) {}
-    suspend fun retryFailedCustomer(id: Int) {}
+    suspend fun getPendingCustomers() = emptyList<Customer>(); suspend fun markCustomerSynced(id: Int, serverId: Int) {}; suspend fun markCustomerFailed(id: Int, error: String) {}; suspend fun incrementCustomerRetry(id: Int) {}; suspend fun resetCustomerRetry(id: Int, targetStatus: Int) {}; suspend fun retryFailedCustomer(id: Int) {}
 
     suspend fun insertSupplier(s: Supplier): Int { val r = api.createSupplier(sp(s)); check(r.isSuccessful); refreshAll(); return responseId(r.body()) }
     suspend fun updateSupplier(s: Supplier) { check(api.updateSupplierApi(s.serverId.takeIf { it > 0 } ?: s.id, sp(s)).isSuccessful); refreshAll() }
     suspend fun deleteSupplierById(id: Int) { check(api.deleteSupplierApi(id, true).isSuccessful); refreshAll() }
     suspend fun softDeleteSupplierById(id: Int, deletedAt: Long = 0) = deleteSupplierById(id)
     suspend fun getSupplierById(id: Int) = _suppliers.value.firstOrNull { it.id == id || it.serverId == id }
-    suspend fun getPendingSuppliers() = emptyList<Supplier>()
-    suspend fun markSupplierSynced(id: Int, serverId: Int) {}
-    suspend fun markSupplierFailed(id: Int, error: String) {}
-    suspend fun incrementSupplierRetry(id: Int) {}
-    suspend fun resetSupplierRetry(id: Int, targetStatus: Int) {}
-    suspend fun retryFailedSupplier(id: Int) {}
+    suspend fun getPendingSuppliers() = emptyList<Supplier>(); suspend fun markSupplierSynced(id: Int, serverId: Int) {}; suspend fun markSupplierFailed(id: Int, error: String) {}; suspend fun incrementSupplierRetry(id: Int) {}; suspend fun resetSupplierRetry(id: Int, targetStatus: Int) {}; suspend fun retryFailedSupplier(id: Int) {}
 
     suspend fun insertTransaction(t: RemittanceTransaction): Int { val r = api.createTransactionApi(tp(t)); check(r.isSuccessful); refreshAll(); return responseId(r.body()) }
     suspend fun updateTransaction(t: RemittanceTransaction) { check(api.updateTransactionApi(t.serverId.takeIf { it > 0 } ?: t.id, tp(t)).isSuccessful); refreshAll() }
     suspend fun deleteTransactionById(id: Int) { check(api.deleteTransactionApi(id, true).isSuccessful); refreshAll() }
     suspend fun softDeleteTransactionById(id: Int, deletedAt: Long = 0) = deleteTransactionById(id)
     suspend fun getTransactionById(id: Int) = _transactions.value.firstOrNull { it.id == id || it.serverId == id }
-    suspend fun getPendingTransactions() = emptyList<RemittanceTransaction>()
-    suspend fun markTransactionSynced(id: Int, serverId: Int) {}
-    suspend fun markTransactionFailed(id: Int, error: String) {}
-    suspend fun incrementTransactionRetry(id: Int) {}
-    suspend fun resetTransactionRetry(id: Int, targetStatus: Int) {}
-    suspend fun retryFailedTransaction(id: Int) {}
+    suspend fun getPendingTransactions() = emptyList<RemittanceTransaction>(); suspend fun markTransactionSynced(id: Int, serverId: Int) {}; suspend fun markTransactionFailed(id: Int, error: String) {}; suspend fun incrementTransactionRetry(id: Int) {}; suspend fun resetTransactionRetry(id: Int, targetStatus: Int) {}; suspend fun retryFailedTransaction(id: Int) {}
 
     suspend fun insertSupplierDeposit(d: SupplierDeposit): Int { val r = api.createSupplierDeposit(dp(d)); check(r.isSuccessful); refreshAll(); return responseId(r.body()) }
     suspend fun updateSupplierDeposit(d: SupplierDeposit) { check(api.updateSupplierDeposit(d.serverId.takeIf { it > 0 } ?: d.id, dp(d)).isSuccessful); refreshAll() }
     suspend fun deleteSupplierDepositById(id: Int) { check(api.deleteSupplierDeposit(id, true).isSuccessful); refreshAll() }
     suspend fun softDeleteSupplierDepositById(id: Int, deletedAt: Long = 0) = deleteSupplierDepositById(id)
     suspend fun getSupplierDepositById(id: Int) = _deposits.value.firstOrNull { it.id == id || it.serverId == id }
-    suspend fun getPendingSupplierDeposits() = emptyList<SupplierDeposit>()
-    suspend fun markSupplierDepositSynced(id: Int, serverId: Int) {}
-    suspend fun markSupplierDepositFailed(id: Int, error: String) {}
-    suspend fun incrementSupplierDepositRetry(id: Int) {}
-    suspend fun resetSupplierDepositRetry(id: Int, targetStatus: Int) {}
-    suspend fun retryFailedSupplierDeposit(id: Int) {}
+    suspend fun getPendingSupplierDeposits() = emptyList<SupplierDeposit>(); suspend fun markSupplierDepositSynced(id: Int, serverId: Int) {}; suspend fun markSupplierDepositFailed(id: Int, error: String) {}; suspend fun incrementSupplierDepositRetry(id: Int) {}; suspend fun resetSupplierDepositRetry(id: Int, targetStatus: Int) {}; suspend fun retryFailedSupplierDeposit(id: Int) {}
 
     suspend fun insertExpenseIncome(e: ExpenseIncome): Int { val r = api.createExpenseIncome(ep(e)); check(r.isSuccessful); refreshAll(); return responseId(r.body()) }
     suspend fun updateExpenseIncome(e: ExpenseIncome) { check(api.updateExpenseIncome(e.serverId.takeIf { it > 0 } ?: e.id, ep(e)).isSuccessful); refreshAll() }
     suspend fun deleteExpenseIncomeById(id: Int) { check(api.deleteExpenseIncome(id, true).isSuccessful); refreshAll() }
     suspend fun softDeleteExpenseIncomeById(id: Int, deletedAt: Long = 0) = deleteExpenseIncomeById(id)
     suspend fun getExpenseIncomeById(id: Int) = _expenses.value.firstOrNull { it.id == id || it.serverId == id }
-    suspend fun getPendingExpensesIncomes() = emptyList<ExpenseIncome>()
-    suspend fun markExpenseIncomeSynced(id: Int, serverId: Int) {}
-    suspend fun markExpenseIncomeFailed(id: Int, error: String) {}
-    suspend fun incrementExpenseIncomeRetry(id: Int) {}
-    suspend fun resetExpenseIncomeRetry(id: Int, targetStatus: Int) {}
-    suspend fun retryFailedExpenseIncome(id: Int) {}
+    suspend fun getPendingExpensesIncomes() = emptyList<ExpenseIncome>(); suspend fun markExpenseIncomeSynced(id: Int, serverId: Int) {}; suspend fun markExpenseIncomeFailed(id: Int, error: String) {}; suspend fun incrementExpenseIncomeRetry(id: Int) {}; suspend fun resetExpenseIncomeRetry(id: Int, targetStatus: Int) {}; suspend fun retryFailedExpenseIncome(id: Int) {}
 
     suspend fun insertDailyRate(r: DailyRate) { _rates.value = _rates.value.filterNot { it.date == r.date } + r }
     suspend fun getDailyRateByDate(date: String) = _rates.value.firstOrNull { it.date == date }
@@ -220,63 +135,24 @@ class AppRepository(private val api: ApiService) {
     suspend fun deleteWalletLedgerById(id: Int) { check(api.deleteWalletLedger(id, true).isSuccessful); refreshAll() }
     suspend fun softDeleteWalletLedgerById(id: Int, deletedAt: Long = 0) = deleteWalletLedgerById(id)
     suspend fun getWalletLedgerById(id: Int) = _ledgers.value.firstOrNull { it.id == id || it.serverId == id }
-    suspend fun getPendingWalletLedgers() = emptyList<WalletLedger>()
-    suspend fun markWalletLedgerSynced(id: Int, serverId: Int) {}
-    suspend fun markWalletLedgerFailed(id: Int, error: String) {}
-    suspend fun incrementWalletLedgerRetry(id: Int) {}
-    suspend fun resetWalletLedgerRetry(id: Int, targetStatus: Int) {}
-    suspend fun retryFailedWalletLedger(id: Int) {}
+    suspend fun getPendingWalletLedgers() = emptyList<WalletLedger>(); suspend fun markWalletLedgerSynced(id: Int, serverId: Int) {}; suspend fun markWalletLedgerFailed(id: Int, error: String) {}; suspend fun incrementWalletLedgerRetry(id: Int) {}; suspend fun resetWalletLedgerRetry(id: Int, targetStatus: Int) {}; suspend fun retryFailedWalletLedger(id: Int) {}
 
     suspend fun insertWalletBatch(b: WalletBatch): Int { val r = api.createWalletBatch(bp(b)); check(r.isSuccessful); refreshAll(); return responseId(r.body()) }
     suspend fun updateWalletBatch(b: WalletBatch) { check(api.updateWalletBatch(b.serverId.takeIf { it > 0 } ?: b.id, bp(b)).isSuccessful); refreshAll() }
     suspend fun deleteWalletBatchById(id: Int) { check(api.deleteWalletBatch(id, true).isSuccessful); refreshAll() }
     suspend fun softDeleteWalletBatchById(id: Int, deletedAt: Long = 0) = deleteWalletBatchById(id)
-    suspend fun deleteWalletBatchBySupplierDepositId(id: Int) {
-        val batch = _batches.value.firstOrNull { it.supplierDepositId == id }
-        if (batch != null) deleteWalletBatchById(batch.serverId.takeIf { it > 0 } ?: batch.id)
-    }
+    suspend fun deleteWalletBatchBySupplierDepositId(id: Int) { _batches.value.firstOrNull { it.supplierDepositId == id }?.let { deleteWalletBatchById(it.serverId.takeIf { sid -> sid > 0 } ?: it.id) } }
     suspend fun softDeleteWalletBatchBySupplierDepositId(id: Int, deletedAt: Long = 0) = deleteWalletBatchBySupplierDepositId(id)
     suspend fun getWalletBatchById(id: Int) = _batches.value.firstOrNull { it.id == id || it.serverId == id }
-    suspend fun getPendingWalletBatches() = emptyList<WalletBatch>()
-    suspend fun markWalletBatchSynced(id: Int, serverId: Int) {}
-    suspend fun markWalletBatchFailed(id: Int, error: String) {}
-    suspend fun incrementWalletBatchRetry(id: Int) {}
-    suspend fun resetWalletBatchRetry(id: Int, targetStatus: Int) {}
-    suspend fun retryFailedWalletBatch(id: Int) {}
+    suspend fun getPendingWalletBatches() = emptyList<WalletBatch>(); suspend fun markWalletBatchSynced(id: Int, serverId: Int) {}; suspend fun markWalletBatchFailed(id: Int, error: String) {}; suspend fun incrementWalletBatchRetry(id: Int) {}; suspend fun resetWalletBatchRetry(id: Int, targetStatus: Int) {}; suspend fun retryFailedWalletBatch(id: Int) {}
 
-    private fun operatorRequest(o: OperatorAccount) = OperatorApiRequest(
-        name = o.username,
-        mobile = o.mobile,
-        email = o.email.ifBlank { null },
-        role = o.role,
-        pin = o.pin.ifBlank { null },
-        isActivated = o.isActivated,
-        permissions = mapOf(
-            "can_view_customers" to o.canViewCustomers,
-            "can_add_customers" to o.canAddCustomers,
-            "can_edit_customers" to o.canEditCustomers,
-            "can_delete_customers" to o.canDeleteCustomers,
-            "can_view_suppliers" to o.canViewSuppliers,
-            "can_add_suppliers" to o.canAddSuppliers,
-            "can_edit_suppliers" to o.canEditSuppliers,
-            "can_delete_suppliers" to o.canDeleteSuppliers,
-            "can_view_transactions" to o.canViewTransactions,
-            "can_add_transactions" to o.canAddTransactions,
-            "can_edit_transactions" to o.canEditTransactions,
-            "can_delete_transactions" to o.canDeleteTransactions,
-            "can_manage_wallet" to o.canManageWallet,
-            "can_manage_expenses" to o.canManageExpenses,
-            "can_view_reports" to o.canViewReports
-        )
-    )
-
+    private fun operatorRequest(o: OperatorAccount) = OperatorApiRequest(name = o.username, mobile = o.mobile, email = o.email.ifBlank { null }, role = o.role, pin = o.pin.ifBlank { null }, isActivated = o.isActivated, permissions = mapOf("can_view_customers" to o.canViewCustomers, "can_add_customers" to o.canAddCustomers, "can_edit_customers" to o.canEditCustomers, "can_delete_customers" to o.canDeleteCustomers, "can_view_suppliers" to o.canViewSuppliers, "can_add_suppliers" to o.canAddSuppliers, "can_edit_suppliers" to o.canEditSuppliers, "can_delete_suppliers" to o.canDeleteSuppliers, "can_view_transactions" to o.canViewTransactions, "can_add_transactions" to o.canAddTransactions, "can_edit_transactions" to o.canEditTransactions, "can_delete_transactions" to o.canDeleteTransactions, "can_manage_wallet" to o.canManageWallet, "can_manage_expenses" to o.canManageExpenses, "can_view_reports" to o.canViewReports))
     suspend fun insertOperator(o: OperatorAccount): Int { val r = api.createOperator(operatorRequest(o)); check(r.isSuccessful); refreshAll(); return responseId(r.body()) }
     suspend fun updateOperator(o: OperatorAccount) { check(api.updateOperator(o.id, operatorRequest(o)).isSuccessful); refreshAll() }
     suspend fun deleteOperator(o: OperatorAccount) { check(api.deleteOperator(o.id).isSuccessful); refreshAll() }
     suspend fun getOperatorByUsername(u: String) = _operators.value.firstOrNull { it.username == u }
     suspend fun getOperatorByMobile(m: String) = _operators.value.firstOrNull { it.mobile == m }
 
-    /** Legacy offline queue API: deliberately does not persist anything locally. */
     suspend fun enqueueOutbox(outbox: SyncOutbox) = Unit
     suspend fun getPendingOutbox() = emptyList<SyncOutbox>()
     suspend fun deleteOutbox(id: Int) = Unit
