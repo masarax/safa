@@ -1,5 +1,6 @@
 package com.safa.account
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -55,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safa.account.data.api.TokenManager
@@ -124,6 +126,7 @@ private fun SafaRoot(viewModel: SafaViewModel) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
+    val activity = LocalContext.current as? Activity
     var showExitDialog by remember { mutableStateOf(false) }
 
     val isMainScreen = currentScreen in listOf(
@@ -150,7 +153,7 @@ private fun SafaRoot(viewModel: SafaViewModel) {
                 confirmButton = {
                     TextButton(onClick = {
                         showExitDialog = false
-                        finish()
+                        activity?.finish()
                     }) {
                         Text(if (currentLanguage == "BN") "ঠিক আছে" else "OK")
                     }
