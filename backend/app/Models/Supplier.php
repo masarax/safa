@@ -14,9 +14,9 @@ class Supplier extends Model
         'local_id',
         'name',
         'phone',
+        'address',
         'hash',
         'timestamp',
         'deleted_at',
     ];
 }
-
