@@ -9,15 +9,18 @@ import com.safa.account.data.network.DeviceSecurityHelper
 
 class TokenManager(private val context: Context) {
 
+    private val legacyPrefs = context.getSharedPreferences("safa_secure_prefs", Context.MODE_PRIVATE)
     private val prefs = EncryptedSharedPreferences.create(
         context,
-        "safa_secure_prefs",
-        MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build(),
+        "safa_secure_prefs_v2",
+        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
+
+    init {
+        migrateLegacyPreferences()
+    }
 
     companion object {
         private const val KEY_ACCESS_TOKEN = "auth_token"
@@ -30,40 +33,55 @@ class TokenManager(private val context: Context) {
         private const val KEY_API_SECRET = "api_secret"
         private const val KEY_LAST_MOBILE = "last_mobile"
         private const val KEY_ACTIVE_ACCOUNT_ID = "active_account_id"
+        private const val KEY_MIGRATION_COMPLETE = "secure_prefs_migration_complete"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
-
         private val DEFAULT_API_KEY: String = BuildConfig.SAFA_API_KEY
         private val DEFAULT_API_SECRET: String = BuildConfig.SAFA_API_SECRET
     }
 
-    fun getContext(): Context = context
+    private fun migrateLegacyPreferences() {
+        if (prefs.getBoolean(KEY_MIGRATION_COMPLETE, false)) return
+        if (legacyPrefs.all.isNotEmpty()) {
+            prefs.edit {
+                legacyPrefs.all.forEach { (key, value) ->
+                    when (value) {
+                        is String -> putString(key, value)
+                        is Boolean -> putBoolean(key, value)
+                        is Int -> putInt(key, value)
+                        is Long -> putLong(key, value)
+                        is Float -> putFloat(key, value)
+                    }
+                }
+                putBoolean(KEY_MIGRATION_COMPLETE, true)
+            }
+            legacyPrefs.edit { clear() }
+        } else {
+            prefs.edit { putBoolean(KEY_MIGRATION_COMPLETE, true) }
+        }
+    }
 
+    fun getContext(): Context = context
     fun saveLastMobile(mobile: String) = prefs.edit { putString(KEY_LAST_MOBILE, mobile) }
     fun getLastMobile(): String = prefs.getString(KEY_LAST_MOBILE, "") ?: ""
-
     fun saveApiKey(key: String) = prefs.edit { putString(KEY_API_KEY, key) }
     fun getApiKey(): String {
         val buildKey = DEFAULT_API_KEY.trim()
         if (buildKey.isNotBlank() && !buildKey.equals("your_api_key_here", ignoreCase = true)) return buildKey
         return prefs.getString(KEY_API_KEY, buildKey)?.trim().orEmpty().ifBlank { buildKey }
     }
-
     fun saveApiSecret(secret: String) = prefs.edit { putString(KEY_API_SECRET, secret) }
     fun getApiSecret(): String {
         val buildSecret = DEFAULT_API_SECRET.trim()
         if (buildSecret.isNotBlank() && !buildSecret.equals("your_api_secret_here", ignoreCase = true)) return buildSecret
         return prefs.getString(KEY_API_SECRET, buildSecret)?.trim().orEmpty().ifBlank { buildSecret }
     }
-
     fun saveAccessToken(token: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
     fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
     fun saveToken(token: String) = saveAccessToken(token)
     fun getToken(): String? = getAccessToken()
     fun clearToken() = clearAllTokens()
-
     fun saveRefreshToken(token: String?) = prefs.edit { putString(KEY_REFRESH_TOKEN, token) }
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
-
     fun saveDeviceToken(token: String?) = prefs.edit { putString(KEY_DEVICE_TOKEN, token) }
     fun getDeviceToken(): String {
         var token = prefs.getString(KEY_DEVICE_TOKEN, null)
@@ -73,10 +91,8 @@ class TokenManager(private val context: Context) {
         }
         return token
     }
-
     fun saveSessionToken(token: String?) = prefs.edit { putString(KEY_SESSION_TOKEN, token) }
     fun getSessionToken(): String? = prefs.getString(KEY_SESSION_TOKEN, null)
-
     fun saveFingerprintToken(token: String?) = prefs.edit { putString(KEY_FINGERPRINT_TOKEN, token) }
     fun getFingerprintToken(): String {
         var token = prefs.getString(KEY_FINGERPRINT_TOKEN, null)
@@ -86,71 +102,40 @@ class TokenManager(private val context: Context) {
         }
         return token
     }
-
-    fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) {
-        prefs.edit {
-            putString(KEY_ACCESS_TOKEN, accessToken)
-            putString(KEY_REFRESH_TOKEN, refreshToken)
-            putString(KEY_DEVICE_TOKEN, deviceToken)
-            putString(KEY_SESSION_TOKEN, sessionToken)
-            putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
-        }
+    fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) = prefs.edit {
+        putString(KEY_ACCESS_TOKEN, accessToken); putString(KEY_REFRESH_TOKEN, refreshToken); putString(KEY_DEVICE_TOKEN, deviceToken); putString(KEY_SESSION_TOKEN, sessionToken); putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
     }
-
     fun clearAllTokens() = prefs.edit {
-        remove(KEY_ACCESS_TOKEN)
-        remove(KEY_REFRESH_TOKEN)
-        remove(KEY_DEVICE_TOKEN)
-        remove(KEY_SESSION_TOKEN)
-        remove(KEY_FINGERPRINT_TOKEN)
-        remove(KEY_ACTIVE_ACCOUNT_ID)
+        remove(KEY_ACCESS_TOKEN); remove(KEY_REFRESH_TOKEN); remove(KEY_DEVICE_TOKEN); remove(KEY_SESSION_TOKEN); remove(KEY_FINGERPRINT_TOKEN); remove(KEY_ACTIVE_ACCOUNT_ID)
     }
-
-    fun saveActiveAccountId(accountId: Int?) = prefs.edit {
-        if (accountId == null || accountId <= 0) remove(KEY_ACTIVE_ACCOUNT_ID) else putInt(KEY_ACTIVE_ACCOUNT_ID, accountId)
-    }
-
+    fun saveActiveAccountId(accountId: Int?) = prefs.edit { if (accountId == null || accountId <= 0) remove(KEY_ACTIVE_ACCOUNT_ID) else putInt(KEY_ACTIVE_ACCOUNT_ID, accountId) }
     fun getActiveAccountId(): Int? = prefs.getInt(KEY_ACTIVE_ACCOUNT_ID, 0).takeIf { it > 0 }
-
     fun saveBaseUrl(url: String) = prefs.edit { putString(KEY_BASE_URL, url.trim().removeSuffix("/") + "/") }
     fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_URL)?.trim()?.let { if (it.endsWith("/")) it else "$it/" } ?: DEFAULT_URL
-
     fun saveLanguage(lang: String) = prefs.edit { putString("app_lang", lang) }
     fun getLanguage(): String = prefs.getString("app_lang", "BN") ?: "BN"
-
     fun saveDarkMode(isDark: Boolean) = prefs.edit { putBoolean("app_dark_mode", isDark) }
     fun getDarkMode(): Boolean = prefs.getBoolean("app_dark_mode", false)
-
     fun saveThemeMode(mode: String) = prefs.edit { putString("app_theme_mode", mode) }
     fun getThemeMode(): String = prefs.getString("app_theme_mode", "LIGHT") ?: "LIGHT"
-
     fun saveCustomAppName(name: String) = prefs.edit { putString("app_name", name) }
     fun getCustomAppName(): String = prefs.getString("app_name", "SAFA") ?: "SAFA"
-
     fun saveCustomAppLogo(logo: String) = prefs.edit { putString("app_logo", logo) }
     fun getCustomAppLogo(): String = prefs.getString("app_logo", "SAFA") ?: "SAFA"
-
     fun saveCustomAppLogoUri(uri: String?) = prefs.edit { putString("app_logo_uri", uri) }
     fun getCustomAppLogoUri(): String? = prefs.getString("app_logo_uri", null)
-
     fun saveServerLogoUrl(url: String?) = saveCustomAppLogoUri(url)
     fun getServerLogoUrl(): String? = getCustomAppLogoUri()
-
     fun saveAppVersion(version: String) = prefs.edit { putString("app_version", version) }
     fun getAppVersion(): String = prefs.getString("app_version", "1.0") ?: "1.0"
-
     fun saveLocalCurrency(curr: String) = prefs.edit { putString("local_curr", curr) }
     fun getLocalCurrency(): String = prefs.getString("local_curr", "BDT") ?: "BDT"
-
     fun saveForeignCurrency(curr: String) = prefs.edit { putString("foreign_curr", curr) }
     fun getForeignCurrency(): String = prefs.getString("foreign_curr", "SAR") ?: "SAR"
-
     fun saveRateFeatureEnabled(enabled: Boolean) = prefs.edit { putBoolean("rate_feature", enabled) }
     fun getRateFeatureEnabled(): Boolean = prefs.getBoolean("rate_feature", true)
-
     fun saveSupplierRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("supplier_rate_enabled", enabled) }
     fun getSupplierRateEnabled(): Boolean = prefs.getBoolean("supplier_rate_enabled", true)
-
     fun saveWalletRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("wallet_rate_enabled", enabled) }
     fun getWalletRateEnabled(): Boolean = prefs.getBoolean("wallet_rate_enabled", true)
 }
