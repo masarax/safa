@@ -2,9 +2,7 @@ package com.safa.account.data.model
 
 /**
  * Server-authoritative application models.
- *
- * These classes intentionally contain no Room/SQL annotations. Business data is
- * owned by Laravel/MySQL and is loaded/mutated through the API layer.
+ * Business data is never persisted on the device; Laravel/MySQL is the source of truth.
  */
 
 data class OperatorAccount(
@@ -178,8 +176,10 @@ data class WalletBatch(
     val lastSyncAttemptAt: Long? = null
 )
 
-// Kept only as an in-memory compatibility type for old UI state code. It is
-// never persisted; the server is the source of truth.
+/**
+ * Compatibility type for legacy ViewModel code. It is never persisted locally.
+ * Failed-network outbox operations are intentionally not stored on-device.
+ */
 data class SyncOutbox(
     val id: Int = 0,
     val userId: Int = 0,
@@ -189,11 +189,22 @@ data class SyncOutbox(
     val entityServerId: Int = 0,
     val operation: String = "",
     val payloadJson: String = "",
-    val status: String = "PENDING",
+    val status: String = OutboxStatus.PENDING,
     val retryCount: Int = 0,
     val lastError: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
 
-enum class OutboxStatus { PENDING, PROCESSING, SYNCED, FAILED }
+object OutboxStatus {
+    const val PENDING = "PENDING"
+    const val PROCESSING = "PROCESSING"
+    const val SYNCED = "SYNCED"
+    const val FAILED = "FAILED"
+}
+
+object OutboxOperation {
+    const val CREATE = "CREATE"
+    const val UPDATE = "UPDATE"
+    const val DELETE = "DELETE"
+}
