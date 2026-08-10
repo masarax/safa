@@ -151,8 +151,8 @@ class TokenManager(private val context: Context) {
     fun saveLocalCurrency(curr: String) = prefs.edit { putString("local_curr", curr) }
     fun getLocalCurrency(): String = prefs.getString("local_curr", "BDT") ?: "BDT"
 
-    fun getForeignCurrency(): String = prefs.getString("foreign_curr", "SAR") ?: "SAR"
     fun saveForeignCurrency(curr: String) = prefs.edit { putString("foreign_curr", curr) }
+    fun getForeignCurrency(): String = prefs.getString("foreign_curr", "SAR") ?: "SAR"
 
     fun saveRateFeatureEnabled(enabled: Boolean) = prefs.edit { putBoolean("rate_feature", enabled) }
     fun getRateFeatureEnabled(): Boolean = prefs.getBoolean("rate_feature", true)
@@ -162,6 +162,4 @@ class TokenManager(private val context: Context) {
 
     fun saveWalletRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("wallet_rate_enabled", enabled) }
     fun getWalletRateEnabled(): Boolean = prefs.getBoolean("wallet_rate_enabled", true)
-
-    fun saveThemeMode(mode: String) = prefs.edit { putString("app_theme_mode", mode) }
 }
