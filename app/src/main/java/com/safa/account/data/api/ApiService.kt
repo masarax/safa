@@ -12,7 +12,7 @@ interface ApiService {
     @GET("customers") suspend fun getCustomers(): Response<Map<String, Any?>>
     @POST("customers") suspend fun createCustomer(@Body customer: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("customers/{id}") suspend fun updateCustomerApi(@Path("id") id: Int, @Body customer: Map<String, Any?>): Response<Map<String, Any>>
-    @DELETE("customers/{id}") suspend fun deleteCustomerApi(@Path("id") id: Int): Response<Map<String, Any>>
+    @DELETE("customers/{id}") suspend fun deleteCustomerApi(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
     @GET("suppliers") suspend fun getSuppliers(): Response<Map<String, Any?>>
     @POST("suppliers") suspend fun createSupplier(@Body supplier: Map<String, Any?>): Response<Map<String, Any>>
