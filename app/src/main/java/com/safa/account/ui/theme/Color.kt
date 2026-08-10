@@ -2,46 +2,39 @@ package com.safa.account.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Standardized Core Colors (Global App Design System Tokens)
+/** SAFA global design tokens: deep emerald + premium gold, with neutral financial states. */
 object AppColors {
-    val PrimaryRed = Color(0xFFA82222)
-    val PrimaryRedContainer = Color(0xFFFFF2F2)
-    val PrimaryOnRedContainer = Color(0xFF4A0808)
+    val PrimaryRed = Color(0xFF064E3B)
+    val PrimaryRedContainer = Color(0xFFE8F5F0)
+    val PrimaryOnRedContainer = Color(0xFF022C22)
 
-    val GoldSecondary = Color(0xFFB58000)
-    val GoldSecondaryContainer = Color(0xFFFCF6E0)
-    val GoldOnSecondaryContainer = Color(0xFF332000)
+    val GoldSecondary = Color(0xFFC49A3A)
+    val GoldSecondaryContainer = Color(0xFFFFF8E7)
+    val GoldOnSecondaryContainer = Color(0xFF4A3508)
 
-    val StatusGreen = Color(0xFF2E7D32)
-    val StatusGreenContainer = Color(0xFFE8F5E9)
-
-    val StatusRed = Color(0xFFC62828)
-    val StatusRedContainer = Color(0xFFFFEBEE)
-
-    val StatusAmber = Color(0xFFE65100)
-    val StatusAmberContainer = Color(0xFFFFF3E0)
-
-    val StatusBlue = Color(0xFF0288D1)
-    val StatusBlueContainer = Color(0xFFE1F5FE)
-
+    val StatusGreen = Color(0xFF15803D)
+    val StatusGreenContainer = Color(0xFFDCFCE7)
+    val StatusRed = Color(0xFFB91C1C)
+    val StatusRedContainer = Color(0xFFFEE2E2)
+    val StatusAmber = Color(0xFFD97706)
+    val StatusAmberContainer = Color(0xFFFEF3C7)
+    val StatusBlue = Color(0xFF0369A1)
+    val StatusBlueContainer = Color(0xFFE0F2FE)
     val WhatsAppGreen = Color(0xFF25D366)
 
     val SurfaceWhite = Color(0xFFFFFFFF)
-    val BackgroundSlate = Color(0xFFF8FAFC)
-    val BorderSubtle = Color(0xFFE2E8F0)
-    val BorderDark = Color(0xFF334155)
-
-    val TextPrimary = Color(0xFF0F172A)
-    val TextSecondary = Color(0xFF64748B)
-    val TextMuted = Color(0xFF94A3B8)
-
-    val DarkSlateHeader = Color(0xFF1E293B)
-    val TerminalSurface = Color(0xFF0F172A)
+    val BackgroundSlate = Color(0xFFF7F9F8)
+    val BorderSubtle = Color(0xFFE2E8E5)
+    val BorderDark = Color(0xFF33413C)
+    val TextPrimary = Color(0xFF12201A)
+    val TextSecondary = Color(0xFF64736D)
+    val TextMuted = Color(0xFF94A39D)
+    val DarkSlateHeader = Color(0xFF12372D)
+    val TerminalSurface = Color(0xFF0B1713)
 }
 
-// Light Theme Palettes (TallyKhata Inspired Red/Gold theme)
 val BluePrimary = AppColors.PrimaryRed
-val BlueOnPrimary = Color(0xFFFFFFFF)
+val BlueOnPrimary = Color.White
 val BluePrimaryContainer = AppColors.PrimaryRedContainer
 val BlueOnPrimaryContainer = AppColors.PrimaryOnRedContainer
 
@@ -51,7 +44,7 @@ val GovRed = AppColors.StatusRed
 val LightRedContainer = AppColors.StatusRedContainer
 
 val SlateSecondary = AppColors.GoldSecondary
-val SlateOnSecondary = Color(0xFFFFFFFF)
+val SlateOnSecondary = Color.White
 val SlateSecondaryContainer = AppColors.GoldSecondaryContainer
 val SlateOnSecondaryContainer = AppColors.GoldOnSecondaryContainer
 
@@ -60,20 +53,15 @@ val LightSurface = AppColors.SurfaceWhite
 val LightOnBackground = AppColors.TextPrimary
 val LightOnSurface = AppColors.TextPrimary
 
-// Dark Theme Palettes (Midnight Slate/Neon Blue theme)
-val DarkBluePrimary = Color(0xFF6EA8FF)
-val DarkBlueOnPrimary = Color(0xFF002F6B)
-val DarkBluePrimaryContainer = Color(0xFF004494)
-val DarkBlueOnPrimaryContainer = Color(0xFFD2E4FF)
-
-val DarkSlateSecondary = Color(0xFFBBC7DB)
-val DarkSlateOnSecondary = Color(0xFF253140)
-val DarkSlateSecondaryContainer = Color(0xFF3B4858)
-val DarkSlateOnSecondaryContainer = Color(0xFFD7E3F7)
-
-val DarkBackground = Color(0xFF0C1017)
-val DarkSurface = Color(0xFF161F2C)
-val DarkOnBackground = Color(0xFFE2E2E6)
-val DarkOnSurface = Color(0xFFE2E2E6)
-
-
+val DarkBluePrimary = Color(0xFF34D399)
+val DarkBlueOnPrimary = Color(0xFF00382B)
+val DarkBluePrimaryContainer = Color(0xFF065F46)
+val DarkBlueOnPrimaryContainer = Color(0xFFB7F7DD)
+val DarkSlateSecondary = Color(0xFFD8C27A)
+val DarkSlateOnSecondary = Color(0xFF3A2B05)
+val DarkSlateSecondaryContainer = Color(0xFF5C4811)
+val DarkSlateOnSecondaryContainer = Color(0xFFFFEFC0)
+val DarkBackground = Color(0xFF0A1210)
+val DarkSurface = Color(0xFF121D19)
+val DarkOnBackground = Color(0xFFE4ECE8)
+val DarkOnSurface = Color(0xFFE4ECE8)
