@@ -8,20 +8,25 @@ use App\Models\SafaApiKey;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
+    /**
+     * Seed the clean initial application state.
+     *
+     * Personal bootstrap credentials intentionally live only here. They are
+     * never inserted by migrations or read from INITIAL_SUPERADMIN_* env keys.
+     */
     public function run(): void
     {
-        // Initial credentials belong exclusively to the seeder.
-        // Migrations and environment configuration do not define a default user.
         $adminMobile = '0536308965';
         $adminPin = '123456';
         $adminEmail = 'sakib@masarax.com';
 
-        User::updateOrCreate(
+        $admin = User::updateOrCreate(
             ['mobile' => $adminMobile],
             [
                 'name'         => 'Nazmus Sakib',
@@ -34,10 +39,22 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $account = Account::firstOrCreate(['name' => 'SAFA Account']);
+        $account = Account::updateOrCreate(
+            ['name' => 'SAFA Account'],
+            [
+                'owner_user_id' => $admin->id,
+                'balance'       => 0,
+            ]
+        );
 
-        $apiKey = env('SAFA_API_KEY', 'safa_key_' . bin2hex(random_bytes(16)));
-        $apiSecret = env('SAFA_API_SECRET', 'safa_sec_' . bin2hex(random_bytes(32)));
+        $apiKey = trim((string) env('SAFA_API_KEY', ''));
+        $apiSecret = trim((string) env('SAFA_API_SECRET', ''));
+
+        if ($apiKey === '' || $apiSecret === '') {
+            throw new RuntimeException(
+                'SAFA_API_KEY and SAFA_API_SECRET must be configured in the backend .env before running the database seeder.'
+            );
+        }
 
         SafaApiKey::updateOrCreate(
             ['client_name' => 'SAFA Mobile Client'],
@@ -49,9 +66,14 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        AppVersion::firstOrCreate(
+        AppVersion::updateOrCreate(
             ['platform' => 'android'],
-            ['min_version_code' => 1, 'latest_version_code' => 1, 'force_update' => false]
+            [
+                'min_version_code' => 1,
+                'latest_version_code' => 1,
+                'force_update' => false,
+                'update_url' => null,
+            ]
         );
     }
 }
