@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\AuthJWTController;
+use App\Http\Controllers\MobileLoginController;
 use App\Http\Controllers\GraphQLController;
 use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\RemoteBusinessController;
@@ -27,7 +28,8 @@ Route::prefix('auth')->group(function () {
         return response()->json(['status' => 'ok', 'service' => 'SAFA API']);
     });
 
-    Route::post('/login', [AuthJWTController::class, 'login'])
+    // Mobile login uses a dedicated, server-first credential flow.
+    Route::post('/login', [MobileLoginController::class, 'login'])
         ->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
 
     Route::post('/refresh', [AuthJWTController::class, 'refreshToken'])
