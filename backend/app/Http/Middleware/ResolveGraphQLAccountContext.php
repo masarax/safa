@@ -29,6 +29,12 @@ class ResolveGraphQLAccountContext
         } else {
             $account = Account::where('owner_user_id', $user->id)->orderBy('id')->first();
             if (!$account) {
+                $legacyAccount = Account::find($user->id);
+                if ($legacyAccount && ((int) $legacyAccount->owner_user_id === 0 || $legacyAccount->owner_user_id === null)) {
+                    $account = $legacyAccount;
+                }
+            }
+            if (!$account) {
                 $share = UserAccountShare::where('shared_with_user_id', $user->id)->orderBy('id')->first();
                 $account = $share ? Account::find($share->account_id) : null;
             }
@@ -38,7 +44,10 @@ class ResolveGraphQLAccountContext
             return response()->json(['status' => 'error', 'message' => 'No accessible account context found.'], 403);
         }
 
-        if ($user->role !== 'superadmin' && (int) $account->owner_user_id !== (int) $user->id) {
+        $isLegacyOwner = ((int) $account->owner_user_id === 0 || $account->owner_user_id === null)
+            && (int) $account->id === (int) $user->id;
+
+        if ($user->role !== 'superadmin' && (int) $account->owner_user_id !== (int) $user->id && !$isLegacyOwner) {
             $shared = UserAccountShare::where('shared_with_user_id', $user->id)
                 ->where('account_id', $account->id)
                 ->exists();
@@ -47,8 +56,6 @@ class ResolveGraphQLAccountContext
             }
         }
 
-        // GraphQLController historically reads account_id from the user model.
-        // Attach the already-authorized context for this request only.
         $user->setAttribute('account_id', (int) $account->id);
         $request->attributes->set('active_account_id', (int) $account->id);
 
