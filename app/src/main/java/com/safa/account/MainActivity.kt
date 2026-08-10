@@ -1,12 +1,11 @@
 package com.safa.account
 
-import android.app.Activity
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.fragment.app.FragmentActivity
-import androidx.activity.viewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
@@ -19,14 +18,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.DarkMode
@@ -48,15 +43,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safa.account.data.api.TokenManager
@@ -75,9 +67,6 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        var initError: Throwable? = null
-        var factory: SafaViewModelFactory? = null
-
         try {
             val database = AppDatabase.getDatabase(applicationContext)
             val repository = AppRepository(
@@ -93,43 +82,46 @@ class MainActivity : FragmentActivity() {
                 syncOutboxDao = database.syncOutboxDao()
             )
             val tokenManager = TokenManager(applicationContext)
-            factory = SafaViewModelFactory(repository, tokenManager)
+            val factory = SafaViewModelFactory(repository, tokenManager)
+            val viewModel = ViewModelProvider(this, factory)[SafaViewModel::class.java]
+
             AutoSyncWorker.schedulePeriodicSync(applicationContext)
+
+            setContent {
+                SafaRoot(
+                    viewModel = viewModel,
+                    onExit = { finish() }
+                )
+            }
         } catch (t: Throwable) {
             android.util.Log.e("SafaApp", "FATAL_STARTUP_ERROR", t)
-            initError = t
-        }
-
-        setContent {
-            val currentInitError = initError
-            val currentFactory = factory
-
-            if (currentInitError != null || currentFactory == null) {
+            setContent {
                 MyApplicationTheme(darkTheme = false) {
-                    StartupErrorScreen(currentInitError) { recreate() }
+                    StartupErrorScreen(
+                        message = t.localizedMessage ?: t.javaClass.simpleName,
+                        onRetry = { recreate() }
+                    )
                 }
-                return@setContent
             }
-
-            val viewModel: SafaViewModel by viewModels { currentFactory }
-            SafaRoot(viewModel)
         }
     }
 }
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun SafaRoot(viewModel: SafaViewModel) {
+private fun SafaRoot(
+    viewModel: SafaViewModel,
+    onExit: () -> Unit
+) {
     val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
     val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
-    val activity = LocalContext.current as? Activity
     var showExitDialog by remember { mutableStateOf(false) }
 
-    val isMainScreen = currentScreen in listOf(
+    val isMainScreen = currentScreen in setOf(
         AppScreen.DASHBOARD,
         AppScreen.CUSTOMERS,
         AppScreen.SUPPLIERS,
@@ -141,29 +133,10 @@ private fun SafaRoot(viewModel: SafaViewModel) {
     MyApplicationTheme(darkTheme = isDarkMode) {
         if (currentScreen != AppScreen.LOCK_SCREEN) {
             BackHandler {
-                if (!viewModel.navigateBack()) showExitDialog = true
-            }
-        }
-
-        if (showExitDialog) {
-            AlertDialog(
-                onDismissRequest = { showExitDialog = false },
-                title = { Text(if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application") },
-                text = { Text(if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showExitDialog = false
-                        activity?.finish()
-                    }) {
-                        Text(if (currentLanguage == "BN") "ঠিক আছে" else "OK")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showExitDialog = false }) {
-                        Text(if (currentLanguage == "BN") "বাতিল" else "Cancel")
-                    }
+                if (!viewModel.navigateBack()) {
+                    showExitDialog = true
                 }
-            )
+            }
         }
 
         if (currentScreen == AppScreen.LOCK_SCREEN) {
@@ -185,7 +158,10 @@ private fun SafaRoot(viewModel: SafaViewModel) {
             },
             bottomBar = {
                 if (showBars) {
-                    SafaBottomNavigationBar(viewModel, currentScreen)
+                    SafaBottomNavigationBar(
+                        viewModel = viewModel,
+                        currentScreen = currentScreen
+                    )
                 }
             }
         ) { innerPadding ->
@@ -218,8 +194,7 @@ private fun SafaRoot(viewModel: SafaViewModel) {
                                 ) + fadeOut(animationSpec = tween(110))
                         }
                     },
-                    label = "SafaScreenTransition",
-                    modifier = Modifier.fillMaxSize()
+                    label = "SafaScreenTransition"
                 ) { targetScreen ->
                     when (targetScreen) {
                         AppScreen.DASHBOARD -> DashboardScreen(viewModel = viewModel)
@@ -235,10 +210,35 @@ private fun SafaRoot(viewModel: SafaViewModel) {
                         AppScreen.EXPENSE_ADD -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = true)
                         AppScreen.SETTINGS -> SettingsScreen(viewModel = viewModel)
                         AppScreen.REPORTS -> ReportsScreen(viewModel = viewModel)
-                        else -> DashboardScreen(viewModel = viewModel)
+                        AppScreen.LOCK_SCREEN -> LoginScreen(viewModel = viewModel)
                     }
                 }
             }
+        }
+
+        if (showExitDialog) {
+            AlertDialog(
+                onDismissRequest = { showExitDialog = false },
+                title = {
+                    Text(if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application")
+                },
+                text = {
+                    Text(if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showExitDialog = false
+                        onExit()
+                    }) {
+                        Text(if (currentLanguage == "BN") "হ্যাঁ" else "Yes")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text(if (currentLanguage == "BN") "না" else "No")
+                    }
+                }
+            )
         }
     }
 }
@@ -309,15 +309,21 @@ private fun SafaBottomNavigationBar(
 }
 
 @Composable
-private fun StartupErrorScreen(error: Throwable?, onRetry: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+private fun StartupErrorScreen(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
         Column(
-            modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(24.dp)
         ) {
             Text("SAFA Startup Error", style = MaterialTheme.typography.headlineSmall)
-            Text(error?.localizedMessage ?: "Unable to initialize application services.")
+            Text(message)
             TextButton(onClick = onRetry) { Text("Retry") }
         }
     }
