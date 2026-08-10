@@ -4,10 +4,10 @@ import androidx.compose.ui.graphics.Color
 
 /** SAFA global design tokens: light emerald + premium gold, with neutral financial states. */
 object AppColors {
-    // Primary brand green: intentionally lighter and fresher than the previous deep emerald.
-    val PrimaryRed = Color(0xFF0F766E)
-    val PrimaryRedContainer = Color(0xFFE6F5F2)
-    val PrimaryOnRedContainer = Color(0xFF064E3B)
+    // Primary brand green: balanced medium-light emerald for buttons and primary actions.
+    val PrimaryRed = Color(0xFF2E8B70)
+    val PrimaryRedContainer = Color(0xFFE8F5F1)
+    val PrimaryOnRedContainer = Color(0xFF1F5C4B)
 
     val GoldSecondary = Color(0xFFC49A3A)
     val GoldSecondaryContainer = Color(0xFFFFF8E7)
