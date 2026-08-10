@@ -16,11 +16,14 @@ class AccountContextController extends Controller
     {
         $context = $this->resolveAuthorizedAccountContext($request);
         if (isset($context['error'])) return $context['error'];
+
         $user = $context['user'];
         if (!$user) return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
 
         $owned = Account::where('owner_user_id', $user->id)->orderBy('id')->get();
-        $shares = UserAccountShare::with('owner')->where('shared_with_user_id', $user->id)->get();
+        $shares = UserAccountShare::with('owner')
+            ->where('shared_with_user_id', $user->id)
+            ->get();
 
         $accounts = $owned->map(fn ($account) => [
             'account_id' => (int) $account->id,
@@ -62,6 +65,7 @@ class AccountContextController extends Controller
         $context = $this->resolveAuthorizedAccountContext($request);
         if (isset($context['error'])) return $context['error'];
 
+        $request->session()->put('safa_active_account_id', (int) $context['account_id']);
         return response()->json([
             'status' => 'success',
             'message' => 'Active account changed successfully.',
@@ -71,6 +75,11 @@ class AccountContextController extends Controller
 
     public function share(Request $request)
     {
+        $context = $this->resolveAuthorizedAccountContext($request);
+        if (isset($context['error'])) return $context['error'];
+        $owner = $context['user'];
+        if (!$owner) return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
+
         $validator = Validator::make($request->all(), [
             'mobile' => 'required|string',
             'account_id' => 'required|integer|min:1',
@@ -80,11 +89,12 @@ class AccountContextController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Validation failed.', 'errors' => $validator->errors()], 422);
         }
 
-        $context = $this->resolveAuthorizedAccountContext($request);
-        if (isset($context['error'])) return $context['error'];
-        $owner = $context['user'];
-        if (!$owner) return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
-        if ((int) $context['account_id'] !== (int) $request->input('account_id')) {
+        $accountId = (int) $request->input('account_id');
+        $targetContextRequest = Request::create($request->getRequestUri(), 'GET', ['account_id' => $accountId]);
+        foreach ($request->headers->all() as $key => $values) $targetContextRequest->headers->set($key, $values[0] ?? '');
+        $targetContextRequest->setUserResolver(fn () => $owner);
+        $authorized = $this->resolveAuthorizedAccountContext($targetContextRequest);
+        if (isset($authorized['error']) || (int) ($authorized['account_id'] ?? 0) !== $accountId) {
             return response()->json(['status' => 'error', 'message' => 'You are not authorized to share this account.'], 403);
         }
 
@@ -93,7 +103,7 @@ class AccountContextController extends Controller
         if ((int) $target->id === (int) $owner->id) return response()->json(['status' => 'error', 'message' => 'Cannot share an account with yourself.'], 422);
 
         $share = UserAccountShare::updateOrCreate(
-            ['owner_user_id' => $owner->id, 'shared_with_user_id' => $target->id, 'account_id' => (int) $request->input('account_id')],
+            ['owner_user_id' => $owner->id, 'shared_with_user_id' => $target->id, 'account_id' => $accountId],
             ['permissions_override' => $request->input('permissions_override')]
         );
 
