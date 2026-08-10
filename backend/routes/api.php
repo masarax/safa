@@ -7,14 +7,25 @@ use App\Http\Controllers\AuthJWTController;
 use App\Http\Controllers\GraphQLController;
 use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\RemoteBusinessController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TransactionController;
 use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
+use App\Http\Middleware\VerifyRefreshRequest;
+use App\Http\Middleware\VerifyActiveAuthSession;
+use App\Http\Middleware\RejectInactiveLogin;
 
-// Auth Routes (5-Token Security System & Device Binding & Granular RBAC)
+/*
+ |--------------------------------------------------------------------------
+ | Authentication / account-context routes
+ |--------------------------------------------------------------------------
+ | Health is the only intentionally unauthenticated endpoint. Login and
+ | first-time activation still require the application HMAC credential and
+ | are rate limited. Every endpoint that exposes account/user data requires
+ | the complete multi-level session after authentication.
+ */
 Route::prefix('auth')->group(function () {
-    // Public connectivity check used before authentication. It intentionally
-    // does not require HMAC because the client must be able to verify server
-    // reachability before it has an authenticated session.
     Route::get('/health', function () {
         return response()->json([
             'status' => 'ok',
@@ -22,34 +33,42 @@ Route::prefix('auth')->group(function () {
         ]);
     });
 
-    Route::post('/login', [AuthJWTController::class, 'login']);
-    Route::post('/refresh', [AuthJWTController::class, 'refreshToken']);
-    Route::post('/bind-device', [AuthJWTController::class, 'bindDevice']);
-    Route::post('/activate-superadmin', [AuthJWTController::class, 'activateSuperAdmin']);
+    Route::post('/login', [AuthJWTController::class, 'login'])
+        ->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
 
-    Route::get('/operators', [AuthJWTController::class, 'getOperators']);
-    Route::post('/operators', [AuthJWTController::class, 'createOperator']);
-    Route::put('/operators/{id?}', [AuthJWTController::class, 'updateOperator']);
-    Route::delete('/operators/{id?}', [AuthJWTController::class, 'deleteOperator']);
-    Route::match(['get', 'post', 'put', 'patch', 'delete'], '/operators/{id?}', [AuthJWTController::class, 'operators']);
+    Route::post('/refresh', [AuthJWTController::class, 'refreshToken'])
+        ->middleware([CheckApiSecurityKey::class, VerifyRefreshRequest::class, 'throttle:20,1']);
 
-    // Legacy account endpoints retained for compatibility.
-    Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
-    Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
-    Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
+    Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])
+        ->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
+
+    Route::post('/activate-superadmin', [AuthJWTController::class, 'activateSuperAdmin'])
+        ->middleware([CheckApiSecurityKey::class, 'throttle:3,1']);
+
+    // Operator management is authenticated and still performs its own
+    // SuperAdmin authorization check inside AuthJWTController.
+    Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
+        Route::get('/operators', [AuthJWTController::class, 'getOperators']);
+        Route::post('/operators', [AuthJWTController::class, 'createOperator']);
+        Route::put('/operators/{id?}', [AuthJWTController::class, 'updateOperator']);
+        Route::delete('/operators/{id?}', [AuthJWTController::class, 'deleteOperator']);
+        Route::match(['get', 'post', 'put', 'patch', 'delete'], '/operators/{id?}', [AuthJWTController::class, 'operators']);
+
+        // Legacy account endpoints retained for compatibility, but no longer public.
+        Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
+        Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
+        Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
+    });
 });
 
-Route::middleware(['verify.multilevel.token', AuditLogMiddleware::class])->group(function () {
+// GraphQL is protected by both application HMAC and the authenticated session.
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
-use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\TransactionController;
-
-// All Android business traffic uses the HMAC security middleware. Account context
-// endpoints are exposed under the same /accounts paths used by ApiService.kt.
-Route::middleware([CheckApiSecurityKey::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
+// All Android business traffic requires HMAC + the current authenticated
+// session. API-key-only access is intentionally no longer accepted.
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
     Route::post('/sync/up', [SyncController::class, 'syncUp']);
 
@@ -58,12 +77,10 @@ Route::middleware([CheckApiSecurityKey::class, AuditLogMiddleware::class, 'throt
     Route::post('/upload/logo', [RemoteConfigController::class, 'uploadLogo']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
 
-    // Server-authoritative account context used by Android.
     Route::get('/accounts', [AccountContextController::class, 'index']);
     Route::post('/accounts/switch', [AccountContextController::class, 'switch']);
     Route::post('/accounts/share', [AccountContextController::class, 'share']);
 
-    // Direct REST CRUD endpoints.
     Route::get('/customers', [CustomerController::class, 'index']);
     Route::post('/customers', [CustomerController::class, 'store']);
     Route::put('/customers/{id}', [CustomerController::class, 'update']);
@@ -79,7 +96,6 @@ Route::middleware([CheckApiSecurityKey::class, AuditLogMiddleware::class, 'throt
     Route::put('/transactions/{id}', [TransactionController::class, 'update']);
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
 
-    // Server-authoritative endpoints for the remaining business resources.
     Route::get('/wallet-ledgers', [RemoteBusinessController::class, 'walletLedgers']);
     Route::post('/wallet-ledgers', [RemoteBusinessController::class, 'storeWalletLedger']);
     Route::put('/wallet-ledgers/{id}', [RemoteBusinessController::class, 'updateWalletLedger']);
