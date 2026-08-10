@@ -2,20 +2,17 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SafaApiKey;
 use Closure;
 use Illuminate\Http\Request;
-use App\Models\SafaApiKey;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class CheckApiSecurityKey
 {
     /**
-     * Validate HMAC-SHA256 signature, API Key, timestamp expiration, and replay attack nonces.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @return mixed
+     * Validate HMAC-SHA256 signature, API key, timestamp expiration,
+     * and replay-attack nonces.
      */
     public function handle(Request $request, Closure $next)
     {
@@ -40,28 +37,32 @@ class CheckApiSecurityKey
             return response()->json(['message' => 'Unauthorized. Replay attack detected.'], 401);
         }
 
+        // Database is the authoritative source for API credentials.
+        // This is intentionally required so production authentication cannot
+        // silently fall back to credentials hard-coded in application source.
         $keyRecord = SafaApiKey::where('api_key', $apiKey)
             ->where('is_active', true)
             ->first();
 
-        // Fallback to env-only key or default key
-        $envApiKey = env('SAFA_API_KEY') ?: 'safa_key_7f8a9e0b1c2d3e4f5a6b7c8d9e0f1a2b';
         if (!$keyRecord) {
-            if (!$envApiKey || !hash_equals((string) $envApiKey, (string) $apiKey)) {
-                return response()->json(['message' => 'Unauthorized. Invalid API Key.'], 401);
-            }
+            return response()->json(['message' => 'Unauthorized. Invalid API Key.'], 401);
         }
 
-        $secret = $keyRecord?->api_secret ?? (env('SAFA_API_SECRET') ?: 'safa_sec_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b');
-        if (!$secret) {
-            return response()->json(['message' => 'Unauthorized. Server misconfigured.'], 401);
+        $secret = (string) $keyRecord->api_secret;
+        if ($secret === '') {
+            Log::error('SAFA API key has no configured secret.', [
+                'api_key_id' => $keyRecord->id,
+                'client_name' => $keyRecord->client_name,
+            ]);
+
+            return response()->json(['message' => 'Unauthorized. Server misconfigured.'], 500);
         }
 
         $method = strtoupper($request->method());
         $path   = '/' . ltrim($request->path(), '/');
         $body   = $request->getContent();
 
-        $payload           = $method . $path . $timestamp . $nonce . $body;
+        $payload = $method . $path . $timestamp . $nonce . $body;
         $expectedSignature = hash_hmac('sha256', $payload, $secret);
 
         if (!hash_equals($expectedSignature, (string) $signature)) {
@@ -69,7 +70,7 @@ class CheckApiSecurityKey
             return response()->json(['message' => 'Unauthorized. Signature mismatch.'], 401);
         }
 
-        // Cache nonce for 300 seconds to prevent replay attacks
+        // Cache nonce for 300 seconds to prevent replay attacks.
         Cache::put('nonce_' . $nonce, true, 300);
 
         return $next($request);
