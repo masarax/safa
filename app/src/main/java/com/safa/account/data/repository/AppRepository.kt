@@ -1,202 +1,33 @@
 package com.safa.account.data.repository
 
-import com.safa.account.data.dao.*
+import com.safa.account.data.api.ApiService
 import com.safa.account.data.model.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-class AppRepository(
-    private val operatorDao: OperatorDao,
-    private val customerDao: CustomerDao,
-    private val supplierDao: SupplierDao,
-    private val transactionDao: TransactionDao,
-    private val supplierDepositDao: SupplierDepositDao,
-    private val expenseIncomeDao: ExpenseIncomeDao,
-    private val dailyRateDao: DailyRateDao,
-    private val walletLedgerDao: WalletLedgerDao,
-    private val walletBatchDao: WalletBatchDao,
-    private val syncOutboxDao: SyncOutboxDao? = null
-) {
-    // ─── Sync Outbox ──────────────────────────────────────────────────────────
-    suspend fun getPendingOutbox(): List<SyncOutbox> = syncOutboxDao?.getPendingOutbox() ?: emptyList()
-    suspend fun enqueueOutbox(outbox: SyncOutbox): Long = syncOutboxDao?.insert(outbox) ?: -1L
-    suspend fun updateOutboxStatus(id: Int, status: String) = syncOutboxDao?.updateStatus(id, status)
-    suspend fun markOutboxFailed(id: Int, status: String, error: String?) = syncOutboxDao?.markFailed(id, status, error)
-    suspend fun deleteOutboxById(id: Int) = syncOutboxDao?.deleteById(id)
-    suspend fun purgeSyncedOutbox() = syncOutboxDao?.purgeSynced()
-    // ─── Operators ────────────────────────────────────────────────────────────
-    val allOperators: Flow<List<OperatorAccount>> = operatorDao.getAll()
-    suspend fun insertOperator(op: OperatorAccount) = operatorDao.insert(op)
-    suspend fun updateOperator(op: OperatorAccount) = operatorDao.update(op)
-    suspend fun deleteOperator(op: OperatorAccount) = operatorDao.deleteById(op.id)
-    suspend fun getOperatorByUsername(username: String) = operatorDao.getByUsername(username)
-    suspend fun getOperatorByMobile(mobile: String) = operatorDao.getByMobile(mobile)
-
-    // ─── Customers ────────────────────────────────────────────────────────────
-    val allCustomers: Flow<List<Customer>> = customerDao.getAll()
-    val allCustomersRaw: Flow<List<Customer>> = customerDao.getAllRaw()
-    suspend fun getPendingCustomers(): List<Customer> = customerDao.getPending()
-    suspend fun insertCustomer(c: Customer) = customerDao.insert(c)
-    suspend fun updateCustomer(c: Customer) = customerDao.update(c)
-    suspend fun deleteCustomerById(id: Int) = customerDao.deleteById(id)
-    suspend fun softDeleteCustomerById(id: Int, deletedAt: Long = System.currentTimeMillis()) = customerDao.softDeleteById(id, deletedAt)
-    suspend fun markCustomerSynced(id: Int, serverId: Int) = customerDao.markSynced(id, serverId)
-    suspend fun markCustomerFailed(id: Int, error: String) = customerDao.markFailed(id, error)
-    suspend fun incrementCustomerRetry(id: Int) = customerDao.incrementRetry(id)
-    suspend fun resetCustomerRetry(id: Int, targetStatus: Int) = customerDao.resetRetryState(id, targetStatus)
-    suspend fun getCustomerById(id: Int): Customer? = customerDao.getById(id)
-    suspend fun retryFailedCustomer(id: Int) {
-        val record = customerDao.getById(id) ?: return
-        val targetStatus = when {
-            record.deletedAt != null -> SyncStatus.PENDING_DELETE
-            record.serverId > 0 -> SyncStatus.PENDING_UPDATE
-            else -> SyncStatus.PENDING_CREATE
-        }
-        customerDao.resetRetryState(id, targetStatus)
-    }
-
-    // ─── Suppliers ────────────────────────────────────────────────────────────
-    val allSuppliers: Flow<List<Supplier>> = supplierDao.getAll()
-    val allSuppliersRaw: Flow<List<Supplier>> = supplierDao.getAllRaw()
-    suspend fun getPendingSuppliers(): List<Supplier> = supplierDao.getPending()
-    suspend fun insertSupplier(s: Supplier) = supplierDao.insert(s)
-    suspend fun updateSupplier(s: Supplier) = supplierDao.update(s)
-    suspend fun deleteSupplierById(id: Int) = supplierDao.deleteById(id)
-    suspend fun softDeleteSupplierById(id: Int, deletedAt: Long = System.currentTimeMillis()) = supplierDao.softDeleteById(id, deletedAt)
-    suspend fun markSupplierSynced(id: Int, serverId: Int) = supplierDao.markSynced(id, serverId)
-    suspend fun markSupplierFailed(id: Int, error: String) = supplierDao.markFailed(id, error)
-    suspend fun incrementSupplierRetry(id: Int) = supplierDao.incrementRetry(id)
-    suspend fun resetSupplierRetry(id: Int, targetStatus: Int) = supplierDao.resetRetryState(id, targetStatus)
-    suspend fun getSupplierById(id: Int): Supplier? = supplierDao.getById(id)
-    suspend fun retryFailedSupplier(id: Int) {
-        val record = supplierDao.getById(id) ?: return
-        val targetStatus = when {
-            record.deletedAt != null -> SyncStatus.PENDING_DELETE
-            record.serverId > 0 -> SyncStatus.PENDING_UPDATE
-            else -> SyncStatus.PENDING_CREATE
-        }
-        supplierDao.resetRetryState(id, targetStatus)
-    }
-
-    // ─── Transactions ─────────────────────────────────────────────────────────
-    val allTransactions: Flow<List<RemittanceTransaction>> = transactionDao.getAll()
-    val allTransactionsRaw: Flow<List<RemittanceTransaction>> = transactionDao.getAllRaw()
-    suspend fun getPendingTransactions(): List<RemittanceTransaction> = transactionDao.getPending()
-    suspend fun insertTransaction(tx: RemittanceTransaction) = transactionDao.insert(tx)
-    suspend fun updateTransaction(tx: RemittanceTransaction) = transactionDao.update(tx)
-    suspend fun deleteTransactionById(id: Int) = transactionDao.deleteById(id)
-    suspend fun softDeleteTransactionById(id: Int, deletedAt: Long = System.currentTimeMillis()) = transactionDao.softDeleteById(id, deletedAt)
-    suspend fun markTransactionSynced(id: Int, serverId: Int) = transactionDao.markSynced(id, serverId)
-    suspend fun markTransactionFailed(id: Int, error: String) = transactionDao.markFailed(id, error)
-    suspend fun incrementTransactionRetry(id: Int) = transactionDao.incrementRetry(id)
-    suspend fun resetTransactionRetry(id: Int, targetStatus: Int) = transactionDao.resetRetryState(id, targetStatus)
-    suspend fun getTransactionById(id: Int): RemittanceTransaction? = transactionDao.getById(id)
-    suspend fun retryFailedTransaction(id: Int) {
-        val record = transactionDao.getById(id) ?: return
-        val targetStatus = when {
-            record.deletedAt != null -> SyncStatus.PENDING_DELETE
-            record.serverId > 0 -> SyncStatus.PENDING_UPDATE
-            else -> SyncStatus.PENDING_CREATE
-        }
-        transactionDao.resetRetryState(id, targetStatus)
-    }
-
-    // ─── Supplier Deposits ────────────────────────────────────────────────────
-    val allSupplierDeposits: Flow<List<SupplierDeposit>> = supplierDepositDao.getAll()
-    val allSupplierDepositsRaw: Flow<List<SupplierDeposit>> = supplierDepositDao.getAllRaw()
-    suspend fun getPendingSupplierDeposits(): List<SupplierDeposit> = supplierDepositDao.getPending()
-    suspend fun insertSupplierDeposit(dep: SupplierDeposit) = supplierDepositDao.insert(dep)
-    suspend fun updateSupplierDeposit(dep: SupplierDeposit) = supplierDepositDao.update(dep)
-    suspend fun deleteSupplierDepositById(id: Int) = supplierDepositDao.deleteById(id)
-    suspend fun softDeleteSupplierDepositById(id: Int, deletedAt: Long = System.currentTimeMillis()) = supplierDepositDao.softDeleteById(id, deletedAt)
-    suspend fun markSupplierDepositSynced(id: Int, serverId: Int) = supplierDepositDao.markSynced(id, serverId)
-    suspend fun markSupplierDepositFailed(id: Int, error: String) = supplierDepositDao.markFailed(id, error)
-    suspend fun incrementSupplierDepositRetry(id: Int) = supplierDepositDao.incrementRetry(id)
-    suspend fun resetSupplierDepositRetry(id: Int, targetStatus: Int) = supplierDepositDao.resetRetryState(id, targetStatus)
-    suspend fun getSupplierDepositById(id: Int): SupplierDeposit? = supplierDepositDao.getById(id)
-    suspend fun retryFailedSupplierDeposit(id: Int) {
-        val record = supplierDepositDao.getById(id) ?: return
-        val targetStatus = when {
-            record.deletedAt != null -> SyncStatus.PENDING_DELETE
-            record.serverId > 0 -> SyncStatus.PENDING_UPDATE
-            else -> SyncStatus.PENDING_CREATE
-        }
-        supplierDepositDao.resetRetryState(id, targetStatus)
-    }
-
-    // ─── Expenses & Incomes ───────────────────────────────────────────────────
-    val allExpensesIncomes: Flow<List<ExpenseIncome>> = expenseIncomeDao.getAll()
-    val allExpensesIncomesRaw: Flow<List<ExpenseIncome>> = expenseIncomeDao.getAllRaw()
-    suspend fun getPendingExpensesIncomes(): List<ExpenseIncome> = expenseIncomeDao.getPending()
-    suspend fun insertExpenseIncome(e: ExpenseIncome) = expenseIncomeDao.insert(e)
-    suspend fun updateExpenseIncome(e: ExpenseIncome) = expenseIncomeDao.update(e)
-    suspend fun deleteExpenseIncomeById(id: Int) = expenseIncomeDao.deleteById(id)
-    suspend fun softDeleteExpenseIncomeById(id: Int, deletedAt: Long = System.currentTimeMillis()) = expenseIncomeDao.softDeleteById(id, deletedAt)
-    suspend fun markExpenseIncomeSynced(id: Int, serverId: Int) = expenseIncomeDao.markSynced(id, serverId)
-    suspend fun markExpenseIncomeFailed(id: Int, error: String) = expenseIncomeDao.markFailed(id, error)
-    suspend fun incrementExpenseIncomeRetry(id: Int) = expenseIncomeDao.incrementRetry(id)
-    suspend fun resetExpenseIncomeRetry(id: Int, targetStatus: Int) = expenseIncomeDao.resetRetryState(id, targetStatus)
-    suspend fun getExpenseIncomeById(id: Int): ExpenseIncome? = expenseIncomeDao.getById(id)
-    suspend fun retryFailedExpenseIncome(id: Int) {
-        val record = expenseIncomeDao.getById(id) ?: return
-        val targetStatus = when {
-            record.deletedAt != null -> SyncStatus.PENDING_DELETE
-            record.serverId > 0 -> SyncStatus.PENDING_UPDATE
-            else -> SyncStatus.PENDING_CREATE
-        }
-        expenseIncomeDao.resetRetryState(id, targetStatus)
-    }
-
-    // ─── Daily Rates ──────────────────────────────────────────────────────────
-    val allDailyRates: Flow<List<DailyRate>> = dailyRateDao.getAll()
-    suspend fun insertDailyRate(r: DailyRate) = dailyRateDao.insert(r)
-    suspend fun getDailyRateByDate(date: String) = dailyRateDao.getByDate(date)
-
-    // ─── Wallet Ledgers ───────────────────────────────────────────────────────
-    val allWalletLedgers: Flow<List<WalletLedger>> = walletLedgerDao.getAll()
-    val allWalletLedgersRaw: Flow<List<WalletLedger>> = walletLedgerDao.getAllRaw()
-    suspend fun getPendingWalletLedgers(): List<WalletLedger> = walletLedgerDao.getPending()
-    suspend fun insertWalletLedger(l: WalletLedger) = walletLedgerDao.insert(l)
-    suspend fun updateWalletLedger(l: WalletLedger) = walletLedgerDao.update(l)
-    suspend fun deleteWalletLedgerById(id: Int) = walletLedgerDao.deleteById(id)
-    suspend fun softDeleteWalletLedgerById(id: Int, deletedAt: Long = System.currentTimeMillis()) = walletLedgerDao.softDeleteById(id, deletedAt)
-    suspend fun markWalletLedgerSynced(id: Int, serverId: Int) = walletLedgerDao.markSynced(id, serverId)
-    suspend fun markWalletLedgerFailed(id: Int, error: String) = walletLedgerDao.markFailed(id, error)
-    suspend fun incrementWalletLedgerRetry(id: Int) = walletLedgerDao.incrementRetry(id)
-    suspend fun resetWalletLedgerRetry(id: Int, targetStatus: Int) = walletLedgerDao.resetRetryState(id, targetStatus)
-    suspend fun getWalletLedgerById(id: Int): WalletLedger? = walletLedgerDao.getById(id)
-    suspend fun retryFailedWalletLedger(id: Int) {
-        val record = walletLedgerDao.getById(id) ?: return
-        val targetStatus = when {
-            record.deletedAt != null -> SyncStatus.PENDING_DELETE
-            record.serverId > 0 -> SyncStatus.PENDING_UPDATE
-            else -> SyncStatus.PENDING_CREATE
-        }
-        walletLedgerDao.resetRetryState(id, targetStatus)
-    }
-
-    // ─── Wallet Batches ───────────────────────────────────────────────────────
-    val allWalletBatches: Flow<List<WalletBatch>> = walletBatchDao.getAll()
-    val allWalletBatchesRaw: Flow<List<WalletBatch>> = walletBatchDao.getAllRaw()
-    suspend fun getPendingWalletBatches(): List<WalletBatch> = walletBatchDao.getPending()
-    suspend fun insertWalletBatch(b: WalletBatch) = walletBatchDao.insert(b)
-    suspend fun updateWalletBatch(b: WalletBatch) = walletBatchDao.update(b)
-    suspend fun deleteWalletBatchById(id: Int) = walletBatchDao.deleteById(id)
-    suspend fun softDeleteWalletBatchById(id: Int, deletedAt: Long = System.currentTimeMillis()) = walletBatchDao.softDeleteById(id, deletedAt)
-    suspend fun deleteWalletBatchBySupplierDepositId(depositId: Int) = walletBatchDao.deleteBySupplierDepositId(depositId)
-    suspend fun softDeleteWalletBatchBySupplierDepositId(depositId: Int, deletedAt: Long = System.currentTimeMillis()) = walletBatchDao.softDeleteBySupplierDepositId(depositId, deletedAt)
-    suspend fun markWalletBatchSynced(id: Int, serverId: Int) = walletBatchDao.markSynced(id, serverId)
-    suspend fun markWalletBatchFailed(id: Int, error: String) = walletBatchDao.markFailed(id, error)
-    suspend fun incrementWalletBatchRetry(id: Int) = walletBatchDao.incrementRetry(id)
-    suspend fun resetWalletBatchRetry(id: Int, targetStatus: Int) = walletBatchDao.resetRetryState(id, targetStatus)
-    suspend fun getWalletBatchById(id: Int) = walletBatchDao.getById(id)
-    suspend fun retryFailedWalletBatch(id: Int) {
-        val record = walletBatchDao.getById(id) ?: return
-        val targetStatus = when {
-            record.deletedAt != null -> SyncStatus.PENDING_DELETE
-            record.serverId > 0 -> SyncStatus.PENDING_UPDATE
-            else -> SyncStatus.PENDING_CREATE
-        }
-        walletBatchDao.resetRetryState(id, targetStatus)
-    }
+/** Server-authoritative repository: no Room/SQLCipher/local business database. */
+class AppRepository(private val api: ApiService) {
+    private val _operators=MutableStateFlow<List<OperatorAccount>>(emptyList()); private val _customers=MutableStateFlow<List<Customer>>(emptyList()); private val _suppliers=MutableStateFlow<List<Supplier>>(emptyList()); private val _transactions=MutableStateFlow<List<RemittanceTransaction>>(emptyList()); private val _deposits=MutableStateFlow<List<SupplierDeposit>>(emptyList()); private val _expenses=MutableStateFlow<List<ExpenseIncome>>(emptyList()); private val _rates=MutableStateFlow<List<DailyRate>>(emptyList()); private val _ledgers=MutableStateFlow<List<WalletLedger>>(emptyList()); private val _batches=MutableStateFlow<List<WalletBatch>>(emptyList())
+    val allOperators:Flow<List<OperatorAccount>>=_operators.asStateFlow(); val allCustomers:Flow<List<Customer>>=_customers.asStateFlow(); val allCustomersRaw=allCustomers; val allSuppliers:Flow<List<Supplier>>=_suppliers.asStateFlow(); val allSuppliersRaw=allSuppliers; val allTransactions:Flow<List<RemittanceTransaction>>=_transactions.asStateFlow(); val allTransactionsRaw=allTransactions; val allSupplierDeposits:Flow<List<SupplierDeposit>>=_deposits.asStateFlow(); val allSupplierDepositsRaw=allSupplierDeposits; val allExpensesIncomes:Flow<List<ExpenseIncome>>=_expenses.asStateFlow(); val allExpensesIncomesRaw=allExpensesIncomes; val allDailyRates:Flow<List<DailyRate>>=_rates.asStateFlow(); val allWalletLedgers:Flow<List<WalletLedger>>=_ledgers.asStateFlow(); val allWalletLedgersRaw=allWalletLedgers; val allWalletBatches:Flow<List<WalletBatch>>=_batches.asStateFlow(); val allWalletBatchesRaw=allWalletBatches
+    private fun Any?.i()=when(this){is Number->toInt();else->toString().toIntOrNull()?:0}; private fun Any?.d()=when(this){is Number->toDouble();else->toString().toDoubleOrNull()?:0.0}; private fun Any?.s()=this?.toString()? :""; private fun Any?.b()=this==true||this?.toString()?.lowercase() in setOf("1","true","yes","on"); private fun Map<String,Any?>.v(vararg n:String)=n.firstNotNullOfOrNull{this[it]};
+    private fun list(body:Map<String,Any?>?,vararg keys:String)=((keys.asSequence().mapNotNull{body?.get(it)}.firstOrNull()?:body?.get("data")) as? List<*>)?.mapNotNull{it as? Map<String,Any?>}?:emptyList()
+    private fun customer(m:Map<String,Any?>)=Customer(m.v("id","server_id").i(),m.v("server_id","id").i(),m.v("name").s(),m.v("phone").s(),m.v("address").s(),m.v("security_notes").s(),m.v("avatar_color").s().ifBlank{"4280391411"},m.v("avatar_emoji").s().ifBlank{"👤"},m.v("timestamp","created_at").toString().toLongOrNull()?:System.currentTimeMillis(),syncStatus=SyncStatus.SYNCED)
+    private fun supplier(m:Map<String,Any?>)=Supplier(m.v("id","server_id").i(),m.v("server_id","id").i(),m.v("name").s(),m.v("phone").s(),m.v("address").s(),m.v("trade_license").s(),m.v("security_notes").s(),m.v("avatar_color").s().ifBlank{"4280391411"},m.v("avatar_emoji").s().ifBlank{"🏢"},syncStatus=SyncStatus.SYNCED)
+    private fun tx(m:Map<String,Any?>)=RemittanceTransaction(id=m.v("id","server_id").i(),serverId=m.v("server_id","id").i(),customerId=m.v("customer_id").i(),supplierId=m.v("supplier_id").i(),amountSar=m.v("amount_sar","amount").d(),customerRate=m.v("customer_rate").d(),supplierRate=m.v("supplier_rate").d(),amountBdt=m.v("amount_bdt").d(),receiverName=m.v("receiver_name").s(),receiverPhone=m.v("receiver_phone").s(),receiverAccountType=m.v("receiver_account_type").s(),receiverAccountNo=m.v("receiver_account_no").s(),status=m.v("status","type").s().ifBlank{"Pending"},operatorId=m.v("operator_id").i(),walletBatchId=m.v("wallet_batch_id").i(),notes=m.v("notes").s(),syncStatus=SyncStatus.SYNCED)
+    private fun dep(m:Map<String,Any?>)=SupplierDeposit(id=m.v("id","server_id").i(),serverId=m.v("server_id","id").i(),supplierId=m.v("supplier_id").i(),amountSar=m.v("amount_sar","amount").d(),rate=m.v("rate","supplier_rate").d(),amountBdt=m.v("amount_bdt").d(),paidBdt=m.v("paid_bdt").d(),transactionType=m.v("transaction_type","type").s().ifBlank{"SAR_GIVEN"},notes=m.v("notes").s(),syncStatus=SyncStatus.SYNCED)
+    private fun exp(m:Map<String,Any?>)=ExpenseIncome(id=m.v("id","server_id").i(),serverId=m.v("server_id","id").i(),title=m.v("title","name").s(),amount=m.v("amount").d(),currency=m.v("currency").s().ifBlank{"BDT"},isExpense=m.v("is_expense").b(),category=m.v("category").s().ifBlank{"General"},syncStatus=SyncStatus.SYNCED)
+    private fun ledger(m:Map<String,Any?>)=WalletLedger(id=m.v("id","server_id").i(),serverId=m.v("server_id","id").i(),name=m.v("name").s(),syncStatus=SyncStatus.SYNCED)
+    private fun batch(m:Map<String,Any?>)=WalletBatch(id=m.v("id","server_id").i(),serverId=m.v("server_id","id").i(),ledgerId=m.v("ledger_id").i(),rate=m.v("rate").d(),initialBdt=m.v("initial_bdt").d(),remainingBdt=m.v("remaining_bdt").d(),supplierId=m.v("supplier_id").i(),supplierDepositId=m.v("supplier_deposit_id").i(),notes=m.v("notes").s(),syncStatus=SyncStatus.SYNCED)
+    suspend fun refreshAll()=runCatching{api.getCustomers().takeIf{it.isSuccessful}?.body()?.let{_customers.value=list(it,"customers").map(::customer)};api.getSuppliers().takeIf{it.isSuccessful}?.body()?.let{_suppliers.value=list(it,"suppliers").map(::supplier)};api.getTransactions().takeIf{it.isSuccessful}?.body()?.let{_transactions.value=list(it,"transactions").map(::tx)};api.getSupplierDeposits().takeIf{it.isSuccessful}?.body()?.let{_deposits.value=list(it,"supplier_deposits","supplierDeposits").map(::dep)};api.getExpensesIncomes().takeIf{it.isSuccessful}?.body()?.let{_expenses.value=list(it,"expenses_incomes","expensesIncomes").map(::exp)};api.getWalletLedgers().takeIf{it.isSuccessful}?.body()?.let{_ledgers.value=list(it,"wallet_ledgers","walletLedgers").map(::ledger)};api.getWalletBatches().takeIf{it.isSuccessful}?.body()?.let{_batches.value=list(it,"wallet_batches","walletBatches").map(::batch)};api.getOperators().takeIf{it.isSuccessful}?.body()?.let{_operators.value=list(it,"operators","users").map{m->OperatorAccount(id=m.v("id").i(),username=m.v("username","name","email").s(),role=m.v("role").s().ifBlank{"Staff"},mobile=m.v("mobile","phone").s(),email=m.v("email").s(),isActive=m.v("is_active","active").b())}}}
+    private fun cp(c:Customer)=mapOf("name" to c.name,"phone" to c.phone,"address" to c.address,"security_notes" to c.securityNotes,"local_id" to c.id,"timestamp" to c.timestamp); private fun sp(s:Supplier)=mapOf("name" to s.name,"phone" to s.phone,"address" to s.address,"trade_license" to s.tradeLicense,"security_notes" to s.securityNotes,"local_id" to s.id,"timestamp" to s.timestamp); private fun tp(t:RemittanceTransaction)=mapOf("customer_id" to t.customerId,"supplier_id" to t.supplierId,"amount_sar" to t.amountSar,"customer_rate" to t.customerRate,"supplier_rate" to t.supplierRate,"amount_bdt" to t.amountBdt,"receiver_name" to t.receiverName,"receiver_phone" to t.receiverPhone,"receiver_account_type" to t.receiverAccountType,"receiver_account_no" to t.receiverAccountNo,"status" to t.status,"operator_id" to t.operatorId,"wallet_batch_id" to t.walletBatchId,"notes" to t.notes,"timestamp" to t.timestamp,"local_id" to t.id); private fun dp(d:SupplierDeposit)=mapOf("supplier_id" to d.supplierId,"amount_sar" to d.amountSar,"rate" to d.rate,"amount_bdt" to d.amountBdt,"paid_bdt" to d.paidBdt,"transaction_type" to d.transactionType,"notes" to d.notes,"timestamp" to d.timestamp,"local_id" to d.id); private fun ep(e:ExpenseIncome)=mapOf("title" to e.title,"amount" to e.amount,"currency" to e.currency,"is_expense" to e.isExpense,"category" to e.category,"timestamp" to e.timestamp,"local_id" to e.id); private fun lp(l:WalletLedger)=mapOf("name" to l.name,"timestamp" to l.timestamp,"local_id" to l.id); private fun bp(b:WalletBatch)=mapOf("ledger_id" to b.ledgerId,"rate" to b.rate,"initial_bdt" to b.initialBdt,"remaining_bdt" to b.remainingBdt,"supplier_id" to b.supplierId,"supplier_deposit_id" to b.supplierDepositId,"notes" to b.notes,"timestamp" to b.timestamp,"local_id" to b.id)
+    suspend fun insertCustomer(c:Customer){require(api.createCustomer(cp(c)).isSuccessful);refreshAll()};suspend fun updateCustomer(c:Customer){require(api.updateCustomerApi(c.serverId.takeIf{it>0}?:c.id,cp(c)).isSuccessful);refreshAll()};suspend fun deleteCustomerById(id:Int){require(api.deleteCustomerApi(id,true).isSuccessful);refreshAll()};suspend fun softDeleteCustomerById(id:Int,deletedAt:Long=0)=deleteCustomerById(id);suspend fun getCustomerById(id:Int)=_customers.value.firstOrNull{it.id==id||it.serverId==id};suspend fun getPendingCustomers()=emptyList<Customer>();suspend fun markCustomerSynced(id:Int,serverId:Int){};suspend fun markCustomerFailed(id:Int,error:String){};suspend fun incrementCustomerRetry(id:Int){};suspend fun resetCustomerRetry(id:Int,targetStatus:Int){};suspend fun retryFailedCustomer(id:Int){}
+    suspend fun insertSupplier(s:Supplier){require(api.createSupplier(sp(s)).isSuccessful);refreshAll()};suspend fun updateSupplier(s:Supplier){require(api.updateSupplierApi(s.serverId.takeIf{it>0}?:s.id,sp(s)).isSuccessful);refreshAll()};suspend fun deleteSupplierById(id:Int){require(api.deleteSupplierApi(id,true).isSuccessful);refreshAll()};suspend fun softDeleteSupplierById(id:Int,deletedAt:Long=0)=deleteSupplierById(id);suspend fun getSupplierById(id:Int)=_suppliers.value.firstOrNull{it.id==id||it.serverId==id};suspend fun getPendingSuppliers()=emptyList<Supplier>();suspend fun markSupplierSynced(id:Int,serverId:Int){};suspend fun markSupplierFailed(id:Int,error:String){};suspend fun incrementSupplierRetry(id:Int){};suspend fun resetSupplierRetry(id:Int,targetStatus:Int){};suspend fun retryFailedSupplier(id:Int){}
+    suspend fun insertTransaction(t:RemittanceTransaction){require(api.createTransactionApi(tp(t)).isSuccessful);refreshAll()};suspend fun updateTransaction(t:RemittanceTransaction){require(api.updateTransactionApi(t.serverId.takeIf{it>0}?:t.id,tp(t)).isSuccessful);refreshAll()};suspend fun deleteTransactionById(id:Int){require(api.deleteTransactionApi(id,true).isSuccessful);refreshAll()};suspend fun softDeleteTransactionById(id:Int,deletedAt:Long=0)=deleteTransactionById(id);suspend fun getTransactionById(id:Int)=_transactions.value.firstOrNull{it.id==id||it.serverId==id};suspend fun getPendingTransactions()=emptyList<RemittanceTransaction>();suspend fun markTransactionSynced(id:Int,serverId:Int){};suspend fun markTransactionFailed(id:Int,error:String){};suspend fun incrementTransactionRetry(id:Int){};suspend fun resetTransactionRetry(id:Int,targetStatus:Int){};suspend fun retryFailedTransaction(id:Int){}
+    suspend fun insertSupplierDeposit(d:SupplierDeposit){require(api.createSupplierDeposit(dp(d)).isSuccessful);refreshAll()};suspend fun updateSupplierDeposit(d:SupplierDeposit){require(api.updateSupplierDeposit(d.serverId.takeIf{it>0}?:d.id,dp(d)).isSuccessful);refreshAll()};suspend fun deleteSupplierDepositById(id:Int){require(api.deleteSupplierDeposit(id,true).isSuccessful);refreshAll()};suspend fun softDeleteSupplierDepositById(id:Int,deletedAt:Long=0)=deleteSupplierDepositById(id);suspend fun getSupplierDepositById(id:Int)=_deposits.value.firstOrNull{it.id==id||it.serverId==id};suspend fun getPendingSupplierDeposits()=emptyList<SupplierDeposit>();suspend fun markSupplierDepositSynced(id:Int,serverId:Int){};suspend fun markSupplierDepositFailed(id:Int,error:String){};suspend fun incrementSupplierDepositRetry(id:Int){};suspend fun resetSupplierDepositRetry(id:Int,targetStatus:Int){};suspend fun retryFailedSupplierDeposit(id:Int){}
+    suspend fun insertExpenseIncome(e:ExpenseIncome){require(api.createExpenseIncome(ep(e)).isSuccessful);refreshAll()};suspend fun updateExpenseIncome(e:ExpenseIncome){require(api.updateExpenseIncome(e.serverId.takeIf{it>0}?:e.id,ep(e)).isSuccessful);refreshAll()};suspend fun deleteExpenseIncomeById(id:Int){require(api.deleteExpenseIncome(id,true).isSuccessful);refreshAll()};suspend fun softDeleteExpenseIncomeById(id:Int,deletedAt:Long=0)=deleteExpenseIncomeById(id);suspend fun getExpenseIncomeById(id:Int)=_expenses.value.firstOrNull{it.id==id||it.serverId==id};suspend fun getPendingExpensesIncomes()=emptyList<ExpenseIncome>();suspend fun markExpenseIncomeSynced(id:Int,serverId:Int){};suspend fun markExpenseIncomeFailed(id:Int,error:String){};suspend fun incrementExpenseIncomeRetry(id:Int){};suspend fun resetExpenseIncomeRetry(id:Int,targetStatus:Int){};suspend fun retryFailedExpenseIncome(id:Int){}
+    suspend fun insertDailyRate(r:DailyRate){_rates.value=(_rates.value.filterNot{it.date==r.date}+r)};suspend fun getDailyRateByDate(date:String)=_rates.value.firstOrNull{it.date==date}
+    suspend fun insertWalletLedger(l:WalletLedger){require(api.createWalletLedger(lp(l)).isSuccessful);refreshAll()};suspend fun updateWalletLedger(l:WalletLedger){require(api.updateWalletLedger(l.serverId.takeIf{it>0}?:l.id,lp(l)).isSuccessful);refreshAll()};suspend fun deleteWalletLedgerById(id:Int){require(api.deleteWalletLedger(id,true).isSuccessful);refreshAll()};suspend fun softDeleteWalletLedgerById(id:Int,deletedAt:Long=0)=deleteWalletLedgerById(id);suspend fun getWalletLedgerById(id:Int)=_ledgers.value.firstOrNull{it.id==id||it.serverId==id};suspend fun getPendingWalletLedgers()=emptyList<WalletLedger>();suspend fun markWalletLedgerSynced(id:Int,serverId:Int){};suspend fun markWalletLedgerFailed(id:Int,error:String){};suspend fun incrementWalletLedgerRetry(id:Int){};suspend fun resetWalletLedgerRetry(id:Int,targetStatus:Int){};suspend fun retryFailedWalletLedger(id:Int){}
+    suspend fun insertWalletBatch(b:WalletBatch){require(api.createWalletBatch(bp(b)).isSuccessful);refreshAll()};suspend fun updateWalletBatch(b:WalletBatch){require(api.updateWalletBatch(b.serverId.takeIf{it>0}?:b.id,bp(b)).isSuccessful);refreshAll()};suspend fun deleteWalletBatchById(id:Int){require(api.deleteWalletBatch(id,true).isSuccessful);refreshAll()};suspend fun softDeleteWalletBatchById(id:Int,deletedAt:Long=0)=deleteWalletBatchById(id);suspend fun deleteWalletBatchBySupplierDepositId(id:Int){_batches.value=_batches.value.filterNot{it.supplierDepositId==id}};suspend fun softDeleteWalletBatchBySupplierDepositId(id:Int,deletedAt:Long=0)=deleteWalletBatchBySupplierDepositId(id);suspend fun getWalletBatchById(id:Int)=_batches.value.firstOrNull{it.id==id||it.serverId==id};suspend fun getPendingWalletBatches()=emptyList<WalletBatch>();suspend fun markWalletBatchSynced(id:Int,serverId:Int){};suspend fun markWalletBatchFailed(id:Int,error:String){};suspend fun incrementWalletBatchRetry(id:Int){};suspend fun resetWalletBatchRetry(id:Int,targetStatus:Int){};suspend fun retryFailedWalletBatch(id:Int){}
+    suspend fun insertOperator(o:OperatorAccount){require(api.createOperator(mapOf("username" to o.username,"role" to o.role,"mobile" to o.mobile,"email" to o.email,"permissions" to o.permissions)).isSuccessful);refreshAll()};suspend fun updateOperator(o:OperatorAccount){require(api.updateOperator(o.id,mapOf("username" to o.username,"role" to o.role,"mobile" to o.mobile,"email" to o.email,"permissions" to o.permissions,"is_active" to o.isActive)).isSuccessful);refreshAll()};suspend fun deleteOperator(o:OperatorAccount){require(api.deleteOperator(o.id).isSuccessful);refreshAll()};suspend fun getOperatorByUsername(u:String)=_operators.value.firstOrNull{it.username==u};suspend fun getOperatorByMobile(m:String)=_operators.value.firstOrNull{it.mobile==m}
 }
-
