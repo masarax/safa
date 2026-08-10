@@ -5,6 +5,7 @@ use App\Http\Controllers\SyncController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\AuthJWTController;
 use App\Http\Controllers\GraphQLController;
+use App\Http\Controllers\AccountContextController;
 use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
 
@@ -15,22 +16,18 @@ Route::prefix('auth')->group(function () {
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice']);
     Route::post('/activate-superadmin', [AuthJWTController::class, 'activateSuperAdmin']);
 
-    // Operator Management (Granular RBAC)
     Route::get('/operators', [AuthJWTController::class, 'getOperators']);
     Route::post('/operators', [AuthJWTController::class, 'createOperator']);
     Route::put('/operators/{id?}', [AuthJWTController::class, 'updateOperator']);
     Route::delete('/operators/{id?}', [AuthJWTController::class, 'deleteOperator']);
     Route::match(['get', 'post', 'put', 'patch', 'delete'], '/operators/{id?}', [AuthJWTController::class, 'operators']);
 
-    // Multi-Account Sharing & Switching
+    // Legacy account endpoints retained for compatibility.
     Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
     Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
     Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
 });
 
-
-
-// GraphQL API Endpoint (Protected by Multi-Level 5-Token Verification Middleware)
 Route::middleware(['verify.multilevel.token', AuditLogMiddleware::class])->group(function () {
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
@@ -39,16 +36,23 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionController;
 
-// Sync & Config REST Endpoints
+// All Android business traffic uses the HMAC security middleware. Account context
+// endpoints are exposed under the same /accounts paths used by ApiService.kt.
 Route::middleware([CheckApiSecurityKey::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
-    Route::post('/sync/up', [SyncController::class, 'syncUp']);
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
+    Route::post('/sync/up', [SyncController::class, 'syncUp']);
+
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
     Route::post('/config/update', [RemoteConfigController::class, 'updateConfig']);
     Route::post('/upload/logo', [RemoteConfigController::class, 'uploadLogo']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
 
-    // Direct REST CRUD Endpoints
+    // Server-authoritative account context used by Android.
+    Route::get('/accounts', [AccountContextController::class, 'index']);
+    Route::post('/accounts/switch', [AccountContextController::class, 'switch']);
+    Route::post('/accounts/share', [AccountContextController::class, 'share']);
+
+    // Direct REST CRUD endpoints.
     Route::get('/customers', [CustomerController::class, 'index']);
     Route::post('/customers', [CustomerController::class, 'store']);
     Route::put('/customers/{id}', [CustomerController::class, 'update']);
