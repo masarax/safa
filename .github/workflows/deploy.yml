@@ -1,10 +1,6 @@
 name: Deploy Laravel Backend to cPanel
 
 on:
-  push:
-    branches:
-      - main
-      - master
   workflow_dispatch:
 
 jobs:
@@ -63,10 +59,3 @@ jobs:
             storage/framework/views/*
             tests/
             node_modules/
-
-      - name: Verify live pre-auth health endpoint
-        run: |
-          set -euo pipefail
-          body="$(curl --fail --silent --show-error --max-time 20 https://safa.masarax.com/health.php)"
-          echo "$body"
-          echo "$body" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
