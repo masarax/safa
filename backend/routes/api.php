@@ -12,6 +12,16 @@ use App\Http\Middleware\AuditLogMiddleware;
 
 // Auth Routes (5-Token Security System & Device Binding & Granular RBAC)
 Route::prefix('auth')->group(function () {
+    // Public connectivity check used before authentication. It intentionally
+    // does not require HMAC because the client must be able to verify server
+    // reachability before it has an authenticated session.
+    Route::get('/health', function () {
+        return response()->json([
+            'status' => 'ok',
+            'service' => 'SAFA API',
+        ]);
+    });
+
     Route::post('/login', [AuthJWTController::class, 'login']);
     Route::post('/refresh', [AuthJWTController::class, 'refreshToken']);
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice']);
