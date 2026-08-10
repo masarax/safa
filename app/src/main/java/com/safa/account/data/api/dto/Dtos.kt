@@ -28,14 +28,18 @@ data class SyncUpPayload(
 
 @JsonClass(generateAdapter = true)
 data class SyncDownResponse(
-    @Json(name = "status") val status: String = "",
+    @Json(name = "status") val status: String = "success",
+    @Json(name = "account_id") val accountId: Int? = null,
+    @Json(name = "server_time") val serverTime: Long? = null,
     @Json(name = "transactions") val transactions: List<Map<String, Any?>> = emptyList(),
     @Json(name = "customers") val customers: List<Map<String, Any?>> = emptyList(),
     @Json(name = "suppliers") val suppliers: List<Map<String, Any?>> = emptyList(),
     @Json(name = "supplier_deposits") val supplierDeposits: List<Map<String, Any?>> = emptyList(),
     @Json(name = "expenses_incomes") val expensesIncomes: List<Map<String, Any?>> = emptyList(),
     @Json(name = "wallet_batches") val walletBatches: List<Map<String, Any?>> = emptyList(),
-    @Json(name = "wallet_ledgers") val walletLedgers: List<Map<String, Any?>> = emptyList()
+    @Json(name = "wallet_ledgers") val walletLedgers: List<Map<String, Any?>> = emptyList(),
+    @Json(name = "permissions") val permissions: Map<String, Any?> = emptyMap(),
+    @Json(name = "user_permissions") val userPermissions: Map<String, Any?> = emptyMap()
 )
 
 @JsonClass(generateAdapter = true)
@@ -90,4 +94,3 @@ data class OperatorApiRequest(
     @Json(name = "is_activated") val isActivated: Boolean = true,
     @Json(name = "permissions") val permissions: Map<String, Boolean> = emptyMap()
 )
-
