@@ -6,16 +6,19 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import okio.Buffer
 import org.json.JSONObject
-import java.util.UUID
 import java.util.concurrent.TimeUnit
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
+/**
+ * Adds the public SAFA API client identifier and authenticated session headers.
+ *
+ * The Android APK is an untrusted client: it must never contain a server secret.
+ * Request authenticity after login comes from the short-lived access token and
+ * active server-side session, while the API key is only a public client id.
+ */
 class ApiSecurityInterceptor(
     private val apiKey: String,
-    private val apiSecret: String,
+    @Suppress("UNUSED_PARAMETER") private val legacyApiSecret: String = "",
     private val tokenManager: TokenManager? = null
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -23,8 +26,6 @@ class ApiSecurityInterceptor(
         val isLoginRequest = originalRequest.url.encodedPath.endsWith("/auth/login")
         var response = chain.proceed(buildSecuredRequest(originalRequest, includeAuthTokens = !isLoginRequest))
 
-        // Login is deliberately never retried through refresh-token logic. A stale
-        // token from an older installation must never interfere with fresh login.
         if (!isLoginRequest && response.code == 401 && tokenManager != null && originalRequest.header("X-SAFA-RETRY") != "true") {
             val refreshToken = tokenManager.getRefreshToken()
             if (!refreshToken.isNullOrBlank()) {
@@ -52,24 +53,9 @@ class ApiSecurityInterceptor(
     }
 
     private fun buildSecuredRequest(request: Request, includeAuthTokens: Boolean): Request {
-        val timestamp = (System.currentTimeMillis() / 1000).toString()
-        val nonce = UUID.randomUUID().toString()
-        var bodyString = ""
-        request.body?.let {
-            val buffer = Buffer()
-            it.writeTo(buffer)
-            bodyString = buffer.readUtf8()
-        }
-
-        val signature = generateHmac(
-            request.method + request.url.encodedPath + timestamp + nonce + bodyString,
-            apiSecret
-        )
         val builder = request.newBuilder()
             .header("X-SAFA-API-KEY", apiKey)
-            .header("X-SAFA-SIGNATURE", signature)
-            .header("X-SAFA-TIMESTAMP", timestamp)
-            .header("X-SAFA-NONCE", nonce)
+            .header("X-SAFA-CLIENT", "android")
 
         if (includeAuthTokens) {
             tokenManager?.let { tm ->
@@ -93,6 +79,7 @@ class ApiSecurityInterceptor(
             .url(refreshUrl)
             .post(FormBody.Builder().add("refresh_token", refreshToken).add("device_token", deviceToken).build())
             .header("X-SAFA-API-KEY", apiKey)
+            .header("X-SAFA-CLIENT", "android")
             .header("X-SAFA-REFRESH-TOKEN", refreshToken)
             .header("X-SAFA-DEVICE-TOKEN", deviceToken)
             .header("X-SAFA-FINGERPRINT-TOKEN", fingerprintToken)
@@ -124,17 +111,6 @@ class ApiSecurityInterceptor(
                 }
         } catch (_: Exception) {
             null
-        }
-    }
-
-    private fun generateHmac(payload: String, secret: String): String {
-        if (secret.isEmpty()) return ""
-        return try {
-            val mac = Mac.getInstance("HmacSHA256")
-            mac.init(SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-            mac.doFinal(payload.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
-        } catch (_: Exception) {
-            ""
         }
     }
 }
