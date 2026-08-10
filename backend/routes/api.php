@@ -16,6 +16,7 @@ use App\Http\Middleware\VerifyRefreshRequest;
 use App\Http\Middleware\VerifyActiveAuthSession;
 use App\Http\Middleware\RejectInactiveLogin;
 use App\Http\Middleware\RequireBusinessPermission;
+use App\Http\Middleware\RequireGraphQLPermission;
 use App\Http\Middleware\RequireSuperAdmin;
 
 Route::prefix('auth')->group(function () {
@@ -51,11 +52,25 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
+Route::middleware([
+    CheckApiSecurityKey::class,
+    'verify.multilevel.token',
+    VerifyActiveAuthSession::class,
+    RequireGraphQLPermission::class,
+    AuditLogMiddleware::class,
+    'throttle:60,1',
+])->group(function () {
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
-Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:60,1'])->group(function () {
+Route::middleware([
+    CheckApiSecurityKey::class,
+    'verify.multilevel.token',
+    VerifyActiveAuthSession::class,
+    AuditLogMiddleware::class,
+    RequireBusinessPermission::class,
+    'throttle:60,1',
+])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
     Route::post('/sync/up', [SyncController::class, 'syncUp']);
 
