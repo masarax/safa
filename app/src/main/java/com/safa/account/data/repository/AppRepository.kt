@@ -16,20 +16,9 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * Production repository: local database is the UI source of truth; Laravel is
- * the server authority. Writes commit locally first and enter the durable
- * outbox. Network synchronization is safe to retry and never blocks CRUD UI.
- */
-class AppRepository private constructor(
-    private val api: ApiService,
-    private val localStore: LocalFirstStore?
-) {
+class AppRepository private constructor(private val api: ApiService, private val localStore: LocalFirstStore?) {
     constructor(api: ApiService) : this(api, null)
-    constructor(context: Context) : this(
-        remoteApi(context),
-        LocalFirstStore(context.applicationContext)
-    )
+    constructor(context: Context) : this(remoteApi(context), LocalFirstStore(context.applicationContext))
     constructor(a: Context, b: Context, c: Context, d: Context, e: Context, f: Context, g: Context, h: Context, i: Context, j: Context) : this(a)
 
     private companion object {
@@ -74,50 +63,16 @@ class AppRepository private constructor(
     private fun Any?.s(): String = this?.toString() ?: ""
     private fun Any?.b(): Boolean = this == true || this?.toString()?.lowercase() in setOf("1", "true", "yes", "on")
     private fun Map<String, Any?>.v(vararg keys: String): Any? = keys.firstNotNullOfOrNull { this[it] }
-    private fun rows(body: Map<String, Any?>?, vararg keys: String): List<Map<String, Any?>> {
-        val raw = keys.asSequence().mapNotNull { body?.get(it) }.firstOrNull() ?: body?.get("data")
-        return (raw as? List<*>)?.mapNotNull { it as? Map<String, Any?> } ?: emptyList()
-    }
-    private fun responseId(body: Map<String, Any?>?): Int = body?.get("id").i().takeIf { it > 0 } ?: (body?.get("data") as? Map<*, *>)?.get("id").i()
-
     private fun mapToJson(map: Map<String, Any?>): String = JSONObject(map).toString()
     private fun jsonToMap(json: String): Map<String, Any?> = jsonObjectToMap(JSONObject(json))
     private fun jsonObjectToMap(obj: JSONObject): Map<String, Any?> = buildMap { obj.keys().forEach { key -> put(key, jsonValue(obj.get(key))) } }
-    private fun jsonValue(value: Any?): Any? = when (value) {
-        JSONObject.NULL -> null
-        is JSONObject -> jsonObjectToMap(value)
-        is JSONArray -> buildList { for (i in 0 until value.length()) add(jsonValue(value.get(i))) }
-        else -> value
-    }
+    private fun jsonValue(value: Any?): Any? = when (value) { JSONObject.NULL -> null; is JSONObject -> jsonObjectToMap(value); is JSONArray -> buildList { for (i in 0 until value.length()) add(jsonValue(value.get(i))) }; else -> value }
 
-    private fun customer(m: Map<String, Any?>) = Customer(
-        id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(),
-        name = m.v("name").s(), phone = m.v("phone").s(), address = m.v("address").s(),
-        securityNotes = m.v("security_notes").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(),
-        deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() }
-    )
-    private fun supplier(m: Map<String, Any?>) = Supplier(
-        id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), name = m.v("name").s(), phone = m.v("phone").s(),
-        address = m.v("address").s(), tradeLicense = m.v("trade_license").s(), securityNotes = m.v("security_notes").s(),
-        timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() }
-    )
-    private fun transaction(m: Map<String, Any?>) = RemittanceTransaction(
-        id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), customerId = m.v("customer_id").i(), supplierId = m.v("supplier_id").i(),
-        amountSar = m.v("amount_sar", "amount").d(), customerRate = m.v("customer_rate").d(), supplierRate = m.v("supplier_rate").d(), amountBdt = m.v("amount_bdt").d(),
-        receiverName = m.v("receiver_name").s(), receiverPhone = m.v("receiver_phone").s(), receiverAccountType = m.v("receiver_account_type").s(),
-        receiverAccountNo = m.v("receiver_account_no").s(), status = m.v("status", "type").s().ifBlank { "Pending" }, operatorId = m.v("operator_id").i(), walletBatchId = m.v("wallet_batch_id").i(),
-        notes = m.v("notes").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() }
-    )
-    private fun deposit(m: Map<String, Any?>) = SupplierDeposit(
-        id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), supplierId = m.v("supplier_id").i(), amountSar = m.v("amount_sar", "amount").d(),
-        rate = m.v("rate", "supplier_rate").d(), amountBdt = m.v("amount_bdt").d(), paidBdt = m.v("paid_bdt").d(), transactionType = m.v("transaction_type", "type").s().ifBlank { "SAR_GIVEN" },
-        notes = m.v("notes").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() }
-    )
-    private fun expense(m: Map<String, Any?>) = ExpenseIncome(
-        id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), title = m.v("title", "name").s(), amount = m.v("amount").d(), currency = m.v("currency").s().ifBlank { "BDT" },
-        isExpense = m.v("is_expense").b(), category = m.v("category").s().ifBlank { "General" }, timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(),
-        deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() }
-    )
+    private fun customer(m: Map<String, Any?>) = Customer(id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), name = m.v("name").s(), phone = m.v("phone").s(), address = m.v("address").s(), securityNotes = m.v("security_notes").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() })
+    private fun supplier(m: Map<String, Any?>) = Supplier(id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), name = m.v("name").s(), phone = m.v("phone").s(), address = m.v("address").s(), tradeLicense = m.v("trade_license").s(), securityNotes = m.v("security_notes").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() })
+    private fun transaction(m: Map<String, Any?>) = RemittanceTransaction(id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), customerId = m.v("customer_id").i(), supplierId = m.v("supplier_id").i(), amountSar = m.v("amount_sar", "amount").d(), customerRate = m.v("customer_rate").d(), supplierRate = m.v("supplier_rate").d(), amountBdt = m.v("amount_bdt").d(), receiverName = m.v("receiver_name").s(), receiverPhone = m.v("receiver_phone").s(), receiverAccountType = m.v("receiver_account_type").s(), receiverAccountNo = m.v("receiver_account_no").s(), status = m.v("status", "type").s().ifBlank { "Pending" }, operatorId = m.v("operator_id").i(), walletBatchId = m.v("wallet_batch_id").i(), notes = m.v("notes").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() })
+    private fun deposit(m: Map<String, Any?>) = SupplierDeposit(id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), supplierId = m.v("supplier_id").i(), amountSar = m.v("amount_sar", "amount").d(), rate = m.v("rate", "supplier_rate").d(), amountBdt = m.v("amount_bdt").d(), paidBdt = m.v("paid_bdt").d(), transactionType = m.v("transaction_type", "type").s().ifBlank { "SAR_GIVEN" }, notes = m.v("notes").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() })
+    private fun expense(m: Map<String, Any?>) = ExpenseIncome(id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), title = m.v("title", "name").s(), amount = m.v("amount").d(), currency = m.v("currency").s().ifBlank { "BDT" }, isExpense = m.v("is_expense").b(), category = m.v("category").s().ifBlank { "General" }, timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() })
     private fun ledger(m: Map<String, Any?>) = WalletLedger(id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), name = m.v("name").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() })
     private fun batch(m: Map<String, Any?>) = WalletBatch(id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), ledgerId = m.v("ledger_id").i(), rate = m.v("rate").d(), initialBdt = m.v("initial_bdt").d(), remainingBdt = m.v("remaining_bdt").d(), supplierId = m.v("supplier_id").i(), supplierDepositId = m.v("supplier_deposit_id").i(), notes = m.v("notes").s(), timestamp = m.v("timestamp").i().toLong().takeIf { it > 0 } ?: System.currentTimeMillis(), deletedAt = m.v("deleted_at").let { it?.toString()?.toLongOrNull() })
 
@@ -131,79 +86,60 @@ class AppRepository private constructor(
 
     private fun persist(entity: String, localId: Int, serverId: Int, payload: Map<String, Any?>, operation: String, status: Int = LocalFirstStore.PENDING) {
         val store = localStore ?: return
-        store.upsertRecord(entity, localId, serverId, mapToJson(payload), status)
-        if (status != LocalFirstStore.SYNCED) store.enqueue(entity, localId, serverId, operation, mapToJson(payload))
+        val json = mapToJson(payload)
+        store.upsertRecord(entity, localId, serverId, json, status)
+        if (status != LocalFirstStore.SYNCED) store.enqueue(entity, localId, serverId, operation, json)
     }
 
     private fun publish() {
-        localStore?.let { store ->
-            _customers.value = store.getRecordPayloads("customers").mapNotNull { runCatching { customer(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
-            _suppliers.value = store.getRecordPayloads("suppliers").mapNotNull { runCatching { supplier(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
-            _transactions.value = store.getRecordPayloads("transactions").mapNotNull { runCatching { transaction(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
-            _deposits.value = store.getRecordPayloads("supplier_deposits").mapNotNull { runCatching { deposit(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
-            _expenses.value = store.getRecordPayloads("expenses_incomes").mapNotNull { runCatching { expense(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
-            _ledgers.value = store.getRecordPayloads("wallet_ledgers").mapNotNull { runCatching { ledger(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
-            _batches.value = store.getRecordPayloads("wallet_batches").mapNotNull { runCatching { batch(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
-            _operators.value = store.getRecordPayloads("operators").mapNotNull { runCatching { operator(jsonToMap(it.payload)) }.getOrNull() }
-        }
+        val store = localStore ?: return
+        _customers.value = store.getRecordPayloads("customers").mapNotNull { runCatching { customer(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
+        _suppliers.value = store.getRecordPayloads("suppliers").mapNotNull { runCatching { supplier(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
+        _transactions.value = store.getRecordPayloads("transactions").mapNotNull { runCatching { transaction(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
+        _deposits.value = store.getRecordPayloads("supplier_deposits").mapNotNull { runCatching { deposit(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
+        _expenses.value = store.getRecordPayloads("expenses_incomes").mapNotNull { runCatching { expense(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
+        _ledgers.value = store.getRecordPayloads("wallet_ledgers").mapNotNull { runCatching { ledger(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
+        _batches.value = store.getRecordPayloads("wallet_batches").mapNotNull { runCatching { batch(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
+        _operators.value = store.getRecordPayloads("operators").mapNotNull { runCatching { operator(jsonToMap(it.payload)) }.getOrNull() }
     }
-
     private fun loadLocalSnapshot() = runCatching { publish() }
 
-    private fun operator(m: Map<String, Any?>) = OperatorAccount(
-        id = m.v("id", "server_id").i(), username = m.v("username", "name", "email").s(), role = m.v("role").s().ifBlank { "Staff" },
-        mobile = m.v("mobile", "phone").s(), email = m.v("email").s(), isActivated = m.v("is_activated", "activated").b(), isActive = m.v("is_active", "active").b(),
-        isBiometricEnabled = m.v("is_biometric_enabled").b(), canViewCustomers = m.v("can_view_customers").b(), canAddCustomers = m.v("can_add_customers").b(),
-        canEditCustomers = m.v("can_edit_customers").b(), canDeleteCustomers = m.v("can_delete_customers").b(), canViewSuppliers = m.v("can_view_suppliers").b(),
-        canAddSuppliers = m.v("can_add_suppliers").b(), canEditSuppliers = m.v("can_edit_suppliers").b(), canDeleteSuppliers = m.v("can_delete_suppliers").b(),
-        canViewTransactions = m.v("can_view_transactions").b(), canAddTransactions = m.v("can_add_transactions").b(), canEditTransactions = m.v("can_edit_transactions").b(),
-        canDeleteTransactions = m.v("can_delete_transactions").b(), canManageWallet = m.v("can_manage_wallet").b(), canManageExpenses = m.v("can_manage_expenses").b(), canViewReports = m.v("can_view_reports").b()
-    )
+    private fun operator(m: Map<String, Any?>) = OperatorAccount(id = m.v("id", "server_id").i(), username = m.v("username", "name", "email").s(), role = m.v("role").s().ifBlank { "Staff" }, mobile = m.v("mobile", "phone").s(), email = m.v("email").s(), isActivated = m.v("is_activated", "activated").b(), isActive = m.v("is_active", "active").b(), isBiometricEnabled = m.v("is_biometric_enabled").b(), canViewCustomers = m.v("can_view_customers").b(), canAddCustomers = m.v("can_add_customers").b(), canEditCustomers = m.v("can_edit_customers").b(), canDeleteCustomers = m.v("can_delete_customers").b(), canViewSuppliers = m.v("can_view_suppliers").b(), canAddSuppliers = m.v("can_add_suppliers").b(), canEditSuppliers = m.v("can_edit_suppliers").b(), canDeleteSuppliers = m.v("can_delete_suppliers").b(), canViewTransactions = m.v("can_view_transactions").b(), canAddTransactions = m.v("can_add_transactions").b(), canEditTransactions = m.v("can_edit_transactions").b(), canDeleteTransactions = m.v("can_delete_transactions").b(), canManageWallet = m.v("can_manage_wallet").b(), canManageExpenses = m.v("can_manage_expenses").b(), canViewReports = m.v("can_view_reports").b())
 
     suspend fun refreshAll(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val r = api.syncDown()
-            if (!r.isSuccessful || r.body() == null) error("Sync download failed: HTTP ${r.code()}")
-            val body = r.body()!!
-            mergeServerRows("customers", rows(bodyToMap(body), "customers"), ::customer, ::cp)
-            mergeServerRows("suppliers", rows(bodyToMap(body), "suppliers"), ::supplier, ::sp)
-            mergeServerRows("transactions", rows(bodyToMap(body), "transactions"), ::transaction, ::tp)
-            mergeServerRows("supplier_deposits", rows(bodyToMap(body), "supplier_deposits", "supplierDeposits"), ::deposit, ::dp)
-            mergeServerRows("expenses_incomes", rows(bodyToMap(body), "expenses_incomes", "expensesIncomes"), ::expense, ::ep)
-            mergeServerRows("wallet_ledgers", rows(bodyToMap(body), "wallet_ledgers", "walletLedgers"), ::ledger, ::lp)
-            mergeServerRows("wallet_batches", rows(bodyToMap(body), "wallet_batches", "walletBatches"), ::batch, ::bp)
-            val ops = rows(bodyToMap(body), "operators", "users")
-            ops.forEach { m -> localStore?.upsertRecord("operators", m.v("id").i(), m.v("id").i(), mapToJson(m), LocalFirstStore.SYNCED) }
-            if (ops.isNotEmpty()) _operators.value = ops.map(::operator)
+            val response = api.syncDown()
+            if (!response.isSuccessful || response.body() == null) error("Sync download failed: HTTP ${response.code()}")
+            val body = response.body()!!
+            mergeServerRows("customers", body.customers, ::customer, ::cp)
+            mergeServerRows("suppliers", body.suppliers, ::supplier, ::sp)
+            mergeServerRows("transactions", body.transactions, ::transaction, ::tp)
+            mergeServerRows("supplier_deposits", body.supplierDeposits, ::deposit, ::dp)
+            mergeServerRows("expenses_incomes", body.expensesIncomes, ::expense, ::ep)
+            mergeServerRows("wallet_ledgers", body.walletLedgers, ::ledger, ::lp)
+            mergeServerRows("wallet_batches", body.walletBatches, ::batch, ::bp)
             publish()
         }
     }
 
-    private fun bodyToMap(body: Any): Map<String, Any?> {
-        val adapter = com.squareup.moshi.Moshi.Builder().build().adapter(Map::class.java)
-        @Suppress("UNCHECKED_CAST") return adapter.fromJson(adapter.toJson(body)) as? Map<String, Any?> ?: emptyMap()
-    }
-
-    private fun <T> mergeServerRows(entity: String, rows: List<Map<String, Any?>>, mapper: (Map<String, Any?>) -> T, payload: (T) -> Map<String, Any?>) {
+    private fun <T> mergeServerRows(entity: String, serverRows: List<Map<String, Any?>>, mapper: (Map<String, Any?>) -> T, payload: (T) -> Map<String, Any?>) {
         val store = localStore ?: return
-        rows.forEach { raw ->
+        serverRows.forEach { raw ->
             val serverId = raw.v("id", "server_id").i()
             if (serverId <= 0) return@forEach
             val localId = raw.v("local_id").i().takeIf { it > 0 } ?: store.nextLocalId()
             if (store.hasPending(entity, localId)) return@forEach
-            val model = mapper(raw).let {
-                when (it) {
-                    is Customer -> it.copy(id = localId, serverId = serverId)
-                    is Supplier -> it.copy(id = localId, serverId = serverId)
-                    is RemittanceTransaction -> it.copy(id = localId, serverId = serverId)
-                    is SupplierDeposit -> it.copy(id = localId, serverId = serverId)
-                    is ExpenseIncome -> it.copy(id = localId, serverId = serverId)
-                    is WalletLedger -> it.copy(id = localId, serverId = serverId)
-                    is WalletBatch -> it.copy(id = localId, serverId = serverId)
-                    else -> it
-                }
+            val model: Any = when (val item = mapper(raw)) {
+                is Customer -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
+                is Supplier -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
+                is RemittanceTransaction -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
+                is SupplierDeposit -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
+                is ExpenseIncome -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
+                is WalletLedger -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
+                is WalletBatch -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
+                else -> item
             }
-            @Suppress("UNCHECKED_CAST") val map = payload(model)
+            @Suppress("UNCHECKED_CAST") val map = payload(model as T)
             store.upsertRecord(entity, localId, serverId, mapToJson(map), LocalFirstStore.SYNCED)
         }
     }
@@ -219,7 +155,7 @@ class AppRepository private constructor(
     suspend fun markCustomerSynced(id: Int, serverId: Int) { localStore?.markSynced("customers", id, serverId); publish() }
     suspend fun markCustomerFailed(id: Int, error: String) { localStore?.markFailed("customers", id, error, false); publish() }
     suspend fun incrementCustomerRetry(id: Int) { localStore?.markFailed("customers", id, "retry", true); publish() }
-    suspend fun resetCustomerRetry(id: Int, targetStatus: Int) { localStore?.markSynced("customers", id, getCustomerById(id)?.serverId ?: 0); publish() }
+    suspend fun resetCustomerRetry(id: Int, targetStatus: Int) { localStore?.retry("customers", id); publish() }
     suspend fun retryFailedCustomer(id: Int) { localStore?.retry("customers", id); publish() }
 
     suspend fun insertSupplier(s: Supplier): Int { val id = localId(s.id); val x = s.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("suppliers", id, 0, sp(x), OutboxOperation.CREATE); publish(); return id }
@@ -231,7 +167,7 @@ class AppRepository private constructor(
     suspend fun markSupplierSynced(id: Int, serverId: Int) { localStore?.markSynced("suppliers", id, serverId); publish() }
     suspend fun markSupplierFailed(id: Int, error: String) { localStore?.markFailed("suppliers", id, error, false); publish() }
     suspend fun incrementSupplierRetry(id: Int) { localStore?.markFailed("suppliers", id, "retry", true); publish() }
-    suspend fun resetSupplierRetry(id: Int, targetStatus: Int) { localStore?.markSynced("suppliers", id, getSupplierById(id)?.serverId ?: 0); publish() }
+    suspend fun resetSupplierRetry(id: Int, targetStatus: Int) { localStore?.retry("suppliers", id); publish() }
     suspend fun retryFailedSupplier(id: Int) { localStore?.retry("suppliers", id); publish() }
 
     suspend fun insertTransaction(t: RemittanceTransaction): Int { val id = localId(t.id); val x = t.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("transactions", id, 0, tp(x), OutboxOperation.CREATE); publish(); return id }
@@ -243,7 +179,7 @@ class AppRepository private constructor(
     suspend fun markTransactionSynced(id: Int, serverId: Int) { localStore?.markSynced("transactions", id, serverId); publish() }
     suspend fun markTransactionFailed(id: Int, error: String) { localStore?.markFailed("transactions", id, error, false); publish() }
     suspend fun incrementTransactionRetry(id: Int) { localStore?.markFailed("transactions", id, "retry", true); publish() }
-    suspend fun resetTransactionRetry(id: Int, targetStatus: Int) { localStore?.markSynced("transactions", id, getTransactionById(id)?.serverId ?: 0); publish() }
+    suspend fun resetTransactionRetry(id: Int, targetStatus: Int) { localStore?.retry("transactions", id); publish() }
     suspend fun retryFailedTransaction(id: Int) { localStore?.retry("transactions", id); publish() }
 
     suspend fun insertSupplierDeposit(d: SupplierDeposit): Int { val id = localId(d.id); val x = d.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("supplier_deposits", id, 0, dp(x), OutboxOperation.CREATE); publish(); return id }
@@ -255,7 +191,7 @@ class AppRepository private constructor(
     suspend fun markSupplierDepositSynced(id: Int, serverId: Int) { localStore?.markSynced("supplier_deposits", id, serverId); publish() }
     suspend fun markSupplierDepositFailed(id: Int, error: String) { localStore?.markFailed("supplier_deposits", id, error, false); publish() }
     suspend fun incrementSupplierDepositRetry(id: Int) { localStore?.markFailed("supplier_deposits", id, "retry", true); publish() }
-    suspend fun resetSupplierDepositRetry(id: Int, targetStatus: Int) { localStore?.markSynced("supplier_deposits", id, getSupplierDepositById(id)?.serverId ?: 0); publish() }
+    suspend fun resetSupplierDepositRetry(id: Int, targetStatus: Int) { localStore?.retry("supplier_deposits", id); publish() }
     suspend fun retryFailedSupplierDeposit(id: Int) { localStore?.retry("supplier_deposits", id); publish() }
 
     suspend fun insertExpenseIncome(e: ExpenseIncome): Int { val id = localId(e.id); val x = e.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("expenses_incomes", id, 0, ep(x), OutboxOperation.CREATE); publish(); return id }
@@ -267,7 +203,7 @@ class AppRepository private constructor(
     suspend fun markExpenseIncomeSynced(id: Int, serverId: Int) { localStore?.markSynced("expenses_incomes", id, serverId); publish() }
     suspend fun markExpenseIncomeFailed(id: Int, error: String) { localStore?.markFailed("expenses_incomes", id, error, false); publish() }
     suspend fun incrementExpenseIncomeRetry(id: Int) { localStore?.markFailed("expenses_incomes", id, "retry", true); publish() }
-    suspend fun resetExpenseIncomeRetry(id: Int, targetStatus: Int) { localStore?.markSynced("expenses_incomes", id, getExpenseIncomeById(id)?.serverId ?: 0); publish() }
+    suspend fun resetExpenseIncomeRetry(id: Int, targetStatus: Int) { localStore?.retry("expenses_incomes", id); publish() }
     suspend fun retryFailedExpenseIncome(id: Int) { localStore?.retry("expenses_incomes", id); publish() }
 
     suspend fun insertDailyRate(r: DailyRate) { _rates.value = _rates.value.filterNot { it.date == r.date } + r }
@@ -282,7 +218,7 @@ class AppRepository private constructor(
     suspend fun markWalletLedgerSynced(id: Int, serverId: Int) { localStore?.markSynced("wallet_ledgers", id, serverId); publish() }
     suspend fun markWalletLedgerFailed(id: Int, error: String) { localStore?.markFailed("wallet_ledgers", id, error, false); publish() }
     suspend fun incrementWalletLedgerRetry(id: Int) { localStore?.markFailed("wallet_ledgers", id, "retry", true); publish() }
-    suspend fun resetWalletLedgerRetry(id: Int, targetStatus: Int) { localStore?.markSynced("wallet_ledgers", id, getWalletLedgerById(id)?.serverId ?: 0); publish() }
+    suspend fun resetWalletLedgerRetry(id: Int, targetStatus: Int) { localStore?.retry("wallet_ledgers", id); publish() }
     suspend fun retryFailedWalletLedger(id: Int) { localStore?.retry("wallet_ledgers", id); publish() }
 
     suspend fun insertWalletBatch(b: WalletBatch): Int { val id = localId(b.id); val x = b.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("wallet_batches", id, 0, bp(x), OutboxOperation.CREATE); publish(); return id }
@@ -296,7 +232,7 @@ class AppRepository private constructor(
     suspend fun markWalletBatchSynced(id: Int, serverId: Int) { localStore?.markSynced("wallet_batches", id, serverId); publish() }
     suspend fun markWalletBatchFailed(id: Int, error: String) { localStore?.markFailed("wallet_batches", id, error, false); publish() }
     suspend fun incrementWalletBatchRetry(id: Int) { localStore?.markFailed("wallet_batches", id, "retry", true); publish() }
-    suspend fun resetWalletBatchRetry(id: Int, targetStatus: Int) { localStore?.markSynced("wallet_batches", id, getWalletBatchById(id)?.serverId ?: 0); publish() }
+    suspend fun resetWalletBatchRetry(id: Int, targetStatus: Int) { localStore?.retry("wallet_batches", id); publish() }
     suspend fun retryFailedWalletBatch(id: Int) { localStore?.retry("wallet_batches", id); publish() }
 
     private fun operatorRequest(o: OperatorAccount) = OperatorApiRequest(name = o.username, mobile = o.mobile, email = o.email.ifBlank { null }, role = o.role, pin = o.pin.ifBlank { null }, isActivated = o.isActivated, permissions = mapOf("can_view_customers" to o.canViewCustomers, "can_add_customers" to o.canAddCustomers, "can_edit_customers" to o.canEditCustomers, "can_delete_customers" to o.canDeleteCustomers, "can_view_suppliers" to o.canViewSuppliers, "can_add_suppliers" to o.canAddSuppliers, "can_edit_suppliers" to o.canEditSuppliers, "can_delete_suppliers" to o.canDeleteSuppliers, "can_view_transactions" to o.canViewTransactions, "can_add_transactions" to o.canAddTransactions, "can_edit_transactions" to o.canEditTransactions, "can_delete_transactions" to o.canDeleteTransactions, "can_manage_wallet" to o.canManageWallet, "can_manage_expenses" to o.canManageExpenses, "can_view_reports" to o.canViewReports))
@@ -311,7 +247,7 @@ class AppRepository private constructor(
 
     suspend fun enqueueOutbox(outbox: SyncOutbox) { localStore?.enqueue(outbox.entityType, outbox.entityLocalId, outbox.entityServerId, outbox.operation, outbox.payloadJson) }
     suspend fun getPendingOutbox(): List<SyncOutbox> = localStore?.getReadyOutbox()?.map { SyncOutbox(id = it.id.toInt(), entityType = it.entity, entityLocalId = it.localId, entityServerId = it.serverId, operation = it.operation, payloadJson = it.payload, retryCount = it.retryCount, lastError = it.error) } ?: emptyList()
-    suspend fun deleteOutbox(id: Int) { /* Outbox is deleted atomically when its server mapping is accepted. */ }
+    suspend fun deleteOutbox(id: Int) { }
 
     suspend fun processOutbox(): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
@@ -340,7 +276,7 @@ class AppRepository private constructor(
             pending.forEach { item ->
                 val acceptedRows = accepted[item.entity] as? List<*>
                 val row = acceptedRows?.mapNotNull { it as? Map<*, *> }?.firstOrNull { (it["local_id"] as? Number)?.toInt() == item.localId }
-                val rejectedRow = rejected.firstOrNull { (it["entity"]?.toString() == item.entity) && ((it["local_id"] as? Number)?.toInt() == item.localId) }
+                val rejectedRow = rejected.firstOrNull { it["entity"]?.toString() == item.entity && (it["local_id"] as? Number)?.toInt() == item.localId }
                 when {
                     row != null -> { store.markSynced(item.entity, item.localId, (row["server_id"] as? Number)?.toInt() ?: item.serverId); count++ }
                     rejectedRow != null -> store.markFailed(item.entity, item.localId, rejectedRow["reason"]?.toString() ?: "Server rejected record", false)
