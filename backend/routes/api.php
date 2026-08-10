@@ -36,8 +36,11 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthJWTController::class, 'login'])
         ->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
 
+    // Refresh remains reachable without HMAC so existing installations can
+    // recover an expired access token; the refresh secret, device and
+    // fingerprint are still mandatory and the refresh token is rotated.
     Route::post('/refresh', [AuthJWTController::class, 'refreshToken'])
-        ->middleware([CheckApiSecurityKey::class, VerifyRefreshRequest::class, 'throttle:20,1']);
+        ->middleware([VerifyRefreshRequest::class, 'throttle:20,1']);
 
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])
         ->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
@@ -45,8 +48,6 @@ Route::prefix('auth')->group(function () {
     Route::post('/activate-superadmin', [AuthJWTController::class, 'activateSuperAdmin'])
         ->middleware([CheckApiSecurityKey::class, 'throttle:3,1']);
 
-    // Operator management is authenticated and still performs its own
-    // SuperAdmin authorization check inside AuthJWTController.
     Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
         Route::get('/operators', [AuthJWTController::class, 'getOperators']);
         Route::post('/operators', [AuthJWTController::class, 'createOperator']);
@@ -61,13 +62,10 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// GraphQL is protected by both application HMAC and the authenticated session.
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
-// All Android business traffic requires HMAC + the current authenticated
-// session. API-key-only access is intentionally no longer accepted.
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
     Route::post('/sync/up', [SyncController::class, 'syncUp']);
