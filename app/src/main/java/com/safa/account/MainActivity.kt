@@ -65,8 +65,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.safa.account.R
 import com.safa.account.data.api.TokenManager
-import com.safa.account.data.database.AppDatabase
-import com.safa.account.data.network.AutoSyncWorker
 import com.safa.account.data.repository.AppRepository
 import com.safa.account.ui.screens.*
 import com.safa.account.ui.theme.MyApplicationTheme
@@ -81,24 +79,10 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         try {
-            val database = AppDatabase.getDatabase(applicationContext)
-            val repository = AppRepository(
-                operatorDao = database.operatorDao(),
-                customerDao = database.customerDao(),
-                supplierDao = database.supplierDao(),
-                transactionDao = database.transactionDao(),
-                supplierDepositDao = database.supplierDepositDao(),
-                expenseIncomeDao = database.expenseIncomeDao(),
-                dailyRateDao = database.dailyRateDao(),
-                walletLedgerDao = database.walletLedgerDao(),
-                walletBatchDao = database.walletBatchDao(),
-                syncOutboxDao = database.syncOutboxDao()
-            )
+            val repository = AppRepository(applicationContext)
             val tokenManager = TokenManager(applicationContext)
             val factory = SafaViewModelFactory(repository, tokenManager)
             val viewModel = ViewModelProvider(this, factory)[SafaViewModel::class.java]
-
-            AutoSyncWorker.schedulePeriodicSync(applicationContext)
 
             setContent {
                 SafaRoot(
@@ -134,66 +118,21 @@ private fun SafaRoot(
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
     var showExitDialog by remember { mutableStateOf(false) }
 
-    val isMainScreen = currentScreen in setOf(
-        AppScreen.DASHBOARD,
-        AppScreen.CUSTOMERS,
-        AppScreen.SUPPLIERS,
-        AppScreen.WALLET,
-        AppScreen.EXPENSES
-    )
+    val isMainScreen = currentScreen in setOf(AppScreen.DASHBOARD, AppScreen.CUSTOMERS, AppScreen.SUPPLIERS, AppScreen.WALLET, AppScreen.EXPENSES)
     val showBars = isMainScreen && !isSubPageActive
 
     MyApplicationTheme(darkTheme = isDarkMode) {
         if (currentScreen != AppScreen.LOCK_SCREEN) {
-            BackHandler {
-                if (!viewModel.navigateBack()) {
-                    showExitDialog = true
-                }
-            }
+            BackHandler { if (!viewModel.navigateBack()) showExitDialog = true }
         }
 
         if (showExitDialog) {
             AlertDialog(
                 onDismissRequest = { showExitDialog = false },
-                title = {
-                    Text(
-                        text = if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                text = {
-                    Text(
-                        text = if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showExitDialog = false
-                        onExit()
-                    }) {
-                        Text(
-                            text = if (currentLanguage == "BN") "হ্যাঁ, বের হব" else "Yes, Exit",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showExitDialog = false }) {
-                        Text(
-                            text = if (currentLanguage == "BN") "না" else "No",
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
+                title = { Text(text = if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                text = { Text(text = if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?", style = MaterialTheme.typography.bodyMedium) },
+                confirmButton = { TextButton(onClick = { showExitDialog = false; onExit() }) { Text(text = if (currentLanguage == "BN") "হ্যাঁ, বের হব" else "Yes, Exit", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+                dismissButton = { TextButton(onClick = { showExitDialog = false }) { Text(text = if (currentLanguage == "BN") "না" else "No", fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) } }
             )
         }
 
@@ -202,53 +141,20 @@ private fun SafaRoot(
         } else {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                topBar = {
-                    if (showBars) {
-                        SafaTopAppBar(
-                            viewModel = viewModel,
-                            title = viewModel.t("app_title"),
-                            operatorName = currentOperator?.username ?: "",
-                            onLogoutClick = { viewModel.logout() }
-                        )
-                    }
-                },
-                bottomBar = {
-                    if (showBars) {
-                        SafaBottomNavigationBar(
-                            viewModel = viewModel,
-                            currentScreen = currentScreen
-                        )
-                    }
-                }
+                topBar = { if (showBars) SafaTopAppBar(viewModel, viewModel.t("app_title"), currentOperator?.username ?: "") { viewModel.logout() } },
+                bottomBar = { if (showBars) SafaBottomNavigationBar(viewModel, currentScreen) }
             ) { innerPadding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(innerPadding)
-                ) {
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(innerPadding)) {
                     AnimatedContent(
                         targetState = currentScreen,
                         transitionSpec = {
                             val isBackward = navDirection == NavDirection.BACKWARD
                             if (isBackward) {
-                                slideInHorizontally(
-                                    initialOffsetX = { -it },
-                                    animationSpec = tween(160, easing = FastOutSlowInEasing)
-                                ) + fadeIn(animationSpec = tween(110)) togetherWith
-                                    slideOutHorizontally(
-                                        targetOffsetX = { it },
-                                        animationSpec = tween(160, easing = FastOutSlowInEasing)
-                                    ) + fadeOut(animationSpec = tween(110))
+                                slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith
+                                    slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
                             } else {
-                                slideInHorizontally(
-                                    initialOffsetX = { it },
-                                    animationSpec = tween(160, easing = FastOutSlowInEasing)
-                                ) + fadeIn(animationSpec = tween(110)) togetherWith
-                                    slideOutHorizontally(
-                                        targetOffsetX = { -it },
-                                        animationSpec = tween(160, easing = FastOutSlowInEasing)
-                                    ) + fadeOut(animationSpec = tween(110))
+                                slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith
+                                    slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
                             }
                         },
                         label = "SqueezeTransition",
@@ -279,155 +185,48 @@ private fun SafaRoot(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SafaTopAppBar(
-    viewModel: SafaViewModel,
-    title: String,
-    operatorName: String,
-    onLogoutClick: () -> Unit
-) {
+fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String, onLogoutClick: () -> Unit) {
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-
     val goldBgColor = if (isDarkMode) Color(0xFF1B1812) else Color(0xFFD7A84B)
     val contentOnGoldColor = if (isDarkMode) Color(0xFFE5C158) else Color(0xFF3E2700)
-
     val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
     val customAppLogoUri by viewModel.customAppLogoUri.collectAsStateWithLifecycle()
     val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
 
     TopAppBar(
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .padding(vertical = 4.dp)
-                    .clickable { viewModel.navigateTo(AppScreen.SETTINGS) }
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(if (isDarkMode) Color(0xFF2D2513) else Color(0xFFFFF6DF)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val logoUri = customAppLogoUri ?: if (
-                        customAppLogo.startsWith("content://") ||
-                        customAppLogo.startsWith("file://") ||
-                        customAppLogo.startsWith("http")
-                    ) customAppLogo else null
-
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp).clickable { viewModel.navigateTo(AppScreen.SETTINGS) }) {
+                Box(Modifier.size(28.dp).clip(CircleShape).background(if (isDarkMode) Color(0xFF2D2513) else Color(0xFFFFF6DF)), contentAlignment = Alignment.Center) {
+                    val logoUri = customAppLogoUri ?: if (customAppLogo.startsWith("content://") || customAppLogo.startsWith("file://") || customAppLogo.startsWith("http")) customAppLogo else null
                     if (logoUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(logoUri)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Logo",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                        AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUri).crossfade(true).build(), contentDescription = "Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     } else {
-                        androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(id = R.drawable.safa_logo),
-                            contentDescription = "SAFA Logo",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
+                        androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(id = R.drawable.safa_logo), contentDescription = "SAFA Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                     }
                 }
-
                 Column {
-                    Text(
-                        text = customAppName,
-                        style = TextStyle(
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
-                            color = contentOnGoldColor
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = if (currentLang == "BN") "অপারেটর: $operatorName" else "Operator: $operatorName",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 11.sp,
-                            color = contentOnGoldColor.copy(alpha = 0.8f)
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text(text = customAppName, style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, color = contentOnGoldColor), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = if (currentLang == "BN") "অপারেটর: $operatorName" else "Operator: $operatorName", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp, color = contentOnGoldColor.copy(alpha = 0.8f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         },
         actions = {
-            Spacer(modifier = Modifier.width(4.dp))
-
-            IconButton(
-                onClick = { viewModel.toggleDarkMode() },
-                modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)
-            ) {
-                Icon(
-                    imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-                    contentDescription = "Switch Theme",
-                    tint = contentOnGoldColor,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            IconButton(
-                onClick = { viewModel.toggleLanguage() },
-                modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Language,
-                    contentDescription = "Switch Language",
-                    tint = contentOnGoldColor,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            IconButton(
-                onClick = onLogoutClick,
-                modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ExitToApp,
-                    contentDescription = "Logout",
-                    tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Switch Theme", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
         },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = goldBgColor
-        ),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = goldBgColor),
         modifier = Modifier.fillMaxWidth()
     )
 }
 
 @Composable
-fun SafaBottomNavigationBar(
-    viewModel: SafaViewModel,
-    currentScreen: AppScreen
-) {
+fun SafaBottomNavigationBar(viewModel: SafaViewModel, currentScreen: AppScreen) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-
-    androidx.compose.material3.Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = if (isDarkMode) Color(0xFF1E2638) else Color(0xFFFAF8F5),
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp
-    ) {
-        NavigationBar(
-            containerColor = Color.Transparent,
-            tonalElevation = 0.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .size(height = 64.dp, width = androidx.compose.ui.unit.Dp.Infinity)
-        ) {
+    androidx.compose.material3.Surface(modifier = Modifier.fillMaxWidth(), color = if (isDarkMode) Color(0xFF1E2638) else Color(0xFFFAF8F5), tonalElevation = 0.dp, shadowElevation = 0.dp) {
+        NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).size(height = 64.dp, width = androidx.compose.ui.unit.Dp.Infinity)) {
             val navItems = listOf(
                 Triple(AppScreen.DASHBOARD, Icons.Default.Home, "dashboard"),
                 Triple(AppScreen.CUSTOMERS, Icons.Default.People, "customers"),
@@ -435,34 +234,16 @@ fun SafaBottomNavigationBar(
                 Triple(AppScreen.WALLET, Icons.Default.AccountBalanceWallet, "wallet"),
                 Triple(AppScreen.EXPENSES, Icons.Default.Payments, "expenses")
             )
-
             navItems.forEach { item ->
                 val screen = item.first
                 val icon = item.second
                 val key = item.third
                 val isSelected = currentScreen == screen
-
                 NavigationBarItem(
                     selected = isSelected,
                     onClick = { viewModel.navigateTo(screen) },
-                    icon = {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = viewModel.t(key),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = viewModel.t(key),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                fontSize = 10.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
+                    icon = { Icon(imageVector = icon, contentDescription = viewModel.t(key), modifier = Modifier.size(20.dp)) },
+                    label = { Text(text = viewModel.t(key), style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium, fontSize = 10.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = if (isDarkMode) Color(0xFF6EA8FF) else Color(0xFFA82222),
                         selectedTextColor = if (isDarkMode) Color(0xFF6EA8FF) else Color(0xFFA82222),
@@ -478,19 +259,9 @@ fun SafaBottomNavigationBar(
 }
 
 @Composable
-private fun StartupErrorScreen(
-    message: String,
-    onRetry: () -> Unit
-) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(24.dp)
-        ) {
+private fun StartupErrorScreen(message: String, onRetry: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(24.dp)) {
             Text("SAFA Startup Error", style = MaterialTheme.typography.headlineSmall)
             Text(message)
             TextButton(onClick = onRetry) { Text("Retry") }
