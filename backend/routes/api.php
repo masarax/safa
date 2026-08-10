@@ -16,7 +16,6 @@ use App\Http\Middleware\AuditLogMiddleware;
 use App\Http\Middleware\VerifyRefreshRequest;
 use App\Http\Middleware\VerifyActiveAuthSession;
 use App\Http\Middleware\RejectInactiveLogin;
-use App\Http\Middleware\AllowInitialSuperAdminActivation;
 use App\Http\Middleware\RequireBusinessPermission;
 use App\Http\Middleware\RequireGraphQLPermission;
 use App\Http\Middleware\ResolveGraphQLAccountContext;
@@ -28,7 +27,8 @@ Route::prefix('auth')->group(function () {
         return response()->json(['status' => 'ok', 'service' => 'SAFA API']);
     });
 
-    // Mobile login uses a dedicated, server-first credential flow.
+    // Login is the only credential entry point. SuperAdmin provisioning is
+    // intentionally CLI-only and never exposed as an HTTP endpoint.
     Route::post('/login', [MobileLoginController::class, 'login'])
         ->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
 
@@ -37,13 +37,6 @@ Route::prefix('auth')->group(function () {
 
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])
         ->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
-
-    Route::post('/activate-superadmin', [AuthJWTController::class, 'activateSuperAdmin'])
-        ->middleware([
-            CheckApiSecurityKey::class,
-            AllowInitialSuperAdminActivation::class,
-            'throttle:3,1',
-        ]);
 
     Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
         Route::get('/operators', [AuthJWTController::class, 'getOperators']);
