@@ -23,7 +23,6 @@ foreach ($blockedPatterns as $pattern) {
     }
 }
 
-// Self-healing Favicon generator if missing or empty
 $publicIco = __DIR__ . '/public/favicon.ico';
 if (!file_exists($publicIco) || @filesize($publicIco) === 0) {
     $icoBase64 = 'AAABAAEAICAAAAAAAACoCAAAFgAAACgAAAAgAAAAQAAAAAEACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAgAAAAICAAIAAAACAAIAAgIAAAMDAwACAAIDAgICAgACAgIAAgACAgAMDAwADAwMAAgICAgACAgIAAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICACAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAA';
@@ -33,27 +32,17 @@ if (!file_exists($publicIco) || @filesize($publicIco) === 0) {
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
-// PHP Version Safeguard (Laravel 11+ requires PHP >= 8.2)
 if (version_compare(PHP_VERSION, '8.2.0', '<')) {
     http_response_code(500);
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
-    echo '<!DOCTYPE html><html><head><title>PHP Version Error</title><style>body{font-family:sans-serif;background:#f8fafc;padding:3rem;color:#1e293b;}.card{background:#fff;max-width:600px;margin:auto;padding:2rem;border-radius:12px;border-left:6px solid #ef4444;}h2{color:#dc2626;margin-top:0;}</style></head><body>';
-    echo '<div class="card">';
-    echo '<h2>⚠️ PHP Version Mismatch / পিএইচপি ভার্সন ত্রুটি</h2>';
-    echo '<p>Your cPanel server is currently running <strong>PHP ' . PHP_VERSION . '</strong>.</p>';
-    echo '<p>Laravel requires <strong>PHP 8.2.0 or higher</strong> to function correctly.</p>';
-    echo '<hr style="border:none;border-top:1px solid #e2e8f0;margin:1.5rem 0;">';
-    echo '<p><strong>কি করতে হবে (Solution):</strong></p>';
-    echo '<ol style="line-height:1.8;"><li>Log into your <strong>cPanel</strong>.</li><li>Go to <strong>MultiPHP Manager</strong> or <strong>Select PHP Version</strong>.</li><li>Change the PHP version for <code>safa.masarax.com</code> to <strong>PHP 8.2 or PHP 8.3</strong>.</li><li>Save changes and refresh this page.</li></ol>';
-    echo '</div></body></html>';
+    echo '<!DOCTYPE html><html><head><title>PHP Version Error</title></head><body><h2>PHP 8.2 or higher is required.</h2></body></html>';
     exit;
 }
 
 try {
     define('LARAVEL_START', microtime(true));
 
-    // Ensure required storage directories exist and are writable
     $storageDirs = [
         __DIR__ . '/storage/app',
         __DIR__ . '/storage/framework/cache/data',
@@ -62,14 +51,12 @@ try {
         __DIR__ . '/storage/logs',
         __DIR__ . '/bootstrap/cache',
     ];
-
     foreach ($storageDirs as $dir) {
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
         }
     }
 
-    // Auto-initialize starter .env if missing before Laravel boots
     $envPath = __DIR__ . '/.env';
     if (!file_exists($envPath)) {
         $randomKey = 'base64:' . base64_encode(random_bytes(32));
@@ -105,18 +92,16 @@ EOT;
         @file_put_contents($envPath, $initialEnv);
     }
 
-    // Bootstrap safety: if a fresh database has been wiped, Laravel's
-    // database session middleware can fail before the installer route gets
-    // a chance to run. Detect that condition before Laravel boots and use
-    // file sessions for this request only. Once migrations create the
-    // sessions table, the configured SESSION_DRIVER is used normally again.
+    // Fresh-database bootstrap: if sessions does not exist, force file
+    // sessions before Laravel loads configuration. Delete stale cached
+    // configuration as it can otherwise keep SESSION_DRIVER=database.
     if (is_file($envPath)) {
         $envContent = @file_get_contents($envPath) ?: '';
         $readEnv = static function (string $key) use ($envContent): string {
-            if (preg_match('/^' . preg_quote($key, '/') . '\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\r\n#]*))/mi', $envContent, $matches)) {
-                return trim($matches[1] ?? $matches[2] ?? $matches[3] ?? '');
-            }
-            return '';
+            $pattern = '/^' . preg_quote($key, '/') . '\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\r\n#]*))/mi';
+            return preg_match($pattern, $envContent, $matches)
+                ? trim($matches[1] ?? $matches[2] ?? $matches[3] ?? '')
+                : '';
         };
 
         if (strcasecmp($readEnv('SESSION_DRIVER'), 'database') === 0) {
@@ -125,6 +110,7 @@ EOT;
             $dbName = $readEnv('DB_DATABASE');
             $dbUser = $readEnv('DB_USERNAME');
             $dbPass = $readEnv('DB_PASSWORD');
+            $sessionTableExists = false;
 
             if ($dbName !== '' && $dbUser !== '') {
                 try {
@@ -136,14 +122,18 @@ EOT;
                     );
                     $sessionTableExists = (bool) $pdo->query("SHOW TABLES LIKE 'sessions'")->fetchColumn();
                     $pdo = null;
-
-                    if (!$sessionTableExists) {
-                        putenv('SESSION_DRIVER=file');
-                        $_ENV['SESSION_DRIVER'] = 'file';
-                        $_SERVER['SESSION_DRIVER'] = 'file';
-                    }
                 } catch (Throwable $ignored) {
-                    // Let Laravel/installer handle database connectivity errors.
+                    // Laravel will report real database connectivity errors.
+                }
+            }
+
+            if (!$sessionTableExists) {
+                putenv('SESSION_DRIVER=file');
+                $_ENV['SESSION_DRIVER'] = 'file';
+                $_SERVER['SESSION_DRIVER'] = 'file';
+                $cachedConfig = __DIR__ . '/bootstrap/cache/config.php';
+                if (is_file($cachedConfig)) {
+                    @unlink($cachedConfig);
                 }
             }
         }
@@ -154,10 +144,8 @@ EOT;
     }
 
     require __DIR__.'/vendor/autoload.php';
-
     /** @var Application $app */
     $app = require_once __DIR__.'/bootstrap/app.php';
-
     $app->handleRequest(Request::capture());
 } catch (\Throwable $e) {
     http_response_code(500);
@@ -168,14 +156,11 @@ EOT;
     $envPath = __DIR__ . '/.env';
     if (file_exists($envPath)) {
         $envContent = file_get_contents($envPath);
-        if (preg_match('/^APP_DEBUG\s*=\s*true/mi', $envContent)) {
-            $debugMode = true;
-        }
+        $debugMode = (bool) preg_match('/^APP_DEBUG\s*=\s*true/mi', $envContent);
     }
 
-    echo '<!DOCTYPE html><html><head><title>System Error</title><style>body{font-family:sans-serif;background:#f8fafc;padding:3rem;color:#1e293b;}.card{background:#fff;max-width:700px;margin:auto;padding:2rem;border-radius:12px;border-left:6px solid #ef4444;}pre{background:#f1f5f9;padding:1rem;border-radius:8px;overflow-x:auto;}</style></head><body>';
-    echo '<div class="card">';
-    echo '<h2 style="color:#dc2626;margin-top:0;">⚠️ System Exception Detected / সিস্টেমে ত্রুটি পাওয়া গেছে</h2>';
+    echo '<!DOCTYPE html><html><head><title>System Error</title><style>body{font-family:sans-serif;background:#f8fafc;padding:3rem;color:#1e293b}.card{background:#fff;max-width:700px;margin:auto;padding:2rem;border-radius:12px;border-left:6px solid #ef4444}pre{background:#f1f5f9;padding:1rem;border-radius:8px;overflow-x:auto}</style></head><body><div class="card">';
+    echo '<h2 style="color:#dc2626;margin-top:0">System Error</h2>';
     if ($debugMode) {
         echo '<p><strong>Message:</strong> ' . htmlspecialchars($e->getMessage()) . '</p>';
         echo '<p><strong>File:</strong> ' . htmlspecialchars($e->getFile()) . ' (Line ' . $e->getLine() . ')</p>';
