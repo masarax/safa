@@ -62,7 +62,9 @@ return new class extends Migration {
             $table->foreignId('account_id')->nullable()->constrained('accounts')->onDelete('set null');
             $table->string('client_name');
             $table->string('api_key', 128)->unique();
-            $table->string('api_secret', 255); // store hashed in production
+            // API secrets are encrypted at rest by the SafaApiKey model and
+            // migrated to encrypted storage by the later hardening migration.
+            $table->string('api_secret', 255);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
@@ -124,4 +126,3 @@ return new class extends Migration {
         Schema::dropIfExists('accounts');
     }
 };
-
