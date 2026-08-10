@@ -9,21 +9,64 @@ plugins {
 android {
   namespace = "com.safa.account"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
-  defaultConfig { applicationId = "com.safa.account"; minSdk = 24; targetSdk = 36; versionCode = 1; versionName = "1.0"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+  defaultConfig {
+    applicationId = "com.safa.account"
+    minSdk = 24
+    targetSdk = 36
+    versionCode = 1
+    versionName = "1.0"
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val keystoreFile = file(keystorePath)
-      if (keystoreFile.exists() && System.getenv("STORE_PASSWORD") != null) { storeFile=keystoreFile; storePassword=System.getenv("STORE_PASSWORD"); keyAlias=System.getenv("KEY_ALIAS") ?: "upload"; keyPassword=System.getenv("KEY_PASSWORD") }
-      else { val debugKeystore=file("${System.getProperty("user.home")}/.android/debug.keystore"); if(debugKeystore.exists()){storeFile=debugKeystore;storePassword="android";keyAlias="androiddebugkey";keyPassword="android"} }
+      val keystorePath = System.getenv("KEYSTORE_PATH")
+      val storePassword = System.getenv("STORE_PASSWORD")
+      val keyAlias = System.getenv("KEY_ALIAS")
+      val keyPassword = System.getenv("KEY_PASSWORD")
+
+      // Never silently sign a production APK with the Android debug keystore.
+      // Release builds are signed only when the CI/release signing secrets are
+      // explicitly configured.
+      if (!keystorePath.isNullOrBlank() && !storePassword.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()) {
+        val keystoreFile = file(keystorePath)
+        if (!keystoreFile.exists()) {
+          throw GradleException("Release keystore not found: $keystorePath")
+        }
+        storeFile = keystoreFile
+        this.storePassword = storePassword
+        this.keyAlias = keyAlias
+        this.keyPassword = keyPassword
+      }
     }
   }
-  buildTypes { release { isCrunchPngs=false; isMinifyEnabled=true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro"); signingConfig=signingConfigs.getByName("release") }; debug { } }
-  compileOptions { sourceCompatibility=JavaVersion.VERSION_11; targetCompatibility=JavaVersion.VERSION_11 }
-  buildFeatures { compose=true; buildConfig=true }
-  testOptions { unitTests { isIncludeAndroidResources=true } }
+
+  buildTypes {
+    release {
+      isCrunchPngs = false
+      isMinifyEnabled = true
+      isShrinkResources = true
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      signingConfig = signingConfigs.getByName("release")
+    }
+    debug { }
+  }
+
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+  }
+  buildFeatures {
+    compose = true
+    buildConfig = true
+  }
+  testOptions { unitTests { isIncludeAndroidResources = true } }
 }
-secrets { propertiesFileName=".env"; defaultPropertiesFileName=".env.example" }
+
+secrets {
+  propertiesFileName = ".env"
+  defaultPropertiesFileName = ".env.example"
+}
 
 dependencies {
   implementation(platform(libs.androidx.compose.bom)); implementation(platform(libs.firebase.bom)); implementation(libs.androidx.activity.compose); implementation(libs.androidx.biometric)
