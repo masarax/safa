@@ -128,8 +128,8 @@ class TokenManager(private val context: Context) {
     fun getCustomAppName(): String = prefs.getString("app_name", "SAFA") ?: "SAFA"
     fun saveCustomAppLogo(logo: String) = prefs.edit { putString("app_logo", logo) }
     fun getCustomAppLogo(): String = prefs.getString("app_logo", "SAFA") ?: "SAFA"
-    fun saveCustomAppLogoUri(uri: String?) = prefs.edit { putString("app_logo_uri", uri) }
     fun getCustomAppLogoUri(): String? = prefs.getString("app_logo_uri", null)
+    fun saveCustomAppLogoUri(uri: String?) = prefs.edit { putString("app_logo_uri", uri) }
     fun saveServerLogoUrl(url: String?) = saveCustomAppLogoUri(url)
     fun getServerLogoUrl(): String? = getCustomAppLogoUri()
     fun saveAppVersion(version: String) = prefs.edit { putString("app_version", version) }
@@ -142,6 +142,6 @@ class TokenManager(private val context: Context) {
     fun getRateFeatureEnabled(): Boolean = prefs.getBoolean("rate_feature", true)
     fun saveSupplierRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("supplier_rate_enabled", enabled) }
     fun getSupplierRateEnabled(): Boolean = prefs.getBoolean("supplier_rate_enabled", true)
-    fun saveWalletRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("wallet_rate_enabled", true) }
+    fun saveWalletRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("wallet_rate_enabled", enabled) }
     fun getWalletRateEnabled(): Boolean = prefs.getBoolean("wallet_rate_enabled", true)
 }
