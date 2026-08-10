@@ -38,7 +38,7 @@ if (version_compare(PHP_VERSION, '8.2.0', '<')) {
     http_response_code(500);
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
-    echo '<!DOCTYPE html><html><head><title>PHP Version Error</title><style>body{font-family:sans-serif;background:#f8fafc;padding:3rem;color:#1e293b;}.card{background:#fff;max-width:600px;margin:auto;padding:2rem;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border-left:6px solid #ef4444;}h2{color:#dc2626;margin-top:0;}</style></head><body>';
+    echo '<!DOCTYPE html><html><head><title>PHP Version Error</title><style>body{font-family:sans-serif;background:#f8fafc;padding:3rem;color:#1e293b;}.card{background:#fff;max-width:600px;margin:auto;padding:2rem;border-radius:12px;border-left:6px solid #ef4444;}h2{color:#dc2626;margin-top:0;}</style></head><body>';
     echo '<div class="card">';
     echo '<h2>⚠️ PHP Version Mismatch / পিএইচপি ভার্সন ত্রুটি</h2>';
     echo '<p>Your cPanel server is currently running <strong>PHP ' . PHP_VERSION . '</strong>.</p>';
@@ -105,6 +105,61 @@ EOT;
         @file_put_contents($envPath, $initialEnv);
     }
 
+    // Installer bootstrap safety:
+    // A completely fresh database may not contain the sessions table yet,
+    // while the deployed .env may still say SESSION_DRIVER=database. Laravel
+    // can otherwise try to read sessions before /install can render.
+    // Detect the missing table before Laravel boots and force file sessions
+    // for this request. Also remove a stale cached config file; otherwise the
+    // cached SESSION_DRIVER=database value would override the fallback.
+    if (is_file($envPath)) {
+        $envContent = @file_get_contents($envPath) ?: '';
+        $readEnv = static function (string $key) use ($envContent): string {
+            $pattern = '/^' . preg_quote($key, '/') . '\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\r\n#]*))/mi';
+            if (preg_match($pattern, $envContent, $matches)) {
+                return trim($matches[1] ?? $matches[2] ?? $matches[3] ?? '');
+            }
+            return '';
+        };
+
+        if (strcasecmp($readEnv('SESSION_DRIVER'), 'database') === 0) {
+            $dbHost = $readEnv('DB_HOST') ?: '127.0.0.1';
+            $dbPort = $readEnv('DB_PORT') ?: '3306';
+            $dbName = $readEnv('DB_DATABASE');
+            $dbUser = $readEnv('DB_USERNAME');
+            $dbPass = $readEnv('DB_PASSWORD');
+            $sessionTableExists = false;
+
+            if ($dbName !== '' && $dbUser !== '') {
+                try {
+                    $pdo = new PDO(
+                        'mysql:host=' . $dbHost . ';port=' . $dbPort . ';dbname=' . $dbName . ';charset=utf8mb4',
+                        $dbUser,
+                        $dbPass,
+                        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 3]
+                    );
+                    $sessionTableExists = (bool) $pdo->query("SHOW TABLES LIKE 'sessions'")->fetchColumn();
+                    $pdo = null;
+                } catch (Throwable $ignored) {
+                    // Do not hide database connectivity errors from Laravel.
+                }
+            }
+
+            if (!$sessionTableExists) {
+                putenv('SESSION_DRIVER=file');
+                $_ENV['SESSION_DRIVER'] = 'file';
+                $_SERVER['SESSION_DRIVER'] = 'file';
+
+                // Laravel's cached config can contain SESSION_DRIVER=database
+                // and takes precedence over the environment at bootstrap.
+                $cachedConfig = __DIR__ . '/../bootstrap/cache/config.php';
+                if (is_file($cachedConfig)) {
+                    @unlink($cachedConfig);
+                }
+            }
+        }
+    }
+
     if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
         require $maintenance;
     }
@@ -129,7 +184,7 @@ EOT;
         }
     }
 
-    echo '<!DOCTYPE html><html><head><title>System Error</title><style>body{font-family:sans-serif;background:#f8fafc;padding:3rem;color:#1e293b;}.card{background:#fff;max-width:700px;margin:auto;padding:2rem;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border-left:6px solid #ef4444;}pre{background:#f1f5f9;padding:1rem;border-radius:8px;overflow-x:auto;}</style></head><body>';
+    echo '<!DOCTYPE html><html><head><title>System Error</title><style>body{font-family:sans-serif;background:#f8fafc;padding:3rem;color:#1e293b;}.card{background:#fff;max-width:700px;margin:auto;padding:2rem;border-radius:12px;border-left:6px solid #ef4444;}pre{background:#f1f5f9;padding:1rem;border-radius:8px;overflow-x:auto;}</style></head><body>';
     echo '<div class="card">';
     echo '<h2 style="color:#dc2626;margin-top:0;">⚠️ System Exception Detected / সিস্টেমে ত্রুটি পাওয়া গেছে</h2>';
     if ($debugMode) {
