@@ -1,5 +1,6 @@
 package com.safa.account.data.api
 
+import com.safa.account.BuildConfig
 import com.safa.account.data.network.ApiSecurityInterceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
