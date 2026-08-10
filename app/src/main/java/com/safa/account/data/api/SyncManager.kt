@@ -23,7 +23,13 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
     }
 
     suspend fun checkServerHealth():Result<String> = withContext(Dispatchers.IO){runCatching{
-        val r=getApiService().getRemoteConfig(); if(!r.isSuccessful) error("Server returned ${r.code()}")
+        // Health is deliberately checked through a public endpoint. The login
+        // screen has no authenticated session yet, so pre-auth connectivity must
+        // not depend on HMAC credentials or a database API-key record.
+        val r=getApiService().checkServerHealth()
+        if(!r.isSuccessful) error("Server returned ${r.code()}")
+        val status=r.body()?.get("status")?.toString().orEmpty()
+        if(status != "ok") error("Server health check failed")
         "Server Connected Successfully (${tokenManager.getBaseUrl()})"
     }}
 
