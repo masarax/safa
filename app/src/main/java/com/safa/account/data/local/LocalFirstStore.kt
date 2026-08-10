@@ -11,7 +11,6 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import kotlin.math.max
 
 /** Encrypted local database metadata + crash-safe outbox. */
 class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "safa_local.db", null, VERSION) {
@@ -36,8 +35,6 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
-            // next_attempt_at was part of the v1 schema in the first production build;
-            // keep this branch defensive for early development databases.
             try { db.execSQL("ALTER TABLE outbox ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) { }
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_outbox_ready ON outbox(status, next_attempt_at, id)")
         }
@@ -64,9 +61,17 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         val values = ContentValues().apply {
             put("entity", entity); put("local_id", localId); put("server_id", serverId); put("operation", operation)
             put("payload", PayloadCipher.encrypt(payload)); put("status", OUTBOX_PENDING); put("retry_count", 0)
-            put("next_attempt_at", 0L); put("last_error", null as String?); put("created_at", now); put("updated_at", now)
+            put("next_attempt_at", 0L); putNull("last_error"); put("created_at", now); put("updated_at", now)
         }
         writableDatabase.insertWithOnConflict("outbox", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun hasPending(entity: String, localId: Int): Boolean = readableDatabase.rawQuery("SELECT 1 FROM records WHERE entity=? AND local_id=? AND sync_status!=? LIMIT 1", arrayOf(entity, localId.toString(), SYNCED.toString())).use { it.moveToFirst() }
+
+    fun retry(entity: String, localId: Int) {
+        val now = System.currentTimeMillis()
+        writableDatabase.execSQL("UPDATE records SET sync_status=?, retry_count=0, last_error=NULL, updated_at=? WHERE entity=? AND local_id=?", arrayOf(PENDING, now, entity, localId))
+        writableDatabase.execSQL("UPDATE outbox SET status=?, retry_count=0, next_attempt_at=0, last_error=NULL, updated_at=? WHERE entity=? AND local_id=?", arrayOf(OUTBOX_PENDING, now, entity, localId))
     }
 
     fun markSynced(entity: String, localId: Int, serverId: Int) {
@@ -88,7 +93,7 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         }
     }
 
-    fun retryCount(entity: String, localId: Int): Int = readableDatabase.rawQuery("SELECT retry_count FROM records WHERE entity=? AND local_id=?", arrayOf(entity, localId)).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+    fun retryCount(entity: String, localId: Int): Int = readableDatabase.rawQuery("SELECT retry_count FROM records WHERE entity=? AND local_id=?", arrayOf(entity, localId.toString())).use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
     fun getRecordPayloads(entity: String): List<StoredRecord> = readableDatabase.rawQuery("SELECT entity,local_id,server_id,payload,sync_status,retry_count,last_error FROM records WHERE entity=? ORDER BY local_id", arrayOf(entity)).use { c ->
         buildList { while (c.moveToNext()) add(StoredRecord(c.getString(0), c.getInt(1), c.getInt(2), PayloadCipher.decrypt(c.getBlob(3)), c.getInt(4), c.getInt(5), c.getString(6))) }
