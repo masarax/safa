@@ -1,0 +1,68 @@
+name: Manual Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "APK variant"
+        required: true
+        default: "debug"
+        type: choice
+        options:
+          - debug
+          - release
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
+  COMPOSE_CACHE_ENABLED: true
+
+jobs:
+  build-apk:
+    name: Build ${{ inputs.variant }} APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.variant }}" == "release" ]]; then
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          else
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: Locate APK
+        id: apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk -type f -name '*.apk' | head -n 1)"
+          test -n "$apk"
+          echo "path=$apk" >> "$GITHUB_OUTPUT"
+          echo "Built: $apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SAFA-${{ inputs.variant }}-APK-${{ github.run_number }}
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
