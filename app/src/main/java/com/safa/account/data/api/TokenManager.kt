@@ -19,6 +19,7 @@ class TokenManager(private val context: Context) {
         private const val KEY_API_KEY = "api_key"
         private const val KEY_API_SECRET = "api_secret"
         private const val KEY_LAST_MOBILE = "last_mobile"
+        private const val KEY_ACTIVE_ACCOUNT_ID = "active_account_id"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
 
         private val DEFAULT_API_KEY: String = BuildConfig.SAFA_API_KEY
@@ -36,11 +37,8 @@ class TokenManager(private val context: Context) {
     fun saveApiSecret(secret: String) = prefs.edit { putString(KEY_API_SECRET, secret) }
     fun getApiSecret(): String = prefs.getString(KEY_API_SECRET, DEFAULT_API_SECRET)?.ifBlank { DEFAULT_API_SECRET } ?: DEFAULT_API_SECRET
 
-    // --- 5-Token Security Layer ---
     fun saveAccessToken(token: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
     fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
-
-    // Legacy / Convenience Compatibility
     fun saveToken(token: String) = saveAccessToken(token)
     fun getToken(): String? = getAccessToken()
     fun clearToken() = clearAllTokens()
@@ -93,43 +91,54 @@ class TokenManager(private val context: Context) {
         remove(KEY_DEVICE_TOKEN)
         remove(KEY_SESSION_TOKEN)
         remove(KEY_FINGERPRINT_TOKEN)
+        remove(KEY_ACTIVE_ACCOUNT_ID)
     }
 
-    fun saveBaseUrl(url: String) = prefs.edit { putString(KEY_BASE_URL, url) }
+    fun saveActiveAccountId(accountId: Int?) = prefs.edit {
+        if (accountId == null || accountId <= 0) remove(KEY_ACTIVE_ACCOUNT_ID)
+        else putInt(KEY_ACTIVE_ACCOUNT_ID, accountId)
+    }
 
-    fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_URL) ?: DEFAULT_URL
-    
-    // --- App Settings & Theme Persistence ---
+    fun getActiveAccountId(): Int? {
+        val id = prefs.getInt(KEY_ACTIVE_ACCOUNT_ID, 0)
+        return id.takeIf { it > 0 }
+    }
+
+    fun saveBaseUrl(url: String) = prefs.edit { putString(KEY_BASE_URL, url.trim().removeSuffix("/") + "/") }
+    fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_URL)?.trim()?.let {
+        if (it.endsWith("/")) it else "$it/"
+    } ?: DEFAULT_URL
+
     fun saveLanguage(lang: String) = prefs.edit { putString("app_lang", lang) }
     fun getLanguage(): String = prefs.getString("app_lang", "BN") ?: "BN"
 
     fun saveDarkMode(isDark: Boolean) = prefs.edit { putBoolean("app_dark_mode", isDark) }
     fun getDarkMode(): Boolean = prefs.getBoolean("app_dark_mode", false)
 
-    fun saveThemeMode(mode: String) = prefs.edit { putString("app_theme_mode", mode) } // "LIGHT" | "DARK" | "SYSTEM"
+    fun saveThemeMode(mode: String) = prefs.edit { putString("app_theme_mode", mode) }
     fun getThemeMode(): String = prefs.getString("app_theme_mode", "LIGHT") ?: "LIGHT"
-    
+
     fun saveCustomAppName(name: String) = prefs.edit { putString("app_name", name) }
     fun getCustomAppName(): String = prefs.getString("app_name", "SAFA") ?: "SAFA"
-    
+
     fun saveCustomAppLogo(logo: String) = prefs.edit { putString("app_logo", logo) }
     fun getCustomAppLogo(): String = prefs.getString("app_logo", "SAFA") ?: "SAFA"
-    
+
     fun saveCustomAppLogoUri(uri: String?) = prefs.edit { putString("app_logo_uri", uri) }
-    fun getCustomAppLogoUri(): String? = prefs.getString("app_logo_uri", "https://safa.masarax.com/safa-logo.png")
+    fun getCustomAppLogoUri(): String? = prefs.getString("app_logo_uri", null)
 
     fun saveServerLogoUrl(url: String?) = saveCustomAppLogoUri(url)
     fun getServerLogoUrl(): String? = getCustomAppLogoUri()
 
     fun saveAppVersion(version: String) = prefs.edit { putString("app_version", version) }
     fun getAppVersion(): String = prefs.getString("app_version", "1.0") ?: "1.0"
-    
+
     fun saveLocalCurrency(curr: String) = prefs.edit { putString("local_curr", curr) }
     fun getLocalCurrency(): String = prefs.getString("local_curr", "BDT") ?: "BDT"
-    
+
     fun saveForeignCurrency(curr: String) = prefs.edit { putString("foreign_curr", curr) }
     fun getForeignCurrency(): String = prefs.getString("foreign_curr", "SAR") ?: "SAR"
-    
+
     fun saveRateFeatureEnabled(enabled: Boolean) = prefs.edit { putBoolean("rate_feature", enabled) }
     fun getRateFeatureEnabled(): Boolean = prefs.getBoolean("rate_feature", true)
 
