@@ -1,5 +1,6 @@
 package com.safa.account
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,8 +18,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,7 +28,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,8 +62,6 @@ class MainActivity : FragmentActivity() {
 
         try {
             enableEdgeToEdge()
-            android.util.Log.i("SafaApp", "STARTUP_050_BEFORE_ROOM")
-
             val database = AppDatabase.getDatabase(applicationContext)
             val repository = AppRepository(
                 operatorDao = database.operatorDao(),
@@ -77,17 +75,13 @@ class MainActivity : FragmentActivity() {
                 walletBatchDao = database.walletBatchDao(),
                 syncOutboxDao = database.syncOutboxDao(),
             )
-
             val tokenManager = TokenManager(applicationContext)
             factory = SafaViewModelFactory(repository, tokenManager)
-
             try {
                 AutoSyncWorker.schedulePeriodicSync(applicationContext)
             } catch (e: Throwable) {
                 android.util.Log.e("SafaApp", "Failed to schedule AutoSyncWorker", e)
             }
-
-            android.util.Log.i("SafaApp", "STARTUP_100_INITIALIZATION_COMPLETE")
         } catch (t: Throwable) {
             initError = t
             android.util.Log.e("SafaApp", "STARTUP_INIT_FAILED", t)
@@ -99,10 +93,7 @@ class MainActivity : FragmentActivity() {
         setContent {
             if (resolvedError != null || resolvedFactory == null) {
                 MyApplicationTheme(darkTheme = false) {
-                    StartupErrorScreen(
-                        error = resolvedError,
-                        onRetry = { recreate() }
-                    )
+                    StartupErrorScreen(resolvedError) { recreate() }
                 }
             } else {
                 val viewModel: SafaViewModel by viewModels { resolvedFactory }
@@ -115,10 +106,7 @@ class MainActivity : FragmentActivity() {
 @Composable
 private fun StartupErrorScreen(error: Throwable?, onRetry: () -> Unit) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFFFF1F1))
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().background(Color(0xFFFFF1F1)).padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -126,15 +114,11 @@ private fun StartupErrorScreen(error: Throwable?, onRetry: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "⚠️ SAFA Startup Diagnostic Error",
-                style = TextStyle(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF991B1B)
-                )
+                "⚠️ SAFA Startup Diagnostic Error",
+                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF991B1B))
             )
             Text(
-                text = "${error?.javaClass?.simpleName}: ${error?.message}",
+                "${error?.javaClass?.simpleName}: ${error?.message}",
                 style = TextStyle(fontSize = 14.sp, color = Color(0xFF7F1D1D))
             )
             Button(
@@ -155,13 +139,11 @@ private fun SafaRoot(viewModel: SafaViewModel) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
+    val activity = androidx.compose.ui.platform.LocalContext.current as? Activity
 
     val isMainScreen = currentScreen in listOf(
-        AppScreen.DASHBOARD,
-        AppScreen.CUSTOMERS,
-        AppScreen.SUPPLIERS,
-        AppScreen.WALLET,
-        AppScreen.EXPENSES
+        AppScreen.DASHBOARD, AppScreen.CUSTOMERS, AppScreen.SUPPLIERS,
+        AppScreen.WALLET, AppScreen.EXPENSES
     )
     val showBars = isMainScreen && !isSubPageActive
 
@@ -177,21 +159,13 @@ private fun SafaRoot(viewModel: SafaViewModel) {
         if (showExitDialog) {
             AlertDialog(
                 onDismissRequest = { showExitDialog = false },
-                title = {
-                    Text(if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application")
-                },
-                text = {
-                    Text(if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?")
-                },
+                title = { Text(if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application") },
+                text = { Text(if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?") },
                 confirmButton = {
                     TextButton(onClick = {
                         showExitDialog = false
-                        // BackHandler will be replaced by activity finish through the dispatcher.
-                        // The system back action is intentionally used after confirmation.
-                        viewModel.logout()
-                    }) {
-                        Text(if (currentLanguage == "BN") "হ্যাঁ" else "Yes")
-                    }
+                        activity?.finish()
+                    }) { Text(if (currentLanguage == "BN") "হ্যাঁ" else "Yes") }
                 },
                 dismissButton = {
                     TextButton(onClick = { showExitDialog = false }) {
@@ -217,17 +191,11 @@ private fun SafaRoot(viewModel: SafaViewModel) {
                     }
                 },
                 bottomBar = {
-                    if (showBars) {
-                        SafaBottomNavigationBar(
-                            viewModel = viewModel,
-                            currentScreen = currentScreen
-                        )
-                    }
+                    if (showBars) SafaBottomNavigationBar(viewModel = viewModel, currentScreen = currentScreen)
                 }
             ) { innerPadding ->
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
+                    modifier = Modifier.fillMaxSize()
                         .background(MaterialTheme.colorScheme.background)
                         .padding(innerPadding)
                         .imePadding()
@@ -237,23 +205,11 @@ private fun SafaRoot(viewModel: SafaViewModel) {
                         transitionSpec = {
                             val backward = navDirection == NavDirection.BACKWARD
                             if (backward) {
-                                slideInHorizontally(
-                                    initialOffsetX = { -it },
-                                    animationSpec = tween(160, easing = FastOutSlowInEasing)
-                                ) + fadeIn(tween(110)) togetherWith
-                                    slideOutHorizontally(
-                                        targetOffsetX = { it },
-                                        animationSpec = tween(160, easing = FastOutSlowInEasing)
-                                    ) + fadeOut(tween(110))
+                                slideInHorizontally({ -it }, tween(160, easing = FastOutSlowInEasing)) + fadeIn(tween(110)) togetherWith
+                                    slideOutHorizontally({ it }, tween(160, easing = FastOutSlowInEasing)) + fadeOut(tween(110))
                             } else {
-                                slideInHorizontally(
-                                    initialOffsetX = { it },
-                                    animationSpec = tween(160, easing = FastOutSlowInEasing)
-                                ) + fadeIn(tween(110)) togetherWith
-                                    slideOutHorizontally(
-                                        targetOffsetX = { -it },
-                                        animationSpec = tween(160, easing = FastOutSlowInEasing)
-                                    ) + fadeOut(tween(110))
+                                slideInHorizontally({ it }, tween(160, easing = FastOutSlowInEasing)) + fadeIn(tween(110)) togetherWith
+                                    slideOutHorizontally({ -it }, tween(160, easing = FastOutSlowInEasing)) + fadeOut(tween(110))
                             }
                         },
                         label = "SafaScreenTransition",
@@ -291,7 +247,17 @@ private fun SafaTopAppBar(
     onLogoutClick: () -> Unit
 ) {
     androidx.compose.material3.TopAppBar(
-        title = { Text(if (title.isBlank()) "SAFA" else title) },
+        title = {
+            Column {
+                Text(if (title.isBlank()) "SAFA" else title)
+                if (operatorName.isNotBlank()) {
+                    Text(
+                        text = "Operator: $operatorName",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        },
         actions = {
             androidx.compose.material3.IconButton(onClick = onLogoutClick) {
                 androidx.compose.material3.Icon(
