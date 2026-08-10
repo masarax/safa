@@ -15,11 +15,12 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        $adminMobile = env('INITIAL_SUPERADMIN_MOBILE', '0536308965');
-        $adminPin = env('INITIAL_SUPERADMIN_PIN', '123456');
-        $adminEmail = env('INITIAL_SUPERADMIN_EMAIL', 'sakib@masarax.com');
+        // Initial credentials belong exclusively to the seeder.
+        // Migrations and environment configuration do not define a default user.
+        $adminMobile = '0536308965';
+        $adminPin = '123456';
+        $adminEmail = 'sakib@masarax.com';
 
-        // 1. Seed SuperAdmin: Nazmus Sakib
         User::updateOrCreate(
             ['mobile' => $adminMobile],
             [
@@ -35,17 +36,16 @@ class DatabaseSeeder extends Seeder
 
         $account = Account::firstOrCreate(['name' => 'SAFA Account']);
 
-        // 2. Seed API Key Record matching 256-bit Cryptographic Secret Keys
         $apiKey = env('SAFA_API_KEY', 'safa_key_' . bin2hex(random_bytes(16)));
         $apiSecret = env('SAFA_API_SECRET', 'safa_sec_' . bin2hex(random_bytes(32)));
 
         SafaApiKey::updateOrCreate(
             ['client_name' => 'SAFA Mobile Client'],
             [
-                'account_id'  => $account->id,
-                'api_key'     => $apiKey,
-                'api_secret'  => $apiSecret,
-                'is_active'   => true,
+                'account_id' => $account->id,
+                'api_key' => $apiKey,
+                'api_secret' => $apiSecret,
+                'is_active' => true,
             ]
         );
 
