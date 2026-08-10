@@ -16,10 +16,10 @@ class CheckApiSecurityKey
      */
     public function handle(Request $request, Closure $next)
     {
-        $apiKey    = $request->header('X-SAFA-API-KEY');
+        $apiKey = $request->header('X-SAFA-API-KEY');
         $signature = $request->header('X-SAFA-SIGNATURE');
         $timestamp = $request->header('X-SAFA-TIMESTAMP');
-        $nonce     = $request->header('X-SAFA-NONCE');
+        $nonce = $request->header('X-SAFA-NONCE');
 
         if (!$apiKey || !$signature || !$timestamp || !$nonce) {
             return response()->json(['message' => 'Unauthorized. Missing required security headers.'], 401);
@@ -33,13 +33,6 @@ class CheckApiSecurityKey
             return response()->json(['message' => 'Unauthorized. Invalid nonce format.'], 401);
         }
 
-        if (Cache::has('nonce_' . $nonce)) {
-            return response()->json(['message' => 'Unauthorized. Replay attack detected.'], 401);
-        }
-
-        // Database is the authoritative source for API credentials.
-        // This is intentionally required so production authentication cannot
-        // silently fall back to credentials hard-coded in application source.
         $keyRecord = SafaApiKey::where('api_key', $apiKey)
             ->where('is_active', true)
             ->first();
@@ -54,14 +47,12 @@ class CheckApiSecurityKey
                 'api_key_id' => $keyRecord->id,
                 'client_name' => $keyRecord->client_name,
             ]);
-
             return response()->json(['message' => 'Unauthorized. Server misconfigured.'], 500);
         }
 
         $method = strtoupper($request->method());
-        $path   = '/' . ltrim($request->path(), '/');
-        $body   = $request->getContent();
-
+        $path = '/' . ltrim($request->path(), '/');
+        $body = $request->getContent();
         $payload = $method . $path . $timestamp . $nonce . $body;
         $expectedSignature = hash_hmac('sha256', $payload, $secret);
 
@@ -70,8 +61,12 @@ class CheckApiSecurityKey
             return response()->json(['message' => 'Unauthorized. Signature mismatch.'], 401);
         }
 
-        // Cache nonce for 300 seconds to prevent replay attacks.
-        Cache::put('nonce_' . $nonce, true, 300);
+        // Cache::add is atomic on supported cache stores, closing the small
+        // check-then-put race that allowed the same nonce to be accepted twice.
+        $nonceKey = 'safa_hmac_nonce:' . hash('sha256', $apiKey . ':' . $nonce);
+        if (!Cache::add($nonceKey, true, 300)) {
+            return response()->json(['message' => 'Unauthorized. Replay attack detected.'], 401);
+        }
 
         return $next($request);
     }
