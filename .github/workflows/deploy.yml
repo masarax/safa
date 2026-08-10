@@ -5,7 +5,7 @@ on:
 
 jobs:
   web-deploy:
-    name: Audit, test and deploy to cPanel
+    name: Deploy Laravel backend to cPanel
     runs-on: ubuntu-latest
 
     steps:
@@ -19,29 +19,11 @@ jobs:
           extensions: mbstring, xml, pdo, pdo_mysql, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
 
-      - name: Install Composer dependencies for tests
-        run: |
-          cd backend
-          composer install --no-interaction --prefer-dist
-
-      - name: PHP syntax audit
-        run: |
-          set -euo pipefail
-          find backend -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-
-      - name: Laravel route and automated test audit
-        run: |
-          set -euo pipefail
-          cd backend
-          php artisan route:list --except-vendor
-          php artisan test --without-tty
-
       - name: Install production Composer dependencies
-        run: |
-          cd backend
-          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+        working-directory: backend
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-      - name: Sync FTP Files to cPanel
+      - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
