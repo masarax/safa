@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\AuthJWTController;
+use App\Http\Controllers\SecureAuthController;
 use App\Http\Controllers\MobileLoginController;
 use App\Http\Controllers\GraphQLController;
 use App\Http\Controllers\AccountContextController;
@@ -13,7 +14,6 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
-use App\Http\Middleware\VerifyRefreshRequest;
 use App\Http\Middleware\VerifyActiveAuthSession;
 use App\Http\Middleware\RejectInactiveLogin;
 use App\Http\Middleware\RequireBusinessPermission;
@@ -31,8 +31,17 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [MobileLoginController::class, 'login'])
         ->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
 
-    Route::post('/refresh', [AuthJWTController::class, 'refreshToken'])
-        ->middleware([VerifyRefreshRequest::class, 'throttle:20,1']);
+    // Refresh is deliberately handled by SecureAuthController. It validates
+    // the complete refresh credential set and rotates the refresh token
+    // atomically under a row lock, preventing refresh-token races.
+    Route::post('/refresh', [SecureAuthController::class, 'refresh'])
+        ->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
+
+    Route::post('/logout', [SecureAuthController::class, 'logout'])
+        ->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:20,1']);
+
+    Route::post('/logout-all', [SecureAuthController::class, 'logoutAll'])
+        ->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:10,1']);
 
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])
         ->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
