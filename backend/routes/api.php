@@ -6,6 +6,7 @@ use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\AuthJWTController;
 use App\Http\Controllers\SecureAuthController;
 use App\Http\Controllers\MobileLoginController;
+use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\GraphQLController;
 use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\RemoteBusinessController;
@@ -31,9 +32,6 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [MobileLoginController::class, 'login'])
         ->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
 
-    // Refresh is deliberately handled by SecureAuthController. It validates
-    // the complete refresh credential set and rotates the refresh token
-    // atomically under a row lock, preventing refresh-token races.
     Route::post('/refresh', [SecureAuthController::class, 'refresh'])
         ->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
 
@@ -46,12 +44,21 @@ Route::prefix('auth')->group(function () {
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])
         ->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
 
-    Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
-        Route::get('/operators', [AuthJWTController::class, 'getOperators']);
-        Route::post('/operators', [AuthJWTController::class, 'createOperator']);
-        Route::put('/operators/{id?}', [AuthJWTController::class, 'updateOperator']);
-        Route::delete('/operators/{id?}', [AuthJWTController::class, 'deleteOperator']);
-        Route::match(['get', 'post', 'put', 'patch', 'delete'], '/operators/{id?}', [AuthJWTController::class, 'operators']);
+    Route::middleware([
+        CheckApiSecurityKey::class,
+        'verify.multilevel.token',
+        VerifyActiveAuthSession::class,
+        AuditLogMiddleware::class,
+        'throttle:60,1',
+    ])->group(function () {
+        // User administration is intentionally isolated from business APIs.
+        // UserManagementController enforces SuperAdmin-only authorization.
+        Route::get('/operators', [UserManagementController::class, 'index']);
+        Route::post('/operators', [UserManagementController::class, 'store']);
+        Route::put('/operators/{id}', [UserManagementController::class, 'update']);
+        Route::patch('/operators/{id}', [UserManagementController::class, 'update']);
+        Route::delete('/operators/{id}', [UserManagementController::class, 'destroy']);
+
         Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
         Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
         Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
