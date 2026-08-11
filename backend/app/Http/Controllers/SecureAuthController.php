@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuthSession;
-use App\Models\DeviceBinding;
 use App\Models\User;
+use App\Models\DeviceBinding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -19,6 +19,49 @@ use Illuminate\Support\Str;
  */
 class SecureAuthController extends Controller
 {
+    public function session(Request $request)
+    {
+        $user = $request->user() ?? $request->attributes->get('user');
+        $accessToken = $request->bearerToken();
+
+        if (!$user || !$accessToken) {
+            return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
+        }
+
+        $session = AuthSession::query()
+            ->where('access_token', $accessToken)
+            ->where('user_id', $user->id)
+            ->where('is_revoked', false)
+            ->first();
+
+        if (!$session || ($session->expires_at && $session->expires_at->isPast())) {
+            return response()->json(['status' => 'error', 'message' => 'Session expired.'], 401);
+        }
+
+        $deviceUuid = trim((string) ($request->header('X-SAFA-DEVICE-TOKEN') ?? ''));
+        if ($deviceUuid !== '' && $session->device_uuid !== $deviceUuid) {
+            return response()->json(['status' => 'error', 'message' => 'Device session mismatch.'], 401);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Session is active.',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'mobile' => $user->mobile,
+                'role' => $user->role,
+                'is_activated' => (bool) $user->is_activated,
+                'permissions' => $user->getFormattedPermissions(),
+            ],
+            'session' => [
+                'expires_at' => optional($session->expires_at)->toIso8601String(),
+                'device_uuid' => $session->device_uuid,
+            ],
+        ]);
+    }
+
     public function refresh(Request $request)
     {
         $refreshToken = trim((string) ($request->input('refresh_token') ?? $request->header('X-SAFA-REFRESH-TOKEN')));
@@ -26,10 +69,7 @@ class SecureAuthController extends Controller
         $fingerprint = trim((string) ($request->input('fingerprint_token') ?? $request->input('fingerprint_hash') ?? $request->header('X-SAFA-FINGERPRINT-TOKEN')));
 
         if ($refreshToken === '' || $deviceUuid === '' || $fingerprint === '') {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Missing refresh security credentials.',
-            ], 400);
+            return response()->json(['status' => 'error', 'message' => 'Missing refresh security credentials.'], 400);
         }
 
         $result = DB::transaction(function () use ($refreshToken, $deviceUuid, $fingerprint) {
@@ -40,14 +80,10 @@ class SecureAuthController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            if (!$session || ($session->expires_at && $session->expires_at->isPast())) {
-                return null;
-            }
+            if (!$session || ($session->expires_at && $session->expires_at->isPast())) return null;
 
             $user = User::find($session->user_id);
-            if (!$user || !$user->is_activated) {
-                return null;
-            }
+            if (!$user || !$user->is_activated) return null;
 
             $binding = DeviceBinding::query()
                 ->where('user_id', $user->id)
@@ -55,9 +91,7 @@ class SecureAuthController extends Controller
                 ->where('is_active', true)
                 ->first();
 
-            if (!$binding || !hash_equals((string) $binding->fingerprint_hash, $fingerprint)) {
-                return null;
-            }
+            if (!$binding || !hash_equals((string) $binding->fingerprint_hash, $fingerprint)) return null;
 
             $newRefreshToken = Str::random(64);
             $newAccessToken = AuthJWTController::generateJwt([
@@ -70,10 +104,7 @@ class SecureAuthController extends Controller
                 'exp' => time() + (24 * 3600),
             ]);
 
-            $session->update([
-                'access_token' => $newAccessToken,
-                'refresh_token' => $newRefreshToken,
-            ]);
+            $session->update(['access_token' => $newAccessToken, 'refresh_token' => $newRefreshToken]);
 
             return [
                 'access_token' => $newAccessToken,
@@ -85,12 +116,7 @@ class SecureAuthController extends Controller
             ];
         });
 
-        if ($result === null) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid or expired refresh session.',
-            ], 401);
-        }
+        if ($result === null) return response()->json(['status' => 'error', 'message' => 'Invalid or expired refresh session.'], 401);
 
         return response()->json([
             'status' => 'success',
@@ -109,33 +135,19 @@ class SecureAuthController extends Controller
     public function logout(Request $request)
     {
         $accessToken = $request->bearerToken();
-        if (!$accessToken) {
-            return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
-        }
+        if (!$accessToken) return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
 
-        $session = AuthSession::query()
-            ->where('access_token', $accessToken)
-            ->where('is_revoked', false)
-            ->first();
-
-        if (!$session) {
-            return response()->json(['status' => 'success', 'message' => 'Session already ended.']);
-        }
+        $session = AuthSession::query()->where('access_token', $accessToken)->where('is_revoked', false)->first();
+        if (!$session) return response()->json(['status' => 'success', 'message' => 'Session already ended.']);
 
         $session->update(['is_revoked' => true]);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Logged out successfully.',
-        ]);
+        return response()->json(['status' => 'success', 'message' => 'Logged out successfully.']);
     }
 
     public function logoutAll(Request $request)
     {
         $user = $request->user() ?? $request->attributes->get('user');
-        if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'Authenticated user required.'], 401);
-        }
+        if (!$user) return response()->json(['status' => 'error', 'message' => 'Authenticated user required.'], 401);
 
         AuthSession::where('user_id', $user->id)->update(['is_revoked' => true]);
         return response()->json(['status' => 'success', 'message' => 'All active sessions have been revoked.']);

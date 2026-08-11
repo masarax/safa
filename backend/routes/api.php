@@ -35,6 +35,9 @@ Route::prefix('auth')->group(function () {
     Route::post('/refresh', [SecureAuthController::class, 'refresh'])
         ->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
 
+    Route::get('/session', [SecureAuthController::class, 'session'])
+        ->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:60,1']);
+
     Route::post('/logout', [SecureAuthController::class, 'logout'])
         ->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:20,1']);
 
@@ -51,8 +54,6 @@ Route::prefix('auth')->group(function () {
         AuditLogMiddleware::class,
         'throttle:60,1',
     ])->group(function () {
-        // User administration is intentionally isolated from business APIs.
-        // UserManagementController enforces SuperAdmin-only authorization.
         Route::get('/operators', [UserManagementController::class, 'index']);
         Route::post('/operators', [UserManagementController::class, 'store']);
         Route::put('/operators/{id}', [UserManagementController::class, 'update']);
