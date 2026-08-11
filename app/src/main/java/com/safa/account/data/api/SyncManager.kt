@@ -4,24 +4,22 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import com.safa.account.data.repository.AppRepository
+import com.safa.account.data.sync.SyncCoordinator
 import com.safa.account.data.sync.SyncWorkScheduler
 import com.safa.account.utils.SafaLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
  * Foreground/manual sync facade.
- * Background synchronization is owned by WorkManager so the app has one
- * persistent coordinator instead of competing 30-second loops.
+ * Background synchronization is owned by WorkManager and all reconciliation
+ * entry points share SyncCoordinator so upload/download pairs never interleave.
  */
 class SyncManager(private val repository: AppRepository, private val tokenManager: TokenManager) {
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
-    private val mutex = Mutex()
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var started = false
 
@@ -66,22 +64,26 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
         "Server Connected Successfully (${tokenManager.getBaseUrl()})"
     } }
 
-    /** Manual/foreground reconciliation. WorkManager remains the background coordinator. */
-    suspend fun syncAll(): Result<String> = mutex.withLock {
+    /** Manual/foreground reconciliation using the same gate as WorkManager. */
+    suspend fun syncAll(): Result<String> {
         _syncState.value = SyncState.Syncing
-        try {
+        val result = SyncCoordinator.run {
             repository.processOutbox().getOrThrow()
             repository.refreshAll().getOrThrow()
+        }
+        return if (result != null) {
             _syncState.value = SyncState.Idle
             Result.success("Local data synchronized")
-        } catch (e: Exception) {
-            _syncState.value = SyncState.Error(e.message ?: "Synchronization paused")
-            SafaLogger.error("SYNC_FAILED", e.message ?: "", e)
-            Result.failure(e)
+        } else {
+            val error = IllegalStateException("Another synchronization is active; retry shortly")
+            _syncState.value = SyncState.Error(error.message ?: "Synchronization paused")
+            SafaLogger.error("SYNC_GATE_TIMEOUT", error.message ?: "", error)
+            Result.failure(error)
         }
     }
 
-    suspend fun processOutbox(): Result<Int> = repository.processOutbox()
+    suspend fun processOutbox(): Result<Int> = SyncCoordinator.run { repository.processOutbox() }
+        ?: Result.failure(IllegalStateException("Another synchronization is active; retry shortly"))
 
     suspend fun executeGraphQl(query: String, variables: Map<String, Any?>? = null, operationName: String? = null) = runCatching {
         val r = getApiService().postGraphQl(com.safa.account.data.api.dto.GraphQlRequest(query, variables, operationName))
