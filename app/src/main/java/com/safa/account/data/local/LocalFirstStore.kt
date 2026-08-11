@@ -206,7 +206,7 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     fun resetStaleProcessing(timeoutMs: Long = PROCESSING_TIMEOUT_MS) {
         val cutoff = System.currentTimeMillis() - timeoutMs.coerceAtLeast(1_000L); val now = System.currentTimeMillis()
         writableDatabase.transaction {
-            rawQuery("SELECT id FROM outbox WHERE status=? AND updated_at<?", arrayOf(OUTBOX_PROCESSING, cutoff)).use { c ->
+            rawQuery("SELECT id FROM outbox WHERE status=? AND updated_at<?", arrayOf(OUTBOX_PROCESSING, cutoff.toString())).use { c ->
                 val ids = buildList { while (c.moveToNext()) add(c.getLong(0)) }
                 ids.forEach { id ->
                     rawQuery("SELECT deferred_operation,deferred_payload FROM outbox WHERE id=?", arrayOf(id.toString())).use { d ->
