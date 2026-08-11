@@ -56,8 +56,16 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     val operators by viewModel.operators.collectAsStateWithLifecycle()
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val tokenManager = viewModel.tokenManager
-    val hasLocalQuickUnlockSession = tokenManager?.hasValidLocalSessionForQuickUnlock() == true
-    val quickUnlockUserId = tokenManager?.getBiometricQuickUnlockUserId()
+
+    // Quick unlock is authorized by the account's biometric setting stored in
+    // the local operator record plus a complete encrypted resumable session.
+    // TokenManager's biometric flag is deliberately not required here because
+    // the Settings screen is the authoritative account-level switch.
+    val hasLocalQuickUnlockSession = tokenManager?.let {
+        !it.getAccessToken().isNullOrBlank() &&
+            !it.getRefreshToken().isNullOrBlank() &&
+            !it.getSessionToken().isNullOrBlank()
+    } == true
 
     var mobileInput by remember { mutableStateOf(tokenManager?.getLastMobile() ?: "") }
     var pinInput by remember { mutableStateOf("") }
@@ -149,19 +157,25 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                     )
                 }
 
-                // Quick unlock is available only with a valid local session and a locally cached operator.
-                val matchingOp = remember(mobileInput, operators, quickUnlockUserId) {
+                val matchingOp = remember(mobileInput, operators) {
                     operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
-                        ?: quickUnlockUserId?.let { id -> operators.find { it.id == id } }
                 }
                 val biometricOperator = matchingOp?.takeIf {
                     hasLocalQuickUnlockSession && it.isActive && it.isBiometricEnabled
                 }
+
                 if (biometricOperator != null) {
                     com.safa.account.ui.BiometricTriggerButton(
                         lang = currentLang,
                         autoLaunch = true,
-                        onSuccess = { viewModel.loginWithBiometric(biometricOperator) },
+                        onSuccess = {
+                            // BiometricPrompt proves possession of the device
+                            // biometric. The local operator flag proves this
+                            // account explicitly enabled quick unlock. The
+                            // encrypted access/refresh/session trio keeps the
+                            // unlock tied to the existing login session.
+                            viewModel.loginWithBiometric(biometricOperator)
+                        },
                         onError = { loginError = it }
                     )
                 }
