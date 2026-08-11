@@ -21,6 +21,7 @@ use App\Http\Middleware\RequireGraphQLPermission;
 use App\Http\Middleware\ResolveGraphQLAccountContext;
 use App\Http\Middleware\RequireSuperAdmin;
 use App\Http\Middleware\ValidateLogoUpload;
+use App\Http\Middleware\ValidateSyncDependencies;
 
 Route::prefix('auth')->group(function () {
     Route::get('/health', function () {
@@ -69,7 +70,7 @@ Route::middleware([
     'throttle:60,1',
 ])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
-    Route::post('/sync/up', [SyncController::class, 'syncUp']);
+    Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
     Route::get('/accounts', [AccountContextController::class, 'index']);
