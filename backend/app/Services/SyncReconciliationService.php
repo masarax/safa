@@ -9,13 +9,6 @@ use Illuminate\Support\Facades\DB;
 
 class SyncReconciliationService
 {
-    /**
-     * Apply one local-first mutation using optimistic concurrency and idempotency.
-     *
-     * The server owns the authoritative revision. A client may update a row only
-     * when its base_version still matches the current server revision. Re-delivery
-     * of the same mutation_id is always idempotent.
-     */
     public function apply(
         int $accountId,
         string $entity,
@@ -34,28 +27,14 @@ class SyncReconciliationService
             ? $this->positiveIntOrNull($sync['base_version'])
             : $this->positiveIntOrNull($payload['base_version'] ?? null);
 
-        if ($localId <= 0) {
-            return $this->rejected($entity, $localId, 'Missing local_id', 'VALIDATION');
-        }
+        if ($localId <= 0) return $this->rejected($entity, $localId, 'Missing local_id', 'VALIDATION');
 
         if ($validate) {
             $validationError = $validate($payload);
-            if ($validationError) {
-                return $this->rejected($entity, $localId, $validationError, 'VALIDATION', $mutationId);
-            }
+            if ($validationError) return $this->rejected($entity, $localId, $validationError, 'VALIDATION', $mutationId);
         }
 
-        return DB::transaction(function () use (
-            $accountId,
-            $entity,
-            $modelClass,
-            $payload,
-            $attributes,
-            $operation,
-            $mutationId,
-            $baseVersion,
-            $localId,
-        ) {
+        return DB::transaction(function () use ($accountId, $entity, $modelClass, $payload, $attributes, $operation, $mutationId, $baseVersion, $localId) {
             $previousMutation = SyncMutation::where('account_id', $accountId)
                 ->where('mutation_id', $mutationId)
                 ->lockForUpdate()
@@ -69,35 +48,26 @@ class SyncReconciliationService
                     'mutation_id' => $mutationId,
                 ];
                 $response['idempotent'] = true;
-                return [
-                    'status' => 'accepted',
-                    'accepted' => $response,
-                ];
+                return ['status' => 'accepted', 'accepted' => $response];
             }
 
             /** @var Model $queryModel */
             $queryModel = new $modelClass();
             $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($queryModel), true);
             $query = $usesSoftDeletes ? $modelClass::withTrashed() : $modelClass::query();
-            $record = $query
-                ->where('account_id', $accountId)
-                ->where('local_id', $localId)
-                ->lockForUpdate()
-                ->first();
-
+            $record = $query->where('account_id', $accountId)->where('local_id', $localId)->lockForUpdate()->first();
             $incomingTimestamp = $this->normalizeTimestamp($payload['timestamp'] ?? null);
 
             if ($record) {
                 $currentVersion = (int) ($record->sync_version ?? 0);
-
-                // New clients use strict optimistic concurrency. Legacy clients
-                // without _sync.base_version retain the previous timestamp policy.
                 if ($baseVersion !== null && $baseVersion !== $currentVersion) {
                     return $this->conflict($entity, $localId, $record, $mutationId, $currentVersion, $operation);
                 }
-
                 if ($baseVersion === null && isset($payload['timestamp']) && (int) ($record->timestamp ?? 0) > (int) $incomingTimestamp) {
-                    return $this->conflict($entity, $localId, $record, $mutationId, $currentVersion, $operation, 'STALE_TIMESTAMP');
+                    // Legacy clients do not understand the conflict envelope yet.
+                    // Preserve their acknowledgement contract while never changing
+                    // the authoritative server row.
+                    return $this->legacyStaleAck($entity, $localId, $record, $mutationId, $operation);
                 }
             } elseif ($baseVersion !== null && $baseVersion > 0) {
                 return $this->rejected($entity, $localId, 'Referenced server version does not exist', 'STALE_BASE_VERSION', $mutationId);
@@ -106,15 +76,9 @@ class SyncReconciliationService
             $record ??= new $modelClass();
             $record->account_id = $accountId;
             $record->local_id = $localId;
-
             $data = $attributes($payload, $accountId, $record);
-            if ($data instanceof \Throwable) {
-                return $this->rejected($entity, $localId, $data->getMessage(), 'DEPENDENCY', $mutationId);
-            }
-
-            foreach ($data as $key => $value) {
-                $record->{$key} = $value;
-            }
+            if ($data instanceof \Throwable) return $this->rejected($entity, $localId, $data->getMessage(), 'DEPENDENCY', $mutationId);
+            foreach ($data as $key => $value) $record->{$key} = $value;
 
             $record->timestamp = $incomingTimestamp;
             $nextVersion = (int) ($record->sync_version ?? 0) + 1;
@@ -149,14 +113,27 @@ class SyncReconciliationService
                 'response' => $accepted,
             ]);
 
-            return [
-                'status' => 'accepted',
-                'accepted' => $accepted,
-            ];
+            return ['status' => 'accepted', 'accepted' => $accepted];
         });
     }
 
-    private function conflict(string $entity, int $localId, Model $record, string $mutationId, int $version, string $operation, string $reason = 'STALE_BASE_VERSION'): array
+    private function legacyStaleAck(string $entity, int $localId, Model $record, string $mutationId, string $operation): array
+    {
+        return [
+            'status' => 'accepted',
+            'accepted' => [
+                'local_id' => $localId,
+                'server_id' => (int) $record->id,
+                'sync_version' => (int) ($record->sync_version ?? 0),
+                'mutation_id' => $mutationId,
+                'operation' => $operation,
+                'stale' => true,
+                'server_authoritative' => true,
+            ],
+        ];
+    }
+
+    private function conflict(string $entity, int $localId, Model $record, string $mutationId, int $version, string $operation): array
     {
         return [
             'status' => 'conflict',
@@ -164,7 +141,7 @@ class SyncReconciliationService
                 'entity' => $entity,
                 'local_id' => $localId,
                 'server_id' => (int) $record->id,
-                'reason' => $reason,
+                'reason' => 'STALE_BASE_VERSION',
                 'mutation_id' => $mutationId,
                 'operation' => $operation,
                 'server_version' => $version,
@@ -175,16 +152,9 @@ class SyncReconciliationService
 
     private function rejected(string $entity, int $localId, string $reason, string $code, ?string $mutationId = null): array
     {
-        return [
-            'status' => 'rejected',
-            'rejected' => [
-                'entity' => $entity,
-                'local_id' => $localId,
-                'reason' => $reason,
-                'code' => $code,
-                'mutation_id' => $mutationId,
-            ],
-        ];
+        return ['status' => 'rejected', 'rejected' => [
+            'entity' => $entity, 'local_id' => $localId, 'reason' => $reason, 'code' => $code, 'mutation_id' => $mutationId,
+        ]];
     }
 
     private function isDeleted(array $payload): bool
