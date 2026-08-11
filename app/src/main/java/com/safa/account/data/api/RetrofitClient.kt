@@ -2,6 +2,7 @@ package com.safa.account.data.api
 
 import com.safa.account.BuildConfig
 import com.safa.account.data.network.ApiSecurityInterceptor
+import com.safa.account.data.network.LocalFirstSyncInterceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -26,16 +27,14 @@ object RetrofitClient {
         val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         val configKey = "$normalizedUrl\u0000$apiKey\u0000$apiSecret"
         val current = instance
-        if (current != null && instanceConfig == configKey) {
-            return current
-        }
+        if (current != null && instanceConfig == configKey) return current
+
         return synchronized(this) {
             val currentInSync = instance
             if (currentInSync != null && instanceConfig == configKey) {
                 currentInSync
             } else {
                 val logging = HttpLoggingInterceptor().apply {
-                    // Never log credentials, HMAC signatures or bearer/session tokens.
                     level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
                     redactHeader("Authorization")
                     redactHeader("X-SAFA-API-KEY")
@@ -46,7 +45,13 @@ object RetrofitClient {
                     redactHeader("X-SAFA-FINGERPRINT-TOKEN")
                 }
                 val security = ApiSecurityInterceptor(apiKey, apiSecret, tokenManager)
-                val client = OkHttpClient.Builder()
+                val clientBuilder = OkHttpClient.Builder()
+                tokenManager?.getContext()?.let { context ->
+                    // Must run before ApiSecurityInterceptor so the HMAC is
+                    // calculated over the final mutation envelope/body.
+                    clientBuilder.addInterceptor(LocalFirstSyncInterceptor(context))
+                }
+                val client = clientBuilder
                     .addInterceptor(security)
                     .addInterceptor(logging)
                     .connectTimeout(30, TimeUnit.SECONDS)
@@ -66,17 +71,10 @@ object RetrofitClient {
         }
     }
 
-    /**
-     * Returns a deliberately unauthenticated Retrofit client for liveness checks.
-     * It does not install ApiSecurityInterceptor and therefore cannot depend on
-     * API credentials, database key records, JWTs, or session state.
-     */
     fun getHealthApiService(baseUrl: String): ApiService {
         val healthBaseUrl = healthBaseUrl(baseUrl)
         val current = healthInstance
-        if (current != null && healthInstanceConfig == healthBaseUrl) {
-            return current.create(ApiService::class.java)
-        }
+        if (current != null && healthInstanceConfig == healthBaseUrl) return current.create(ApiService::class.java)
 
         return synchronized(this) {
             val currentInSync = healthInstance
@@ -110,7 +108,6 @@ object RetrofitClient {
             val authority = uri.rawAuthority ?: throw IllegalArgumentException("Invalid base URL")
             "$scheme://$authority/"
         } catch (_: Exception) {
-            // Production default is intentionally stable and contains no secrets.
             "https://safa.masarax.com/"
         }
     }
@@ -120,9 +117,7 @@ object RetrofitClient {
         apiKey: String,
         apiSecret: String,
         tokenManager: TokenManager? = null
-    ): ApiService {
-        return getInstance(baseUrl, apiKey, apiSecret, tokenManager).create(ApiService::class.java)
-    }
+    ): ApiService = getInstance(baseUrl, apiKey, apiSecret, tokenManager).create(ApiService::class.java)
 
     fun clearCache() {
         instance = null
