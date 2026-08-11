@@ -61,18 +61,10 @@ class ApiSecurityInterceptor(
                     )
                 } else if (response.code == 401) {
                     // A 401 means the authenticated session could not be
-                    // recovered. A 403 is authorization/permission failure and
-                    // must never destroy a valid local session.
-                    response.close()
+                    // recovered. Preserve that response for the caller while
+                    // clearing local credentials. A 403 is authorization/
+                    // permission failure and must never destroy a valid session.
                     tokenManager.clearAllTokens()
-                    response = chain.proceed(
-                        buildSecuredRequest(
-                            originalRequest.newBuilder()
-                                .header("X-SAFA-RETRY", "true")
-                                .build(),
-                            includeAuthTokens = false
-                        )
-                    )
                 }
             }
         }
