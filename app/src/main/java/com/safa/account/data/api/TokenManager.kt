@@ -75,6 +75,8 @@ class TokenManager(private val context: Context) {
     fun clearToken() = clearAllTokens()
     fun saveRefreshToken(token: String?) = prefs.edit { putString(KEY_REFRESH_TOKEN, token) }
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
+
+    /** Stable device identity. It intentionally survives logout so the server can keep one device binding. */
     fun saveDeviceToken(token: String?) = prefs.edit { putString(KEY_DEVICE_TOKEN, token) }
     fun getDeviceToken(): String {
         var token = prefs.getString(KEY_DEVICE_TOKEN, null)
@@ -84,6 +86,7 @@ class TokenManager(private val context: Context) {
         }
         return token
     }
+
     fun saveSessionToken(token: String?) = prefs.edit { putString(KEY_SESSION_TOKEN, token) }
     fun getSessionToken(): String? = prefs.getString(KEY_SESSION_TOKEN, null)
     fun saveFingerprintToken(token: String?) = prefs.edit { putString(KEY_FINGERPRINT_TOKEN, token) }
@@ -95,19 +98,23 @@ class TokenManager(private val context: Context) {
         }
         return token
     }
+
     fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) = prefs.edit {
         putString(KEY_ACCESS_TOKEN, accessToken)
         putString(KEY_REFRESH_TOKEN, refreshToken)
-        putString(KEY_DEVICE_TOKEN, deviceToken)
+        if (!deviceToken.isNullOrBlank()) putString(KEY_DEVICE_TOKEN, deviceToken)
         putString(KEY_SESSION_TOKEN, sessionToken)
-        putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
+        if (!fingerprintToken.isNullOrBlank()) putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
     }
+
+    /**
+     * Clears all authentication material and quick-unlock authorization while
+     * deliberately retaining stable device identity for future logins.
+     */
     fun clearAllTokens() = prefs.edit {
         remove(KEY_ACCESS_TOKEN)
         remove(KEY_REFRESH_TOKEN)
-        remove(KEY_DEVICE_TOKEN)
         remove(KEY_SESSION_TOKEN)
-        remove(KEY_FINGERPRINT_TOKEN)
         remove(KEY_ACTIVE_ACCOUNT_ID)
         remove(KEY_BIOMETRIC_ENABLED)
         remove(KEY_BIOMETRIC_USER_ID)
@@ -119,19 +126,25 @@ class TokenManager(private val context: Context) {
         putInt(KEY_BIOMETRIC_USER_ID, userId)
         putString(KEY_BIOMETRIC_MOBILE, mobile.trim())
     }
+
     fun disableBiometricQuickUnlock() = prefs.edit {
         remove(KEY_BIOMETRIC_ENABLED)
         remove(KEY_BIOMETRIC_USER_ID)
         remove(KEY_BIOMETRIC_MOBILE)
     }
+
     fun isBiometricQuickUnlockEnabled(): Boolean = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
     fun getBiometricQuickUnlockUserId(): Int? = prefs.getInt(KEY_BIOMETRIC_USER_ID, 0).takeIf { it > 0 }
     fun getBiometricQuickUnlockMobile(): String = prefs.getString(KEY_BIOMETRIC_MOBILE, "") ?: ""
+
+    /** A quick unlock must have a complete resumable server session, not only an access token. */
     fun hasValidLocalSessionForQuickUnlock(): Boolean =
         isBiometricQuickUnlockEnabled() &&
             !getAccessToken().isNullOrBlank() &&
+            !getRefreshToken().isNullOrBlank() &&
             !getSessionToken().isNullOrBlank() &&
-            getBiometricQuickUnlockUserId() != null
+            getBiometricQuickUnlockUserId() != null &&
+            getBiometricQuickUnlockMobile().isNotBlank()
 
     fun saveActiveAccountId(accountId: Int?) = prefs.edit {
         if (accountId == null || accountId <= 0) remove(KEY_ACTIVE_ACCOUNT_ID) else putInt(KEY_ACTIVE_ACCOUNT_ID, accountId)
