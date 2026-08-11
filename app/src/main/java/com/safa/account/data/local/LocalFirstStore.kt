@@ -9,6 +9,7 @@ import com.safa.account.data.network.DeviceSecurityHelper
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -18,7 +19,7 @@ import org.json.JSONObject
 /** Encrypted local database metadata + durable crash-safe outbox. */
 class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "safa_local.db", null, VERSION) {
     companion object {
-        private const val VERSION = 5
+        private const val VERSION = 6
         private const val MAX_RETRIES = 5
         private const val PROCESSING_TIMEOUT_MS = 2 * 60 * 1000L
         const val PENDING = 0
@@ -32,12 +33,14 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     private val appContext = context.applicationContext
 
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE records (entity TEXT NOT NULL, local_id INTEGER NOT NULL, server_id INTEGER NOT NULL DEFAULT 0, payload BLOB NOT NULL, sync_status INTEGER NOT NULL DEFAULT 0, retry_count INTEGER NOT NULL DEFAULT 0, last_error TEXT, updated_at INTEGER NOT NULL, PRIMARY KEY(entity, local_id))")
+        db.execSQL("CREATE TABLE records (entity TEXT NOT NULL, local_id INTEGER NOT NULL, server_id INTEGER NOT NULL DEFAULT 0, payload BLOB NOT NULL, sync_status INTEGER NOT NULL DEFAULT 0, sync_version INTEGER NOT NULL DEFAULT 0, last_mutation_id TEXT, retry_count INTEGER NOT NULL DEFAULT 0, last_error TEXT, updated_at INTEGER NOT NULL, PRIMARY KEY(entity, local_id))")
         db.execSQL("CREATE TABLE outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, entity TEXT NOT NULL, local_id INTEGER NOT NULL, server_id INTEGER NOT NULL DEFAULT 0, operation TEXT NOT NULL, payload BLOB NOT NULL, status TEXT NOT NULL DEFAULT 'PENDING', retry_count INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NOT NULL DEFAULT 0, last_error TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deferred_operation TEXT, deferred_payload BLOB, UNIQUE(entity, local_id))")
+        db.execSQL("CREATE TABLE server_versions (entity TEXT NOT NULL, local_id INTEGER NOT NULL, server_id INTEGER NOT NULL DEFAULT 0, sync_version INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY(entity, local_id))")
         db.execSQL("CREATE INDEX idx_records_sync ON records(sync_status, retry_count, updated_at)")
         db.execSQL("CREATE INDEX idx_records_server ON records(entity, server_id)")
         db.execSQL("CREATE INDEX idx_outbox_ready ON outbox(status, next_attempt_at, id)")
         db.execSQL("CREATE INDEX idx_outbox_processing ON outbox(status, updated_at)")
+        db.execSQL("CREATE INDEX idx_server_versions_server ON server_versions(entity, server_id)")
         db.execSQL("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         val seed = deviceSeed()
         putMeta(db, "device_seed", seed.toString())
@@ -55,6 +58,12 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         if (oldVersion < 5) {
             db.execSQL("ALTER TABLE outbox ADD COLUMN deferred_operation TEXT")
             db.execSQL("ALTER TABLE outbox ADD COLUMN deferred_payload BLOB")
+        }
+        if (oldVersion < 6) {
+            try { db.execSQL("ALTER TABLE records ADD COLUMN sync_version INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) { }
+            try { db.execSQL("ALTER TABLE records ADD COLUMN last_mutation_id TEXT") } catch (_: Exception) { }
+            db.execSQL("CREATE TABLE IF NOT EXISTS server_versions (entity TEXT NOT NULL, local_id INTEGER NOT NULL, server_id INTEGER NOT NULL DEFAULT 0, sync_version INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY(entity, local_id))")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_server_versions_server ON server_versions(entity, server_id)")
         }
     }
 
@@ -82,16 +91,24 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
                 }
             }
             val now = System.currentTimeMillis()
+            val payloadObject = runCatching { JSONObject(payload) }.getOrNull()
+            val payloadVersion = payloadObject?.optLong("sync_version", -1L)?.takeIf { it >= 0L }
+            val knownVersion = payloadVersion ?: serverVersionInternal(this, entity, effectiveLocalId)
             val values = ContentValues().apply {
                 put("entity", entity); put("local_id", effectiveLocalId); put("server_id", serverId)
                 put("payload", PayloadCipher.encrypt(payload)); put("sync_status", syncStatus)
+                put("sync_version", knownVersion); put("last_mutation_id", payloadObject?.optJSONObject("_sync")?.optString("mutation_id")?.takeIf { it.isNotBlank() })
                 put("retry_count", retryCount); put("last_error", error); put("updated_at", now)
             }
             insertWithOnConflict("records", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            if (serverId > 0) {
+                recordServerVersionInternal(this, entity, effectiveLocalId, serverId, knownVersion, now)
+            }
             if (syncStatus != SYNCED) {
+                val recoveryPayload = ensureMutationEnvelope(entity, effectiveLocalId, serverId, "RECOVER", payload, knownVersion)
                 val outbox = ContentValues().apply {
                     put("entity", entity); put("local_id", effectiveLocalId); put("server_id", serverId)
-                    put("operation", "RECOVER"); put("payload", PayloadCipher.encrypt(payload)); put("status", OUTBOX_PENDING)
+                    put("operation", "RECOVER"); put("payload", PayloadCipher.encrypt(recoveryPayload)); put("status", OUTBOX_PENDING)
                     put("retry_count", 0); put("next_attempt_at", 0L); putNull("last_error")
                     put("created_at", now); put("updated_at", now)
                 }
@@ -100,30 +117,29 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         }
     }
 
-    fun enqueue(entity: String, localId: Int, serverId: Int, operation: String, payload: String) {
-        val now = System.currentTimeMillis()
-        val encryptedPayload = PayloadCipher.encrypt(payload)
-        writableDatabase.transaction {
-            var processing = false
-            rawQuery("SELECT id,status FROM outbox WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { c ->
-                if (c.moveToFirst() && c.getString(1) == OUTBOX_PROCESSING) {
-                    processing = true
-                    execSQL("UPDATE outbox SET server_id=?, deferred_operation=?, deferred_payload=?, updated_at=? WHERE id=?", arrayOf<Any?>(serverId, operation, encryptedPayload, now, c.getLong(0)))
-                }
+    /** Makes a mutation envelope durable before the HTTP request is sent. */
+    fun prepareOutboxPayload(outboxId: Long): String? = writableDatabase.transactionResult {
+        rawQuery("SELECT entity,local_id,server_id,operation,payload FROM outbox WHERE id=? LIMIT 1", arrayOf(outboxId.toString())).use { c ->
+            if (!c.moveToFirst()) return@transactionResult null
+            val entity = c.getString(0)
+            val localId = c.getInt(1)
+            val serverId = c.getInt(2)
+            val operation = c.getString(3)
+            val current = PayloadCipher.decrypt(c.getBlob(4))
+            val envelope = ensureMutationEnvelope(entity, localId, serverId, operation, current, serverVersionInternal(this, entity, localId))
+            if (envelope != current) {
+                execSQL("UPDATE outbox SET payload=?, updated_at=? WHERE id=?", arrayOf<Any?>(PayloadCipher.encrypt(envelope), System.currentTimeMillis(), outboxId))
             }
-            if (!processing) {
-                val values = ContentValues().apply {
-                    put("entity", entity); put("local_id", localId); put("server_id", serverId); put("operation", operation)
-                    put("payload", encryptedPayload); put("status", OUTBOX_PENDING); put("retry_count", 0); put("next_attempt_at", 0L)
-                    putNull("last_error"); put("created_at", now); put("updated_at", now); putNull("deferred_operation"); putNull("deferred_payload")
-                }
-                insertWithOnConflict("outbox", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-            }
+            envelope
         }
     }
 
-    fun hasPending(entity: String, localId: Int): Boolean = readableDatabase.rawQuery("SELECT 1 FROM records WHERE entity=? AND local_id=? AND sync_status!=? LIMIT 1", arrayOf(entity, localId.toString(), SYNCED.toString())).use { it.moveToFirst() }
-    fun findLocalIdByServerId(entity: String, serverId: Int): Int? = readableDatabase.rawQuery("SELECT local_id FROM records WHERE entity=? AND server_id=? LIMIT 1", arrayOf(entity, serverId.toString())).use { if (it.moveToFirst()) it.getInt(0) else null }
+    fun recordServerVersion(entity: String, localId: Int, serverId: Int, syncVersion: Int) {
+        writableDatabase.transaction {
+            recordServerVersionInternal(this, entity, localId, serverId, syncVersion.toLong(), System.currentTimeMillis())
+            execSQL("UPDATE records SET server_id=?, sync_version=? WHERE entity=? AND local_id=? AND sync_status=?", arrayOf<Any?>(serverId, syncVersion, entity, localId, SYNCED))
+        }
+    }
 
     fun retry(entity: String, localId: Int) {
         val now = System.currentTimeMillis()
@@ -133,19 +149,53 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         }
     }
 
-    fun markSynced(entity: String, localId: Int, serverId: Int) {
+    fun markSynced(entity: String, localId: Int, serverId: Int, serverVersion: Int = -1) {
         writableDatabase.transaction {
             val now = System.currentTimeMillis()
-            execSQL("UPDATE records SET server_id=?, sync_status=?, retry_count=0, last_error=NULL, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, SYNCED, now, entity, localId))
+            val effectiveVersion = if (serverVersion >= 0) serverVersion else serverVersionInternal(this, entity, localId)
+            recordServerVersionInternal(this, entity, localId, serverId, effectiveVersion.toLong(), now)
+            var hasDeferred = false
             rawQuery("SELECT id,deferred_operation,deferred_payload FROM outbox WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { c ->
                 if (c.moveToFirst()) {
                     val id = c.getLong(0); val deferredOperation = c.getString(1); val deferredPayload = c.getBlob(2)
                     if (!deferredOperation.isNullOrBlank() && deferredPayload != null) {
+                        hasDeferred = true
                         execSQL("UPDATE outbox SET server_id=?, operation=?, payload=?, status=?, retry_count=0, next_attempt_at=0, last_error=NULL, deferred_operation=NULL, deferred_payload=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(serverId, deferredOperation, deferredPayload, OUTBOX_PENDING, now, id))
-                        execSQL("UPDATE records SET server_id=?, sync_status=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, PENDING, now, entity, localId))
+                        execSQL("UPDATE records SET server_id=?, sync_version=?, sync_status=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, effectiveVersion, PENDING, now, entity, localId))
                     } else delete("outbox", "id=?", arrayOf(id.toString()))
                 }
             }
+            if (!hasDeferred) {
+                rawQuery("SELECT payload FROM records WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { c ->
+                    if (c.moveToFirst()) {
+                        val updatedPayload = applyServerMetadata(PayloadCipher.decrypt(c.getBlob(0)), serverId, effectiveVersion)
+                        execSQL("UPDATE records SET server_id=?, sync_version=?, sync_status=?, retry_count=0, last_error=NULL, last_mutation_id=NULL, payload=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, effectiveVersion, SYNCED, PayloadCipher.encrypt(updatedPayload), now, entity, localId))
+                    }
+                }
+            }
+        }
+    }
+
+    /** Rebase the current local mutation on the authoritative server version. */
+    fun rebaseProcessingOutbox(outboxId: Long, serverId: Int, serverVersion: Int, serverSnapshot: String?): Boolean = writableDatabase.transactionResult {
+        rawQuery("SELECT entity,local_id,operation,payload FROM outbox WHERE id=? AND status=? LIMIT 1", arrayOf(outboxId.toString(), OUTBOX_PROCESSING)).use { c ->
+            if (!c.moveToFirst()) return@transactionResult false
+            val entity = c.getString(0); val localId = c.getInt(1); val operation = c.getString(2)
+            val localPayload = PayloadCipher.decrypt(c.getBlob(3))
+            val rebased = runCatching { JSONObject(localPayload) }.getOrElse { JSONObject() }.apply {
+                put("server_id", serverId)
+                put("sync_version", serverVersion)
+                put("_sync", JSONObject().apply {
+                    put("mutation_id", UUID.randomUUID().toString())
+                    put("base_version", serverVersion)
+                    put("operation", operation.uppercase())
+                })
+            }.toString()
+            val now = System.currentTimeMillis()
+            recordServerVersionInternal(this, entity, localId, serverId, serverVersion.toLong(), now)
+            execSQL("UPDATE records SET server_id=?, sync_version=?, sync_status=?, last_error=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, serverVersion, PENDING, "Rebased after server conflict", now, entity, localId))
+            execSQL("UPDATE outbox SET server_id=?, deferred_operation=?, deferred_payload=?, last_error=?, updated_at=? WHERE id=?", arrayOf<Any?>(serverId, operation, PayloadCipher.encrypt(rebased), "Rebased after server conflict", now, outboxId))
+            true
         }
     }
 
@@ -184,21 +234,9 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     }
 
     fun retryCount(entity: String, localId: Int): Int = readableDatabase.rawQuery("SELECT retry_count FROM records WHERE entity=? AND local_id=?", arrayOf(entity, localId.toString())).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+    fun serverVersion(entity: String, localId: Int): Int = readableDatabase.rawQuery("SELECT sync_version FROM server_versions WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { if (it.moveToFirst()) it.getInt(0) else 0 }
     fun getRecordPayloads(entity: String): List<StoredRecord> = readableDatabase.rawQuery("SELECT entity,local_id,server_id,payload,sync_status,retry_count,last_error FROM records WHERE entity=? ORDER BY local_id", arrayOf(entity)).use { c -> buildList { while (c.moveToNext()) add(StoredRecord(c.getString(0), c.getInt(1), c.getInt(2), PayloadCipher.decrypt(c.getBlob(3)), c.getInt(4), c.getInt(5), c.getString(6))) } }
 
-    /**
-     * Returns only dependency-ready work and claims it atomically.
-     *
-     * Dependency graph:
-     * Customer -> Transaction
-     * Supplier -> SupplierDeposit -> WalletBatch -> Transaction
-     * WalletLedger -> WalletBatch
-     *
-     * The server contract uses LOCAL IDs for relationships. Therefore the
-     * client must not send a child until its parent is already synced locally,
-     * or the parent mutation is included in the same request. This prevents
-     * 429 SYNC_DEPENDENCY_PENDING loops and makes batching deterministic.
-     */
     fun getReadyOutbox(limit: Int = 50): List<OutboxRecord> {
         resetStaleProcessing()
         return writableDatabase.transactionResult {
@@ -222,10 +260,6 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
 
             val candidateKeys = candidates.associateBy { it.entity to it.localId }
             val selected = mutableListOf<OutboxRecord>()
-
-            // Iterate until no additional dependency-ready item can be added.
-            // This allows a Customer -> Transaction chain in the same batch to
-            // become eligible without requiring an extra network round-trip.
             var changed = true
             while (changed && selected.size < limit.coerceIn(1, 100)) {
                 changed = false
@@ -237,14 +271,8 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
                     if (selected.size >= limit.coerceIn(1, 100)) break
                 }
             }
-
-            // Claim only the selected rows. Blocked children remain PENDING and
-            // will be reconsidered after their parent succeeds.
             selected.forEach { row ->
-                execSQL(
-                    "UPDATE outbox SET status=?, updated_at=? WHERE id=? AND status=?",
-                    arrayOf<Any?>(OUTBOX_PROCESSING, now, row.id, OUTBOX_PENDING)
-                )
+                execSQL("UPDATE outbox SET status=?, updated_at=? WHERE id=? AND status=?", arrayOf<Any?>(OUTBOX_PROCESSING, now, row.id, OUTBOX_PENDING))
             }
             selected
         }
@@ -254,34 +282,15 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         val payload = runCatching { JSONObject(row.payload) }.getOrNull() ?: return true
         val dependencies = when (row.entity) {
             "supplier_deposits" -> listOf("suppliers" to payload.optInt("supplier_id", 0))
-            "wallet_batches" -> listOf(
-                "wallet_ledgers" to payload.optInt("ledger_id", 0),
-                "suppliers" to payload.optInt("supplier_id", 0),
-                "supplier_deposits" to payload.optInt("supplier_deposit_id", 0)
-            )
-            "transactions" -> listOf(
-                "customers" to payload.optInt("customer_id", 0),
-                "suppliers" to payload.optInt("supplier_id", 0),
-                "wallet_batches" to payload.optInt("wallet_batch_id", 0)
-            )
+            "wallet_batches" -> listOf("wallet_ledgers" to payload.optInt("ledger_id", 0), "suppliers" to payload.optInt("supplier_id", 0), "supplier_deposits" to payload.optInt("supplier_deposit_id", 0))
+            "transactions" -> listOf("customers" to payload.optInt("customer_id", 0), "suppliers" to payload.optInt("supplier_id", 0), "wallet_batches" to payload.optInt("wallet_batch_id", 0))
             else -> emptyList()
         }.filter { it.second > 0 }
-
         for ((parentEntity, parentLocalId) in dependencies) {
-            val synced = readableDatabase.rawQuery(
-                "SELECT sync_status FROM records WHERE entity=? AND local_id=? LIMIT 1",
-                arrayOf(parentEntity, parentLocalId.toString())
-            ).use { c -> c.moveToFirst() && c.getInt(0) == SYNCED }
+            val synced = readableDatabase.rawQuery("SELECT sync_status FROM records WHERE entity=? AND local_id=? LIMIT 1", arrayOf(parentEntity, parentLocalId.toString())).use { c -> c.moveToFirst() && c.getInt(0) == SYNCED }
             if (synced) continue
-
-            val parent = candidates[parentEntity to parentLocalId]
-            if (parent == null) return false
-
-            val parentSelected = selected.any { it.entity == parentEntity && it.localId == parentLocalId }
-            if (!parentSelected) return false
-
-            // A parent DELETE may satisfy a child DELETE in the same request,
-            // but it must never satisfy a create/update child.
+            val parent = candidates[parentEntity to parentLocalId] ?: return false
+            if (!selected.any { it.entity == parentEntity && it.localId == parentLocalId }) return false
             if (parent.operation.equals("DELETE", ignoreCase = true) && !row.operation.equals("DELETE", ignoreCase = true)) return false
         }
         return true
@@ -335,9 +344,39 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     }
 
     fun outboxCount(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM outbox WHERE status IN (?,?)", arrayOf(OUTBOX_PENDING, OUTBOX_FAILED)).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-    fun clearEntity(entity: String) { writableDatabase.transaction { delete("records", "entity=?", arrayOf(entity)); delete("outbox", "entity=?", arrayOf(entity)) } }
+    fun clearEntity(entity: String) { writableDatabase.transaction { delete("records", "entity=?", arrayOf(entity)); delete("outbox", "entity=?", arrayOf(entity)); delete("server_versions", "entity=?", arrayOf(entity)) } }
     private fun putMeta(db: SQLiteDatabase, key: String, value: String) { db.insertWithOnConflict("meta", null, ContentValues().apply { put("key", key); put("value", value) }, SQLiteDatabase.CONFLICT_REPLACE) }
     private fun getMeta(db: SQLiteDatabase, key: String): String? = db.rawQuery("SELECT value FROM meta WHERE key=?", arrayOf(key)).use { if (it.moveToFirst()) it.getString(0) else null }
+
+    private fun ensureMutationEnvelope(entity: String, localId: Int, serverId: Int, operation: String, payload: String, baseVersion: Int): String {
+        val objectPayload = runCatching { JSONObject(payload) }.getOrElse { JSONObject() }
+        val existing = objectPayload.optJSONObject("_sync")
+        if (existing != null && existing.optString("mutation_id").isNotBlank()) return objectPayload.toString()
+        objectPayload.put("server_id", serverId)
+        objectPayload.put("sync_version", baseVersion)
+        objectPayload.put("_sync", JSONObject().apply {
+            put("mutation_id", UUID.randomUUID().toString())
+            put("base_version", if (serverId > 0) baseVersion else 0)
+            put("operation", operation.uppercase())
+        })
+        return objectPayload.toString()
+    }
+
+    private fun applyServerMetadata(payload: String, serverId: Int, syncVersion: Int): String {
+        val objectPayload = runCatching { JSONObject(payload) }.getOrElse { JSONObject() }
+        objectPayload.put("server_id", serverId)
+        objectPayload.put("sync_version", syncVersion)
+        objectPayload.remove("_sync")
+        return objectPayload.toString()
+    }
+
+    private fun recordServerVersionInternal(db: SQLiteDatabase, entity: String, localId: Int, serverId: Int, syncVersion: Long, now: Long) {
+        db.insertWithOnConflict("server_versions", null, ContentValues().apply {
+            put("entity", entity); put("local_id", localId); put("server_id", serverId); put("sync_version", syncVersion); put("updated_at", now)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    private fun serverVersionInternal(db: SQLiteDatabase, entity: String, localId: Int): Long = db.rawQuery("SELECT sync_version FROM server_versions WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { if (it.moveToFirst()) it.getLong(0) else 0L }
 
     private inline fun <T> SQLiteDatabase.transaction(block: SQLiteDatabase.() -> T): T { beginTransaction(); return try { val result = block(); setTransactionSuccessful(); result } finally { endTransaction() } }
     private inline fun <T> SQLiteDatabase.transactionResult(block: SQLiteDatabase.() -> T): T = transaction(block)
