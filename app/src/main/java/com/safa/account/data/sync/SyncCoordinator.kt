@@ -13,7 +13,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * cannot interleave inside the same app process.
  */
 object SyncCoordinator {
-    private const val LOCK_TIMEOUT_MS = 10_000L
+    // A foreground sync can legitimately be busy with a large outbox batch.
+    // Waiting only 10 seconds caused avoidable background retries on slower phones.
+    private const val LOCK_TIMEOUT_MS = 30_000L
     private val mutex = Mutex()
 
     suspend fun <T> run(block: suspend () -> T): T? =
