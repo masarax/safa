@@ -10,8 +10,11 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * Adds the public SAFA API client identifier and authenticated session headers.
- * Server-side secrets never ship in the Android APK.
+ * Adds public SAFA client identity and authenticated session headers.
+ * Server secrets never ship in the Android APK.
+ *
+ * Access-token refresh is serialized per TokenManager so concurrent 401s do
+ * not race each other and consume the same single-use refresh token twice.
  */
 class ApiSecurityInterceptor(
     private val apiKey: String,
@@ -20,32 +23,48 @@ class ApiSecurityInterceptor(
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
-        val isLoginRequest = originalRequest.url.encodedPath.endsWith("/auth/login")
-        var response = chain.proceed(buildSecuredRequest(originalRequest, includeAuthTokens = !isLoginRequest))
+        val path = originalRequest.url.encodedPath
+        val isLoginRequest = path.endsWith("/auth/login")
+        val isRefreshRequest = path.endsWith("/auth/refresh")
 
-        if (!isLoginRequest && response.code == 401 && tokenManager != null && originalRequest.header("X-SAFA-RETRY") != "true") {
-            val refreshToken = tokenManager.getRefreshToken()
-            if (!refreshToken.isNullOrBlank()) {
-                synchronized(this) {
-                    val currentAccessToken = tokenManager.getAccessToken()
-                    val requestAccessToken = originalRequest.header("Authorization")?.removePrefix("Bearer ")
-                    val newToken = if (!currentAccessToken.isNullOrBlank() && currentAccessToken != requestAccessToken) {
-                        currentAccessToken
-                    } else {
-                        performTokenRefresh(refreshToken)
-                    }
-                    if (!newToken.isNullOrBlank()) {
-                        response.close()
-                        response = chain.proceed(
-                            buildSecuredRequest(
-                                originalRequest.newBuilder().header("X-SAFA-RETRY", "true").build(),
-                                includeAuthTokens = true
-                            )
+        var response = chain.proceed(
+            buildSecuredRequest(originalRequest, includeAuthTokens = !isLoginRequest && !isRefreshRequest)
+        )
+
+        if (
+            !isLoginRequest &&
+            !isRefreshRequest &&
+            response.code == 401 &&
+            tokenManager != null &&
+            originalRequest.header("X-SAFA-RETRY") != "true"
+        ) {
+            synchronized(tokenManager) {
+                // Another request may have refreshed the token while this
+                // request was waiting for the lock. Reuse it when possible.
+                val requestAccessToken = originalRequest.header("Authorization")?.removePrefix("Bearer ")
+                val currentAccessToken = tokenManager.getAccessToken()
+                val newToken = if (!currentAccessToken.isNullOrBlank() && currentAccessToken != requestAccessToken) {
+                    currentAccessToken
+                } else {
+                    performTokenRefresh(tokenManager.getRefreshToken())
+                }
+
+                if (!newToken.isNullOrBlank()) {
+                    response.close()
+                    response = chain.proceed(
+                        buildSecuredRequest(
+                            originalRequest.newBuilder()
+                                .header("X-SAFA-RETRY", "true")
+                                .build(),
+                            includeAuthTokens = true
                         )
-                    }
+                    )
+                } else if (response.code == 401 || response.code == 403) {
+                    tokenManager.clearAllTokens()
                 }
             }
         }
+
         return response
     }
 
@@ -70,17 +89,26 @@ class ApiSecurityInterceptor(
         return builder.build()
     }
 
-    private fun performTokenRefresh(refreshToken: String): String? {
-        val baseUrl = tokenManager?.getBaseUrl() ?: return null
+    private fun performTokenRefresh(refreshToken: String?): String? {
+        val tm = tokenManager ?: return null
+        val token = refreshToken?.takeIf { it.isNotBlank() } ?: return null
+        val baseUrl = tm.getBaseUrl()
         val refreshUrl = if (baseUrl.endsWith("/")) "${baseUrl}auth/refresh" else "$baseUrl/auth/refresh"
-        val deviceToken = tokenManager.getDeviceToken()
-        val fingerprintToken = tokenManager.getFingerprintToken()
+        val deviceToken = tm.getDeviceToken()
+        val fingerprintToken = tm.getFingerprintToken()
+
         val request = Request.Builder()
             .url(refreshUrl)
-            .post(FormBody.Builder().add("refresh_token", refreshToken).add("device_token", deviceToken).build())
+            .post(
+                FormBody.Builder()
+                    .add("refresh_token", token)
+                    .add("device_token", deviceToken)
+                    .add("fingerprint_token", fingerprintToken)
+                    .build()
+            )
             .header("X-SAFA-API-KEY", apiKey)
             .header("X-SAFA-CLIENT", "android")
-            .header("X-SAFA-REFRESH-TOKEN", refreshToken)
+            .header("X-SAFA-REFRESH-TOKEN", token)
             .header("X-SAFA-DEVICE-TOKEN", deviceToken)
             .header("X-SAFA-FINGERPRINT-TOKEN", fingerprintToken)
             .build()
@@ -93,16 +121,20 @@ class ApiSecurityInterceptor(
                 .newCall(request)
                 .execute()
                 .use { response ->
-                    if (!response.isSuccessful) {
-                        if (response.code == 401 || response.code == 403) tokenManager.clearAllTokens()
-                        return null
-                    }
+                    if (!response.isSuccessful) return null
+
                     val json = JSONObject(response.body?.string().orEmpty())
-                    val access = json.optString("access_token", json.optString("token", ""))
+                    val access = json.optString("access_token").ifBlank {
+                        json.optJSONObject("tokens")?.optString("access_token").orEmpty()
+                    }
                     if (access.isBlank()) return null
-                    tokenManager.saveAccessToken(access)
-                    json.optString("refresh_token", refreshToken).takeIf { it.isNotBlank() }?.let(tokenManager::saveRefreshToken)
-                    json.optString("session_token", tokenManager.getSessionToken().orEmpty()).takeIf { it.isNotBlank() }?.let(tokenManager::saveSessionToken)
+
+                    val tokens = json.optJSONObject("tokens")
+                    tm.saveAccessToken(access)
+                    tokens?.optString("refresh_token")?.takeIf { it.isNotBlank() }?.let(tm::saveRefreshToken)
+                    tokens?.optString("session_token")?.takeIf { it.isNotBlank() }?.let(tm::saveSessionToken)
+                    tokens?.optString("device_token")?.takeIf { it.isNotBlank() }?.let(tm::saveDeviceToken)
+                    tokens?.optString("fingerprint_token")?.takeIf { it.isNotBlank() }?.let(tm::saveFingerprintToken)
                     access
                 }
         } catch (_: Exception) {
