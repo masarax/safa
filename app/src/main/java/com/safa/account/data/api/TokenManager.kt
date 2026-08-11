@@ -137,6 +137,15 @@ class TokenManager(private val context: Context) {
     fun getBiometricQuickUnlockUserId(): Int? = prefs.getInt(KEY_BIOMETRIC_USER_ID, 0).takeIf { it > 0 }
     fun getBiometricQuickUnlockMobile(): String = prefs.getString(KEY_BIOMETRIC_MOBILE, "") ?: ""
 
+    /**
+     * Quick unlock is account-bound. A biometric scan never selects an arbitrary
+     * local operator; it may only unlock the exact account enrolled on this device.
+     */
+    fun isBiometricQuickUnlockBoundTo(userId: Int, mobile: String): Boolean =
+        isBiometricQuickUnlockEnabled() &&
+            getBiometricQuickUnlockUserId() == userId &&
+            getBiometricQuickUnlockMobile().trim() == mobile.trim()
+
     /** A quick unlock must have a complete resumable server session, not only an access token. */
     fun hasValidLocalSessionForQuickUnlock(): Boolean =
         isBiometricQuickUnlockEnabled() &&
