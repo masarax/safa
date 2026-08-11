@@ -55,7 +55,6 @@ interface ApiService {
     @POST("graphql") suspend fun postGraphQl(@Body request: GraphQlRequest): Response<GraphQlResponse>
 
     @POST("auth/login") suspend fun login(@Body request: MobilePinLoginRequest): Response<Map<String, Any>>
-    @POST("auth/refresh") suspend fun refresh(): Response<Map<String, Any>>
     @POST("auth/logout") suspend fun logout(): Response<Map<String, Any>>
     @POST("auth/logout-all") suspend fun logoutAll(): Response<Map<String, Any>>
     @POST("auth/activate-superadmin") suspend fun activateSuperAdmin(@Body request: ActivateSuperAdminRequest): Response<Map<String, Any>>
