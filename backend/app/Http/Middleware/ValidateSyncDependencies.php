@@ -14,13 +14,11 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Protects the local-first sync contract from treating an Android local ID as
- * a server primary key when the parent record has not reached the server yet.
- *
- * The Android client always sends relationship IDs as local IDs. A parent may
- * either already exist on the server or be included in the same sync batch.
- * If neither is true, return 429 so the durable outbox retries instead of
- * permanently failing the child mutation.
+ * Protects the local-first sync contract from invalid relationship IDs and
+ * normalizes Android timestamps before SyncController performs stale-write
+ * checks. Android local timestamps are milliseconds while the server stores
+ * sync timestamps in Unix seconds; comparing the two units directly makes a
+ * stale client mutation look newer than the server.
  */
 class ValidateSyncDependencies
 {
@@ -38,7 +36,13 @@ class ValidateSyncDependencies
             ], 401);
         }
 
+        // Normalize the complete sync payload in-place. This keeps the public
+        // API contract unchanged while making server/client conflict checks use
+        // one timestamp unit.
         $payload = $request->all();
+        $this->normalizeSyncTimestamps($payload);
+        $request->replace($payload);
+
         $incoming = [
             'customers' => $this->localIds($payload['customers'] ?? null),
             'suppliers' => $this->localIds($payload['suppliers'] ?? null),
@@ -89,6 +93,33 @@ class ValidateSyncDependencies
         }
 
         return $next($request);
+    }
+
+    /**
+     * Convert millisecond Unix timestamps to seconds. Existing second-based
+     * timestamps are left untouched. Invalid/future values are handled later
+     * by SyncController's own validation/sanitization.
+     */
+    private function normalizeSyncTimestamps(array &$payload): void
+    {
+        foreach ([
+            'customers',
+            'suppliers',
+            'wallet_ledgers',
+            'supplier_deposits',
+            'wallet_batches',
+            'transactions',
+            'expenses_incomes',
+        ] as $entity) {
+            foreach ($this->rows($payload[$entity] ?? null) as $index => $row) {
+                if (isset($row['timestamp']) && is_numeric($row['timestamp'])) {
+                    $timestamp = (int) $row['timestamp'];
+                    if ($timestamp > 2000000000) {
+                        $payload[$entity][$index]['timestamp'] = intdiv($timestamp, 1000);
+                    }
+                }
+            }
+        }
     }
 
     private function rows($value): array
