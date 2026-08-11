@@ -3,7 +3,6 @@ package com.safa.account.data.api
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
-import com.safa.account.data.api.dto.SyncUpPayload
 import com.safa.account.data.repository.AppRepository
 import com.safa.account.data.sync.SyncWorkScheduler
 import com.safa.account.utils.SafaLogger
