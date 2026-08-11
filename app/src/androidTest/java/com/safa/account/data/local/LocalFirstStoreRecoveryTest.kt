@@ -86,4 +86,81 @@ class LocalFirstStoreRecoveryTest {
         assertEquals("{\"local_id\":2001,\"name\":\"Version 2\"}", promoted.payload)
         assertTrue(store.hasPending("customers", 2001))
     }
+
+    @Test
+    fun transaction_waits_for_unsynced_customer_until_parent_is_available() {
+        store.upsertRecord(
+            entity = "customers",
+            localId = 3001,
+            serverId = 0,
+            payload = "{\"local_id\":3001,\"name\":\"Parent\"}",
+            syncStatus = LocalFirstStore.PENDING,
+        )
+        store.enqueue(
+            entity = "transactions",
+            localId = 3002,
+            serverId = 0,
+            operation = "CREATE",
+            payload = "{\"local_id\":3002,\"customer_id\":3001,\"supplier_id\":0,\"wallet_batch_id\":0}",
+        )
+
+        val ready = store.getReadyOutbox()
+
+        assertEquals(0, ready.size)
+    }
+
+    @Test
+    fun customer_is_claimed_before_dependent_transaction_in_same_batch() {
+        store.upsertRecord(
+            entity = "customers",
+            localId = 4001,
+            serverId = 0,
+            payload = "{\"local_id\":4001,\"name\":\"Parent\"}",
+            syncStatus = LocalFirstStore.PENDING,
+        )
+        store.enqueue(
+            entity = "transactions",
+            localId = 4002,
+            serverId = 0,
+            operation = "CREATE",
+            payload = "{\"local_id\":4002,\"customer_id\":4001,\"supplier_id\":0,\"wallet_batch_id\":0}",
+        )
+
+        val ready = store.getReadyOutbox(10)
+
+        assertEquals(2, ready.size)
+        assertEquals("customers", ready[0].entity)
+        assertEquals(4001, ready[0].localId)
+        assertEquals("transactions", ready[1].entity)
+        assertEquals(4002, ready[1].localId)
+    }
+
+    @Test
+    fun transaction_waits_for_supplier_chain_when_supplier_is_missing() {
+        store.enqueue(
+            entity = "supplier_deposits",
+            localId = 5002,
+            serverId = 0,
+            operation = "CREATE",
+            payload = "{\"local_id\":5002,\"supplier_id\":5001}",
+        )
+        store.enqueue(
+            entity = "wallet_batches",
+            localId = 5003,
+            serverId = 0,
+            operation = "CREATE",
+            payload = "{\"local_id\":5003,\"ledger_id\":5004,\"supplier_id\":5001,\"supplier_deposit_id\":5002}",
+        )
+        store.enqueue(
+            entity = "transactions",
+            localId = 5005,
+            serverId = 0,
+            operation = "CREATE",
+            payload = "{\"local_id\":5005,\"customer_id\":0,\"supplier_id\":5001,\"wallet_batch_id\":5003}",
+        )
+
+        val ready = store.getReadyOutbox(10)
+
+        assertEquals(0, ready.size)
+    }
 }
