@@ -192,8 +192,8 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     }
 
     private fun rebaseProcessingOutboxInternal(db: SQLiteDatabase, outboxId: Long, serverId: Int, serverVersion: Int): Boolean {
-        db.rawQuery("SELECT entity,local_id,operation,payload FROM outbox WHERE id=? AND status=? LIMIT 1", arrayOf(outboxId.toString(), OUTBOX_PROCESSING)).use { c ->
-            if (!c.moveToFirst()) return false
+        return db.rawQuery("SELECT entity,local_id,operation,payload FROM outbox WHERE id=? AND status=? LIMIT 1", arrayOf(outboxId.toString(), OUTBOX_PROCESSING)).use { c ->
+            if (!c.moveToFirst()) return@use false
             val entity = c.getString(0); val localId = c.getInt(1); val operation = c.getString(2); val localPayload = PayloadCipher.decrypt(c.getBlob(3))
             val rebased = runCatching { JSONObject(localPayload) }.getOrElse { JSONObject() }.apply {
                 put("server_id", serverId); put("sync_version", serverVersion); put("_sync", JSONObject().apply { put("mutation_id", UUID.randomUUID().toString()); put("base_version", serverVersion); put("operation", operation.uppercase()) })
