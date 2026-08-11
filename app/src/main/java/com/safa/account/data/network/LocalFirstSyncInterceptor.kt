@@ -14,24 +14,13 @@ import java.util.UUID
 /**
  * Bridges the existing repository/outbox contract to the server reconciliation
  * protocol without leaking sync concerns into UI code.
- *
- * Responsibilities:
- * - add stable mutation_id + base_version before /sync/up is signed
- * - persist server revisions received from /sync/down
- * - convert stale-write conflicts into a local rebase + deferred retry
- * - keep the existing repository acknowledgement contract compatible
  */
 class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor {
     private val store = LocalFirstStore(context.applicationContext)
 
     private val entities = listOf(
-        "customers",
-        "suppliers",
-        "wallet_ledgers",
-        "supplier_deposits",
-        "wallet_batches",
-        "transactions",
-        "expenses_incomes"
+        "customers", "suppliers", "wallet_ledgers", "supplier_deposits",
+        "wallet_batches", "transactions", "expenses_incomes"
     )
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -94,7 +83,7 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
         captureAccepted(root)
         val conflicts = root.optJSONArray("conflicts")
         if (conflicts != null && conflicts.length() > 0) {
-            val accepted = root.optJSONObject("accepted") ?: JSONObject().also { root.put("accepted", it) }
+            val rejected = root.optJSONArray("rejected") ?: JSONArray().also { root.put("rejected", it) }
             val remainingConflicts = JSONArray()
             for (i in 0 until conflicts.length()) {
                 val conflict = conflicts.optJSONObject(i) ?: continue
@@ -103,7 +92,9 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                 val serverId = conflict.optInt("server_id", 0)
                 val serverVersion = conflict.optInt("server_version", 0)
                 val requestRow = requestRoot.optJSONArray(entity)?.let { rows ->
-                    (0 until rows.length()).asSequence().mapNotNull { rows.optJSONObject(it) }.firstOrNull { it.optInt("local_id", 0) == localId }
+                    (0 until rows.length()).asSequence()
+                        .mapNotNull { rows.optJSONObject(it) }
+                        .firstOrNull { it.optInt("local_id", 0) == localId }
                 }
 
                 if (entity.isBlank() || localId <= 0 || serverVersion <= 0 || requestRow == null) {
@@ -122,17 +113,18 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                     })
                 }
 
+                // The current outbox row is PROCESSING. enqueue() therefore
+                // stores this rebased mutation as deferred work. The repository
+                // will subsequently see REBASED_CONFLICT as a rejection and its
+                // normal failure path will atomically promote that deferred work.
                 store.recordServerVersion(entity, localId, serverId, serverVersion)
                 store.enqueue(entity, localId, serverId, operation, rebased.toString())
 
-                val rows = accepted.optJSONArray(entity) ?: JSONArray().also { accepted.put(entity, it) }
-                rows.put(JSONObject().apply {
+                rejected.put(JSONObject().apply {
+                    put("entity", entity)
                     put("local_id", localId)
-                    put("server_id", serverId)
-                    put("sync_version", serverVersion)
-                    put("mutation_id", conflict.optString("mutation_id"))
-                    put("operation", operation)
-                    put("rebased", true)
+                    put("reason", "REBASED_CONFLICT: local mutation rebased on server version $serverVersion")
+                    put("code", "CONFLICT_REBASED")
                 })
             }
             root.put("conflicts", remainingConflicts)
@@ -183,7 +175,7 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
     private fun operationFor(row: JSONObject, serverId: Int): String {
         row.optJSONObject("_sync")?.optString("operation")?.takeIf { it.isNotBlank() }?.let { return it.uppercase() }
         return when {
-            !row.optString("deleted_at").isNullOrBlank() -> "DELETE"
+            row.optString("deleted_at").isNotBlank() -> "DELETE"
             serverId > 0 -> "UPDATE"
             else -> "CREATE"
         }
