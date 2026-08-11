@@ -72,6 +72,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     val operators by viewModel.operators.collectAsStateWithLifecycle()
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val tokenManager = viewModel.tokenManager
+    val coroutineScope = rememberCoroutineScope()
 
     // Quick unlock is tied to the explicitly enabled account operator plus a
     // complete encrypted resumable session. The access token must still be
@@ -212,10 +213,34 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                         onSuccess = {
                             // BiometricPrompt proves possession of the device
                             // biometric. The local operator flag proves this
-                            // account explicitly enabled quick unlock. The
-                            // encrypted access/refresh/session trio keeps the
-                            // unlock tied to the existing login session.
-                            viewModel.loginWithBiometric(biometricOperator)
+                            // account explicitly enabled quick unlock. Before
+                            // entering the app, also prove that the server
+                            // session is still recoverable; an expired access
+                            // token must rotate through the refresh endpoint.
+                            coroutineScope.launch {
+                                val tm = tokenManager
+                                if (tm == null) {
+                                    loginError = if (currentLang == "BN") "সেশন পাওয়া যায়নি" else "Session unavailable"
+                                    return@launch
+                                }
+                                var sessionReady = isAccessTokenFresh(tm.getAccessToken())
+                                if (!sessionReady) {
+                                    runCatching {
+                                        val api = viewModel.syncManager?.getApiService()
+                                        val response = api?.getOperators()
+                                        sessionReady = response?.isSuccessful == true && isAccessTokenFresh(tm.getAccessToken())
+                                    }
+                                }
+                                if (sessionReady) {
+                                    viewModel.loginWithBiometric(biometricOperator)
+                                } else {
+                                    loginError = if (currentLang == "BN") {
+                                        "সেশন শেষ হয়েছে। আবার মোবাইল ও পিন দিয়ে লগইন করুন।"
+                                    } else {
+                                        "Session expired. Please sign in again with mobile and PIN."
+                                    }
+                                }
+                            }
                         },
                         onError = { loginError = it }
                     )
