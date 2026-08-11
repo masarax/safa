@@ -64,9 +64,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     var loginError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)
-    ) {
+    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.End
@@ -91,10 +89,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Box(
-                modifier = Modifier.size(88.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.size(88.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
                 Image(
                     painter = painterResource(id = com.safa.account.R.drawable.safa_logo),
                     contentDescription = "SAFA Logo",
@@ -112,11 +107,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis
             )
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 OutlinedTextField(
                     value = mobileInput,
                     onValueChange = { mobileInput = it; loginError = null },
@@ -158,20 +149,19 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                     )
                 }
 
-                // Quick unlock is allowed only when a real local session remains.
-                // The operator is resolved from the local snapshot, so the feature works offline.
+                // Quick unlock is available only with a valid local session and a locally cached operator.
                 val matchingOp = remember(mobileInput, operators, quickUnlockUserId) {
                     operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
                         ?: quickUnlockUserId?.let { id -> operators.find { it.id == id } }
                 }
-                val biometricAllowed = hasLocalQuickUnlockSession && matchingOp?.isActive == true && matchingOp.isBiometricEnabled
-                if (biometricAllowed) {
+                val biometricOperator = matchingOp?.takeIf {
+                    hasLocalQuickUnlockSession && it.isActive && it.isBiometricEnabled
+                }
+                if (biometricOperator != null) {
                     com.safa.account.ui.BiometricTriggerButton(
                         lang = currentLang,
                         autoLaunch = true,
-                        onSuccess = {
-                            viewModel.loginWithBiometric(matchingOp)
-                        },
+                        onSuccess = { viewModel.loginWithBiometric(biometricOperator) },
                         onError = { loginError = it }
                     )
                 }
@@ -205,11 +195,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp
-                        )
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                     } else {
                         Text(
                             text = if (currentLang == "BN") "লগইন" else "Login",
