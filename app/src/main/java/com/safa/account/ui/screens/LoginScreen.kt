@@ -1,5 +1,6 @@
 package com.safa.account.ui.screens
 
+import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,6 +32,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import org.json.JSONObject
 
 private fun normalizeDigits(value: String): String = buildString(value.length) {
     value.forEach { ch ->
@@ -50,6 +52,20 @@ private fun serverErrorMessage(raw: String): String? {
         ?.takeIf { it.isNotBlank() }
 }
 
+/** Access JWT is usable only while its own exp claim is still valid. */
+private fun isAccessTokenFresh(token: String?, minimumLifetimeSeconds: Long = 30): Boolean {
+    if (token.isNullOrBlank()) return false
+    return try {
+        val parts = token.split('.')
+        if (parts.size != 3) return false
+        val payload = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP), Charsets.UTF_8)
+        val exp = JSONObject(payload).optLong("exp", 0L)
+        exp > (System.currentTimeMillis() / 1000L) + minimumLifetimeSeconds
+    } catch (_: Throwable) {
+        false
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
@@ -57,11 +73,11 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val tokenManager = viewModel.tokenManager
 
-    // Quick unlock is authorized by the account's biometric setting stored in
-    // the local operator record plus a complete encrypted resumable session.
-    // TokenManager's biometric flag is deliberately not required here because
-    // the Settings screen is the authoritative account-level switch.
-    val hasLocalQuickUnlockSession = tokenManager?.let {
+    // Quick unlock is tied to the explicitly enabled account operator plus a
+    // complete encrypted resumable session. The access token must still be
+    // cryptographically within its JWT lifetime; an expired token is first
+    // allowed to go through the normal interceptor refresh path.
+    val hasCompleteLocalSession = tokenManager?.let {
         !it.getAccessToken().isNullOrBlank() &&
             !it.getRefreshToken().isNullOrBlank() &&
             !it.getSessionToken().isNullOrBlank()
@@ -71,6 +87,34 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     var pinInput by remember { mutableStateOf("") }
     var loginError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+
+    val matchingOp = remember(mobileInput, operators) {
+        operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
+    }
+
+    // Session restoration policy:
+    // 1) Fresh access token -> restore immediately when biometric is disabled.
+    // 2) Expired access token -> make one authenticated request so the shared
+    //    interceptor can rotate the refresh token; only restore if that works.
+    // 3) Biometric-enabled account -> never bypass the biometric prompt.
+    LaunchedEffect(matchingOp, hasCompleteLocalSession) {
+        val tm = tokenManager ?: return@LaunchedEffect
+        val operator = matchingOp ?: return@LaunchedEffect
+        if (!hasCompleteLocalSession || !operator.isActive) return@LaunchedEffect
+
+        var sessionReady = isAccessTokenFresh(tm.getAccessToken())
+        if (!sessionReady) {
+            runCatching {
+                val api = viewModel.syncManager?.getApiService()
+                val response = api?.getOperators()
+                sessionReady = response?.isSuccessful == true && isAccessTokenFresh(tm.getAccessToken())
+            }
+        }
+
+        if (sessionReady && !operator.isBiometricEnabled) {
+            viewModel.loginWithBiometric(operator)
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
         Row(
@@ -157,11 +201,8 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                     )
                 }
 
-                val matchingOp = remember(mobileInput, operators) {
-                    operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
-                }
                 val biometricOperator = matchingOp?.takeIf {
-                    hasLocalQuickUnlockSession && it.isActive && it.isBiometricEnabled
+                    hasCompleteLocalSession && it.isActive && it.isBiometricEnabled
                 }
 
                 if (biometricOperator != null) {
