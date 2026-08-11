@@ -16,9 +16,13 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Protects the local-first sync contract from invalid relationship IDs and
  * normalizes Android timestamps before SyncController performs stale-write
- * checks. Android local timestamps are milliseconds while the server stores
- * sync timestamps in Unix seconds; comparing the two units directly makes a
- * stale client mutation look newer than the server.
+ * checks.
+ *
+ * IMPORTANT: dependency IDs in the Android payload are LOCAL IDs. They must
+ * never be interpreted as server primary keys. This middleware therefore
+ * validates the complete parent set before SyncController is allowed to run.
+ * A child is deferred when its parent is not already on the server or is not
+ * represented by a valid parent mutation in the same request.
  */
 class ValidateSyncDependencies
 {
@@ -43,12 +47,15 @@ class ValidateSyncDependencies
         $this->normalizeSyncTimestamps($payload);
         $request->replace($payload);
 
+        // Only valid parent mutations may satisfy a child dependency. The
+        // previous implementation treated any row with a local_id as a valid
+        // parent, which allowed an invalid parent row to reach SyncController.
         $incoming = [
-            'customers' => $this->localIds($payload['customers'] ?? null),
-            'suppliers' => $this->localIds($payload['suppliers'] ?? null),
-            'wallet_ledgers' => $this->localIds($payload['wallet_ledgers'] ?? null),
-            'supplier_deposits' => $this->localIds($payload['supplier_deposits'] ?? null),
-            'wallet_batches' => $this->localIds($payload['wallet_batches'] ?? null),
+            'customers' => $this->validLocalIds('customers', $payload['customers'] ?? null),
+            'suppliers' => $this->validLocalIds('suppliers', $payload['suppliers'] ?? null),
+            'wallet_ledgers' => $this->validLocalIds('wallet_ledgers', $payload['wallet_ledgers'] ?? null),
+            'supplier_deposits' => $this->validLocalIds('supplier_deposits', $payload['supplier_deposits'] ?? null),
+            'wallet_batches' => $this->validLocalIds('wallet_batches', $payload['wallet_batches'] ?? null),
         ];
 
         $checks = [
@@ -72,6 +79,9 @@ class ValidateSyncDependencies
                     continue;
                 }
 
+                // Existing server records are matched by account + LOCAL ID.
+                // Never fall back to querying by the submitted numeric value as
+                // a server primary key. This is the critical tenant-safe rule.
                 $exists = $model::withTrashed()
                     ->where('account_id', $accountId)
                     ->where('local_id', $localId)
@@ -93,6 +103,36 @@ class ValidateSyncDependencies
         }
 
         return $next($request);
+    }
+
+    /**
+     * Return only local IDs represented by structurally valid parent rows.
+     * A child must not be allowed through merely because a malformed parent
+     * row happens to contain a local_id.
+     */
+    private function validLocalIds(string $entity, $value): array
+    {
+        $ids = [];
+
+        foreach ($this->rows($value) as $row) {
+            $localId = (int) ($row['local_id'] ?? 0);
+            if ($localId <= 0) {
+                continue;
+            }
+
+            $valid = match ($entity) {
+                'customers', 'suppliers' => trim((string) ($row['name'] ?? '')) !== '',
+                'wallet_ledgers' => true,
+                'supplier_deposits', 'wallet_batches' => true,
+                default => false,
+            };
+
+            if ($valid) {
+                $ids[$localId] = true;
+            }
+        }
+
+        return $ids;
     }
 
     /**
@@ -140,18 +180,6 @@ class ValidateSyncDependencies
     private function rows($value): array
     {
         return is_array($value) ? array_values(array_filter($value, 'is_array')) : [];
-    }
-
-    private function localIds($value): array
-    {
-        $ids = [];
-        foreach ($this->rows($value) as $row) {
-            $id = (int) ($row['local_id'] ?? 0);
-            if ($id > 0) {
-                $ids[$id] = true;
-            }
-        }
-        return $ids;
     }
 
     private function resolveAccountId(Request $request): int
