@@ -97,8 +97,9 @@ class ValidateSyncDependencies
 
     /**
      * Convert millisecond Unix timestamps to seconds. Existing second-based
-     * timestamps are left untouched. Invalid/future values are handled later
-     * by SyncController's own validation/sanitization.
+     * timestamps are left untouched. A delete mutation also advances the
+     * mutation timestamp to its deletion time, because the Android delete
+     * path historically updated deleted_at without updating timestamp.
      */
     private function normalizeSyncTimestamps(array &$payload): void
     {
@@ -112,11 +113,25 @@ class ValidateSyncDependencies
             'expenses_incomes',
         ] as $entity) {
             foreach ($this->rows($payload[$entity] ?? null) as $index => $row) {
+                $timestamp = null;
                 if (isset($row['timestamp']) && is_numeric($row['timestamp'])) {
                     $timestamp = (int) $row['timestamp'];
                     if ($timestamp > 2000000000) {
-                        $payload[$entity][$index]['timestamp'] = intdiv($timestamp, 1000);
+                        $timestamp = intdiv($timestamp, 1000);
                     }
+                }
+
+                $deletedAt = $row['deleted_at'] ?? null;
+                if ($deletedAt !== null && $deletedAt !== '' && is_numeric($deletedAt)) {
+                    $deletedAtSeconds = (int) $deletedAt;
+                    if ($deletedAtSeconds > 2000000000) {
+                        $deletedAtSeconds = intdiv($deletedAtSeconds, 1000);
+                    }
+                    $timestamp = max($timestamp ?? 0, $deletedAtSeconds);
+                }
+
+                if ($timestamp !== null && $timestamp > 0) {
+                    $payload[$entity][$index]['timestamp'] = $timestamp;
                 }
             }
         }
