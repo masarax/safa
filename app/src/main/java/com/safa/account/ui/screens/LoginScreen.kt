@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safa.account.ui.viewmodel.SafaViewModel
-
 import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -53,29 +52,23 @@ private fun serverErrorMessage(raw: String): String? {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(
-    viewModel: SafaViewModel,
-    modifier: Modifier = Modifier
-) {
+fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     val operators by viewModel.operators.collectAsStateWithLifecycle()
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val tokenManager = viewModel.tokenManager
+    val hasLocalQuickUnlockSession = tokenManager?.hasValidLocalSessionForQuickUnlock() == true
+    val quickUnlockUserId = tokenManager?.getBiometricQuickUnlockUserId()
 
-    var mobileInput by remember { mutableStateOf(viewModel.tokenManager?.getLastMobile() ?: "") }
+    var mobileInput by remember { mutableStateOf(tokenManager?.getLastMobile() ?: "") }
     var pinInput by remember { mutableStateOf("") }
     var loginError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+        modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.End
         ) {
             FilledTonalButton(
@@ -94,19 +87,12 @@ fun LoginScreen(
         }
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .align(Alignment.Center)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).align(Alignment.Center).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                modifier = Modifier.size(88.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -119,10 +105,7 @@ fun LoginScreen(
 
             Text(
                 text = if (currentLang == "BN") "SAFA - সাফা" else "SAFA",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp
-                ),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 22.sp),
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -136,12 +119,9 @@ fun LoginScreen(
             ) {
                 OutlinedTextField(
                     value = mobileInput,
-                    onValueChange = {
-                        mobileInput = it
-                        loginError = null
-                    },
+                    onValueChange = { mobileInput = it; loginError = null },
                     label = { Text(if (currentLang == "BN") "মোবাইল" else "Mobile") },
-                    placeholder = { Text(if (currentLang == "BN") "01700000000" else "01700000000") },
+                    placeholder = { Text("01700000000") },
                     leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "Mobile") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -167,11 +147,7 @@ fun LoginScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                AnimatedVisibility(
-                    visible = loginError != null,
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
+                AnimatedVisibility(visible = loginError != null, enter = fadeIn(), exit = fadeOut()) {
                     Text(
                         text = loginError ?: "",
                         color = MaterialTheme.colorScheme.error,
@@ -182,14 +158,20 @@ fun LoginScreen(
                     )
                 }
 
-                val matchingOp = remember(mobileInput, operators) {
+                // Quick unlock is allowed only when a real local session remains.
+                // The operator is resolved from the local snapshot, so the feature works offline.
+                val matchingOp = remember(mobileInput, operators, quickUnlockUserId) {
                     operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
-                        ?: operators.find { it.isBiometricEnabled }
+                        ?: quickUnlockUserId?.let { id -> operators.find { it.id == id } }
                 }
-                if (matchingOp != null && matchingOp.isBiometricEnabled) {
+                val biometricAllowed = hasLocalQuickUnlockSession && matchingOp?.isActive == true && matchingOp.isBiometricEnabled
+                if (biometricAllowed) {
                     com.safa.account.ui.BiometricTriggerButton(
                         lang = currentLang,
-                        onSuccess = { viewModel.loginWithBiometric(matchingOp) },
+                        autoLaunch = true,
+                        onSuccess = {
+                            viewModel.loginWithBiometric(matchingOp)
+                        },
                         onError = { loginError = it }
                     )
                 }
