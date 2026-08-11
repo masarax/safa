@@ -128,4 +128,27 @@ class SecureAuthLifecycleTest extends TestCase
             'is_revoked' => 1,
         ]);
     }
+
+    public function test_logout_is_idempotent_for_an_already_revoked_session(): void
+    {
+        $ctx = $this->context();
+
+        $headers = [
+            ...$this->headers($ctx),
+            'Authorization' => 'Bearer ' . $ctx['access'],
+        ];
+
+        $this->withHeaders($headers)->postJson('/api/auth/logout')
+            ->assertOk()
+            ->assertJsonPath('status', 'success');
+
+        // The same credentials must never create a new active session.
+        $this->assertDatabaseHas('auth_sessions', [
+            'access_token' => $ctx['access'],
+            'is_revoked' => 1,
+        ]);
+
+        $this->withHeaders($headers)->getJson('/api/auth/operators')
+            ->assertStatus(401);
+    }
 }
