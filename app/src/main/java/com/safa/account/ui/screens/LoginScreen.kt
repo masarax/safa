@@ -53,7 +53,6 @@ private fun serverErrorMessage(raw: String): String? {
         ?.takeIf { it.isNotBlank() }
 }
 
-/** Access JWT is usable only while its own exp claim is still valid. */
 private fun isAccessTokenFresh(token: String?, minimumLifetimeSeconds: Long = 30): Boolean {
     if (token.isNullOrBlank()) return false
     return try {
@@ -76,9 +75,6 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     val tokenManager = viewModel.tokenManager
     val coroutineScope = rememberCoroutineScope()
 
-    // A resumable session and biometric quick-unlock are separate concepts.
-    // Session restoration can work without biometric; biometric only gates
-    // entry when the user explicitly enabled quick unlock.
     val hasCompleteLocalSession = tokenManager?.let {
         !it.getAccessToken().isNullOrBlank() &&
             !it.getRefreshToken().isNullOrBlank() &&
@@ -104,7 +100,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
         if (!sessionReady) {
             runCatching {
                 val api = viewModel.syncManager?.getApiService()
-                val response = api?.getOperators()
+                val response = api?.getCurrentSession()
                 sessionReady = response?.isSuccessful == true && isAccessTokenFresh(tm.getAccessToken())
             }
         }
@@ -217,7 +213,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                                 if (!sessionReady) {
                                     runCatching {
                                         val api = viewModel.syncManager?.getApiService()
-                                        val response = api?.getOperators()
+                                        val response = api?.getCurrentSession()
                                         sessionReady = response?.isSuccessful == true && isAccessTokenFresh(tm.getAccessToken())
                                     }
                                 }
