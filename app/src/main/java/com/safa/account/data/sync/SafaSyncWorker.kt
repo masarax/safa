@@ -7,45 +7,35 @@ import com.safa.account.data.api.TokenManager
 import com.safa.account.data.repository.AppRepository
 
 /**
- * Persistent background reconciliation for local-first data.
- * WorkManager provides execution outside the foreground activity and only runs
- * when a network is available (see SyncWorkScheduler).
+ * Persistent background reconciliation for the local-first data layer.
  *
- * Sync failures are converted to WorkManager retries instead of escaping from
- * CoroutineWorker as an immediate permanent failure. A bounded attempt count
- * prevents a permanently broken installation from retrying forever.
+ * WorkManager owns connectivity/backoff while LocalFirstStore owns per-record
+ * retry state. A temporary server/network outage must never turn the worker
+ * permanently FAILED after an arbitrary number of WorkManager attempts: the
+ * durable outbox is specifically designed to recover when connectivity returns.
  */
 class SafaSyncWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
-    companion object {
-        private const val MAX_WORK_ATTEMPTS = 5
-    }
-
     override suspend fun doWork(): Result {
         val tokenManager = TokenManager(applicationContext)
-        if (tokenManager.getAccessToken().isNullOrBlank()) return Result.success()
+        if (tokenManager.getAccessToken().isNullOrBlank()) {
+            // Nothing can be synchronized until the user has authenticated.
+            return Result.success()
+        }
 
         val repository = AppRepository(applicationContext)
 
         return try {
-            val completed = SyncCoordinator.run {
-                repository.processOutbox().getOrThrow()
-                repository.refreshAll().getOrThrow()
-                true
-            }
-
-            when {
-                completed == true -> Result.success()
-                runAttemptCount < MAX_WORK_ATTEMPTS -> Result.retry()
-                else -> Result.failure()
-            }
+            repository.processOutbox().getOrThrow()
+            repository.refreshAll().getOrThrow()
+            Result.success()
         } catch (_: Throwable) {
-            // Network/auth/server failures must use WorkManager backoff rather than
-            // escaping CoroutineWorker as a terminal FAILED state.
-            if (runAttemptCount < MAX_WORK_ATTEMPTS) Result.retry() else Result.failure()
+            // Keep the durable outbox alive. WorkManager applies exponential
+            // backoff and will retry when the network/server becomes available.
+            Result.retry()
         }
     }
 }
