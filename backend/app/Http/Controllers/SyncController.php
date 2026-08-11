@@ -30,13 +30,13 @@ class SyncController extends Controller
             $accountId = (int) $context['account_id'];
 
             $validator = Validator::make($request->all(), [
-                'transactions'      => 'nullable|array',
-                'customers'         => 'nullable|array',
-                'suppliers'         => 'nullable|array',
-                'wallet_batches'    => 'nullable|array',
-                'supplier_deposits' => 'nullable|array',
-                'expenses_incomes'  => 'nullable|array',
-                'wallet_ledgers'    => 'nullable|array',
+                'transactions'      => 'nullable|array|max:500',
+                'customers'         => 'nullable|array|max:500',
+                'suppliers'         => 'nullable|array|max:500',
+                'wallet_batches'    => 'nullable|array|max:500',
+                'supplier_deposits' => 'nullable|array|max:500',
+                'expenses_incomes'  => 'nullable|array|max:500',
+                'wallet_ledgers'    => 'nullable|array|max:500',
             ]);
             if ($validator->fails()) {
                 return response()->json(['message' => 'Invalid data format.', 'errors' => $validator->errors()], 422);
@@ -84,9 +84,7 @@ class SyncController extends Controller
                         $supplierId = $supplierLocalId > 0
                             ? Supplier::where('account_id', $accountId)->where('local_id', $supplierLocalId)->value('id')
                             : 0;
-                        if ($supplierLocalId > 0 && !$supplierId) {
-                            return new \RuntimeException('Supplier dependency has not been reconciled yet');
-                        }
+                        if ($supplierLocalId > 0 && !$supplierId) return new \RuntimeException('Supplier dependency has not been reconciled yet');
                         return [
                             'supplier_id' => (int) ($supplierId ?? 0),
                             'amount_sar' => (float) ($r['amount_sar'] ?? 0),
@@ -108,9 +106,7 @@ class SyncController extends Controller
                         $ledgerId = $ledgerLocal > 0 ? WalletLedger::where('account_id', $accountId)->where('local_id', $ledgerLocal)->value('id') : 0;
                         $supplierId = $supplierLocal > 0 ? Supplier::where('account_id', $accountId)->where('local_id', $supplierLocal)->value('id') : 0;
                         $depositId = $depositLocal > 0 ? SupplierDeposit::where('account_id', $accountId)->where('local_id', $depositLocal)->value('id') : 0;
-                        if (($ledgerLocal > 0 && !$ledgerId) || ($supplierLocal > 0 && !$supplierId) || ($depositLocal > 0 && !$depositId)) {
-                            return new \RuntimeException('Wallet batch dependency has not been reconciled yet');
-                        }
+                        if (($ledgerLocal > 0 && !$ledgerId) || ($supplierLocal > 0 && !$supplierId) || ($depositLocal > 0 && !$depositId)) return new \RuntimeException('Wallet batch dependency has not been reconciled yet');
                         return [
                             'ledger_id' => (int) ($ledgerId ?? 0),
                             'rate' => (float) ($r['rate'] ?? 0),
@@ -132,9 +128,7 @@ class SyncController extends Controller
                         $customerId = $customerLocal > 0 ? Customer::where('account_id', $accountId)->where('local_id', $customerLocal)->value('id') : 0;
                         $supplierId = $supplierLocal > 0 ? Supplier::where('account_id', $accountId)->where('local_id', $supplierLocal)->value('id') : 0;
                         $batchId = $batchLocal > 0 ? WalletBatch::where('account_id', $accountId)->where('local_id', $batchLocal)->value('id') : 0;
-                        if (($customerLocal > 0 && !$customerId) || ($supplierLocal > 0 && !$supplierId) || ($batchLocal > 0 && !$batchId)) {
-                            return new \RuntimeException('Transaction dependency has not been reconciled yet');
-                        }
+                        if (($customerLocal > 0 && !$customerId) || ($supplierLocal > 0 && !$supplierId) || ($batchLocal > 0 && !$batchId)) return new \RuntimeException('Transaction dependency has not been reconciled yet');
                         return [
                             'type' => substr((string) ($r['type'] ?? $r['status'] ?? 'Pending'), 0, 20),
                             'amount' => (float) ($r['amount'] ?? $r['amount_sar'] ?? 0),
@@ -173,23 +167,10 @@ class SyncController extends Controller
                         $rejected[] = ['entity' => $entity, 'local_id' => 0, 'reason' => 'Invalid record', 'code' => 'VALIDATION'];
                         continue;
                     }
-
-                    $result = $this->reconciliation->apply(
-                        $accountId,
-                        $entity,
-                        $config['model'],
-                        $row,
-                        $config['attributes'],
-                        $config['validate'] ?? null,
-                    );
-
-                    if ($result['status'] === 'accepted') {
-                        $accepted[$entity][] = $result['accepted'];
-                    } elseif ($result['status'] === 'conflict') {
-                        $conflicts[] = $result['conflict'];
-                    } else {
-                        $rejected[] = $result['rejected'];
-                    }
+                    $result = $this->reconciliation->apply($accountId, $entity, $config['model'], $row, $config['attributes'], $config['validate'] ?? null);
+                    if ($result['status'] === 'accepted') $accepted[$entity][] = $result['accepted'];
+                    elseif ($result['status'] === 'conflict') $conflicts[] = $result['conflict'];
+                    else $rejected[] = $result['rejected'];
                 }
             }
 
@@ -205,11 +186,8 @@ class SyncController extends Controller
                 'permissions' => $permissions,
             ], 200);
         } catch (\Throwable $e) {
-            Log::error('SyncUp failed: ' . $e->getMessage(), ['exception' => $e]);
-            return response()->json([
-                'message' => 'Sync failed.',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server Error',
-            ], 500);
+            Log::error('SyncUp failed.', ['message' => $e->getMessage(), 'exception' => get_class($e)]);
+            return response()->json(['message' => 'Sync failed.'], 500);
         }
     }
 
@@ -237,11 +215,8 @@ class SyncController extends Controller
                 'user_permissions' => $permissions,
             ]);
         } catch (\Throwable $e) {
-            Log::error('SyncDown failed: ' . $e->getMessage(), ['exception' => $e]);
-            return response()->json([
-                'message' => 'Failed to fetch sync data.',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server Error',
-            ], 500);
+            Log::error('SyncDown failed.', ['message' => $e->getMessage(), 'exception' => get_class($e)]);
+            return response()->json(['message' => 'Failed to fetch sync data.'], 500);
         }
     }
 }
