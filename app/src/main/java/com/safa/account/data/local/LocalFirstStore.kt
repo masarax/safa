@@ -82,34 +82,31 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         current.toInt()
     }
 
-    /** Durable insert/update of a single outbox mutation. Repeated edits to the same local record coalesce. */
+    /** Durable insert/update of a mutation. New edits never destroy an in-flight upload. */
     fun enqueue(entity: String, localId: Int, serverId: Int, operation: String, payload: String): Long = writableDatabase.transactionResult {
         val now = System.currentTimeMillis()
         val baseVersion = serverVersionInternal(this, entity, localId)
         val envelope = ensureMutationEnvelope(entity, localId, serverId, operation, payload, baseVersion)
-        val values = ContentValues().apply {
-            put("entity", entity)
-            put("local_id", localId)
-            put("server_id", serverId)
-            put("operation", operation.uppercase())
-            put("payload", PayloadCipher.encrypt(envelope))
-            put("status", OUTBOX_PENDING)
-            put("retry_count", 0)
-            put("next_attempt_at", 0L)
-            putNull("last_error")
-            put("created_at", now)
-            put("updated_at", now)
-            putNull("deferred_operation")
-            putNull("deferred_payload")
-        }
-        val existing = rawQuery("SELECT id,created_at FROM outbox WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { c ->
-            if (c.moveToFirst()) longArrayOf(c.getLong(0), c.getLong(1)) else null
+        val existing = rawQuery("SELECT id,status,created_at FROM outbox WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { c ->
+            if (c.moveToFirst()) Triple(c.getLong(0), c.getString(1), c.getLong(2)) else null
         }
         if (existing != null) {
-            values.put("created_at", existing[1])
-            update("outbox", values, "id=?", arrayOf(existing[0].toString()))
-            existing[0]
+            val (id, status, createdAt) = existing
+            if (status == OUTBOX_PROCESSING) {
+                execSQL("UPDATE outbox SET server_id=?, deferred_operation=?, deferred_payload=?, last_error=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(serverId, operation.uppercase(), PayloadCipher.encrypt(envelope), now, id))
+            } else {
+                val values = ContentValues().apply {
+                    put("server_id", serverId); put("operation", operation.uppercase()); put("payload", PayloadCipher.encrypt(envelope)); put("status", OUTBOX_PENDING)
+                    put("retry_count", 0); put("next_attempt_at", 0L); putNull("last_error"); put("created_at", createdAt); put("updated_at", now); putNull("deferred_operation"); putNull("deferred_payload")
+                }
+                update("outbox", values, "id=?", arrayOf(id.toString()))
+            }
+            id
         } else {
+            val values = ContentValues().apply {
+                put("entity", entity); put("local_id", localId); put("server_id", serverId); put("operation", operation.uppercase()); put("payload", PayloadCipher.encrypt(envelope))
+                put("status", OUTBOX_PENDING); put("retry_count", 0); put("next_attempt_at", 0L); putNull("last_error"); put("created_at", now); put("updated_at", now); putNull("deferred_operation"); putNull("deferred_payload")
+            }
             insertOrThrow("outbox", null, values)
         }
     }
@@ -117,31 +114,32 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     fun upsertRecord(entity: String, localId: Int, serverId: Int, payload: String, syncStatus: Int = PENDING, retryCount: Int = 0, error: String? = null) {
         writableDatabase.transaction {
             var effectiveLocalId = localId
-            if (serverId > 0) {
-                rawQuery("SELECT local_id FROM records WHERE entity=? AND server_id=? LIMIT 1", arrayOf(entity, serverId.toString())).use { c ->
-                    if (c.moveToFirst()) effectiveLocalId = c.getInt(0)
-                }
-            }
+            if (serverId > 0) rawQuery("SELECT local_id FROM records WHERE entity=? AND server_id=? LIMIT 1", arrayOf(entity, serverId.toString())).use { c -> if (c.moveToFirst()) effectiveLocalId = c.getInt(0) }
             val now = System.currentTimeMillis()
             val payloadObject = runCatching { JSONObject(payload) }.getOrNull()
             val payloadVersion = payloadObject?.optLong("sync_version", -1L)?.takeIf { it >= 0L }
             val knownVersion = (payloadVersion ?: serverVersionInternal(this, entity, effectiveLocalId).toLong()).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             val values = ContentValues().apply {
-                put("entity", entity); put("local_id", effectiveLocalId); put("server_id", serverId)
-                put("payload", PayloadCipher.encrypt(payload)); put("sync_status", syncStatus)
-                put("sync_version", knownVersion); put("last_mutation_id", payloadObject?.optJSONObject("_sync")?.optString("mutation_id")?.takeIf { it.isNotBlank() })
-                put("retry_count", retryCount); put("last_error", error); put("updated_at", now)
+                put("entity", entity); put("local_id", effectiveLocalId); put("server_id", serverId); put("payload", PayloadCipher.encrypt(payload)); put("sync_status", syncStatus)
+                put("sync_version", knownVersion); put("last_mutation_id", payloadObject?.optJSONObject("_sync")?.optString("mutation_id")?.takeIf { it.isNotBlank() }); put("retry_count", retryCount); put("last_error", error); put("updated_at", now)
             }
             insertWithOnConflict("records", null, values, SQLiteDatabase.CONFLICT_REPLACE)
             if (serverId > 0) recordServerVersionInternal(this, entity, effectiveLocalId, serverId, knownVersion.toLong(), now)
+            if (syncStatus != SYNCED) {
+                val recoveryPayload = ensureMutationEnvelope(entity, effectiveLocalId, serverId, "RECOVER", payload, knownVersion)
+                val outbox = ContentValues().apply {
+                    put("entity", entity); put("local_id", effectiveLocalId); put("server_id", serverId); put("operation", "RECOVER"); put("payload", PayloadCipher.encrypt(recoveryPayload)); put("status", OUTBOX_PENDING)
+                    put("retry_count", 0); put("next_attempt_at", 0L); putNull("last_error"); put("created_at", now); put("updated_at", now)
+                }
+                insertWithOnConflict("outbox", null, outbox, SQLiteDatabase.CONFLICT_IGNORE)
+            }
         }
     }
 
     fun prepareOutboxPayload(outboxId: Long): String? = writableDatabase.transactionResult {
         rawQuery("SELECT entity,local_id,server_id,operation,payload FROM outbox WHERE id=? LIMIT 1", arrayOf(outboxId.toString())).use { c ->
             if (!c.moveToFirst()) return@transactionResult null
-            val entity = c.getString(0); val localId = c.getInt(1); val serverId = c.getInt(2); val operation = c.getString(3)
-            val current = PayloadCipher.decrypt(c.getBlob(4))
+            val entity = c.getString(0); val localId = c.getInt(1); val serverId = c.getInt(2); val operation = c.getString(3); val current = PayloadCipher.decrypt(c.getBlob(4))
             val envelope = ensureMutationEnvelope(entity, localId, serverId, operation, current, serverVersionInternal(this, entity, localId))
             if (envelope != current) execSQL("UPDATE outbox SET payload=?, updated_at=? WHERE id=?", arrayOf<Any?>(PayloadCipher.encrypt(envelope), System.currentTimeMillis(), outboxId))
             envelope
@@ -156,8 +154,7 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     }
 
     fun retry(entity: String, localId: Int) {
-        val now = System.currentTimeMillis()
-        writableDatabase.transaction {
+        val now = System.currentTimeMillis(); writableDatabase.transaction {
             execSQL("UPDATE records SET sync_status=?, retry_count=0, last_error=NULL, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(PENDING, now, entity, localId))
             execSQL("UPDATE outbox SET status=?, retry_count=0, next_attempt_at=0, last_error=NULL, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(OUTBOX_PENDING, now, entity, localId))
         }
@@ -165,8 +162,7 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
 
     fun markSynced(entity: String, localId: Int, serverId: Int, serverVersion: Int = -1) {
         writableDatabase.transaction {
-            val now = System.currentTimeMillis()
-            val effectiveVersion = if (serverVersion >= 0) serverVersion else serverVersionInternal(this, entity, localId)
+            val now = System.currentTimeMillis(); val effectiveVersion = if (serverVersion >= 0) serverVersion else serverVersionInternal(this, entity, localId)
             recordServerVersionInternal(this, entity, localId, serverId, effectiveVersion.toLong(), now)
             var hasDeferred = false
             rawQuery("SELECT id,deferred_operation,deferred_payload FROM outbox WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { c ->
@@ -179,37 +175,19 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
                     } else delete("outbox", "id=?", arrayOf(id.toString()))
                 }
             }
-            if (!hasDeferred) {
-                rawQuery("SELECT payload FROM records WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { c ->
-                    if (c.moveToFirst()) {
-                        val updatedPayload = applyServerMetadata(PayloadCipher.decrypt(c.getBlob(0)), serverId, effectiveVersion)
-                        execSQL("UPDATE records SET server_id=?, sync_version=?, sync_status=?, retry_count=0, last_error=NULL, last_mutation_id=NULL, payload=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, effectiveVersion, SYNCED, PayloadCipher.encrypt(updatedPayload), now, entity, localId))
-                    }
+            if (!hasDeferred) rawQuery("SELECT payload FROM records WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { c ->
+                if (c.moveToFirst()) {
+                    val updatedPayload = applyServerMetadata(PayloadCipher.decrypt(c.getBlob(0)), serverId, effectiveVersion)
+                    execSQL("UPDATE records SET server_id=?, sync_version=?, sync_status=?, retry_count=0, last_error=NULL, last_mutation_id=NULL, payload=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, effectiveVersion, SYNCED, PayloadCipher.encrypt(updatedPayload), now, entity, localId))
                 }
             }
         }
     }
 
-    /** Rebase a processing mutation on the authoritative server revision and keep it durable for retry. */
-    fun rebaseProcessingOutbox(outboxId: Long, serverId: Int, serverVersion: Int, serverSnapshot: String? = null): Boolean = writableDatabase.transactionResult {
-        rawQuery("SELECT entity,local_id,operation,payload FROM outbox WHERE id=? AND status=? LIMIT 1", arrayOf(outboxId.toString(), OUTBOX_PROCESSING)).use { c ->
-            if (!c.moveToFirst()) return@transactionResult false
-            val entity = c.getString(0); val localId = c.getInt(1); val operation = c.getString(2); val localPayload = PayloadCipher.decrypt(c.getBlob(3))
-            val rebased = runCatching { JSONObject(localPayload) }.getOrElse { JSONObject() }.apply {
-                put("server_id", serverId); put("sync_version", serverVersion)
-                put("_sync", JSONObject().apply { put("mutation_id", UUID.randomUUID().toString()); put("base_version", serverVersion); put("operation", operation.uppercase()) })
-            }.toString()
-            val now = System.currentTimeMillis()
-            recordServerVersionInternal(this, entity, localId, serverId, serverVersion.toLong(), now)
-            execSQL("UPDATE records SET server_id=?, sync_version=?, sync_status=?, last_error=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, serverVersion, PENDING, "Rebased after server conflict", now, entity, localId))
-            execSQL("UPDATE outbox SET server_id=?, deferred_operation=?, deferred_payload=?, last_error=?, updated_at=? WHERE id=?", arrayOf<Any?>(serverId, operation, PayloadCipher.encrypt(rebased), "Rebased after server conflict", now, outboxId))
-            true
-        }
-    }
+    fun rebaseProcessingOutbox(outboxId: Long, serverId: Int, serverVersion: Int, serverSnapshot: String? = null): Boolean = writableDatabase.transactionResult { rebaseProcessingOutboxInternal(this, outboxId, serverId, serverVersion) }
 
     fun rebaseLatestProcessingOutbox(entity: String, localId: Int, serverId: Int, serverVersion: Int, serverSnapshot: String? = null): Boolean = writableDatabase.transactionResult {
-        val id = rawQuery("SELECT id FROM outbox WHERE entity=? AND local_id=? AND status=? ORDER BY id DESC LIMIT 1", arrayOf(entity, localId.toString(), OUTBOX_PROCESSING)).use { c -> if (c.moveToFirst()) c.getLong(0) else null }
-            ?: return@transactionResult false
+        val id = rawQuery("SELECT id FROM outbox WHERE entity=? AND local_id=? AND status=? ORDER BY id DESC LIMIT 1", arrayOf(entity, localId.toString(), OUTBOX_PROCESSING)).use { c -> if (c.moveToFirst()) c.getLong(0) else null } ?: return@transactionResult false
         rebaseProcessingOutboxInternal(this, id, serverId, serverVersion)
     }
 
@@ -218,20 +196,18 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
             if (!c.moveToFirst()) return false
             val entity = c.getString(0); val localId = c.getInt(1); val operation = c.getString(2); val localPayload = PayloadCipher.decrypt(c.getBlob(3))
             val rebased = runCatching { JSONObject(localPayload) }.getOrElse { JSONObject() }.apply {
-                put("server_id", serverId); put("sync_version", serverVersion)
-                put("_sync", JSONObject().apply { put("mutation_id", UUID.randomUUID().toString()); put("base_version", serverVersion); put("operation", operation.uppercase()) })
+                put("server_id", serverId); put("sync_version", serverVersion); put("_sync", JSONObject().apply { put("mutation_id", UUID.randomUUID().toString()); put("base_version", serverVersion); put("operation", operation.uppercase()) })
             }.toString()
             val now = System.currentTimeMillis()
             recordServerVersionInternal(db, entity, localId, serverId, serverVersion.toLong(), now)
             db.execSQL("UPDATE records SET server_id=?, sync_version=?, sync_status=?, last_error=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(serverId, serverVersion, PENDING, "Rebased after server conflict", now, entity, localId))
             db.execSQL("UPDATE outbox SET server_id=?, deferred_operation=?, deferred_payload=?, last_error=?, updated_at=? WHERE id=?", arrayOf<Any?>(serverId, operation, PayloadCipher.encrypt(rebased), "Rebased after server conflict", now, outboxId))
-            return true
+            true
         }
     }
 
     fun markFailed(entity: String, localId: Int, message: String, retryable: Boolean) {
-        val now = System.currentTimeMillis()
-        writableDatabase.transaction {
+        val now = System.currentTimeMillis(); writableDatabase.transaction {
             if (!retryable) {
                 val promoted = promoteDeferred(this, entity, localId, now, message)
                 if (!promoted) {
@@ -256,22 +232,20 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
             val id = c.getLong(0); val serverId = c.getInt(1); val operation = c.getString(2); val payload = c.getBlob(3)
             if (operation.isNullOrBlank() || payload == null) return false
             db.execSQL("UPDATE outbox SET server_id=?, operation=?, payload=?, status=?, retry_count=0, next_attempt_at=0, last_error=?, deferred_operation=NULL, deferred_payload=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(serverId, operation, payload, OUTBOX_PENDING, reason?.take(500), now, id))
-            db.execSQL("UPDATE records SET sync_status=?, retry_count=0, last_error=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(PENDING, reason?.take(500), now, entity, localId))
-            return true
+            db.execSQL("UPDATE records SET sync_status=?, retry_count=0, last_error=?, updated_at=? WHERE entity=? AND local_id=?", arrayOf<Any?>(PENDING, reason?.take(500), now, entity, localId)); return true
         }
     }
 
     fun retryCount(entity: String, localId: Int): Int = readableDatabase.rawQuery("SELECT retry_count FROM records WHERE entity=? AND local_id=?", arrayOf(entity, localId.toString())).use { if (it.moveToFirst()) it.getInt(0) else 0 }
     fun serverVersion(entity: String, localId: Int): Int = readableDatabase.rawQuery("SELECT sync_version FROM server_versions WHERE entity=? AND local_id=? LIMIT 1", arrayOf(entity, localId.toString())).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+    fun hasPending(entity: String, localId: Int): Boolean = readableDatabase.rawQuery("SELECT 1 FROM outbox WHERE entity=? AND local_id=? AND status IN (?,?) LIMIT 1", arrayOf(entity, localId.toString(), OUTBOX_PENDING, OUTBOX_PROCESSING)).use { it.moveToFirst() }
     fun getRecordPayloads(entity: String): List<StoredRecord> = readableDatabase.rawQuery("SELECT entity,local_id,server_id,payload,sync_status,retry_count,last_error FROM records WHERE entity=? ORDER BY local_id", arrayOf(entity)).use { c -> buildList { while (c.moveToNext()) add(StoredRecord(c.getString(0), c.getInt(1), c.getInt(2), PayloadCipher.decrypt(c.getBlob(3)), c.getInt(4), c.getInt(5), c.getString(6))) } }
 
     fun getReadyOutbox(limit: Int = 50): List<OutboxRecord> {
         resetStaleProcessing()
         return writableDatabase.transactionResult {
             val now = System.currentTimeMillis(); val candidateLimit = (limit.coerceIn(1, 100) * 4).coerceAtMost(400); val candidates = mutableListOf<OutboxRecord>()
-            rawQuery("SELECT id,entity,local_id,server_id,operation,payload,status,retry_count,last_error FROM outbox WHERE status=? AND next_attempt_at<=? AND retry_count<? ORDER BY CASE entity WHEN 'customers' THEN 10 WHEN 'suppliers' THEN 20 WHEN 'wallet_ledgers' THEN 30 WHEN 'supplier_deposits' THEN 40 WHEN 'wallet_batches' THEN 50 WHEN 'transactions' THEN 60 WHEN 'expenses_incomes' THEN 70 ELSE 100 END, id LIMIT ?", arrayOf(OUTBOX_PENDING, now.toString(), MAX_RETRIES.toString(), candidateLimit.toString())).use { c ->
-                while (c.moveToNext()) candidates += OutboxRecord(c.getLong(0), c.getString(1), c.getInt(2), c.getInt(3), c.getString(4), PayloadCipher.decrypt(c.getBlob(5)), c.getString(6), c.getInt(7), c.getString(8))
-            }
+            rawQuery("SELECT id,entity,local_id,server_id,operation,payload,status,retry_count,last_error FROM outbox WHERE status=? AND next_attempt_at<=? AND retry_count<? ORDER BY CASE entity WHEN 'customers' THEN 10 WHEN 'suppliers' THEN 20 WHEN 'wallet_ledgers' THEN 30 WHEN 'supplier_deposits' THEN 40 WHEN 'wallet_batches' THEN 50 WHEN 'transactions' THEN 60 WHEN 'expenses_incomes' THEN 70 ELSE 100 END, id LIMIT ?", arrayOf(OUTBOX_PENDING, now.toString(), MAX_RETRIES.toString(), candidateLimit.toString())).use { c -> while (c.moveToNext()) candidates += OutboxRecord(c.getLong(0), c.getString(1), c.getInt(2), c.getInt(3), c.getString(4), PayloadCipher.decrypt(c.getBlob(5)), c.getString(6), c.getInt(7), c.getString(8)) }
             val candidateKeys = candidates.associateBy { it.entity to it.localId }; val selected = mutableListOf<OutboxRecord>(); var changed = true
             while (changed && selected.size < limit.coerceIn(1, 100)) {
                 changed = false
@@ -304,22 +278,16 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         return true
     }
 
-    fun markOutboxProcessing(ids: List<Long>) {
-        if (ids.isEmpty()) return
-        val now = System.currentTimeMillis(); writableDatabase.transaction { ids.forEach { id -> execSQL("UPDATE outbox SET status=?, updated_at=? WHERE id=? AND status=?", arrayOf<Any?>(OUTBOX_PROCESSING, now, id, OUTBOX_PENDING)) } }
-    }
+    fun markOutboxProcessing(ids: List<Long>) { if (ids.isEmpty()) return; val now = System.currentTimeMillis(); writableDatabase.transaction { ids.forEach { id -> execSQL("UPDATE outbox SET status=?, updated_at=? WHERE id=? AND status=?", arrayOf<Any?>(OUTBOX_PROCESSING, now, id, OUTBOX_PENDING)) } } }
 
     fun resetStaleProcessing(timeoutMs: Long = PROCESSING_TIMEOUT_MS) {
-        val cutoff = System.currentTimeMillis() - timeoutMs.coerceAtLeast(1_000L); val now = System.currentTimeMillis()
-        writableDatabase.transaction {
+        val cutoff = System.currentTimeMillis() - timeoutMs.coerceAtLeast(1_000L); val now = System.currentTimeMillis(); writableDatabase.transaction {
             rawQuery("SELECT id FROM outbox WHERE status=? AND updated_at<?", arrayOf(OUTBOX_PROCESSING, cutoff.toString())).use { c ->
                 val ids = buildList { while (c.moveToNext()) add(c.getLong(0)) }
-                ids.forEach { id ->
-                    rawQuery("SELECT deferred_operation,deferred_payload FROM outbox WHERE id=?", arrayOf(id.toString())).use { d ->
-                        if (d.moveToFirst() && !d.getString(0).isNullOrBlank() && d.getBlob(1) != null) execSQL("UPDATE outbox SET operation=?, payload=?, status=?, retry_count=0, next_attempt_at=0, last_error=COALESCE(last_error, 'Recovered abandoned sync item'), deferred_operation=NULL, deferred_payload=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(d.getString(0), d.getBlob(1), OUTBOX_PENDING, now, id))
-                        else execSQL("UPDATE outbox SET status=?, next_attempt_at=0, last_error=COALESCE(last_error, 'Recovered abandoned sync item'), updated_at=? WHERE id=?", arrayOf<Any?>(OUTBOX_PENDING, now, id))
-                    }
-                }
+                ids.forEach { id -> rawQuery("SELECT deferred_operation,deferred_payload FROM outbox WHERE id=?", arrayOf(id.toString())).use { d ->
+                    if (d.moveToFirst() && !d.getString(0).isNullOrBlank() && d.getBlob(1) != null) execSQL("UPDATE outbox SET operation=?, payload=?, status=?, retry_count=0, next_attempt_at=0, last_error=COALESCE(last_error, 'Recovered abandoned sync item'), deferred_operation=NULL, deferred_payload=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(d.getString(0), d.getBlob(1), OUTBOX_PENDING, now, id))
+                    else execSQL("UPDATE outbox SET status=?, next_attempt_at=0, last_error=COALESCE(last_error, 'Recovered abandoned sync item'), updated_at=? WHERE id=?", arrayOf<Any?>(OUTBOX_PENDING, now, id))
+                } }
             }
         }
     }
@@ -328,23 +296,17 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         val now = System.currentTimeMillis(); writableDatabase.transaction {
             rawQuery("SELECT id FROM outbox WHERE status=?", arrayOf(OUTBOX_PROCESSING)).use { c ->
                 val ids = buildList { while (c.moveToNext()) add(c.getLong(0)) }
-                ids.forEach { id ->
-                    rawQuery("SELECT deferred_operation,deferred_payload FROM outbox WHERE id=?", arrayOf(id.toString())).use { d ->
-                        if (d.moveToFirst() && !d.getString(0).isNullOrBlank() && d.getBlob(1) != null) execSQL("UPDATE outbox SET operation=?, payload=?, status=?, retry_count=0, next_attempt_at=0, last_error=NULL, deferred_operation=NULL, deferred_payload=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(d.getString(0), d.getBlob(1), OUTBOX_PENDING, now, id))
-                        else execSQL("UPDATE outbox SET status=?, next_attempt_at=0, updated_at=? WHERE id=?", arrayOf<Any?>(OUTBOX_PENDING, now, id))
-                    }
-                }
+                ids.forEach { id -> rawQuery("SELECT deferred_operation,deferred_payload FROM outbox WHERE id=?", arrayOf(id.toString())).use { d ->
+                    if (d.moveToFirst() && !d.getString(0).isNullOrBlank() && d.getBlob(1) != null) execSQL("UPDATE outbox SET operation=?, payload=?, status=?, retry_count=0, next_attempt_at=0, last_error=NULL, deferred_operation=NULL, deferred_payload=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(d.getString(0), d.getBlob(1), OUTBOX_PENDING, now, id))
+                    else execSQL("UPDATE outbox SET status=?, next_attempt_at=0, updated_at=? WHERE id=?", arrayOf<Any?>(OUTBOX_PENDING, now, id))
+                } }
             }
         }
     }
 
     fun deleteOutbox(id: Long): Int = writableDatabase.transactionResult {
         var promoted = false
-        rawQuery("SELECT deferred_operation,deferred_payload FROM outbox WHERE id=?", arrayOf(id.toString())).use { c ->
-            if (c.moveToFirst() && !c.getString(0).isNullOrBlank() && c.getBlob(1) != null) {
-                execSQL("UPDATE outbox SET operation=?, payload=?, status=?, retry_count=0, next_attempt_at=0, last_error=NULL, deferred_operation=NULL, deferred_payload=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(c.getString(0), c.getBlob(1), OUTBOX_PENDING, System.currentTimeMillis(), id)); promoted = true
-            }
-        }
+        rawQuery("SELECT deferred_operation,deferred_payload FROM outbox WHERE id=?", arrayOf(id.toString())).use { c -> if (c.moveToFirst() && !c.getString(0).isNullOrBlank() && c.getBlob(1) != null) { execSQL("UPDATE outbox SET operation=?, payload=?, status=?, retry_count=0, next_attempt_at=0, last_error=NULL, deferred_operation=NULL, deferred_payload=NULL, updated_at=? WHERE id=?", arrayOf<Any?>(c.getString(0), c.getBlob(1), OUTBOX_PENDING, System.currentTimeMillis(), id)); promoted = true } }
         if (promoted) 1 else delete("outbox", "id=?", arrayOf(id.toString()))
     }
 
