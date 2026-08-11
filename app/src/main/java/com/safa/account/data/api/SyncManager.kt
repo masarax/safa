@@ -4,17 +4,12 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import com.safa.account.data.api.dto.SyncUpPayload
-import com.safa.account.data.model.*
 import com.safa.account.data.repository.AppRepository
 import com.safa.account.data.sync.SyncWorkScheduler
 import com.safa.account.utils.SafaLogger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -28,7 +23,6 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
     private val mutex = Mutex()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var started = false
 
@@ -66,7 +60,7 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
         started = false
     }
 
-    suspend fun checkServerHealth(): Result<String> = withContext(Dispatchers.IO) { runCatching {
+    suspend fun checkServerHealth(): Result<String> = withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching {
         val r = RetrofitClient.getHealthApiService(tokenManager.getBaseUrl()).checkServerHealth()
         if (!r.isSuccessful) error("Health endpoint returned HTTP ${r.code()}")
         if (r.body()?.get("status")?.toString()?.trim() != "ok") error("Health endpoint returned an invalid status")
