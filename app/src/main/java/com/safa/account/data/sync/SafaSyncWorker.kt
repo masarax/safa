@@ -13,6 +13,9 @@ import com.safa.account.data.repository.AppRepository
  * retry state. A temporary server/network outage must never turn the worker
  * permanently FAILED after an arbitrary number of WorkManager attempts: the
  * durable outbox is specifically designed to recover when connectivity returns.
+ *
+ * The process-wide SyncCoordinator also serializes this worker with foreground
+ * and connectivity-triggered sync so upload/download pairs cannot interleave.
  */
 class SafaSyncWorker(
     appContext: Context,
@@ -28,13 +31,16 @@ class SafaSyncWorker(
 
         val repository = AppRepository(applicationContext)
 
-        return try {
+        val result = SyncCoordinator.run {
             repository.processOutbox().getOrThrow()
             repository.refreshAll().getOrThrow()
+        }
+
+        return if (result != null) {
             Result.success()
-        } catch (_: Throwable) {
-            // Keep the durable outbox alive. WorkManager applies exponential
-            // backoff and will retry when the network/server becomes available.
+        } else {
+            // Another sync owns the gate or the worker exceeded the coordinator
+            // wait window. Keep the durable work queued and let WorkManager retry.
             Result.retry()
         }
     }
