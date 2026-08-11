@@ -13,6 +13,7 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import org.json.JSONObject
 
 /** Encrypted local database metadata + durable crash-safe outbox. */
 class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "safa_local.db", null, VERSION) {
@@ -185,16 +186,105 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     fun retryCount(entity: String, localId: Int): Int = readableDatabase.rawQuery("SELECT retry_count FROM records WHERE entity=? AND local_id=?", arrayOf(entity, localId.toString())).use { if (it.moveToFirst()) it.getInt(0) else 0 }
     fun getRecordPayloads(entity: String): List<StoredRecord> = readableDatabase.rawQuery("SELECT entity,local_id,server_id,payload,sync_status,retry_count,last_error FROM records WHERE entity=? ORDER BY local_id", arrayOf(entity)).use { c -> buildList { while (c.moveToNext()) add(StoredRecord(c.getString(0), c.getInt(1), c.getInt(2), PayloadCipher.decrypt(c.getBlob(3)), c.getInt(4), c.getInt(5), c.getString(6))) } }
 
+    /**
+     * Returns only dependency-ready work and claims it atomically.
+     *
+     * Dependency graph:
+     * Customer -> Transaction
+     * Supplier -> SupplierDeposit -> WalletBatch -> Transaction
+     * WalletLedger -> WalletBatch
+     *
+     * The server contract uses LOCAL IDs for relationships. Therefore the
+     * client must not send a child until its parent is already synced locally,
+     * or the parent mutation is included in the same request. This prevents
+     * 429 SYNC_DEPENDENCY_PENDING loops and makes batching deterministic.
+     */
     fun getReadyOutbox(limit: Int = 50): List<OutboxRecord> {
         resetStaleProcessing()
         return writableDatabase.transactionResult {
-            val now = System.currentTimeMillis(); val rows = mutableListOf<OutboxRecord>()
-            rawQuery("SELECT id,entity,local_id,server_id,operation,payload,status,retry_count,last_error FROM outbox WHERE status=? AND next_attempt_at<=? AND retry_count<? ORDER BY id LIMIT ?", arrayOf(OUTBOX_PENDING, now.toString(), MAX_RETRIES.toString(), limit.coerceIn(1, 100).toString())).use { c ->
-                while (c.moveToNext()) rows += OutboxRecord(c.getLong(0), c.getString(1), c.getInt(2), c.getInt(3), c.getString(4), PayloadCipher.decrypt(c.getBlob(5)), c.getString(6), c.getInt(7), c.getString(8))
+            val now = System.currentTimeMillis()
+            val candidateLimit = (limit.coerceIn(1, 100) * 4).coerceAtMost(400)
+            val candidates = mutableListOf<OutboxRecord>()
+            rawQuery(
+                "SELECT id,entity,local_id,server_id,operation,payload,status,retry_count,last_error " +
+                    "FROM outbox WHERE status=? AND next_attempt_at<=? AND retry_count<? " +
+                    "ORDER BY CASE entity " +
+                    "WHEN 'customers' THEN 10 WHEN 'suppliers' THEN 20 WHEN 'wallet_ledgers' THEN 30 " +
+                    "WHEN 'supplier_deposits' THEN 40 WHEN 'wallet_batches' THEN 50 WHEN 'transactions' THEN 60 " +
+                    "WHEN 'expenses_incomes' THEN 70 ELSE 100 END, id LIMIT ?",
+                arrayOf(OUTBOX_PENDING, now.toString(), MAX_RETRIES.toString(), candidateLimit.toString())
+            ).use { c ->
+                while (c.moveToNext()) candidates += OutboxRecord(
+                    c.getLong(0), c.getString(1), c.getInt(2), c.getInt(3), c.getString(4),
+                    PayloadCipher.decrypt(c.getBlob(5)), c.getString(6), c.getInt(7), c.getString(8)
+                )
             }
-            rows.forEach { row -> execSQL("UPDATE outbox SET status=?, updated_at=? WHERE id=? AND status=?", arrayOf<Any?>(OUTBOX_PROCESSING, now, row.id, OUTBOX_PENDING)) }
-            rows
+
+            val candidateKeys = candidates.associateBy { it.entity to it.localId }
+            val selected = mutableListOf<OutboxRecord>()
+
+            // Iterate until no additional dependency-ready item can be added.
+            // This allows a Customer -> Transaction chain in the same batch to
+            // become eligible without requiring an extra network round-trip.
+            var changed = true
+            while (changed && selected.size < limit.coerceIn(1, 100)) {
+                changed = false
+                for (row in candidates) {
+                    if (row in selected) continue
+                    if (!dependencyReady(row, candidateKeys, selected)) continue
+                    selected += row
+                    changed = true
+                    if (selected.size >= limit.coerceIn(1, 100)) break
+                }
+            }
+
+            // Claim only the selected rows. Blocked children remain PENDING and
+            // will be reconsidered after their parent succeeds.
+            selected.forEach { row ->
+                execSQL(
+                    "UPDATE outbox SET status=?, updated_at=? WHERE id=? AND status=?",
+                    arrayOf<Any?>(OUTBOX_PROCESSING, now, row.id, OUTBOX_PENDING)
+                )
+            }
+            selected
         }
+    }
+
+    private fun dependencyReady(row: OutboxRecord, candidates: Map<Pair<String, Int>, OutboxRecord>, selected: List<OutboxRecord>): Boolean {
+        val payload = runCatching { JSONObject(row.payload) }.getOrNull() ?: return true
+        val dependencies = when (row.entity) {
+            "supplier_deposits" -> listOf("suppliers" to payload.optInt("supplier_id", 0))
+            "wallet_batches" -> listOf(
+                "wallet_ledgers" to payload.optInt("ledger_id", 0),
+                "suppliers" to payload.optInt("supplier_id", 0),
+                "supplier_deposits" to payload.optInt("supplier_deposit_id", 0)
+            )
+            "transactions" -> listOf(
+                "customers" to payload.optInt("customer_id", 0),
+                "suppliers" to payload.optInt("supplier_id", 0),
+                "wallet_batches" to payload.optInt("wallet_batch_id", 0)
+            )
+            else -> emptyList()
+        }.filter { it.second > 0 }
+
+        for ((parentEntity, parentLocalId) in dependencies) {
+            val synced = readableDatabase.rawQuery(
+                "SELECT sync_status FROM records WHERE entity=? AND local_id=? LIMIT 1",
+                arrayOf(parentEntity, parentLocalId.toString())
+            ).use { c -> c.moveToFirst() && c.getInt(0) == SYNCED }
+            if (synced) continue
+
+            val parent = candidates[parentEntity to parentLocalId]
+            if (parent == null) return false
+
+            val parentSelected = selected.any { it.entity == parentEntity && it.localId == parentLocalId }
+            if (!parentSelected) return false
+
+            // A parent DELETE may satisfy a child DELETE in the same request,
+            // but it must never satisfy a create/update child.
+            if (parent.operation.equals("DELETE", ignoreCase = true) && !row.operation.equals("DELETE", ignoreCase = true)) return false
+        }
+        return true
     }
 
     fun markOutboxProcessing(ids: List<Long>) {
