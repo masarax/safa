@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
-use App\Models\AuthSession;
-use App\Models\DeviceBinding;
 use App\Models\SafaApiKey;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -131,7 +129,7 @@ class MobileLoginApiTest extends TestCase
             ->post('/api/auth/login')
             ->assertStatus(200);
 
-        $secondPayload = $firstPayload + ['fingerprint_hash' => 'fingerprint-b'];
+        $secondPayload = array_merge($firstPayload, ['fingerprint_hash' => 'fingerprint-b']);
         $this->withHeaders($this->authenticateHeaders($apiKey, $apiSecret, $secondPayload))
             ->withBody(json_encode($secondPayload, JSON_UNESCAPED_SLASHES), 'application/json')
             ->post('/api/auth/login')
