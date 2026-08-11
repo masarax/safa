@@ -59,7 +59,11 @@ class ApiSecurityInterceptor(
                             includeAuthTokens = true
                         )
                     )
-                } else if (response.code == 401 || response.code == 403) {
+                } else if (response.code == 401) {
+                    // A 401 means the authenticated session could not be
+                    // recovered. Preserve that response for the caller while
+                    // clearing local credentials. A 403 is authorization/
+                    // permission failure and must never destroy a valid session.
                     tokenManager.clearAllTokens()
                 }
             }

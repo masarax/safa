@@ -44,11 +44,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,7 +66,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.safa.account.R
 import com.safa.account.data.api.AuthLifecycleCoordinator
-import com.safa.account.data.api.TokenManager
 import com.safa.account.data.repository.AppRepository
 import com.safa.account.ui.screens.*
 import com.safa.account.ui.theme.MyApplicationTheme
@@ -74,7 +73,6 @@ import com.safa.account.ui.viewmodel.AppScreen
 import com.safa.account.ui.viewmodel.NavDirection
 import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.viewmodel.SafaViewModelFactory
-import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,15 +81,12 @@ class MainActivity : FragmentActivity() {
 
         try {
             val repository = AppRepository(applicationContext)
-            val tokenManager = TokenManager(applicationContext)
+            val tokenManager = com.safa.account.data.api.TokenManager(applicationContext)
             val factory = SafaViewModelFactory(repository, tokenManager)
             val viewModel = ViewModelProvider(this, factory)[SafaViewModel::class.java]
 
             setContent {
-                SafaRoot(
-                    viewModel = viewModel,
-                    onExit = { finish() }
-                )
+                SafaRoot(viewModel = viewModel, onExit = { finish() })
             }
         } catch (t: Throwable) {
             android.util.Log.e("SafaApp", "FATAL_STARTUP_ERROR", t)
@@ -109,10 +104,7 @@ class MainActivity : FragmentActivity() {
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun SafaRoot(
-    viewModel: SafaViewModel,
-    onExit: () -> Unit
-) {
+private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
     val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
@@ -120,6 +112,16 @@ private fun SafaRoot(
     val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
     var showExitDialog by remember { mutableStateOf(false) }
+    var previousOperatorId by remember { mutableStateOf<Int?>(currentOperator?.id) }
+
+    LaunchedEffect(currentOperator?.id) {
+        val previous = previousOperatorId
+        val current = currentOperator?.id
+        if (previous != null && current == null) {
+            viewModel.tokenManager?.let { AuthLifecycleCoordinator(it).logout() }
+        }
+        previousOperatorId = current
+    }
 
     val isMainScreen = currentScreen in setOf(AppScreen.DASHBOARD, AppScreen.CUSTOMERS, AppScreen.SUPPLIERS, AppScreen.WALLET, AppScreen.EXPENSES)
     val showBars = isMainScreen && !isSubPageActive
@@ -196,8 +198,6 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
     val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
     val customAppLogoUri by viewModel.customAppLogoUri.collectAsStateWithLifecycle()
     val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
-    val coroutineScope = rememberCoroutineScope()
-    val tokenManager = viewModel.tokenManager
 
     TopAppBar(
         title = {
@@ -220,17 +220,7 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
             Spacer(Modifier.width(4.dp))
             IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Switch Theme", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
-            IconButton(
-                onClick = {
-                    coroutineScope.launch {
-                        // Server revoke is attempted first. Local credentials are
-                        // always cleared by the coordinator even if offline.
-                        tokenManager?.let { AuthLifecycleCoordinator(it).logout() }
-                        onLogoutClick()
-                    }
-                },
-                modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)
-            ) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = goldBgColor),
         modifier = Modifier.fillMaxWidth()
