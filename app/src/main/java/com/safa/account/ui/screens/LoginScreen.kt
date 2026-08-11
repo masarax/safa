@@ -32,6 +32,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 private fun normalizeDigits(value: String): String = buildString(value.length) {
@@ -71,18 +72,17 @@ private fun isAccessTokenFresh(token: String?, minimumLifetimeSeconds: Long = 30
 fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     val operators by viewModel.operators.collectAsStateWithLifecycle()
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val viewModelBiometricEnabled by viewModel.isBiometricEnabled.collectAsStateWithLifecycle()
     val tokenManager = viewModel.tokenManager
     val coroutineScope = rememberCoroutineScope()
 
-    // Quick unlock is tied to the explicitly enabled account operator plus a
-    // complete encrypted resumable session. The access token must still be
-    // cryptographically within its JWT lifetime; an expired token is first
-    // allowed to go through the normal interceptor refresh path.
-    val hasCompleteLocalSession = tokenManager?.let {
-        !it.getAccessToken().isNullOrBlank() &&
-            !it.getRefreshToken().isNullOrBlank() &&
-            !it.getSessionToken().isNullOrBlank()
-    } == true
+    // Quick unlock is a local device-unlock feature. It must never turn the
+    // fingerprint into a replacement for the first mobile+PIN authentication.
+    // A complete encrypted session is required before the biometric prompt is
+    // even offered, and explicit biometric enablement is required to bypass
+    // the normal login screen.
+    val hasCompleteLocalSession = tokenManager?.hasValidLocalSessionForQuickUnlock() == true
+    val biometricEnabled = tokenManager?.isBiometricQuickUnlockEnabled() == true || viewModelBiometricEnabled
 
     var mobileInput by remember { mutableStateOf(tokenManager?.getLastMobile() ?: "") }
     var pinInput by remember { mutableStateOf("") }
@@ -93,15 +93,15 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
         operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
     }
 
-    // Session restoration policy:
-    // 1) Fresh access token -> restore immediately when biometric is disabled.
-    // 2) Expired access token -> make one authenticated request so the shared
-    //    interceptor can rotate the refresh token; only restore if that works.
-    // 3) Biometric-enabled account -> never bypass the biometric prompt.
-    LaunchedEffect(matchingOp, hasCompleteLocalSession) {
+    // Session restoration is intentionally conservative. If quick unlock is
+    // enabled, the app must stop at the biometric prompt instead of silently
+    // restoring a valid session. If it is disabled, a fresh/refreshable session
+    // may be restored without asking for PIN again.
+    LaunchedEffect(matchingOp, hasCompleteLocalSession, biometricEnabled) {
         val tm = tokenManager ?: return@LaunchedEffect
         val operator = matchingOp ?: return@LaunchedEffect
         if (!hasCompleteLocalSession || !operator.isActive) return@LaunchedEffect
+        if (biometricEnabled) return@LaunchedEffect
 
         var sessionReady = isAccessTokenFresh(tm.getAccessToken())
         if (!sessionReady) {
@@ -112,7 +112,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        if (sessionReady && !operator.isBiometricEnabled) {
+        if (sessionReady) {
             viewModel.loginWithBiometric(operator)
         }
     }
@@ -203,7 +203,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                 }
 
                 val biometricOperator = matchingOp?.takeIf {
-                    hasCompleteLocalSession && it.isActive && it.isBiometricEnabled
+                    hasCompleteLocalSession && biometricEnabled && it.isActive
                 }
 
                 if (biometricOperator != null) {
@@ -211,18 +211,13 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                         lang = currentLang,
                         autoLaunch = true,
                         onSuccess = {
-                            // BiometricPrompt proves possession of the device
-                            // biometric. The local operator flag proves this
-                            // account explicitly enabled quick unlock. Before
-                            // entering the app, also prove that the server
-                            // session is still recoverable; an expired access
-                            // token must rotate through the refresh endpoint.
                             coroutineScope.launch {
                                 val tm = tokenManager
-                                if (tm == null) {
+                                if (tm == null || !tm.hasValidLocalSessionForQuickUnlock()) {
                                     loginError = if (currentLang == "BN") "সেশন পাওয়া যায়নি" else "Session unavailable"
                                     return@launch
                                 }
+
                                 var sessionReady = isAccessTokenFresh(tm.getAccessToken())
                                 if (!sessionReady) {
                                     runCatching {
@@ -231,9 +226,13 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                                         sessionReady = response?.isSuccessful == true && isAccessTokenFresh(tm.getAccessToken())
                                     }
                                 }
+
                                 if (sessionReady) {
                                     viewModel.loginWithBiometric(biometricOperator)
                                 } else {
+                                    // Never silently fall back to a stale local
+                                    // session. Require the first-factor login again.
+                                    tm.disableBiometricQuickUnlock()
                                     loginError = if (currentLang == "BN") {
                                         "সেশন শেষ হয়েছে। আবার মোবাইল ও পিন দিয়ে লগইন করুন।"
                                     } else {
@@ -248,7 +247,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
 
                 Button(
                     onClick = {
-                        val normalizedMobile = mobileInput.trim()
+                        val normalizedMobile = normalizeDigits(mobileInput).trim()
                         val normalizedPin = normalizeDigits(pinInput).trim()
                         if (normalizedMobile.isBlank()) {
                             loginError = if (currentLang == "BN") "মোবাইল দিন" else "Enter mobile"
