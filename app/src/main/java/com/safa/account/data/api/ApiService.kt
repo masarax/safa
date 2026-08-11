@@ -24,12 +24,12 @@ interface ApiService {
     @PUT("transactions/{id}") suspend fun updateTransactionApi(@Path("id") id: Int, @Body transaction: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("transactions/{id}") suspend fun deleteTransactionApi(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
-    @GET("wallet-ledgers") suspend fun getWalletLedgers(): Response<Map<String, Any?>>
+    @GET("wallet-ledgers") suspend fun getWalletLedgers(): Response<Map<String, Any>>
     @POST("wallet-ledgers") suspend fun createWalletLedger(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("wallet-ledgers/{id}") suspend fun updateWalletLedger(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("wallet-ledgers/{id}") suspend fun deleteWalletLedger(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
-    @GET("supplier-deposits") suspend fun getSupplierDeposits(): Response<Map<String, Any?>>
+    @GET("supplier-deposits") suspend fun getSupplierDeposits(): Response<Map<String, Any>>
     @POST("supplier-deposits") suspend fun createSupplierDeposit(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("supplier-deposits/{id}") suspend fun updateSupplierDeposit(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("supplier-deposits/{id}") suspend fun deleteSupplierDeposit(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
@@ -37,7 +37,7 @@ interface ApiService {
     @GET("wallet-batches") suspend fun getWalletBatches(): Response<Map<String, Any>>
     @POST("wallet-batches") suspend fun createWalletBatch(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("wallet-batches/{id}") suspend fun updateWalletBatch(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
-    @DELETE("wallet-batches/{id}") suspend fun deleteWalletBatchApi(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
+    @DELETE("wallet-batches/{id}") suspend fun deleteWalletBatch(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
     @GET("expenses-incomes") suspend fun getExpensesIncomes(): Response<Map<String, Any?>>
     @POST("expenses-incomes") suspend fun createExpenseIncome(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
