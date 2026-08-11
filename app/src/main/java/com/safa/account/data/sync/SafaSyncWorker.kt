@@ -21,14 +21,16 @@ class SafaSyncWorker(
         if (tokenManager.getAccessToken().isNullOrBlank()) return Result.success()
 
         val repository = AppRepository(applicationContext)
-        return try {
+        val completed = SyncCoordinator.run {
             repository.processOutbox().getOrThrow()
             repository.refreshAll().getOrThrow()
-            Result.success()
-        } catch (_: Exception) {
-            // Network/server failures are retried by WorkManager. Individual
-            // outbox records still keep their own retry/backoff state in SQLite.
-            Result.retry()
+            true
+        }
+
+        return when (completed) {
+            true -> Result.success()
+            null -> Result.retry()
+            else -> Result.retry()
         }
     }
 }
