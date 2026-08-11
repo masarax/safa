@@ -6,6 +6,7 @@ import androidx.work.WorkerParameters
 import com.safa.account.data.api.TokenManager
 import com.safa.account.data.repository.AppRepository
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 
 /**
  * Persistent background reconciliation for the local-first data layer.
@@ -41,6 +42,10 @@ class SafaSyncWorker(
                 // let WorkManager retry using the request's exponential backoff.
                 Result.retry()
             }
+        } catch (t: CancellationException) {
+            // CoroutineWorker uses cancellation to stop work safely. Never convert
+            // cooperative cancellation into a permanent worker failure.
+            throw t
         } catch (t: Throwable) {
             when {
                 isTransient(t) -> Result.retry()
