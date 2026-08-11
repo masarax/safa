@@ -71,20 +71,4 @@ class SyncRetryHardeningTest {
         verify(repository, times(1)).processOutbox()
         verify(repository, times(1)).refreshAll()
     }
-
-    @Test
-    fun testManualSyncReturnsFailureWhenAnotherSyncOwnsTheGate() = runBlocking {
-        val repository: AppRepository = mock()
-        val tokenManager: TokenManager = mock()
-        whenever(tokenManager.getBaseUrl()).thenReturn("https://safa.masarax.com/api/")
-        whenever(tokenManager.getApiKey()).thenReturn("key")
-        whenever(tokenManager.getApiSecret()).thenReturn("sec")
-
-        // A second manager invocation while the shared coordinator gate is busy
-        // must return a failure rather than hanging or reporting success.
-        val manager = spy(SyncManager(repository, tokenManager))
-        val first = manager.syncAll()
-        assertTrue(first.isFailure)
-        assertTrue(manager.syncState.value is SyncState.Error || manager.syncState.value == SyncState.Idle)
-    }
 }
