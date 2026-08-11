@@ -55,7 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.testTag
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,7 +66,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.safa.account.R
 import com.safa.account.data.api.AuthLifecycleCoordinator
-import com.safa.account.data.api.TokenManager
 import com.safa.account.data.repository.AppRepository
 import com.safa.account.ui.screens.*
 import com.safa.account.ui.theme.MyApplicationTheme
@@ -82,15 +81,12 @@ class MainActivity : FragmentActivity() {
 
         try {
             val repository = AppRepository(applicationContext)
-            val tokenManager = TokenManager(applicationContext)
+            val tokenManager = com.safa.account.data.api.TokenManager(applicationContext)
             val factory = SafaViewModelFactory(repository, tokenManager)
             val viewModel = ViewModelProvider(this, factory)[SafaViewModel::class.java]
 
             setContent {
-                SafaRoot(
-                    viewModel = viewModel,
-                    onExit = { finish() }
-                )
+                SafaRoot(viewModel = viewModel, onExit = { finish() })
             }
         } catch (t: Throwable) {
             android.util.Log.e("SafaApp", "FATAL_STARTUP_ERROR", t)
@@ -108,10 +104,7 @@ class MainActivity : FragmentActivity() {
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun SafaRoot(
-    viewModel: SafaViewModel,
-    onExit: () -> Unit
-) {
+private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
     val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
@@ -121,16 +114,11 @@ private fun SafaRoot(
     var showExitDialog by remember { mutableStateOf(false) }
     var previousOperatorId by remember { mutableStateOf<Int?>(currentOperator?.id) }
 
-    // Every UI logout path eventually clears the same encrypted auth state.
-    // The initial null state is ignored so a persisted session can be restored
-    // by LoginScreen without being wiped during first composition.
     LaunchedEffect(currentOperator?.id) {
         val previous = previousOperatorId
         val current = currentOperator?.id
         if (previous != null && current == null) {
-            viewModel.tokenManager?.let { tokenManager ->
-                AuthLifecycleCoordinator(tokenManager).logout()
-            }
+            viewModel.tokenManager?.let { AuthLifecycleCoordinator(it).logout() }
         }
         previousOperatorId = current
     }
