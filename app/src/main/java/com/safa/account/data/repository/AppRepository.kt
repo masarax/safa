@@ -122,25 +122,25 @@ class AppRepository private constructor(private val api: ApiService, private val
         }
     }
 
-    private fun <T> mergeServerRows(entity: String, serverRows: List<Map<String, Any?>>, mapper: (Map<String, Any?>) -> T, payload: (T) -> Map<String, Any?>) {
+    private fun <T : Any> mergeServerRows(entity: String, serverRows: List<Map<String, Any?>>, mapper: (Map<String, Any?>) -> T, payload: (T) -> Map<String, Any?>) {
         val store = localStore ?: return
         serverRows.forEach { raw ->
             val serverId = raw.v("id", "server_id").i()
             if (serverId <= 0) return@forEach
             val localId = raw.v("local_id").i().takeIf { it > 0 } ?: store.nextLocalId()
             if (store.hasPending(entity, localId)) return@forEach
-            val model: Any = when (val item = mapper(raw)) {
-                is Customer -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
-                is Supplier -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
-                is RemittanceTransaction -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
-                is SupplierDeposit -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
-                is ExpenseIncome -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
-                is WalletLedger -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
-                is WalletBatch -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED)
+            val item = mapper(raw)
+            val model: T = when (item) {
+                is Customer -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED) as T
+                is Supplier -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED) as T
+                is RemittanceTransaction -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED) as T
+                is SupplierDeposit -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED) as T
+                is ExpenseIncome -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED) as T
+                is WalletLedger -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED) as T
+                is WalletBatch -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED) as T
                 else -> item
             }
-            @Suppress("UNCHECKED_CAST") val map = payload(model as T)
-            store.upsertRecord(entity, localId, serverId, mapToJson(map), LocalFirstStore.SYNCED)
+            store.upsertRecord(entity, localId, serverId, mapToJson(payload(model)), LocalFirstStore.SYNCED)
         }
     }
 
@@ -149,7 +149,7 @@ class AppRepository private constructor(private val api: ApiService, private val
     suspend fun insertCustomer(c: Customer): Int { val id = localId(c.id); val x = c.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("customers", id, 0, cp(x), OutboxOperation.CREATE); publish(); return id }
     suspend fun updateCustomer(c: Customer) { val x = c.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("customers", x.id, x.serverId, cp(x), OutboxOperation.UPDATE); publish() }
     suspend fun deleteCustomerById(id: Int) { getCustomerById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("customers", x.id, x.serverId, cp(x), OutboxOperation.DELETE); publish() } }
-    suspend fun softDeleteCustomerById(id: Int, deletedAt: Long) = deleteCustomerById(id)
+    suspend fun softDeleteCustomerById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteCustomerById(id)
     suspend fun getCustomerById(id: Int) = _customers.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingCustomers() = pending("customers", ::customer)
     suspend fun markCustomerSynced(id: Int, serverId: Int) { localStore?.markSynced("customers", id, serverId); publish() }
@@ -161,7 +161,7 @@ class AppRepository private constructor(private val api: ApiService, private val
     suspend fun insertSupplier(s: Supplier): Int { val id = localId(s.id); val x = s.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("suppliers", id, 0, sp(x), OutboxOperation.CREATE); publish(); return id }
     suspend fun updateSupplier(s: Supplier) { val x = s.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("suppliers", x.id, x.serverId, sp(x), OutboxOperation.UPDATE); publish() }
     suspend fun deleteSupplierById(id: Int) { getSupplierById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("suppliers", x.id, x.serverId, sp(x), OutboxOperation.DELETE); publish() } }
-    suspend fun softDeleteSupplierById(id: Int, deletedAt: Long) = deleteSupplierById(id)
+    suspend fun softDeleteSupplierById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteSupplierById(id)
     suspend fun getSupplierById(id: Int) = _suppliers.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingSuppliers() = pending("suppliers", ::supplier)
     suspend fun markSupplierSynced(id: Int, serverId: Int) { localStore?.markSynced("suppliers", id, serverId); publish() }
@@ -173,7 +173,7 @@ class AppRepository private constructor(private val api: ApiService, private val
     suspend fun insertTransaction(t: RemittanceTransaction): Int { val id = localId(t.id); val x = t.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("transactions", id, 0, tp(x), OutboxOperation.CREATE); publish(); return id }
     suspend fun updateTransaction(t: RemittanceTransaction) { val x = t.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("transactions", x.id, x.serverId, tp(x), OutboxOperation.UPDATE); publish() }
     suspend fun deleteTransactionById(id: Int) { getTransactionById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("transactions", x.id, x.serverId, tp(x), OutboxOperation.DELETE); publish() } }
-    suspend fun softDeleteTransactionById(id: Int, deletedAt: Long) = deleteTransactionById(id)
+    suspend fun softDeleteTransactionById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteTransactionById(id)
     suspend fun getTransactionById(id: Int) = _transactions.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingTransactions() = pending("transactions", ::transaction)
     suspend fun markTransactionSynced(id: Int, serverId: Int) { localStore?.markSynced("transactions", id, serverId); publish() }
@@ -185,7 +185,7 @@ class AppRepository private constructor(private val api: ApiService, private val
     suspend fun insertSupplierDeposit(d: SupplierDeposit): Int { val id = localId(d.id); val x = d.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("supplier_deposits", id, 0, dp(x), OutboxOperation.CREATE); publish(); return id }
     suspend fun updateSupplierDeposit(d: SupplierDeposit) { val x = d.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("supplier_deposits", x.id, x.serverId, dp(x), OutboxOperation.UPDATE); publish() }
     suspend fun deleteSupplierDepositById(id: Int) { getSupplierDepositById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("supplier_deposits", x.id, x.serverId, dp(x), OutboxOperation.DELETE); publish() } }
-    suspend fun softDeleteSupplierDepositById(id: Int, deletedAt: Long) = deleteSupplierDepositById(id)
+    suspend fun softDeleteSupplierDepositById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteSupplierDepositById(id)
     suspend fun getSupplierDepositById(id: Int) = _deposits.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingSupplierDeposits() = pending("supplier_deposits", ::deposit)
     suspend fun markSupplierDepositSynced(id: Int, serverId: Int) { localStore?.markSynced("supplier_deposits", id, serverId); publish() }
@@ -197,7 +197,7 @@ class AppRepository private constructor(private val api: ApiService, private val
     suspend fun insertExpenseIncome(e: ExpenseIncome): Int { val id = localId(e.id); val x = e.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("expenses_incomes", id, 0, ep(x), OutboxOperation.CREATE); publish(); return id }
     suspend fun updateExpenseIncome(e: ExpenseIncome) { val x = e.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("expenses_incomes", x.id, x.serverId, ep(x), OutboxOperation.UPDATE); publish() }
     suspend fun deleteExpenseIncomeById(id: Int) { getExpenseIncomeById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("expenses_incomes", x.id, x.serverId, ep(x), OutboxOperation.DELETE); publish() } }
-    suspend fun softDeleteExpenseIncomeById(id: Int, deletedAt: Long) = deleteExpenseIncomeById(id)
+    suspend fun softDeleteExpenseIncomeById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteExpenseIncomeById(id)
     suspend fun getExpenseIncomeById(id: Int) = _expenses.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingExpensesIncomes() = pending("expenses_incomes", ::expense)
     suspend fun markExpenseIncomeSynced(id: Int, serverId: Int) { localStore?.markSynced("expenses_incomes", id, serverId); publish() }
@@ -212,7 +212,7 @@ class AppRepository private constructor(private val api: ApiService, private val
     suspend fun insertWalletLedger(l: WalletLedger): Int { val id = localId(l.id); val x = l.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("wallet_ledgers", id, 0, lp(x), OutboxOperation.CREATE); publish(); return id }
     suspend fun updateWalletLedger(l: WalletLedger) { val x = l.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("wallet_ledgers", x.id, x.serverId, lp(x), OutboxOperation.UPDATE); publish() }
     suspend fun deleteWalletLedgerById(id: Int) { getWalletLedgerById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("wallet_ledgers", x.id, x.serverId, lp(x), OutboxOperation.DELETE); publish() } }
-    suspend fun softDeleteWalletLedgerById(id: Int, deletedAt: Long) = deleteWalletLedgerById(id)
+    suspend fun softDeleteWalletLedgerById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteWalletLedgerById(id)
     suspend fun getWalletLedgerById(id: Int) = _ledgers.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingWalletLedgers() = pending("wallet_ledgers", ::ledger)
     suspend fun markWalletLedgerSynced(id: Int, serverId: Int) { localStore?.markSynced("wallet_ledgers", id, serverId); publish() }
@@ -224,9 +224,9 @@ class AppRepository private constructor(private val api: ApiService, private val
     suspend fun insertWalletBatch(b: WalletBatch): Int { val id = localId(b.id); val x = b.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("wallet_batches", id, 0, bp(x), OutboxOperation.CREATE); publish(); return id }
     suspend fun updateWalletBatch(b: WalletBatch) { val x = b.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("wallet_batches", x.id, x.serverId, bp(x), OutboxOperation.UPDATE); publish() }
     suspend fun deleteWalletBatchById(id: Int) { getWalletBatchById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("wallet_batches", x.id, x.serverId, bp(x), OutboxOperation.DELETE); publish() } }
-    suspend fun softDeleteWalletBatchById(id: Int, deletedAt: Long) = deleteWalletBatchById(id)
+    suspend fun softDeleteWalletBatchById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteWalletBatchById(id)
     suspend fun deleteWalletBatchBySupplierDepositId(id: Int) { _batches.value.firstOrNull { it.supplierDepositId == id }?.let { deleteWalletBatchById(it.id) } }
-    suspend fun softDeleteWalletBatchBySupplierDepositId(id: Int, deletedAt: Long) = deleteWalletBatchBySupplierDepositId(id)
+    suspend fun softDeleteWalletBatchBySupplierDepositId(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteWalletBatchBySupplierDepositId(id)
     suspend fun getWalletBatchById(id: Int) = _batches.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingWalletBatches() = pending("wallet_batches", ::batch)
     suspend fun markWalletBatchSynced(id: Int, serverId: Int) { localStore?.markSynced("wallet_batches", id, serverId); publish() }
