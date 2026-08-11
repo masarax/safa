@@ -13,12 +13,12 @@ class MobileLoginApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function authenticateHeaders(string $apiKey, string $apiSecret, array $payload): array
+    private function authenticateHeaders(string $apiKey, string $apiSecret, array $payload, string $method = 'POST', string $path = '/api/auth/login'): array
     {
         $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
         $timestamp = (string) time();
         $nonce = 'login_test_' . bin2hex(random_bytes(12));
-        $signature = hash_hmac('sha256', 'POST' . '/api/auth/login' . $timestamp . $nonce . $body, $apiSecret);
+        $signature = hash_hmac('sha256', $method . $path . $timestamp . $nonce . $body, $apiSecret);
 
         return [
             'X-SAFA-API-KEY' => $apiKey,
@@ -74,6 +74,30 @@ class MobileLoginApiTest extends TestCase
         $this->assertNotEmpty($response->json('access_token'));
         $this->assertDatabaseHas('auth_sessions', ['user_id' => $user->id, 'is_revoked' => 0]);
         $this->assertDatabaseHas('device_bindings', ['user_id' => $user->id, 'device_uuid' => 'device-a', 'is_active' => 1]);
+    }
+
+    public function test_authenticated_session_endpoint_accepts_the_current_access_token(): void
+    {
+        [$user, $apiKey, $apiSecret] = $this->seedUser();
+        $loginPayload = ['mobile' => '0536308965', 'pin' => '123456', 'device_uuid' => 'device-a', 'fingerprint_hash' => 'fingerprint-a'];
+
+        $login = $this->withHeaders($this->authenticateHeaders($apiKey, $apiSecret, $loginPayload))
+            ->withBody(json_encode($loginPayload, JSON_UNESCAPED_SLASHES), 'application/json')
+            ->post('/api/auth/login')
+            ->assertStatus(200);
+
+        $accessToken = $login->json('access_token');
+        $sessionPayload = [];
+        $headers = $this->authenticateHeaders($apiKey, $apiSecret, $sessionPayload, 'GET', '/api/auth/session');
+        $headers['Authorization'] = 'Bearer ' . $accessToken;
+        $headers['X-SAFA-DEVICE-TOKEN'] = 'device-a';
+
+        $this->withHeaders($headers)
+            ->get('/api/auth/session')
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('user.id', $user->id)
+            ->assertJsonPath('user.mobile', '0536308965');
     }
 
     public function test_invalid_pin_is_rejected_without_creating_a_session(): void
