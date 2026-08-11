@@ -34,10 +34,10 @@ interface ApiService {
     @PUT("supplier-deposits/{id}") suspend fun updateSupplierDeposit(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("supplier-deposits/{id}") suspend fun deleteSupplierDeposit(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
-    @GET("wallet-batches") suspend fun getWalletBatches(): Response<Map<String, Any?>>
+    @GET("wallet-batches") suspend fun getWalletBatches(): Response<Map<String, Any>>
     @POST("wallet-batches") suspend fun createWalletBatch(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("wallet-batches/{id}") suspend fun updateWalletBatch(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
-    @DELETE("wallet-batches/{id}") suspend fun deleteWalletBatch(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
+    @DELETE("wallet-batches/{id}") suspend fun deleteWalletBatchApi(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
     @GET("expenses-incomes") suspend fun getExpensesIncomes(): Response<Map<String, Any?>>
     @POST("expenses-incomes") suspend fun createExpenseIncome(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
@@ -55,6 +55,9 @@ interface ApiService {
     @POST("graphql") suspend fun postGraphQl(@Body request: GraphQlRequest): Response<GraphQlResponse>
 
     @POST("auth/login") suspend fun login(@Body request: MobilePinLoginRequest): Response<Map<String, Any>>
+    @POST("auth/refresh") suspend fun refresh(): Response<Map<String, Any>>
+    @POST("auth/logout") suspend fun logout(): Response<Map<String, Any>>
+    @POST("auth/logout-all") suspend fun logoutAll(): Response<Map<String, Any>>
     @POST("auth/activate-superadmin") suspend fun activateSuperAdmin(@Body request: ActivateSuperAdminRequest): Response<Map<String, Any>>
     @GET("auth/operators") suspend fun getOperators(): Response<Map<String, Any>>
     @POST("auth/operators") suspend fun createOperator(@Body request: OperatorApiRequest): Response<Map<String, Any>>
