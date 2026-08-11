@@ -5,16 +5,14 @@ import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
 import java.util.UUID
 
-/**
- * Bridges the existing repository/outbox contract to the server reconciliation
- * protocol without leaking sync concerns into UI code.
- */
+/** Bridges the repository/outbox contract to the server reconciliation protocol. */
 class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor {
     private val store = LocalFirstStore(context.applicationContext)
 
@@ -36,8 +34,7 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
             .method(original.method, preparedJson.toRequestBody("application/json; charset=utf-8".toMediaType()))
             .build()
 
-        val response = chain.proceed(preparedRequest)
-        return reconcileUploadResponse(response, preparedJson)
+        return reconcileUploadResponse(chain.proceed(preparedRequest), preparedJson)
     }
 
     private fun readRequestBody(request: okhttp3.Request): String {
@@ -59,9 +56,7 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                 val operation = operationFor(row, serverId)
                 val baseVersion = if (serverId > 0) store.serverVersion(entity, localId) else 0
                 val sync = row.optJSONObject("_sync") ?: JSONObject()
-                if (sync.optString("mutation_id").isBlank()) {
-                    sync.put("mutation_id", stableMutationId(entity, localId, operation, row))
-                }
+                if (sync.optString("mutation_id").isBlank()) sync.put("mutation_id", stableMutationId(entity, localId, operation, row))
                 sync.put("base_version", baseVersion)
                 sync.put("operation", operation)
                 row.put("_sync", sync)
@@ -74,9 +69,12 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
     }
 
     private fun reconcileUploadResponse(response: Response, preparedJson: String): Response {
-        val bodyText = response.body?.string() ?: return response
+        val responseBody = response.body ?: return response
+        val bodyText = responseBody.string()
         val root = runCatching { JSONObject(bodyText) }.getOrElse {
-            return response.newBuilder().body(bodyText.toRequestBody("application/json".toMediaType())).build()
+            return response.newBuilder()
+                .body(bodyText.toResponseBody(responseBody.contentType()))
+                .build()
         }
         val requestRoot = runCatching { JSONObject(preparedJson) }.getOrElse { JSONObject() }
 
@@ -97,7 +95,7 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                         .firstOrNull { it.optInt("local_id", 0) == localId }
                 }
 
-                if (entity.isBlank() || localId <= 0 || serverVersion <= 0 || requestRow == null) {
+                if (entity.isBlank() || localId <= 0 || serverId <= 0 || serverVersion <= 0 || requestRow == null) {
                     remainingConflicts.put(conflict)
                     continue
                 }
@@ -113,12 +111,10 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                     })
                 }
 
-                // The current outbox row is PROCESSING. enqueue() therefore
-                // stores this rebased mutation as deferred work. The repository
-                // will subsequently see REBASED_CONFLICT as a rejection and its
-                // normal failure path will atomically promote that deferred work.
-                store.recordServerVersion(entity, localId, serverId, serverVersion)
-                store.enqueue(entity, localId, serverId, operation, rebased.toString())
+                // The matching outbox item is still PROCESSING. Keep the rebased
+                // mutation as deferred work so repository failure handling can
+                // atomically promote it back to PENDING.
+                store.rebaseLatestProcessingOutbox(entity, localId, serverId, serverVersion, conflict.optString("server_snapshot", null))
 
                 rejected.put(JSONObject().apply {
                     put("entity", entity)
@@ -132,7 +128,7 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
         }
 
         return response.newBuilder()
-            .body(root.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .body(root.toString().toResponseBody("application/json; charset=utf-8".toMediaType()))
             .build()
     }
 
@@ -145,17 +141,16 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                 val localId = row.optInt("local_id", 0)
                 val serverId = row.optInt("server_id", 0)
                 val version = row.optInt("sync_version", 0)
-                if (localId > 0 && serverId > 0 && version >= 0) {
-                    store.markSynced(entity, localId, serverId, version)
-                }
+                if (localId > 0 && serverId > 0 && version >= 0) store.markSynced(entity, localId, serverId, version)
             }
         }
     }
 
     private fun captureServerVersions(response: Response): Response {
-        val bodyText = response.body?.string() ?: return response
+        val responseBody = response.body ?: return response
+        val bodyText = responseBody.string()
         val root = runCatching { JSONObject(bodyText) }.getOrElse {
-            return response.newBuilder().body(bodyText.toRequestBody("application/json".toMediaType())).build()
+            return response.newBuilder().body(bodyText.toResponseBody(responseBody.contentType())).build()
         }
         entities.forEach { entity ->
             val rows = root.optJSONArray(entity) ?: return@forEach
@@ -167,9 +162,7 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                 if (localId > 0 && serverId > 0) store.recordServerVersion(entity, localId, serverId, version)
             }
         }
-        return response.newBuilder()
-            .body(root.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
-            .build()
+        return response.newBuilder().body(root.toString().toResponseBody(responseBody.contentType())).build()
     }
 
     private fun operationFor(row: JSONObject, serverId: Int): String {
@@ -183,8 +176,7 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
 
     private fun stableMutationId(entity: String, localId: Int, operation: String, row: JSONObject): String {
         val normalized = JSONObject(row.toString()).apply { remove("_sync") }.toString()
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest("$entity|$localId|$operation|$normalized".toByteArray(Charsets.UTF_8))
+        val digest = MessageDigest.getInstance("SHA-256").digest("$entity|$localId|$operation|$normalized".toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }
     }
 }
