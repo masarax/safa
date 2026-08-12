@@ -1,0 +1,24 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['app/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', '.github/workflows/android-ci.yml']
+  pull_request:
+    paths: ['app/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', '.github/workflows/android-ci.yml']
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - run: chmod +x gradlew
+      - run: ./gradlew testDebugUnitTest
+      - run: ./gradlew lintDebug
+      - run: ./gradlew assembleDebug
