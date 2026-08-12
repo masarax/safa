@@ -80,7 +80,6 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
             !it.getRefreshToken().isNullOrBlank() &&
             !it.getSessionToken().isNullOrBlank()
     } == true
-    val biometricEnabled = tokenManager?.isBiometricQuickUnlockEnabled() == true || viewModelBiometricEnabled
 
     var mobileInput by remember { mutableStateOf(tokenManager?.getLastMobile() ?: "") }
     var pinInput by remember { mutableStateOf("") }
@@ -91,10 +90,19 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
         operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
     }
 
+    // Biometric availability is bound to the server-synchronized operator
+    // profile as well as the local quick-unlock flag. Settings enables the
+    // operator flag; successful first-factor login then persists the secure
+    // quick-unlock binding for this exact account/device.
+    val biometricEnabled =
+        tokenManager?.isBiometricQuickUnlockEnabled() == true ||
+            viewModelBiometricEnabled ||
+            matchingOp?.isBiometricEnabled == true
+
     LaunchedEffect(matchingOp, hasCompleteLocalSession, biometricEnabled) {
         val tm = tokenManager ?: return@LaunchedEffect
         val operator = matchingOp ?: return@LaunchedEffect
-        if (!hasCompleteLocalSession || !operator.isActive || biometricEnabled) return@LaunchedEffect
+        if (!hasCompleteLocalSession || !operator.isActive || !biometricEnabled) return@LaunchedEffect
 
         var sessionReady = isAccessTokenFresh(tm.getAccessToken())
         if (!sessionReady) {
@@ -219,6 +227,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                                 }
 
                                 if (sessionReady) {
+                                    tm.enableBiometricQuickUnlock(biometricOperator.id, biometricOperator.mobile)
                                     viewModel.loginWithBiometric(biometricOperator)
                                 } else {
                                     tm.disableBiometricQuickUnlock()
