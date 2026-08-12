@@ -5,10 +5,8 @@ namespace Database\Seeders;
 use App\Models\Account;
 use App\Models\AppVersion;
 use App\Models\SafaApiKey;
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 use RuntimeException;
 
 class DatabaseSeeder extends Seeder
@@ -16,9 +14,10 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Provision deterministic system configuration and the initial SuperAdmin.
-     * Credentials are seeded here, never in migrations or runtime .env lookups.
-     * Re-running the seeder does not reset an existing user's password/PIN.
+     * Seed only non-secret system configuration.
+     *
+     * Authentication credentials must be provisioned explicitly with
+     * `php artisan safa:provision-admin` and are never stored in source code.
      */
     public function run(): void
     {
@@ -43,24 +42,6 @@ class DatabaseSeeder extends Seeder
                 'is_active' => true,
             ]
         );
-
-        $superAdmin = User::firstOrCreate(
-            ['mobile' => '0536308965'],
-            [
-                'name' => 'Nazmus Sakib',
-                'email' => 'sakib@masarax.com',
-                'mobile' => '0536308965',
-                'pin_hash' => Hash::make('123456'),
-                'password' => Hash::make('123456'),
-                'role' => User::ROLE_SUPERADMIN,
-                'permissions' => User::defaultPermissions(true),
-                'is_activated' => true,
-            ]
-        );
-
-        if (!$superAdmin->isSuperAdmin()) {
-            throw new RuntimeException('Initial SuperAdmin mobile is already assigned to a non-SuperAdmin account. Resolve the account manually before seeding.');
-        }
 
         AppVersion::updateOrCreate(
             ['platform' => 'android'],
