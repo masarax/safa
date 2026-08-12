@@ -10,13 +10,6 @@ use Illuminate\Support\Facades\URL;
 
 class DatabaseUpdateController extends Controller
 {
-    /**
-     * Return migrations that are not recorded as executed.
-     * A completely fresh database must be treated as needing every migration.
-     * Database/update errors must never be converted into an empty list,
-     * otherwise the application would continue into DB-dependent routes and
-     * produce a generic 500 page before the update screen can be shown.
-     */
     public static function pendingMigrations(): array
     {
         $files = glob(database_path('migrations/*.php')) ?: [];
@@ -28,7 +21,6 @@ class DatabaseUpdateController extends Controller
 
         try {
             if (!Schema::hasTable('migrations')) {
-                // Fresh database: nothing has been executed yet.
                 return $migrationNames;
             }
 
@@ -42,9 +34,6 @@ class DatabaseUpdateController extends Controller
             ));
         } catch (\Throwable $e) {
             report($e);
-
-            // Fail closed for the installer: if the migration state cannot be
-            // read, show the update screen instead of executing the normal app.
             return $migrationNames;
         }
     }
@@ -57,26 +46,46 @@ class DatabaseUpdateController extends Controller
             return redirect()->route('home')->with('info', 'Database is already up to date.');
         }
 
+        $secret = (string) config('safa.database_update_secret', '');
+        if ($secret === '') {
+            report(new \RuntimeException('DB_UPDATE_SECRET is not configured.'));
+            return response('Database update protection is not configured.', 503);
+        }
+
+        $expiresAt = now()->addMinutes(15);
+        $updateUrl = URL::temporarySignedRoute(
+            'install.update-process',
+            $expiresAt,
+            [
+                'update_token' => hash_hmac('sha256', (string) $expiresAt->timestamp, $secret),
+            ]
+        );
+
         return view('install_update', [
             'pendingMigrations' => $pendingMigrations,
-            'updateUrl' => URL::temporarySignedRoute(
-                'install.update-process',
-                now()->addMinutes(15)
-            ),
+            'updateUrl' => $updateUrl,
         ]);
     }
 
-    /**
-     * Execute the pending migrations through a short-lived signed URL.
-     * This deliberately does not depend on a database-backed Laravel session,
-     * because the session table itself may be one of the migrations being fixed.
-     */
     public function process(Request $request)
     {
         if (!$request->hasValidSignature()) {
             return $request->expectsJson()
                 ? response()->json(['status' => 'error', 'message' => 'Unauthorized database update request. The update link is invalid or expired.'], 403)
                 : response('Unauthorized database update request. The update link is invalid or expired.', 403);
+        }
+
+        $secret = (string) config('safa.database_update_secret', '');
+        $expires = (string) $request->query('expires', '');
+        $providedToken = (string) $request->query('update_token', '');
+        $expectedToken = $secret !== '' && $expires !== ''
+            ? hash_hmac('sha256', $expires, $secret)
+            : '';
+
+        if ($secret === '' || $providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
+            return $request->expectsJson()
+                ? response()->json(['status' => 'error', 'message' => 'Unauthorized database update request.'], 403)
+                : response('Unauthorized database update request.', 403);
         }
 
         try {
@@ -86,7 +95,6 @@ class DatabaseUpdateController extends Controller
             Artisan::call('migrate', ['--force' => true]);
             $output = trim(Artisan::output());
 
-            // Clear only runtime caches after a successful schema update.
             foreach (['config:clear', 'cache:clear', 'view:clear'] as $command) {
                 try {
                     Artisan::call($command);
@@ -106,11 +114,6 @@ class DatabaseUpdateController extends Controller
         }
     }
 
-    /**
-     * Mark a legacy migration as completed only when its schema contract is
-     * already present. Missing columns/tables remain genuinely pending so the
-     * normal Laravel migration can add them.
-     */
     private static function healLegacyMigrationRecords(array $migrationFiles): void
     {
         if (!Schema::hasTable('migrations')) {
