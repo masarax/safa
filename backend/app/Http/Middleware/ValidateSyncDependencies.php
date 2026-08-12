@@ -24,9 +24,7 @@ class ValidateSyncDependencies
         if (strtoupper($request->method()) !== 'POST') return $next($request);
 
         $accountId = $this->resolveAccountId($request);
-        if ($accountId <= 0) {
-            return response()->json(['status' => 'error', 'message' => 'Unable to resolve the authenticated account context.'], 401);
-        }
+        if ($accountId <= 0) return response()->json(['status' => 'error', 'message' => 'Unable to resolve the authenticated account context.'], 401);
 
         $payload = $request->all();
         $this->normalizeSyncTimestamps($payload);
@@ -40,32 +38,39 @@ class ValidateSyncDependencies
             'wallet_batches' => $this->validLocalIds('wallet_batches', $payload['wallet_batches'] ?? null),
         ];
 
-        // Transactions are intentionally excluded here. Their dependencies are
-        // validated inside SyncReconciliationService so an unresolved FK is
-        // rejected as a record-level DEPENDENCY response rather than turning an
-        // otherwise valid sync batch into a global retry response.
+        // Legacy sync clients without a mutation envelope use retryable
+        // dependency responses. New _sync clients receive record-level
+        // dependency rejection from SyncReconciliationService instead.
+        $hasMutationEnvelope = collect($payload)
+            ->filter(fn ($rows) => is_array($rows))
+            ->flatten(1)
+            ->contains(fn ($row) => is_array($row) && is_array($row['_sync'] ?? null));
+
         $checks = [
             ['supplier_deposits', 'supplier_id', 'suppliers', Supplier::class],
             ['wallet_batches', 'ledger_id', 'wallet_ledgers', WalletLedger::class],
             ['wallet_batches', 'supplier_id', 'suppliers', Supplier::class],
             ['wallet_batches', 'supplier_deposit_id', 'supplier_deposits', SupplierDeposit::class],
         ];
+        if (!$hasMutationEnvelope) {
+            $checks = array_merge($checks, [
+                ['transactions', 'customer_id', 'customers', Customer::class],
+                ['transactions', 'supplier_id', 'suppliers', Supplier::class],
+                ['transactions', 'wallet_batch_id', 'wallet_batches', WalletBatch::class],
+            ]);
+        }
 
         foreach ($checks as [$entity, $field, $parentEntity, $model]) {
             foreach ($this->rows($payload[$entity] ?? null) as $row) {
                 $localId = (int) ($row[$field] ?? 0);
                 if ($localId <= 0 || isset($incoming[$parentEntity][$localId])) continue;
-
                 $exists = $model::withTrashed()->where('account_id', $accountId)->where('local_id', $localId)->exists();
                 if (!$exists) {
                     return response()->json([
-                        'status' => 'error',
-                        'code' => 'SYNC_DEPENDENCY_PENDING',
+                        'status' => 'error', 'code' => 'SYNC_DEPENDENCY_PENDING',
                         'message' => "Sync dependency is not available yet: {$parentEntity} local_id={$localId}.",
-                        'entity' => $entity,
-                        'local_id' => (int) ($row['local_id'] ?? 0),
-                        'dependency' => $parentEntity,
-                        'dependency_local_id' => $localId,
+                        'entity' => $entity, 'local_id' => (int) ($row['local_id'] ?? 0),
+                        'dependency' => $parentEntity, 'dependency_local_id' => $localId,
                         'retry_after_seconds' => 2,
                     ], 429)->header('Retry-After', '2');
                 }
@@ -111,10 +116,7 @@ class ValidateSyncDependencies
         }
     }
 
-    private function rows($value): array
-    {
-        return is_array($value) ? array_values(array_filter($value, 'is_array')) : [];
-    }
+    private function rows($value): array { return is_array($value) ? array_values(array_filter($value, 'is_array')) : []; }
 
     private function resolveAccountId(Request $request): int
     {
