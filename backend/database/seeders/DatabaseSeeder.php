@@ -5,8 +5,10 @@ namespace Database\Seeders;
 use App\Models\Account;
 use App\Models\AppVersion;
 use App\Models\SafaApiKey;
+use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use RuntimeException;
 
 class DatabaseSeeder extends Seeder
@@ -14,10 +16,11 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed only non-secret system configuration.
+     * Seed system configuration and the development SuperAdmin account.
      *
-     * Authentication credentials must be provisioned explicitly with
-     * `php artisan safa:provision-admin` and are never stored in source code.
+     * The credentials below are intentionally development-only bootstrap
+     * credentials for this new project. They should be changed before any
+     * production deployment.
      */
     public function run(): void
     {
@@ -28,9 +31,25 @@ class DatabaseSeeder extends Seeder
             throw new RuntimeException('SAFA_API_KEY and SAFA_API_SECRET must be configured in backend .env before seeding.');
         }
 
-        $account = Account::firstOrCreate(
+        $adminMobile = '0536308965';
+        $adminEmail = $adminMobile . '@safa.local';
+
+        $admin = User::updateOrCreate(
+            ['mobile' => $adminMobile],
+            [
+                'name' => 'Nazmus Sakib',
+                'email' => $adminEmail,
+                'password' => Hash::make('123456'),
+                'pin_hash' => Hash::make('123456'),
+                'role' => User::ROLE_SUPERADMIN,
+                'is_activated' => true,
+                'permissions' => User::defaultPermissions(true),
+            ]
+        );
+
+        $account = Account::updateOrCreate(
             ['name' => 'SAFA Account'],
-            ['owner_user_id' => null, 'balance' => 0]
+            ['owner_user_id' => $admin->id, 'balance' => 0]
         );
 
         SafaApiKey::updateOrCreate(
