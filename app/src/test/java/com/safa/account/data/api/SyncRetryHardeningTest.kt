@@ -3,10 +3,10 @@ package com.safa.account.data.api
 import com.safa.account.data.repository.AppRepository
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.*
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class SyncRetryHardeningTest {
 
