@@ -24,15 +24,9 @@ android {
       val storePassword = System.getenv("STORE_PASSWORD")
       val keyAlias = System.getenv("KEY_ALIAS")
       val keyPassword = System.getenv("KEY_PASSWORD")
-
-      // Never silently sign a production APK with the Android debug keystore.
-      // Release builds are signed only when the CI/release signing secrets are
-      // explicitly configured.
       if (!keystorePath.isNullOrBlank() && !storePassword.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()) {
         val keystoreFile = file(keystorePath)
-        if (!keystoreFile.exists()) {
-          throw GradleException("Release keystore not found: $keystorePath")
-        }
+        if (!keystoreFile.exists()) throw GradleException("Release keystore not found: $keystorePath")
         storeFile = keystoreFile
         this.storePassword = storePassword
         this.keyAlias = keyAlias
@@ -77,3 +71,5 @@ dependencies {
   androidTestImplementation(platform(libs.androidx.compose.bom)); androidTestImplementation(libs.androidx.compose.ui.test.junit4); androidTestImplementation(libs.androidx.espresso.core); androidTestImplementation(libs.androidx.junit); androidTestImplementation(libs.androidx.runner); debugImplementation(libs.androidx.compose.ui.test.manifest); debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+// Release gate: CI must compile tests and the debug artifact before a production release.
