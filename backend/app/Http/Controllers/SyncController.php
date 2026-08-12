@@ -18,8 +18,28 @@ class SyncController extends Controller
 {
     use AuthorizeAccountContext;
 
-    public function __construct(private readonly SyncReconciliationService $reconciliation)
+    public function __construct(private readonly SyncReconciliationService $reconciliation) {}
+
+    /** Normalize a decimal without converting money to binary floating point. */
+    private function decimal(mixed $value, int $scale, int $integerDigits = 13): string
     {
+        if ($value === null || $value === '') return '0.' . str_repeat('0', $scale);
+        $raw = trim((string) $value);
+        if (!preg_match('/^(?:0|[0-9]+)(?:\.[0-9]+)?$/', $raw)) throw new \InvalidArgumentException('Invalid decimal value.');
+        [$whole, $fraction] = array_pad(explode('.', $raw, 2), 2, '');
+        $whole = ltrim($whole, '0');
+        $whole = $whole === '' ? '0' : $whole;
+        if (strlen($whole) > $integerDigits) throw new \InvalidArgumentException('Decimal value is out of range.');
+        if (strlen($fraction) > $scale) throw new \InvalidArgumentException('Decimal value has too many fractional digits.');
+        $fraction = str_pad($fraction, $scale, '0');
+        return $whole . '.' . $fraction;
+    }
+
+    private function positiveDecimal(mixed $value, int $scale, int $integerDigits = 13): string
+    {
+        $result = $this->decimal($value, $scale, $integerDigits);
+        if (bccomp($result, '0.' . str_repeat('0', $scale), $scale) < 0) throw new \InvalidArgumentException('Negative financial value is not allowed.');
+        return $result;
     }
 
     public function syncUp(Request $request)
@@ -44,34 +64,29 @@ class SyncController extends Controller
                 'customers' => [
                     'model' => Customer::class,
                     'rows' => $request->input('customers', []),
-                    'validate' => fn (array $r) => empty($r['name']) ? 'Missing required field: name' : null,
-                    'attributes' => fn (array $r) => [
-                        'name' => substr((string) $r['name'], 0, 255),
-                        'phone' => substr((string) ($r['phone'] ?? ''), 0, 50),
-                        'avatar_color' => substr((string) ($r['avatar_color'] ?? ''), 0, 20) ?: null,
-                        'avatar_emoji' => substr((string) ($r['avatar_emoji'] ?? ''), 0, 16) ?: null,
-                    ],
+                    'validate' => fn (array $r) => empty(trim((string) ($r['name'] ?? ''))) ? 'Missing required field: name' : null,
+                    'attributes' => fn (array $r) => ['name' => substr(trim((string) $r['name']), 0, 255), 'phone' => substr(trim((string) ($r['phone'] ?? '')), 0, 50), 'avatar_color' => substr((string) ($r['avatar_color'] ?? ''), 0, 20) ?: null, 'avatar_emoji' => substr((string) ($r['avatar_emoji'] ?? ''), 0, 16) ?: null],
                 ],
                 'suppliers' => [
                     'model' => Supplier::class,
                     'rows' => $request->input('suppliers', []),
-                    'validate' => fn (array $r) => empty($r['name']) ? 'Missing required field: name' : null,
-                    'attributes' => fn (array $r) => [
-                        'name' => substr((string) $r['name'], 0, 255),
-                        'phone' => substr((string) ($r['phone'] ?? ''), 0, 50),
-                        'avatar_color' => substr((string) ($r['avatar_color'] ?? ''), 0, 20) ?: null,
-                        'avatar_emoji' => substr((string) ($r['avatar_emoji'] ?? ''), 0, 16) ?: null,
-                    ],
+                    'validate' => fn (array $r) => empty(trim((string) ($r['name'] ?? ''))) ? 'Missing required field: name' : null,
+                    'attributes' => fn (array $r) => ['name' => substr(trim((string) $r['name']), 0, 255), 'phone' => substr(trim((string) ($r['phone'] ?? '')), 0, 50), 'avatar_color' => substr((string) ($r['avatar_color'] ?? ''), 0, 20) ?: null, 'avatar_emoji' => substr((string) ($r['avatar_emoji'] ?? ''), 0, 16) ?: null],
                 ],
-                'wallet_ledgers' => ['model' => WalletLedger::class, 'rows' => $request->input('wallet_ledgers', []), 'attributes' => fn (array $r) => ['name' => substr((string) ($r['name'] ?? ''), 0, 255)]],
+                'wallet_ledgers' => [
+                    'model' => WalletLedger::class,
+                    'rows' => $request->input('wallet_ledgers', []),
+                    'validate' => fn (array $r) => empty(trim((string) ($r['name'] ?? ''))) ? 'Missing required field: name' : null,
+                    'attributes' => fn (array $r) => ['name' => substr(trim((string) ($r['name'] ?? '')), 0, 255)],
+                ],
                 'supplier_deposits' => [
                     'model' => SupplierDeposit::class,
                     'rows' => $request->input('supplier_deposits', []),
                     'attributes' => function (array $r, int $accountId) {
-                        $supplierLocalId = (int) ($r['supplier_id'] ?? 0);
-                        $supplierId = $supplierLocalId > 0 ? Supplier::where('account_id', $accountId)->where('local_id', $supplierLocalId)->value('id') : 0;
-                        if ($supplierLocalId > 0 && !$supplierId) return new \RuntimeException('Supplier dependency has not been reconciled yet');
-                        return ['supplier_id' => (int) ($supplierId ?? 0), 'amount_sar' => (float) ($r['amount_sar'] ?? 0), 'rate' => (float) ($r['rate'] ?? 0), 'amount_bdt' => (float) ($r['amount_bdt'] ?? 0), 'paid_bdt' => (float) ($r['paid_bdt'] ?? 0), 'transaction_type' => substr((string) ($r['transaction_type'] ?? 'SAR_GIVEN'), 0, 50), 'notes' => $r['notes'] ?? null];
+                        $supplierLocal = (int) ($r['supplier_id'] ?? 0);
+                        $supplierId = $supplierLocal > 0 ? Supplier::where('account_id', $accountId)->where('local_id', $supplierLocal)->value('id') : 0;
+                        if ($supplierLocal > 0 && !$supplierId) throw new \RuntimeException('Supplier dependency has not been reconciled yet.');
+                        return ['supplier_id' => (int) $supplierId, 'amount_sar' => $this->positiveDecimal($r['amount_sar'] ?? 0, 2), 'rate' => $this->positiveDecimal($r['rate'] ?? 0, 4, 6), 'amount_bdt' => $this->positiveDecimal($r['amount_bdt'] ?? 0, 2), 'paid_bdt' => $this->positiveDecimal($r['paid_bdt'] ?? 0, 2), 'transaction_type' => substr((string) ($r['transaction_type'] ?? 'SAR_GIVEN'), 0, 50), 'notes' => $r['notes'] ?? null];
                     },
                 ],
                 'wallet_batches' => [
@@ -82,29 +97,41 @@ class SyncController extends Controller
                         $ledgerId = $ledgerLocal > 0 ? WalletLedger::where('account_id', $accountId)->where('local_id', $ledgerLocal)->value('id') : 0;
                         $supplierId = $supplierLocal > 0 ? Supplier::where('account_id', $accountId)->where('local_id', $supplierLocal)->value('id') : 0;
                         $depositId = $depositLocal > 0 ? SupplierDeposit::where('account_id', $accountId)->where('local_id', $depositLocal)->value('id') : 0;
-                        if (($ledgerLocal > 0 && !$ledgerId) || ($supplierLocal > 0 && !$supplierId) || ($depositLocal > 0 && !$depositId)) return new \RuntimeException('Wallet batch dependency has not been reconciled yet');
-                        return ['ledger_id' => (int) ($ledgerId ?? 0), 'rate' => (float) ($r['rate'] ?? 0), 'initial_bdt' => (float) ($r['initial_bdt'] ?? 0), 'remaining_bdt' => (float) ($r['remaining_bdt'] ?? 0), 'supplier_id' => (int) ($supplierId ?? 0), 'supplier_deposit_id' => (int) ($depositId ?? 0), 'notes' => $r['notes'] ?? null];
+                        if (($ledgerLocal > 0 && !$ledgerId) || ($supplierLocal > 0 && !$supplierId) || ($depositLocal > 0 && !$depositId)) throw new \RuntimeException('Wallet batch dependency has not been reconciled yet.');
+                        $initial = $this->positiveDecimal($r['initial_bdt'] ?? 0, 2); $remaining = $this->positiveDecimal($r['remaining_bdt'] ?? 0, 2);
+                        if (bccomp($remaining, $initial, 2) > 0) throw new \InvalidArgumentException('Remaining wallet balance cannot exceed initial balance.');
+                        return ['ledger_id' => (int) $ledgerId, 'rate' => $this->positiveDecimal($r['rate'] ?? 0, 4, 6), 'initial_bdt' => $initial, 'remaining_bdt' => $remaining, 'supplier_id' => (int) $supplierId, 'supplier_deposit_id' => (int) $depositId, 'notes' => $r['notes'] ?? null];
                     },
                 ],
                 'transactions' => [
                     'model' => Transaction::class,
                     'rows' => $request->input('transactions', []),
+                    'validate' => fn (array $r) => empty(trim((string) ($r['type'] ?? $r['status'] ?? ''))) ? 'Missing required field: type' : null,
                     'attributes' => function (array $r, int $accountId) {
                         $customerLocal = (int) ($r['customer_id'] ?? 0); $supplierLocal = (int) ($r['supplier_id'] ?? 0); $batchLocal = (int) ($r['wallet_batch_id'] ?? 0);
                         $customerId = $customerLocal > 0 ? Customer::where('account_id', $accountId)->where('local_id', $customerLocal)->value('id') : 0;
                         $supplierId = $supplierLocal > 0 ? Supplier::where('account_id', $accountId)->where('local_id', $supplierLocal)->value('id') : 0;
                         $batchId = $batchLocal > 0 ? WalletBatch::where('account_id', $accountId)->where('local_id', $batchLocal)->value('id') : 0;
-                        if (($customerLocal > 0 && !$customerId) || ($supplierLocal > 0 && !$supplierId) || ($batchLocal > 0 && !$batchId)) return new \RuntimeException('Transaction dependency has not been reconciled yet');
-                        return ['type' => substr((string) ($r['type'] ?? $r['status'] ?? 'Pending'), 0, 20), 'amount' => (float) ($r['amount'] ?? $r['amount_sar'] ?? 0), 'customer_id' => (int) ($customerId ?? 0), 'supplier_id' => (int) ($supplierId ?? 0), 'amount_sar' => (float) ($r['amount_sar'] ?? $r['amount'] ?? 0), 'customer_rate' => (float) ($r['customer_rate'] ?? 0), 'supplier_rate' => (float) ($r['supplier_rate'] ?? 0), 'amount_bdt' => (float) ($r['amount_bdt'] ?? 0), 'receiver_name' => substr((string) ($r['receiver_name'] ?? ''), 0, 255), 'receiver_phone' => substr((string) ($r['receiver_phone'] ?? ''), 0, 50), 'receiver_account_type' => substr((string) ($r['receiver_account_type'] ?? ''), 0, 50), 'receiver_account_no' => substr((string) ($r['receiver_account_no'] ?? ''), 0, 100), 'wallet_batch_id' => (int) ($batchId ?? 0), 'notes' => $r['notes'] ?? null, 'hash' => $r['hash'] ?? null];
+                        if (($customerLocal > 0 && !$customerId) || ($supplierLocal > 0 && !$supplierId) || ($batchLocal > 0 && !$batchId)) throw new \RuntimeException('Transaction dependency has not been reconciled yet.');
+                        return ['type' => substr((string) ($r['type'] ?? $r['status'] ?? 'Pending'), 0, 20), 'amount' => $this->positiveDecimal($r['amount'] ?? $r['amount_sar'] ?? 0, 2), 'customer_id' => (int) $customerId, 'supplier_id' => (int) $supplierId, 'amount_sar' => $this->positiveDecimal($r['amount_sar'] ?? $r['amount'] ?? 0, 2), 'customer_rate' => $this->positiveDecimal($r['customer_rate'] ?? 0, 4, 6), 'supplier_rate' => $this->positiveDecimal($r['supplier_rate'] ?? 0, 4, 6), 'amount_bdt' => $this->positiveDecimal($r['amount_bdt'] ?? 0, 2), 'receiver_name' => substr((string) ($r['receiver_name'] ?? ''), 0, 255), 'receiver_phone' => substr((string) ($r['receiver_phone'] ?? ''), 0, 50), 'receiver_account_type' => substr((string) ($r['receiver_account_type'] ?? ''), 0, 50), 'receiver_account_no' => substr((string) ($r['receiver_account_no'] ?? ''), 0, 100), 'wallet_batch_id' => (int) $batchId, 'notes' => $r['notes'] ?? null, 'hash' => $r['hash'] ?? null];
                     },
                 ],
-                'expenses_incomes' => ['model' => ExpenseIncome::class, 'rows' => $request->input('expenses_incomes', []), 'attributes' => fn (array $r) => ['title' => substr((string) ($r['title'] ?? 'General'), 0, 255), 'amount' => (float) ($r['amount'] ?? 0), 'currency' => substr((string) ($r['currency'] ?? 'BDT'), 0, 10), 'is_expense' => (bool) ($r['is_expense'] ?? true), 'category' => substr((string) ($r['category'] ?? 'General'), 0, 50)]],
+                'expenses_incomes' => [
+                    'model' => ExpenseIncome::class,
+                    'rows' => $request->input('expenses_incomes', []),
+                    'validate' => fn (array $r) => empty(trim((string) ($r['title'] ?? ''))) ? 'Missing required field: title' : null,
+                    'attributes' => fn (array $r) => ['title' => substr(trim((string) ($r['title'] ?? 'General')), 0, 255), 'amount' => $this->positiveDecimal($r['amount'] ?? 0, 2), 'currency' => substr(strtoupper(trim((string) ($r['currency'] ?? 'BDT'))), 0, 10), 'is_expense' => (bool) ($r['is_expense'] ?? true), 'category' => substr((string) ($r['category'] ?? 'General'), 0, 50)],
+                ],
             ];
 
             foreach ($entities as $entity => $config) {
                 foreach ($config['rows'] as $row) {
                     if (!is_array($row)) { $rejected[] = ['entity' => $entity, 'local_id' => 0, 'reason' => 'Invalid record', 'code' => 'VALIDATION']; continue; }
-                    $result = $this->reconciliation->apply($accountId, $entity, $config['model'], $row, $config['attributes'], $config['validate'] ?? null);
+                    try {
+                        $result = $this->reconciliation->apply($accountId, $entity, $config['model'], $row, $config['attributes'], $config['validate'] ?? null);
+                    } catch (\Throwable $e) {
+                        $result = ['status' => 'rejected', 'rejected' => ['entity' => $entity, 'local_id' => (int) ($row['local_id'] ?? 0), 'reason' => $e->getMessage(), 'code' => 'VALIDATION']];
+                    }
                     if ($result['status'] === 'accepted') $accepted[$entity][] = $result['accepted'];
                     elseif ($result['status'] === 'conflict') $conflicts[] = $result['conflict'];
                     else $rejected[] = $result['rejected'];
