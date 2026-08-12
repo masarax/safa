@@ -6,7 +6,11 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.mockito.kotlin.*
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 class SyncRetryHardeningTest {
 
@@ -19,9 +23,10 @@ class SyncRetryHardeningTest {
         whenever(tokenManager.getBaseUrl()).thenReturn("https://safa.masarax.com/api/")
         whenever(tokenManager.getApiKey()).thenReturn("key")
         whenever(tokenManager.getApiSecret()).thenReturn("sec")
+        whenever(tokenManager.getContext()).thenReturn(null)
         whenever(repository.allCustomersRaw).thenReturn(flowOf(emptyList()))
 
-        val manager = spy(SyncManager(repository, tokenManager))
+        val manager = SyncManager(repository, tokenManager)
         val result = manager.syncAll()
 
         assertTrue(result.isSuccess)
@@ -40,8 +45,9 @@ class SyncRetryHardeningTest {
         whenever(tokenManager.getBaseUrl()).thenReturn("https://safa.masarax.com/api/")
         whenever(tokenManager.getApiKey()).thenReturn("key")
         whenever(tokenManager.getApiSecret()).thenReturn("sec")
+        whenever(tokenManager.getContext()).thenReturn(null)
 
-        val manager = spy(SyncManager(repository, tokenManager))
+        val manager = SyncManager(repository, tokenManager)
         val result = manager.syncAll()
 
         assertTrue(result.isFailure)
@@ -61,8 +67,9 @@ class SyncRetryHardeningTest {
         whenever(tokenManager.getBaseUrl()).thenReturn("https://safa.masarax.com/api/")
         whenever(tokenManager.getApiKey()).thenReturn("key")
         whenever(tokenManager.getApiSecret()).thenReturn("sec")
+        whenever(tokenManager.getContext()).thenReturn(null)
 
-        val manager = spy(SyncManager(repository, tokenManager))
+        val manager = SyncManager(repository, tokenManager)
         val result = manager.syncAll()
 
         assertTrue(result.isFailure)
