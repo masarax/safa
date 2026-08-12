@@ -6,9 +6,10 @@ use Illuminate\Support\Facades\Route;
 // migration runner, or database controls are exposed through the browser.
 Route::get('/', function () {
     return response()->json([
-        'status' => 'not_found',
-        'message' => 'SAFA is a private application service.',
-    ], 404);
+        'status' => 'ok',
+        'service' => 'SAFA',
+        'message' => 'SAFA service is online.',
+    ], 200);
 })->name('home');
 
 Route::get('/safa-logo.png', function () {
