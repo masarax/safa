@@ -21,7 +21,7 @@ class MobileLoginController extends Controller
 {
     public function login(Request $request): JsonResponse
     {
-        $mobile = $this->normalizeDigits(trim((string) ($request->input('mobile') ?? $request->input('email') ?? $request->input('username'))));
+        $mobile = $this->normalizeMobile((string) ($request->input('mobile') ?? $request->input('email') ?? $request->input('username')));
         $pin = $this->normalizeDigits(trim((string) ($request->input('pin') ?? $request->input('password'))));
 
         if ($mobile === '') {
@@ -80,10 +80,7 @@ class MobileLoginController extends Controller
             }
 
             // PIN login is an explicit first factor. When the same stable device
-            // UUID presents a changed fingerprint (OS reset, biometric reset,
-            // emulator restore, or hardware-security implementation change),
-            // re-bind the fingerprint instead of permanently locking out the
-            // legitimate user after logout/re-login.
+            // UUID presents a changed fingerprint, re-bind the fingerprint.
             if (!$binding) {
                 DeviceBinding::create([
                     'user_id' => $user->id,
@@ -101,9 +98,6 @@ class MobileLoginController extends Controller
                 ]);
             }
 
-            // Re-login deterministically replaces the previous session for this
-            // account/device. A logout followed by PIN login therefore works on
-            // the same device without requiring app data clearing.
             AuthSession::query()
                 ->where('user_id', $user->id)
                 ->where('device_uuid', $deviceUuid)
@@ -181,13 +175,18 @@ class MobileLoginController extends Controller
         $user = User::where('mobile', $mobile)->first();
         if ($user) return $user;
 
-        $normalized = preg_replace('/\D+/', '', $mobile) ?? '';
+        $normalized = $this->normalizeMobile($mobile);
         if ($normalized === '') return null;
 
         return User::whereRaw(
             "REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') = ?",
             [$normalized]
         )->first();
+    }
+
+    private function normalizeMobile(string $value): string
+    {
+        return preg_replace('/\D+/', '', $this->normalizeDigits(trim($value))) ?? '';
     }
 
     private function normalizeDigits(string $value): string
