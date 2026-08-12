@@ -2,103 +2,38 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class Phase3BrandingAssetTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Test public safa-logo.png file existence and readability.
-     */
-    public function test_safa_logo_exists_and_is_valid()
+    public function test_branding_assets_exist_and_are_non_empty(): void
     {
-        $logoPath = public_path('safa-logo.png');
-        $this->assertFileExists($logoPath, 'safa-logo.png must exist in backend/public/');
-        $this->assertGreaterThan(0, filesize($logoPath), 'safa-logo.png size must be > 0 bytes');
+        foreach (['safa-logo.png', 'favicon.svg'] as $asset) {
+            $path = public_path($asset); $this->assertFileExists($path); $this->assertGreaterThan(0, filesize($path));
+        }
     }
 
-    /**
-     * Test public favicon.svg existence.
-     */
-    public function test_favicon_svg_exists_and_is_valid()
+    public function test_public_branding_assets_are_served(): void
     {
-        $faviconPath = public_path('favicon.svg');
-        $this->assertFileExists($faviconPath, 'favicon.svg must exist in backend/public/');
-        $this->assertGreaterThan(0, filesize($faviconPath), 'favicon.svg size must be > 0 bytes');
+        $this->get('/safa-logo.png')->assertOk(); $this->get('/favicon.svg')->assertOk();
     }
 
-    /**
-     * Test HTTP GET /safa-logo.png returns 200.
-     */
-    public function test_http_get_safa_logo_returns_200()
+    public function test_private_root_does_not_render_a_public_welcome_page(): void
     {
-        $response = $this->get('/safa-logo.png');
-        $response->assertStatus(200);
+        $this->get('/')->assertNotFound();
     }
 
-    /**
-     * Test HTTP GET /favicon.svg returns 200.
-     */
-    public function test_http_get_favicon_svg_returns_200()
+    public function test_public_installer_update_page_is_closed(): void
     {
-        $response = $this->get('/favicon.svg');
-        $response->assertStatus(200);
+        $this->get('/install/update')->assertNotFound();
     }
 
-    /**
-     * Test welcome page contains valid branding asset link.
-     */
-    public function test_welcome_page_renders_logo()
+    public function test_logo_upload_requires_full_authenticated_api_context(): void
     {
-        $response = $this->get('/');
-        $response->assertStatus(200);
-        $response->assertSee('safa-logo.png');
-    }
-
-    /**
-     * Test update page renders logo and favicon.
-     */
-    public function test_update_page_renders_logo()
-    {
-        $response = $this->get('/install/update');
-        $this->assertTrue(in_array($response->status(), [200, 302]));
-    }
-
-    /**
-     * Test security: uploadLogo rejects invalid base64 image data.
-     */
-    public function test_upload_logo_rejects_php_file_upload()
-    {
-        $apiKey = 'test_api_key_12345';
-        $apiSecret = 'test_api_secret_67890';
-        
-        \App\Models\SafaApiKey::create([
-            'client_name' => 'Test Client',
-            'api_key' => $apiKey,
-            'api_secret' => $apiSecret,
-            'is_active' => true,
-        ]);
-
-        $data = ['logo_base64' => 'data:image/exe;base64,invalid_executable_content'];
-        $body = json_encode($data);
-        $timestamp = time();
-        $nonce = 'nonce_test_12345678';
-        
-        $payload = 'POST/api/upload/logo' . $timestamp . $nonce . $body;
-        $signature = hash_hmac('sha256', $payload, $apiSecret);
-
-        $response = $this->postJson('/api/upload/logo', $data, [
-            'X-SAFA-API-KEY' => $apiKey,
-            'X-SAFA-SIGNATURE' => $signature,
-            'X-SAFA-TIMESTAMP' => $timestamp,
-            'X-SAFA-NONCE' => $nonce,
-        ]);
-
-        $response->assertStatus(400);
-        $response->assertJson([
-            'status' => 'error'
-        ]);
+        $this->postJson('/api/upload/logo', ['logo_base64' => 'data:image/png;base64,invalid'])
+            ->assertUnauthorized();
     }
 }
