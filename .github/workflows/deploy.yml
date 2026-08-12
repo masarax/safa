@@ -28,6 +28,7 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
+          ini-values: memory_limit=1G, max_execution_time=0
 
       - name: Prepare deterministic test environment
         working-directory: backend
@@ -43,7 +44,9 @@ jobs:
 
       - name: Run mandatory full test suite
         working-directory: backend
-        run: php artisan test
+        env:
+          XDEBUG_MODE: off
+        run: php -d memory_limit=1G -d max_execution_time=0 artisan test --no-coverage --do-not-cache-result
 
       - name: Install production Composer dependencies
         working-directory: backend
