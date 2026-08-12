@@ -33,17 +33,13 @@ class SyncController extends Controller
         return $whole . '.' . str_pad($fraction, $scale, '0');
     }
 
-    private function positiveDecimal(mixed $value, int $scale, int $integerDigits = 13): string
-    {
-        return $this->decimal($value, $scale, $integerDigits);
-    }
+    private function positiveDecimal(mixed $value, int $scale, int $integerDigits = 13): string { return $this->decimal($value, $scale, $integerDigits); }
 
     private function compareDecimal(string $a, string $b, int $scale): int
     {
         $normalize = static function (string $v) use ($scale): array {
             [$w, $f] = array_pad(explode('.', $v, 2), 2, '');
-            $w = ltrim($w, '0') ?: '0';
-            return [$w, str_pad(substr($f, 0, $scale), $scale, '0')];
+            return [ltrim($w, '0') ?: '0', str_pad(substr($f, 0, $scale), $scale, '0')];
         };
         [$aw, $af] = $normalize($a); [$bw, $bf] = $normalize($b);
         if (strlen($aw) !== strlen($bw)) return strlen($aw) <=> strlen($bw);
@@ -93,8 +89,16 @@ class SyncController extends Controller
 
             foreach ($entities as $entity => $config) foreach ($config['rows'] as $row) {
                 if (!is_array($row)) { $rejected[] = ['entity' => $entity, 'local_id' => 0, 'reason' => 'Invalid record', 'code' => 'VALIDATION']; continue; }
-                try { $result = $this->reconciliation->apply($accountId, $entity, $config['model'], $row, $config['attributes'], $config['validate'] ?? null); }
-                catch (\Throwable $e) { $result = ['status' => 'rejected', 'rejected' => ['entity' => $entity, 'local_id' => (int) ($row['local_id'] ?? 0), 'reason' => $e->getMessage(), 'code' => 'VALIDATION']]; }
+                try {
+                    $result = $this->reconciliation->apply($accountId, $entity, $config['model'], $row, $config['attributes'], $config['validate'] ?? null);
+                } catch (\RuntimeException $e) {
+                    $result = ['status' => 'rejected', 'rejected' => ['entity' => $entity, 'local_id' => (int) ($row['local_id'] ?? 0), 'reason' => $e->getMessage(), 'code' => 'DEPENDENCY']];
+                } catch (\InvalidArgumentException $e) {
+                    $result = ['status' => 'rejected', 'rejected' => ['entity' => $entity, 'local_id' => (int) ($row['local_id'] ?? 0), 'reason' => $e->getMessage(), 'code' => 'VALIDATION']];
+                } catch (\Throwable $e) {
+                    Log::warning('Sync record rejected.', ['entity' => $entity, 'local_id' => (int) ($row['local_id'] ?? 0), 'exception' => get_class($e)]);
+                    $result = ['status' => 'rejected', 'rejected' => ['entity' => $entity, 'local_id' => (int) ($row['local_id'] ?? 0), 'reason' => 'Record could not be reconciled.', 'code' => 'VALIDATION']];
+                }
                 if ($result['status'] === 'accepted') $accepted[$entity][] = $result['accepted']; elseif ($result['status'] === 'conflict') $conflicts[] = $result['conflict']; else $rejected[] = $result['rejected'];
             }
 
