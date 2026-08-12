@@ -1,8 +1,5 @@
 package com.safa.account.data.network
 
-import android.app.AlertDialog
-import android.os.Handler
-import android.os.Looper
 import com.safa.account.data.api.TokenManager
 import okhttp3.FormBody
 import okhttp3.Interceptor
@@ -10,17 +7,15 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONObject
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
  * Adds public SAFA client identity and authenticated session headers.
  * Server secrets never ship in the Android APK.
  *
- * Also acts as the transport-level safety net for destructive HTTP DELETEs:
- * the server first returns 409/confirmation_required, then the interceptor
- * shows one compact native confirmation dialog and retries only after the user
- * explicitly confirms.
+ * Destructive DELETEs are protected by a server-side confirmation handshake.
+ * The actual modal is rendered by Compose through DeleteConfirmationCoordinator,
+ * not from the network thread.
  */
 class ApiSecurityInterceptor(
     private val apiKey: String,
@@ -43,7 +38,10 @@ class ApiSecurityInterceptor(
             originalRequest.header("X-SAFA-DELETE-CONFIRM") != "true" &&
             isConfirmationRequired(response)
         ) {
-            val confirmed = awaitDeleteConfirmation()
+            val confirmed = DeleteConfirmationCoordinator.awaitConfirmation(
+                title = "Delete data?",
+                message = "This action cannot be undone."
+            )
             if (confirmed) {
                 response.close()
                 val confirmedUrl = originalRequest.url.newBuilder().setQueryParameter("confirmed", "true").build()
@@ -95,43 +93,10 @@ class ApiSecurityInterceptor(
 
     private fun isConfirmationRequired(response: Response): Boolean {
         return runCatching {
-            val text = response.peekBody(64 * 1024).string()
-            val json = JSONObject(text)
+            val json = JSONObject(response.peekBody(64 * 1024).string())
             json.optBoolean("requires_confirmation", false) ||
                 json.optString("status").equals("confirmation_required", true)
         }.getOrDefault(false)
-    }
-
-    /** Blocks the calling OkHttp thread until the user confirms or cancels. */
-    private fun awaitDeleteConfirmation(): Boolean {
-        val context = tokenManager?.getContext() ?: return false
-        val latch = CountDownLatch(1)
-        var confirmed = false
-        Handler(Looper.getMainLooper()).post {
-            runCatching {
-                AlertDialog.Builder(context)
-                    .setTitle("Delete data?")
-                    .setMessage("This action cannot be undone.")
-                    .setNegativeButton("Cancel") { _, _ ->
-                        confirmed = false
-                        latch.countDown()
-                    }
-                    .setPositiveButton("Delete") { _, _ ->
-                        confirmed = true
-                        latch.countDown()
-                    }
-                    .setOnCancelListener {
-                        confirmed = false
-                        latch.countDown()
-                    }
-                    .show()
-            }.onFailure {
-                confirmed = false
-                latch.countDown()
-            }
-        }
-        latch.await(60, TimeUnit.SECONDS)
-        return confirmed
     }
 
     private fun buildSecuredRequest(request: Request, includeAuthTokens: Boolean): Request {
