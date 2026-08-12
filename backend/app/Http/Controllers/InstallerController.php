@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class InstallerController extends Controller
@@ -108,30 +109,24 @@ class InstallerController extends Controller
         $dbUser = $validated['db_user'];
         $dbPass = $validated['db_pass'] ?? '';
 
-        // 1. Test PDO connection BEFORE saving .env or running migrations
         try {
             $dsn = "mysql:host={$dbHost};port={$dbPort};dbname={$dbName};charset=utf8mb4";
-            $pdo = new \PDO($dsn, $dbUser, $dbPass, [
+            new \PDO($dsn, $dbUser, $dbPass, [
                 \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                 \PDO::ATTR_TIMEOUT => 5,
             ]);
         } catch (\Throwable $e) {
-            return back()
-                ->withInput()
-                ->with('error', "Database connection failed! Exception: " . $e->getMessage());
+            return back()->withInput()->with('error', "Database connection failed! Exception: " . $e->getMessage());
         }
 
-        // 2. Generate APP_KEY if not set
         $appKey = env('APP_KEY');
         if (empty($appKey)) {
             $appKey = 'base64:' . base64_encode(Str::random(32));
         }
 
-        // 3. Auto-generate API Security Credentials
         $apiKey = (env('SAFA_API_KEY') && !str_contains(env('SAFA_API_KEY'), 'test')) ? env('SAFA_API_KEY') : ('safa_key_' . bin2hex(random_bytes(16)));
         $apiSecret = (env('SAFA_API_SECRET') && !str_contains(env('SAFA_API_SECRET'), 'test')) ? env('SAFA_API_SECRET') : ('safa_sec_' . bin2hex(random_bytes(32)));
 
-        // 4. Update or create .env file cleanly
         $envData = [
             'APP_NAME' => $validated['app_name'],
             'APP_ENV' => 'production',
@@ -153,7 +148,6 @@ class InstallerController extends Controller
 
         $this->writeEnvironmentFile($envData);
 
-        // 5. Dynamically configure current request in memory
         config([
             'app.name' => $validated['app_name'],
             'app.env' => 'production',
@@ -173,31 +167,23 @@ class InstallerController extends Controller
         DB::purge('mysql');
         DB::reconnect('mysql');
 
-        // 6. Clear config cache safely
         try {
             Artisan::call('config:clear');
-        } catch (\Throwable $e) {
-            // Ignore config clear errors during installation boot
+        } catch (\Throwable) {
+            // Ignore config clear errors during installation boot.
         }
 
-        // 7. Run migrations inside try-catch block
         try {
             Artisan::call('migrate', ['--force' => true]);
         } catch (\Throwable $e) {
-            return back()
-                ->withInput()
-                ->with('error', "Migration failed! Exception: " . $e->getMessage());
+            return back()->withInput()->with('error', "Migration failed! Exception: " . $e->getMessage());
         }
 
-        // 8. Create lock file
         file_put_contents(storage_path('installed'), date('Y-m-d H:i:s'));
 
         return redirect()->route('install.success')->with('success', 'System installation completed successfully!');
     }
 
-    /**
-     * Show installation success view.
-     */
     public function success()
     {
         $apiUrl = rtrim(config('app.url', request()->schemeAndHttpHost()), '/') . '/api/';
@@ -206,9 +192,6 @@ class InstallerController extends Controller
         return view('install_success', compact('apiUrl', 'apiKey', 'apiSecret'));
     }
 
-    /**
-     * Helper to write array of key-values cleanly to base .env file.
-     */
     protected function writeEnvironmentFile(array $data): void
     {
         $envPath = base_path('.env');
@@ -223,8 +206,8 @@ class InstallerController extends Controller
         }
 
         foreach ($data as $key => $value) {
-            $valueStr = (string)$value;
-            $formattedValue = (preg_match('/\s|#|\$|"/', $valueStr))
+            $valueStr = (string) $value;
+            $formattedValue = preg_match('/\s|#|\$|"/', $valueStr)
                 ? '"' . str_replace('"', '\"', $valueStr) . '"'
                 : $valueStr;
 
@@ -239,24 +222,19 @@ class InstallerController extends Controller
         file_put_contents($envPath, trim($envContent) . "\n");
     }
 
-    /**
-     * Helper to auto-register pre-existing database tables in the migrations table.
-     * Prevents "Table already exists" errors when migrating legacy or imported databases on cPanel.
-     */
     public static function autoHealExistingSchema(array $migrationFiles): void
     {
         try {
             if (!Schema::hasTable('migrations')) {
                 try {
                     Artisan::call('migrate:install');
-                } catch (\Throwable $th) {
+                } catch (\Throwable) {
                     return;
                 }
             }
 
             $executedMigrations = DB::table('migrations')->pluck('migration')->toArray();
 
-            // Detailed mapping of migration files to required tables & column schema contracts
             $migrationSchemaMap = [
                 '0001_01_01_000000_create_users_table' => [
                     'users' => ['id', 'name', 'email', 'password'],
@@ -319,7 +297,7 @@ class InstallerController extends Controller
 
             foreach ($migrationFiles as $file) {
                 $name = basename($file, '.php');
-                if (in_array($name, $executedMigrations)) {
+                if (in_array($name, $executedMigrations, true)) {
                     continue;
                 }
 
@@ -341,21 +319,15 @@ class InstallerController extends Controller
                     }
 
                     if ($hasCompleteSchema) {
-                        DB::table('migrations')->insert([
-                            'migration' => $name,
-                            'batch' => 1,
-                        ]);
+                        DB::table('migrations')->insert(['migration' => $name, 'batch' => 1]);
                     }
                 }
             }
-        } catch (\Throwable $e) {
-            // Silence auto-healing exceptions
+        } catch (\Throwable) {
+            // Auto-healing must never break normal application boot.
         }
     }
 
-    /**
-     * Helper to get list of pending un-executed migration files.
-     */
     public static function getPendingMigrations(): array
     {
         try {
@@ -364,11 +336,10 @@ class InstallerController extends Controller
                 return [];
             }
 
-            // Perform auto-healing for any pre-existing tables before checking pending status
             static::autoHealExistingSchema($migrationFiles);
 
             if (!Schema::hasTable('migrations')) {
-                return array_map(fn($f) => basename($f, '.php'), $migrationFiles);
+                return array_map(fn ($f) => basename($f, '.php'), $migrationFiles);
             }
 
             $executedMigrations = DB::table('migrations')->pluck('migration')->toArray();
@@ -376,20 +347,17 @@ class InstallerController extends Controller
 
             foreach ($migrationFiles as $file) {
                 $name = basename($file, '.php');
-                if (!in_array($name, $executedMigrations)) {
+                if (!in_array($name, $executedMigrations, true)) {
                     $pending[] = $name;
                 }
             }
 
             return $pending;
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return [];
         }
     }
 
-    /**
-     * Show manual database update screen when new migrations are detected.
-     */
     public function updateView()
     {
         $pendingMigrations = static::getPendingMigrations();
@@ -403,9 +371,6 @@ class InstallerController extends Controller
         return view('install_update', compact('pendingMigrations', 'updateToken'));
     }
 
-    /**
-     * Process manual database migration execution without dropping existing data.
-     */
     public function updateProcess(Request $request)
     {
         $providedToken = $request->input('update_token');
@@ -416,17 +381,12 @@ class InstallerController extends Controller
         $providedKey = $request->input('key') ?: $request->header('X-SAFA-UPDATE-KEY');
         $keyValid = !empty($secretKey) && !empty($providedKey) && hash_equals((string) $secretKey, (string) $providedKey);
 
-        $adminValid = auth()->check() && in_array(auth()->user()->role ?? '', ['superadmin', 'admin']);
-
-        // Verify strict authorization: valid single-use update token, valid DB_UPDATE_SECRET key, or real superadmin
+        $adminValid = auth()->check() && in_array(auth()->user()->role ?? '', ['superadmin', 'admin'], true);
         $isAuthorized = $tokenValid || $keyValid || $adminValid;
 
         if (!$isAuthorized) {
             if ($request->expectsJson() || $request->isJson()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Unauthorized database update request. Valid authorization required.'
-                ], 403);
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized database update request. Valid authorization required.'], 403);
             }
             return response('Unauthorized database update request. Valid security authorization key or token required.', 403);
         }
@@ -438,15 +398,14 @@ class InstallerController extends Controller
         try {
             $migrationFiles = glob(database_path('migrations/*.php'));
             static::autoHealExistingSchema($migrationFiles);
-
             Artisan::call('migrate', ['--force' => true]);
 
             try {
                 Artisan::call('config:clear');
                 Artisan::call('cache:clear');
                 Artisan::call('view:clear');
-            } catch (\Throwable $ce) {
-                // Ignore cache clearing errors if any
+            } catch (\Throwable) {
+                // Ignore cache clearing errors if any.
             }
         } catch (\Throwable $e) {
             if (str_contains($e->getMessage(), 'already exists')) {
@@ -464,6 +423,3 @@ class InstallerController extends Controller
         return redirect()->route('home')->with('success', 'Database schema updated successfully without any data loss!');
     }
 }
-
-
-
