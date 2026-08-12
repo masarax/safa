@@ -44,8 +44,9 @@ interface ApiService {
     @PUT("expenses-incomes/{id}") suspend fun updateExpenseIncome(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("expenses-incomes/{id}") suspend fun deleteExpenseIncome(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
 
-    // Used only with RetrofitClient.getHealthApiService(); no HMAC/JWT/session headers.
-    @GET("health.php") suspend fun checkServerHealth(): Response<Map<String, Any>>
+    // Canonical unauthenticated health contract. This service is built without
+    // HMAC/JWT/session interceptors by RetrofitClient.getHealthApiService().
+    @GET("auth/health") suspend fun checkServerHealth(): Response<Map<String, Any>>
 
     @GET("config/remote") suspend fun getRemoteConfig(): Response<Map<String, Any>>
     @POST("config/update") suspend fun updateConfig(@Body config: Map<String, Any?>): Response<Map<String, Any>>
