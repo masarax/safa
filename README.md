@@ -2,6 +2,13 @@
 
 SAFA is an offline-first financial/account-management system with an Android client and Laravel 13 API backend. The current development architecture is intentionally API-first and account-scoped.
 
+## Production
+
+- Website/service host: `https://safa.masarax.com`
+- API base: `https://safa.masarax.com/api`
+- Health endpoint: `GET https://safa.masarax.com/api/auth/health`
+- Browser root `/` is intentionally private and returns `404 {"status":"not_found"}`.
+
 ## Current Architecture
 
 ```text
@@ -124,7 +131,9 @@ Only use `migrate:fresh` against a disposable development/test database.
 
 ## CI/CD
 
-GitHub Actions currently verifies:
+GitHub Actions are intentionally **manual-only** (`workflow_dispatch`). A push to `main` or a pull request does not automatically consume runner minutes.
+
+The manual workflows cover:
 
 - PHP syntax
 - Laravel migrations in isolated SQLite CI
@@ -132,8 +141,9 @@ GitHub Actions currently verifies:
 - Android unit tests
 - Android lint
 - Android debug build
+- Manual production deployment with a mandatory backend test gate
 
-Deployment is gated by the backend test suite before the Laravel backend is synchronized to cPanel.
+Production deployment remains blocked until the complete mandatory backend test suite passes. After cPanel synchronization, the deployment workflow performs a production API health check.
 
 ## Important Development Rules
 
