@@ -1,0 +1,26 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**', '.github/workflows/backend-ci.yml']
+  pull_request:
+    paths: ['backend/**', '.github/workflows/backend-ci.yml']
+  workflow_dispatch:
+
+jobs:
+  laravel:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, pdo, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      - run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: php artisan test --testsuite=Unit
