@@ -136,6 +136,66 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
         DeleteConfirmationCoordinator.requests.collect { request -> deleteConfirmation = request }
     }
 
+    // Resume a valid server session after process restart/app relaunch. Explicit
+    // logout clears these tokens, so logout always returns to full PIN login.
+    LaunchedEffect(currentOperator?.id, currentScreen) {
+        if (currentOperator != null || currentScreen != AppScreen.LOCK_SCREEN) return@LaunchedEffect
+        val tm = viewModel.tokenManager ?: return@LaunchedEffect
+        if (tm.getAccessToken().isNullOrBlank() || tm.getRefreshToken().isNullOrBlank() || tm.getSessionToken().isNullOrBlank()) return@LaunchedEffect
+
+        runCatching {
+            val response = viewModel.syncManager?.getApiService()?.getCurrentSession()
+            if (!response?.isSuccessful == true) return@runCatching
+            val map = response.body() ?: return@runCatching
+            @Suppress("UNCHECKED_CAST")
+            val user = map["user"] as? Map<String, Any?> ?: return@runCatching
+            fun bool(key: String, default: Boolean = false): Boolean {
+                val v = user[key] ?: return default
+                return v == true || v.toString().equals("true", true) || v.toString() == "1"
+            }
+            @Suppress("UNCHECKED_CAST")
+            val permissions = user["permissions"] as? Map<String, Any?> ?: emptyMap()
+            fun perm(key: String): Boolean = permissions[key]?.let { it == true || it.toString().equals("true", true) || it.toString() == "1" } ?: false
+
+            val role = user["role"]?.toString().orEmpty().let { raw ->
+                when {
+                    raw.equals("superadmin", true) || raw.equals("manager", true) || raw.equals("owner", true) -> "SuperAdmin"
+                    raw.equals("admin", true) -> "Admin"
+                    else -> "Staff"
+                }
+            }
+            val restored = com.safa.account.data.model.OperatorAccount(
+                id = (user["id"] as? Number)?.toInt() ?: 0,
+                username = user["name"]?.toString().orEmpty(),
+                role = role,
+                mobile = user["mobile"]?.toString().orEmpty(),
+                email = user["email"]?.toString().orEmpty(),
+                isActivated = bool("is_activated", true),
+                isActive = bool("is_activated", true),
+                isBiometricEnabled = tm.isBiometricQuickUnlockBoundTo((user["id"] as? Number)?.toInt() ?: 0, user["mobile"]?.toString().orEmpty()),
+                canViewCustomers = perm("can_view_customers"),
+                canAddCustomers = perm("can_add_customers"),
+                canEditCustomers = perm("can_edit_customers"),
+                canDeleteCustomers = perm("can_delete_customers"),
+                canViewSuppliers = perm("can_view_suppliers"),
+                canAddSuppliers = perm("can_add_suppliers"),
+                canEditSuppliers = perm("can_edit_suppliers"),
+                canDeleteSuppliers = perm("can_delete_suppliers"),
+                canViewTransactions = perm("can_view_transactions"),
+                canAddTransactions = perm("can_add_transactions"),
+                canEditTransactions = perm("can_edit_transactions"),
+                canDeleteTransactions = perm("can_delete_transactions"),
+                canManageWallet = perm("can_manage_wallet"),
+                canManageExpenses = perm("can_manage_expenses"),
+                canViewReports = perm("can_view_reports")
+            )
+            if (restored.id > 0 && restored.isActive) {
+                tm.saveLastMobile(restored.mobile)
+                viewModel.switchOperatorDirectly(restored)
+            }
+        }
+    }
+
     val isMainScreen = currentScreen in setOf(AppScreen.DASHBOARD, AppScreen.CUSTOMERS, AppScreen.SUPPLIERS, AppScreen.WALLET, AppScreen.EXPENSES)
     val showBars = isMainScreen && !isSubPageActive
 
