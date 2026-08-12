@@ -6,18 +6,14 @@ use Tests\TestCase;
 
 class ServiceStatusTest extends TestCase
 {
-    public function test_public_root_reports_service_status_without_exposing_private_controls(): void
+    public function test_private_root_does_not_expose_a_public_service_status_page(): void
     {
         $response = $this->getJson('/');
 
-        $response->assertOk()
-            ->assertJson([
-                'status' => 'ok',
-                'service' => 'SAFA',
-            ])
-            ->assertJsonMissingPath('database')
-            ->assertJsonMissingPath('credentials')
-            ->assertJsonMissingPath('environment');
+        $response->assertNotFound()
+            ->assertExactJson([
+                'status' => 'not_found',
+            ]);
     }
 
     public function test_api_health_is_unauthenticated_and_stable(): void
