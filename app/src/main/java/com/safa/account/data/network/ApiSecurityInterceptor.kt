@@ -20,8 +20,7 @@ import java.util.concurrent.TimeUnit
  * Also acts as the transport-level safety net for destructive HTTP DELETEs:
  * the server first returns 409/confirmation_required, then the interceptor
  * shows one compact native confirmation dialog and retries only after the user
- * explicitly confirms. This keeps confirmation consistent across all delete
- * endpoints without relying on every screen to remember the rule.
+ * explicitly confirms.
  */
 class ApiSecurityInterceptor(
     private val apiKey: String,
@@ -45,8 +44,8 @@ class ApiSecurityInterceptor(
             isConfirmationRequired(response)
         ) {
             val confirmed = awaitDeleteConfirmation()
-            response.close()
             if (confirmed) {
+                response.close()
                 val confirmedUrl = originalRequest.url.newBuilder().setQueryParameter("confirmed", "true").build()
                 response = chain.proceed(
                     buildSecuredRequest(
@@ -57,16 +56,8 @@ class ApiSecurityInterceptor(
                         includeAuthTokens = true
                     )
                 )
-            } else {
-                response = chain.proceed(
-                    buildSecuredRequest(
-                        originalRequest.newBuilder()
-                            .header("X-SAFA-DELETE-CANCELLED", "true")
-                            .build(),
-                        includeAuthTokens = true
-                    )
-                )
             }
+            // Cancel keeps the original 409 response. No second DELETE is sent.
         }
 
         if (
@@ -105,8 +96,9 @@ class ApiSecurityInterceptor(
     private fun isConfirmationRequired(response: Response): Boolean {
         return runCatching {
             val text = response.peekBody(64 * 1024).string()
-            JSONObject(text).optBoolean("requires_confirmation", false) ||
-                JSONObject(text).optString("status").equals("confirmation_required", true)
+            val json = JSONObject(text)
+            json.optBoolean("requires_confirmation", false) ||
+                json.optString("status").equals("confirmation_required", true)
         }.getOrDefault(false)
     }
 
