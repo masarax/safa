@@ -26,10 +26,14 @@ class UserManagementApiTest extends TestCase
 
     private function createStaff(): User
     {
+        $permissions = User::defaultPermissions(false);
+        // A normal operator must be able to read customers in order for this
+        // test to isolate authentication/deactivation from business RBAC.
+        $permissions['can_view_customers'] = true;
         return User::create([
             'name' => 'Staff User', 'email' => 'staff@safa.local', 'mobile' => '01711111111',
             'role' => 'staff', 'pin_hash' => Hash::make('123456'), 'password' => Hash::make('123456'),
-            'is_activated' => true, 'permissions' => User::defaultPermissions(false),
+            'is_activated' => true, 'permissions' => $permissions,
         ]);
     }
 
@@ -45,17 +49,15 @@ class UserManagementApiTest extends TestCase
             'iat' => time(), 'exp' => time() + 3600,
         ]);
 
-        if (User::whereKey($user->id)->exists()) {
-            DeviceBinding::updateOrCreate(
-                ['user_id' => $user->id, 'device_uuid' => $deviceUuid],
-                ['device_model' => 'Test Device', 'fingerprint_hash' => $fingerprint, 'is_active' => true, 'bound_at' => now()]
-            );
-            AuthSession::create([
-                'user_id' => $user->id, 'device_uuid' => $deviceUuid, 'access_token' => $token,
-                'refresh_token' => $refreshToken, 'session_token' => $sessionToken,
-                'expires_at' => now()->addHour(), 'is_revoked' => false,
-            ]);
-        }
+        DeviceBinding::updateOrCreate(
+            ['user_id' => $user->id, 'device_uuid' => $deviceUuid],
+            ['device_model' => 'Test Device', 'fingerprint_hash' => $fingerprint, 'is_active' => true, 'bound_at' => now()]
+        );
+        AuthSession::create([
+            'user_id' => $user->id, 'device_uuid' => $deviceUuid, 'access_token' => $token,
+            'refresh_token' => $refreshToken, 'session_token' => $sessionToken,
+            'expires_at' => now()->addHour(), 'is_revoked' => false,
+        ]);
 
         $apiKey = 'safa_testing_key';
         $apiSecret = 'safa_testing_secret';
@@ -92,14 +94,12 @@ class UserManagementApiTest extends TestCase
         $resCreate->assertStatus(201);
         $opId = $resCreate->json('operator.id');
         $this->assertDatabaseHas('users', ['mobile' => '01722222222', 'role' => 'staff']);
-
         $this->withHeaders($this->getAuthHeaders($superAdmin))->getJson('/api/auth/operators')->assertStatus(200);
 
         $updateData = ['name' => 'Updated Operator', 'is_activated' => false];
         $resUpdate = $this->withHeaders($this->getAuthHeaders($superAdmin, 'PUT', "api/auth/operators/{$opId}", json_encode($updateData)))->putJson("/api/auth/operators/{$opId}", $updateData);
         $resUpdate->assertStatus(200);
         $this->assertDatabaseHas('users', ['id' => $opId, 'name' => 'Updated Operator', 'is_activated' => 0]);
-
         $this->withHeaders($this->getAuthHeaders($superAdmin, 'DELETE', "api/auth/operators/{$opId}"))->deleteJson("/api/auth/operators/{$opId}")->assertStatus(200);
         $this->assertDatabaseMissing('users', ['id' => $opId]);
     }
