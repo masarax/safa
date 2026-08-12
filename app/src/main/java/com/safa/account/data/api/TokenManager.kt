@@ -21,6 +21,9 @@ class TokenManager(private val context: Context) {
     private val _sessionInvalidated = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionInvalidated = _sessionInvalidated.asSharedFlow()
 
+    @Volatile
+    private var biometricUnlockApproved = false
+
     init { migrateLegacyPreferences() }
 
     companion object {
@@ -81,7 +84,6 @@ class TokenManager(private val context: Context) {
     fun saveRefreshToken(token: String?) = prefs.edit { putString(KEY_REFRESH_TOKEN, token) }
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
 
-    /** Stable device identity. It intentionally survives logout so the server can keep one device binding. */
     fun saveDeviceToken(token: String?) = prefs.edit { putString(KEY_DEVICE_TOKEN, token) }
     fun getDeviceToken(): String {
         var token = prefs.getString(KEY_DEVICE_TOKEN, null)
@@ -112,16 +114,11 @@ class TokenManager(private val context: Context) {
         if (!fingerprintToken.isNullOrBlank()) putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
     }
 
-    /** Called only when an authenticated API session can no longer be recovered. */
     fun notifySessionInvalidated() {
         clearAllTokens()
         _sessionInvalidated.tryEmit(Unit)
     }
 
-    /**
-     * Clears all authentication material and quick-unlock authorization while
-     * deliberately retaining stable device identity for future logins.
-     */
     fun clearAllTokens() = prefs.edit {
         remove(KEY_ACCESS_TOKEN)
         remove(KEY_REFRESH_TOKEN)
@@ -130,19 +127,26 @@ class TokenManager(private val context: Context) {
         remove(KEY_BIOMETRIC_ENABLED)
         remove(KEY_BIOMETRIC_USER_ID)
         remove(KEY_BIOMETRIC_MOBILE)
+        biometricUnlockApproved = false
     }
 
     fun enableBiometricQuickUnlock(userId: Int, mobile: String) = prefs.edit {
         putBoolean(KEY_BIOMETRIC_ENABLED, true)
         putInt(KEY_BIOMETRIC_USER_ID, userId)
         putString(KEY_BIOMETRIC_MOBILE, mobile.trim())
+        biometricUnlockApproved = false
     }
 
     fun disableBiometricQuickUnlock() = prefs.edit {
         remove(KEY_BIOMETRIC_ENABLED)
         remove(KEY_BIOMETRIC_USER_ID)
         remove(KEY_BIOMETRIC_MOBILE)
+        biometricUnlockApproved = false
     }
+
+    fun approveBiometricUnlock() { biometricUnlockApproved = true }
+    fun revokeBiometricUnlockApproval() { biometricUnlockApproved = false }
+    fun isBiometricUnlockApproved(): Boolean = biometricUnlockApproved
 
     fun isBiometricQuickUnlockEnabled(): Boolean = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
     fun getBiometricQuickUnlockUserId(): Int? = prefs.getInt(KEY_BIOMETRIC_USER_ID, 0).takeIf { it > 0 }
