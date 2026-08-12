@@ -9,49 +9,31 @@ use Illuminate\Support\Facades\DB;
 
 class SyncReconciliationService
 {
-    public function apply(
-        int $accountId,
-        string $entity,
-        string $modelClass,
-        array $payload,
-        callable $attributes,
-        ?callable $validate = null,
-        ?string $defaultOperation = null,
-    ): array {
+    public function apply(int $accountId, string $entity, string $modelClass, array $payload, callable $attributes, ?callable $validate = null, ?string $defaultOperation = null): array
+    {
         $localId = (int) ($payload['local_id'] ?? 0);
         $sync = is_array($payload['_sync'] ?? null) ? $payload['_sync'] : [];
         $operation = strtoupper((string) ($sync['operation'] ?? $payload['operation'] ?? $defaultOperation ?? ($this->isDeleted($payload) ? 'DELETE' : 'UPSERT')));
         $mutationId = trim((string) ($sync['mutation_id'] ?? $payload['mutation_id'] ?? ''));
         $mutationId = $mutationId !== '' ? substr($mutationId, 0, 128) : $this->fallbackMutationId($accountId, $entity, $payload, $operation);
-        $baseVersion = array_key_exists('base_version', $sync)
-            ? $this->positiveIntOrNull($sync['base_version'])
-            : $this->positiveIntOrNull($payload['base_version'] ?? null);
+        $baseVersion = array_key_exists('base_version', $sync) ? $this->positiveIntOrNull($sync['base_version']) : $this->positiveIntOrNull($payload['base_version'] ?? null);
 
         if ($localId <= 0) return $this->rejected($entity, $localId, 'Missing local_id', 'VALIDATION');
-
+        if (!in_array($operation, ['UPSERT', 'DELETE', 'RESTORE'], true)) return $this->rejected($entity, $localId, 'Unsupported sync operation', 'VALIDATION', $mutationId);
+        if ($domainError = $this->validateDomainPayload($entity, $payload)) return $this->rejected($entity, $localId, $domainError, 'VALIDATION', $mutationId);
         if ($validate) {
             $validationError = $validate($payload);
             if ($validationError) return $this->rejected($entity, $localId, $validationError, 'VALIDATION', $mutationId);
         }
 
         return DB::transaction(function () use ($accountId, $entity, $modelClass, $payload, $attributes, $operation, $mutationId, $baseVersion, $localId) {
-            $previousMutation = SyncMutation::where('account_id', $accountId)
-                ->where('mutation_id', $mutationId)
-                ->lockForUpdate()
-                ->first();
-
+            $previousMutation = SyncMutation::where('account_id', $accountId)->where('mutation_id', $mutationId)->lockForUpdate()->first();
             if ($previousMutation) {
-                $response = $previousMutation->response ?: [
-                    'local_id' => $localId,
-                    'server_id' => $previousMutation->server_id,
-                    'sync_version' => $previousMutation->sync_version,
-                    'mutation_id' => $mutationId,
-                ];
+                $response = $previousMutation->response ?: ['local_id' => $localId, 'server_id' => $previousMutation->server_id, 'sync_version' => $previousMutation->sync_version, 'mutation_id' => $mutationId];
                 $response['idempotent'] = true;
                 return ['status' => 'accepted', 'accepted' => $response];
             }
 
-            /** @var Model $queryModel */
             $queryModel = new $modelClass();
             $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($queryModel), true);
             $query = $usesSoftDeletes ? $modelClass::withTrashed() : $modelClass::query();
@@ -60,15 +42,8 @@ class SyncReconciliationService
 
             if ($record) {
                 $currentVersion = (int) ($record->sync_version ?? 0);
-                if ($baseVersion !== null && $baseVersion !== $currentVersion) {
-                    return $this->conflict($entity, $localId, $record, $mutationId, $currentVersion, $operation);
-                }
-                if ($baseVersion === null && isset($payload['timestamp']) && (int) ($record->timestamp ?? 0) > (int) $incomingTimestamp) {
-                    // Legacy clients do not understand the conflict envelope yet.
-                    // Preserve their acknowledgement contract while never changing
-                    // the authoritative server row.
-                    return $this->legacyStaleAck($entity, $localId, $record, $mutationId, $operation);
-                }
+                if ($baseVersion !== null && $baseVersion !== $currentVersion) return $this->conflict($entity, $localId, $record, $mutationId, $currentVersion, $operation);
+                if ($baseVersion === null && isset($payload['timestamp']) && (int) ($record->timestamp ?? 0) > (int) $incomingTimestamp) return $this->legacyStaleAck($entity, $localId, $record, $mutationId, $operation);
             } elseif ($baseVersion !== null && $baseVersion > 0) {
                 return $this->rejected($entity, $localId, 'Referenced server version does not exist', 'STALE_BASE_VERSION', $mutationId);
             }
@@ -79,88 +54,58 @@ class SyncReconciliationService
             $data = $attributes($payload, $accountId, $record);
             if ($data instanceof \Throwable) return $this->rejected($entity, $localId, $data->getMessage(), 'DEPENDENCY', $mutationId);
             foreach ($data as $key => $value) $record->{$key} = $value;
-
             $record->timestamp = $incomingTimestamp;
             $nextVersion = (int) ($record->sync_version ?? 0) + 1;
             $record->sync_version = $nextVersion;
             $record->last_mutation_id = $mutationId;
 
-            if ($operation === 'DELETE' || $this->isDeleted($payload)) {
-                $record->deleted_at = $this->parseDeletedAt($payload['deleted_at'] ?? null) ?? now();
-            } elseif ($operation === 'RESTORE' || !$this->isDeleted($payload)) {
-                $record->deleted_at = null;
-            }
-
+            if ($operation === 'DELETE' || $this->isDeleted($payload)) $record->deleted_at = $this->parseDeletedAt($payload['deleted_at'] ?? null) ?? now();
+            else $record->deleted_at = null;
             $record->save();
 
-            $accepted = [
-                'local_id' => $localId,
-                'server_id' => (int) $record->id,
-                'sync_version' => $nextVersion,
-                'mutation_id' => $mutationId,
-                'operation' => $operation,
-                'server_deleted' => $record->deleted_at !== null,
-            ];
-
-            SyncMutation::create([
-                'account_id' => $accountId,
-                'mutation_id' => $mutationId,
-                'entity' => $entity,
-                'local_id' => $localId,
-                'server_id' => (int) $record->id,
-                'operation' => $operation,
-                'sync_version' => $nextVersion,
-                'response' => $accepted,
-            ]);
-
+            $accepted = ['local_id' => $localId, 'server_id' => (int) $record->id, 'sync_version' => $nextVersion, 'mutation_id' => $mutationId, 'operation' => $operation, 'server_deleted' => $record->deleted_at !== null];
+            SyncMutation::create(['account_id' => $accountId, 'mutation_id' => $mutationId, 'entity' => $entity, 'local_id' => $localId, 'server_id' => (int) $record->id, 'operation' => $operation, 'sync_version' => $nextVersion, 'response' => $accepted]);
             return ['status' => 'accepted', 'accepted' => $accepted];
         });
     }
 
+    private function validateDomainPayload(string $entity, array $payload): ?string
+    {
+        $numericFields = match ($entity) {
+            'transactions' => ['amount', 'amount_sar', 'customer_rate', 'supplier_rate', 'amount_bdt'],
+            'supplier_deposits' => ['amount_sar', 'rate', 'amount_bdt', 'paid_bdt'],
+            'wallet_batches' => ['rate', 'initial_bdt', 'remaining_bdt'],
+            'expenses_incomes' => ['amount'],
+            default => [],
+        };
+        foreach ($numericFields as $field) {
+            if (!array_key_exists($field, $payload) || $payload[$field] === null || $payload[$field] === '') continue;
+            if (is_array($payload[$field]) || is_object($payload[$field]) || !is_numeric($payload[$field])) return "Invalid numeric field: {$field}";
+            if ((float) $payload[$field] < 0) return "Negative value is not allowed: {$field}";
+            if (abs((float) $payload[$field]) > 1000000000000) return "Numeric value is outside the supported range: {$field}";
+        }
+        foreach (['customer_id', 'supplier_id', 'wallet_batch_id', 'ledger_id', 'supplier_deposit_id'] as $field) {
+            if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '' && (!is_numeric($payload[$field]) || (int) $payload[$field] < 0)) return "Invalid identifier: {$field}";
+        }
+        return null;
+    }
+
     private function legacyStaleAck(string $entity, int $localId, Model $record, string $mutationId, string $operation): array
     {
-        return [
-            'status' => 'accepted',
-            'accepted' => [
-                'local_id' => $localId,
-                'server_id' => (int) $record->id,
-                'sync_version' => (int) ($record->sync_version ?? 0),
-                'mutation_id' => $mutationId,
-                'operation' => $operation,
-                'stale' => true,
-                'server_authoritative' => true,
-            ],
-        ];
+        return ['status' => 'accepted', 'accepted' => ['local_id' => $localId, 'server_id' => (int) $record->id, 'sync_version' => (int) ($record->sync_version ?? 0), 'mutation_id' => $mutationId, 'operation' => $operation, 'stale' => true, 'server_authoritative' => true]];
     }
 
     private function conflict(string $entity, int $localId, Model $record, string $mutationId, int $version, string $operation): array
     {
-        return [
-            'status' => 'conflict',
-            'conflict' => [
-                'entity' => $entity,
-                'local_id' => $localId,
-                'server_id' => (int) $record->id,
-                'reason' => 'STALE_BASE_VERSION',
-                'mutation_id' => $mutationId,
-                'operation' => $operation,
-                'server_version' => $version,
-                'server' => $record->toArray(),
-            ],
-        ];
+        return ['status' => 'conflict', 'conflict' => ['entity' => $entity, 'local_id' => $localId, 'server_id' => (int) $record->id, 'reason' => 'STALE_BASE_VERSION', 'mutation_id' => $mutationId, 'operation' => $operation, 'server_version' => $version, 'server' => $record->toArray()]];
     }
 
     private function rejected(string $entity, int $localId, string $reason, string $code, ?string $mutationId = null): array
     {
-        return ['status' => 'rejected', 'rejected' => [
-            'entity' => $entity, 'local_id' => $localId, 'reason' => $reason, 'code' => $code, 'mutation_id' => $mutationId,
-        ]];
+        return ['status' => 'rejected', 'rejected' => ['entity' => $entity, 'local_id' => $localId, 'reason' => $reason, 'code' => $code, 'mutation_id' => $mutationId]];
     }
 
-    private function isDeleted(array $payload): bool
-    {
-        return !empty($payload['deleted_at']) || !empty($payload['is_deleted']);
-    }
+    private function isDeleted(array $payload): bool { return !empty($payload['deleted_at']) || !empty($payload['is_deleted']); }
 
     private function positiveIntOrNull(mixed $value): ?int
     {
