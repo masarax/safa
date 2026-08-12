@@ -85,7 +85,7 @@ class ApiSecurityInterceptor(
                         )
                     )
                 } else if (response.code == 401) {
-                    tokenManager.clearAllTokens()
+                    tokenManager.notifySessionInvalidated()
                 }
             }
         }
