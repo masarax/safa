@@ -14,6 +14,8 @@ class Customer extends Model
         'local_id',
         'name',
         'phone',
+        'avatar_color',
+        'avatar_emoji',
         'address',
         'hash',
         'timestamp',
