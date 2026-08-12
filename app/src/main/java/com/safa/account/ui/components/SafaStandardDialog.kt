@@ -1,7 +1,6 @@
 package com.safa.account.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,8 +21,8 @@ import com.safa.account.ui.theme.AppColors
 import com.safa.account.ui.theme.SafaDimensions
 
 /**
- * Single confirmation-dialog language for destructive and important actions.
- * Screens should prefer this component over bespoke AlertDialog layouts.
+ * Unified confirmation language for important and destructive actions.
+ * Labels are deliberately compact so English/Bengali translations stay on one line.
  */
 @Composable
 fun SafaStandardConfirmDialog(
@@ -35,23 +34,30 @@ fun SafaStandardConfirmDialog(
     onDismiss: () -> Unit,
     destructive: Boolean = false,
     confirmEnabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    language: String? = null
 ) {
+    val compactTitle = UiCopy.compact(title, language)
+    val compactConfirm = UiCopy.compact(confirmLabel, language)
+    val compactDismiss = UiCopy.compact(dismissLabel, language)
+
     AlertDialog(
         modifier = modifier,
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 2,
+                text = compactTitle,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         },
         text = {
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis
             )
         },
         confirmButton = {
@@ -72,10 +78,11 @@ fun SafaStandardConfirmDialog(
                 modifier = Modifier.height(SafaDimensions.compactButtonHeight)
             ) {
                 Text(
-                    text = confirmLabel,
+                    text = compactConfirm,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelLarge
+                    softWrap = false,
+                    style = MaterialTheme.typography.labelMedium
                 )
             }
         },
@@ -85,10 +92,11 @@ fun SafaStandardConfirmDialog(
                 modifier = Modifier.height(SafaDimensions.compactButtonHeight)
             ) {
                 Text(
-                    text = dismissLabel,
+                    text = compactDismiss,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelLarge
+                    softWrap = false,
+                    style = MaterialTheme.typography.labelMedium
                 )
             }
         }
@@ -104,7 +112,8 @@ fun SafaDialogActions(
     onDismiss: () -> Unit,
     confirmEnabled: Boolean = true,
     destructive: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    language: String? = null
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -115,10 +124,11 @@ fun SafaDialogActions(
             modifier = Modifier.height(SafaDimensions.compactButtonHeight)
         ) {
             Text(
-                dismissLabel,
+                UiCopy.compact(dismissLabel, language),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelLarge
+                softWrap = false,
+                style = MaterialTheme.typography.labelMedium
             )
         }
         Spacer(Modifier.width(SafaDimensions.sm))
@@ -133,10 +143,11 @@ fun SafaDialogActions(
             modifier = Modifier.height(SafaDimensions.compactButtonHeight)
         ) {
             Text(
-                confirmLabel,
+                UiCopy.compact(confirmLabel, language),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelLarge
+                softWrap = false,
+                style = MaterialTheme.typography.labelMedium
             )
         }
     }
