@@ -1,58 +1,120 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SAFA Backend
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+The `backend/` directory contains the Laravel API and private web layer for **SAFA**, the Android-first, account-scoped financial management system.
 
-## About Laravel
+## Production
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Website/service host: `https://safa.masarax.com`
+- API base: `https://safa.masarax.com/api`
+- Unauthenticated health endpoint: `GET /api/auth/health`
+- Browser root `/` is intentionally private and returns `404 {"status":"not_found"}`.
+- Production secrets belong in the server environment only. Do not commit `.env` or API secrets.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Main responsibilities
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Mobile authentication with mobile number + PIN
+- JWT access tokens plus refresh/session/device/fingerprint controls
+- Account ownership and account-sharing authorization
+- Customer and supplier management
+- Remittance/transaction management
+- Wallet ledgers and batches
+- Supplier deposits
+- Expense/income records
+- Offline-first Android synchronization
+- Sync reconciliation and idempotent mutation handling
+- Audit and security controls
+- Protected installation/update/database maintenance controls
 
-## Learning Laravel
+## Runtime
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Production uses MySQL. Automated CI uses an isolated SQLite database.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Required production environment is documented in [`backend/.env.example`](.env.example). The real production `.env` must be created and maintained outside Git.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Local setup
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Configure the database and server-only secrets in `.env` before running the application.
 
-## Contributing
+## Testing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+For a deterministic local test environment:
 
-## Code of Conduct
+```bash
+cp .env.testing .env
+php artisan migrate:fresh --force
+php artisan test
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The CI workflow uses the same repository-provided `.env.testing` fixture. A production `.env` is never required in CI.
 
-## Security Vulnerabilities
+## Useful commands
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan migrate
+php artisan migrate:fresh --force
+php artisan test
+php artisan safa:provision-admin
+```
+
+Use `migrate:fresh` only against a disposable development/test database.
+
+## Security rules
+
+1. Never commit passwords, PINs, JWT secrets, refresh tokens, private API secrets or production `.env` files.
+2. The Android API key is a client identifier; the private API secret remains server-side.
+3. Every business operation must resolve an explicit account context.
+4. Account sharing must be checked against the requested account, not merely the user's identity.
+5. Financial relationships must remain account-scoped.
+6. Money values must use decimal-safe persistence and validation rather than binary floating-point as the authoritative representation.
+7. Every security, authorization or synchronization regression should have a corresponding automated test.
+
+## Deployment
+
+Production deployment is performed manually through GitHub Actions. The deployment workflow runs the same deterministic Laravel test environment before production Composer installation and cPanel synchronization when the test gate is enabled.
+
+Deployment is blocked when mandatory tests fail. After synchronization, the workflow checks:
+
+```text
+GET https://safa.masarax.com/api/auth/health
+```
+
+and requires the response to report `status=ok` and `service=SAFA API`.
+
+The cPanel document root must expose only the intended Laravel public entry point (`backend/public` or the equivalent hosting layout). Application source, `.env`, tests and private runtime files must not be web-accessible.
+
+## Architecture
+
+```text
+Android / other trusted client
+          |
+          | HTTPS JSON API
+          v
+Laravel 13 API
+          |
+          +-- Authentication/session/device security
+          +-- Account authorization/sharing
+          +-- Financial domain validation
+          +-- Sync/reconciliation/idempotency
+          +-- Audit/security middleware
+          |
+          v
+       MySQL
+```
+
+The Android application currently uses a custom `SQLiteOpenHelper` local-first store with encrypted local payloads, durable outbox state, retry metadata, server versions and mutation metadata. It is **not documented as Room or SQLCipher** because the current implementation does not use those technologies.
+
+## Current status
+
+This project is under active development. Documentation describes the current implementation only. Planned features or future migrations must not be presented as production functionality.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+SAFA is private and proprietary financial software. All rights reserved.
