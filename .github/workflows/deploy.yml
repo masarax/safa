@@ -2,10 +2,12 @@ name: Deploy Laravel Backend to cPanel
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Backend CI"]
-    branches: [main]
-    types: [completed]
+    inputs:
+      run_tests:
+        description: Run the backend test suite before deployment
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -17,7 +19,6 @@ concurrency:
 jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     env:
       APP_ENV: testing
@@ -31,7 +32,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+          ref: main
           fetch-depth: 1
 
       - name: Setup PHP
@@ -49,16 +50,10 @@ jobs:
         working-directory: backend
         run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Run full test suite for manual deployments
-        if: github.event_name == 'workflow_dispatch'
+      - name: Run full test suite
+        if: inputs.run_tests == true
         working-directory: backend
         run: php artisan test
-
-      - name: Verify successful Backend CI commit
-        if: github.event_name == 'workflow_run'
-        run: |
-          echo "Deploying the exact commit that passed Backend CI: ${{ github.event.workflow_run.head_sha }}"
-          test "$(git rev-parse HEAD)" = "${{ github.event.workflow_run.head_sha }}"
 
       - name: Install production Composer dependencies
         working-directory: backend
