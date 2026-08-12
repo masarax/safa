@@ -8,9 +8,17 @@ on:
     paths: ['backend/**', '.github/workflows/backend-ci.yml']
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: safa-backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   laravel:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: backend
