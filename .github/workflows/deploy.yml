@@ -2,10 +2,22 @@ name: Deploy Laravel Backend to cPanel
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Backend CI"]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safa-laravel-production-deploy
+  cancel-in-progress: false
 
 jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     env:
       APP_ENV: testing
@@ -18,24 +30,40 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+          fetch-depth: 1
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
+
       - name: Install Composer dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
       - name: PHP syntax check
         working-directory: backend
         run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: Run full test suite
+
+      - name: Run full test suite for manual deployments
+        if: github.event_name == 'workflow_dispatch'
         working-directory: backend
         run: php artisan test
+
+      - name: Verify successful Backend CI commit
+        if: github.event_name == 'workflow_run'
+        run: |
+          echo "Deploying the exact commit that passed Backend CI: ${{ github.event.workflow_run.head_sha }}"
+          test "$(git rev-parse HEAD)" = "${{ github.event.workflow_run.head_sha }}"
+
       - name: Install production Composer dependencies
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
