@@ -3,7 +3,6 @@ package com.safa.account.ui.theme
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.dp
 
@@ -53,6 +52,4 @@ object SafaButtonDefaults {
         height = SafaDimensions.compactButtonHeight,
         contentPadding = SafaDimensions.compactButtonContentPadding
     )
-
-    fun minSize() = ButtonDefaults.MinHeight
 }
