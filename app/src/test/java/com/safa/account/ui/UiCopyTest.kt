@@ -21,4 +21,9 @@ class UiCopyTest {
         assertEquals("মুছুন", UiCopy.compact("Delete Customer", "BN"))
         assertTrue(UiCopy.compact("Customer List", "BN").trim().isNotEmpty())
     }
+
+    @Test
+    fun `unknown copy remains unchanged`() {
+        assertEquals("Known Customer", UiCopy.compact("Known Customer"))
+    }
 }
