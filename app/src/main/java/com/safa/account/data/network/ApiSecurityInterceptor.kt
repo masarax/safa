@@ -15,9 +15,9 @@ import java.util.concurrent.TimeUnit
  * Adds public SAFA client identity and authenticated session headers.
  * Server secrets never ship in the Android APK.
  *
- * Every destructive HTTP DELETE is confirmed in the UI before the request is
- * sent. This prevents accidental deletion and also protects operations that
- * originate from screens that do not implement their own dialog.
+ * Destructive DELETE operations require explicit UI confirmation before the
+ * request is sent. Biometric quick-unlock sessions also cannot be queried or
+ * used until the current process has passed the device biometric gate.
  */
 class ApiSecurityInterceptor(
     private val apiKey: String,
@@ -29,8 +29,19 @@ class ApiSecurityInterceptor(
         val path = originalRequest.url.encodedPath
         val isLoginRequest = path.endsWith("/auth/login")
         val isRefreshRequest = path.endsWith("/auth/refresh")
+        val isSessionCheck = path.endsWith("/auth/session")
         val isDeleteRequest = originalRequest.method.equals("DELETE", ignoreCase = true)
         val alreadyConfirmed = originalRequest.header("X-SAFA-DELETE-CONFIRM") == "true"
+
+        if (isSessionCheck && tokenManager?.isBiometricQuickUnlockEnabled() == true && !tokenManager.isBiometricUnlockApproved()) {
+            return Response.Builder()
+                .request(originalRequest)
+                .protocol(okhttp3.Protocol.HTTP_1_1)
+                .code(401)
+                .message("Biometric unlock required")
+                .body("{\"status\":\"biometric_required\",\"message\":\"Biometric unlock required.\"}".toResponseBody("application/json".toMediaTypeOrNull()))
+                .build()
+        }
 
         if (isDeleteRequest && !alreadyConfirmed) {
             val confirmed = DeleteConfirmationCoordinator.awaitConfirmation(
@@ -65,6 +76,7 @@ class ApiSecurityInterceptor(
             !isRefreshRequest &&
             response.code == 401 &&
             tokenManager != null &&
+            !isSessionCheck &&
             securedRequest.header("X-SAFA-RETRY") != "true"
         ) {
             synchronized(tokenManager) {
