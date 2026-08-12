@@ -1,5 +1,8 @@
 package com.safa.account.data.network
 
+import android.app.AlertDialog
+import android.os.Handler
+import android.os.Looper
 import com.safa.account.data.api.TokenManager
 import okhttp3.FormBody
 import okhttp3.Interceptor
@@ -7,14 +10,18 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
  * Adds public SAFA client identity and authenticated session headers.
  * Server secrets never ship in the Android APK.
  *
- * Access-token refresh is serialized per TokenManager so concurrent 401s do
- * not race each other and consume the same single-use refresh token twice.
+ * Also acts as the transport-level safety net for destructive HTTP DELETEs:
+ * the server first returns 409/confirmation_required, then the interceptor
+ * shows one compact native confirmation dialog and retries only after the user
+ * explicitly confirms. This keeps confirmation consistent across all delete
+ * endpoints without relying on every screen to remember the rule.
  */
 class ApiSecurityInterceptor(
     private val apiKey: String,
@@ -32,6 +39,37 @@ class ApiSecurityInterceptor(
         )
 
         if (
+            originalRequest.method.equals("DELETE", ignoreCase = true) &&
+            response.code == 409 &&
+            originalRequest.header("X-SAFA-DELETE-CONFIRM") != "true" &&
+            isConfirmationRequired(response)
+        ) {
+            val confirmed = awaitDeleteConfirmation()
+            response.close()
+            if (confirmed) {
+                val confirmedUrl = originalRequest.url.newBuilder().setQueryParameter("confirmed", "true").build()
+                response = chain.proceed(
+                    buildSecuredRequest(
+                        originalRequest.newBuilder()
+                            .url(confirmedUrl)
+                            .header("X-SAFA-DELETE-CONFIRM", "true")
+                            .build(),
+                        includeAuthTokens = true
+                    )
+                )
+            } else {
+                response = chain.proceed(
+                    buildSecuredRequest(
+                        originalRequest.newBuilder()
+                            .header("X-SAFA-DELETE-CANCELLED", "true")
+                            .build(),
+                        includeAuthTokens = true
+                    )
+                )
+            }
+        }
+
+        if (
             !isLoginRequest &&
             !isRefreshRequest &&
             response.code == 401 &&
@@ -39,8 +77,6 @@ class ApiSecurityInterceptor(
             originalRequest.header("X-SAFA-RETRY") != "true"
         ) {
             synchronized(tokenManager) {
-                // Another request may have refreshed the token while this
-                // request was waiting for the lock. Reuse it when possible.
                 val requestAccessToken = originalRequest.header("Authorization")?.removePrefix("Bearer ")
                 val currentAccessToken = tokenManager.getAccessToken()
                 val newToken = if (!currentAccessToken.isNullOrBlank() && currentAccessToken != requestAccessToken) {
@@ -53,23 +89,57 @@ class ApiSecurityInterceptor(
                     response.close()
                     response = chain.proceed(
                         buildSecuredRequest(
-                            originalRequest.newBuilder()
-                                .header("X-SAFA-RETRY", "true")
-                                .build(),
+                            originalRequest.newBuilder().header("X-SAFA-RETRY", "true").build(),
                             includeAuthTokens = true
                         )
                     )
                 } else if (response.code == 401) {
-                    // A 401 means the authenticated session could not be
-                    // recovered. Preserve that response for the caller while
-                    // clearing local credentials. A 403 is authorization/
-                    // permission failure and must never destroy a valid session.
                     tokenManager.clearAllTokens()
                 }
             }
         }
 
         return response
+    }
+
+    private fun isConfirmationRequired(response: Response): Boolean {
+        return runCatching {
+            val text = response.peekBody(64 * 1024).string()
+            JSONObject(text).optBoolean("requires_confirmation", false) ||
+                JSONObject(text).optString("status").equals("confirmation_required", true)
+        }.getOrDefault(false)
+    }
+
+    /** Blocks the calling OkHttp thread until the user confirms or cancels. */
+    private fun awaitDeleteConfirmation(): Boolean {
+        val context = tokenManager?.getContext() ?: return false
+        val latch = CountDownLatch(1)
+        var confirmed = false
+        Handler(Looper.getMainLooper()).post {
+            runCatching {
+                AlertDialog.Builder(context)
+                    .setTitle("Delete data?")
+                    .setMessage("This action cannot be undone.")
+                    .setNegativeButton("Cancel") { _, _ ->
+                        confirmed = false
+                        latch.countDown()
+                    }
+                    .setPositiveButton("Delete") { _, _ ->
+                        confirmed = true
+                        latch.countDown()
+                    }
+                    .setOnCancelListener {
+                        confirmed = false
+                        latch.countDown()
+                    }
+                    .show()
+            }.onFailure {
+                confirmed = false
+                latch.countDown()
+            }
+        }
+        latch.await(60, TimeUnit.SECONDS)
+        return confirmed
     }
 
     private fun buildSecuredRequest(request: Request, includeAuthTokens: Boolean): Request {
