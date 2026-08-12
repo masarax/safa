@@ -2,12 +2,6 @@ name: Deploy Laravel Backend to cPanel
 
 on:
   workflow_dispatch:
-    inputs:
-      run_tests:
-        description: Run the backend test suite before deployment
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -47,27 +41,30 @@ jobs:
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
 
-      - name: Install Composer dependencies
-        working-directory: backend
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
       - name: Prepare deterministic test environment
-        if: inputs.run_tests == true
         working-directory: backend
         run: cp .env.testing .env
+
+      - name: Install Composer test dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: PHP syntax check
         working-directory: backend
         run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Run full test suite
-        if: inputs.run_tests == true
+      - name: Run mandatory full test suite
         working-directory: backend
         run: php artisan test
 
       - name: Install production Composer dependencies
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Verify cPanel deployment target
+        run: |
+          echo "Deploying Laravel public entry point through the configured cPanel document-root layout."
+          echo "Production .env remains server-side and is never uploaded from GitHub."
 
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
