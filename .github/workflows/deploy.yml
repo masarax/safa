@@ -7,22 +7,27 @@ jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, xml, pdo, pdo_mysql, bcmath, ctype, fileinfo, json, tokenizer
+          extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
-
+      - name: Install Composer dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      - name: PHP syntax check
+        working-directory: backend
+        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Run unit tests
+        working-directory: backend
+        run: php artisan test --testsuite=Unit
       - name: Install production Composer dependencies
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
