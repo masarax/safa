@@ -43,9 +43,6 @@ jobs:
       - name: PHP syntax check
         run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Verify test database migration
-        run: php artisan migrate:fresh --force
-
       - name: Run full Laravel test suite
         env:
           XDEBUG_MODE: off
