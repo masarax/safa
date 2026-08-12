@@ -25,7 +25,7 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
-          ini-values: memory_limit=512M
+          ini-values: memory_limit=1G, max_execution_time=0
 
       - name: Prepare CI environment
         run: cp .env.testing .env
@@ -40,4 +40,6 @@ jobs:
         run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Run full Laravel test suite
-        run: php artisan test --no-coverage --do-not-cache-result
+        env:
+          XDEBUG_MODE: off
+        run: php -d memory_limit=1G -d max_execution_time=0 artisan test --no-coverage --do-not-cache-result
