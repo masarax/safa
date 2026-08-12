@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -113,6 +114,7 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
     var showExitDialog by remember { mutableStateOf(false) }
     var previousOperatorId by remember { mutableStateOf<Int?>(currentOperator?.id) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentOperator?.id) {
         val previous = previousOperatorId
@@ -149,37 +151,48 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
                 topBar = { if (showBars) SafaTopAppBar(viewModel, viewModel.t("app_title"), currentOperator?.username ?: "") { viewModel.logout() } },
                 bottomBar = { if (showBars) SafaBottomNavigationBar(viewModel, currentScreen) }
             ) { innerPadding ->
-                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(innerPadding)) {
-                    AnimatedContent(
-                        targetState = currentScreen,
-                        transitionSpec = {
-                            val isBackward = navDirection == NavDirection.BACKWARD
-                            if (isBackward) {
-                                slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith
-                                    slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
-                            } else {
-                                slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith
-                                    slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                PullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh = {
+                        if (!isRefreshing) {
+                            isRefreshing = true
+                            viewModel.triggerFullSync { _, _ -> isRefreshing = false }
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize().padding(innerPadding)
+                ) {
+                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("safa_refresh_container")) {
+                        AnimatedContent(
+                            targetState = currentScreen,
+                            transitionSpec = {
+                                val isBackward = navDirection == NavDirection.BACKWARD
+                                if (isBackward) {
+                                    slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith
+                                        slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                                } else {
+                                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith
+                                        slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                                }
+                            },
+                            label = "SqueezeTransition",
+                            modifier = Modifier.fillMaxSize()
+                        ) { targetScreen ->
+                            when (targetScreen) {
+                                AppScreen.DASHBOARD -> DashboardScreen(viewModel = viewModel)
+                                AppScreen.CUSTOMERS -> CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = false)
+                                AppScreen.CUSTOMER_PROFILE -> CustomerScreen(viewModel = viewModel, isProfileView = true, isAddView = false)
+                                AppScreen.CUSTOMER_ADD -> CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = true)
+                                AppScreen.SUPPLIERS -> SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = false)
+                                AppScreen.SUPPLIER_PROFILE -> SupplierScreen(viewModel = viewModel, isProfileView = true, isAddView = false)
+                                AppScreen.SUPPLIER_ADD -> SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = true)
+                                AppScreen.TRANSACTIONS -> TransactionScreen(viewModel = viewModel)
+                                AppScreen.WALLET -> WalletScreen(viewModel = viewModel)
+                                AppScreen.EXPENSES -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = false)
+                                AppScreen.EXPENSE_ADD -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = true)
+                                AppScreen.SETTINGS -> SettingsScreen(viewModel = viewModel)
+                                AppScreen.REPORTS -> ReportsScreen(viewModel = viewModel)
+                                AppScreen.LOCK_SCREEN -> LoginScreen(viewModel = viewModel)
                             }
-                        },
-                        label = "SqueezeTransition",
-                        modifier = Modifier.fillMaxSize()
-                    ) { targetScreen ->
-                        when (targetScreen) {
-                            AppScreen.DASHBOARD -> DashboardScreen(viewModel = viewModel)
-                            AppScreen.CUSTOMERS -> CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = false)
-                            AppScreen.CUSTOMER_PROFILE -> CustomerScreen(viewModel = viewModel, isProfileView = true, isAddView = false)
-                            AppScreen.CUSTOMER_ADD -> CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = true)
-                            AppScreen.SUPPLIERS -> SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = false)
-                            AppScreen.SUPPLIER_PROFILE -> SupplierScreen(viewModel = viewModel, isProfileView = true, isAddView = false)
-                            AppScreen.SUPPLIER_ADD -> SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = true)
-                            AppScreen.TRANSACTIONS -> TransactionScreen(viewModel = viewModel)
-                            AppScreen.WALLET -> WalletScreen(viewModel = viewModel)
-                            AppScreen.EXPENSES -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = false)
-                            AppScreen.EXPENSE_ADD -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = true)
-                            AppScreen.SETTINGS -> SettingsScreen(viewModel = viewModel)
-                            AppScreen.REPORTS -> ReportsScreen(viewModel = viewModel)
-                            AppScreen.LOCK_SCREEN -> LoginScreen(viewModel = viewModel)
                         }
                     }
                 }
