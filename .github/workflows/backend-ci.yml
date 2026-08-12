@@ -27,9 +27,8 @@ jobs:
           coverage: none
           ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
 
-      - name: Prepare CI environment
+      - name: Prepare test database
         run: |
-          cp .env.testing .env
           mkdir -p database
           rm -f database/testing.sqlite
           touch database/testing.sqlite
