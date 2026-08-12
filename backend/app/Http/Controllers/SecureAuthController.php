@@ -3,45 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuthSession;
-use App\Models\User;
 use App\Models\DeviceBinding;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * Production authentication lifecycle endpoints.
- *
- * Refresh tokens are rotated atomically inside a database transaction. The
- * endpoint intentionally does not use VerifyRefreshRequest because that
- * middleware used to rotate the token before the controller read it, creating
- * a refresh-token race/failure.
- */
 class SecureAuthController extends Controller
 {
     public function session(Request $request)
     {
         $user = $request->user() ?? $request->attributes->get('user');
         $accessToken = $request->bearerToken();
-
-        if (!$user || !$accessToken) {
-            return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
-        }
+        if (!$user || !$accessToken) return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
 
         $session = AuthSession::query()
-            ->where('access_token', $accessToken)
+            ->where('access_token_hash', AuthSession::tokenHash($accessToken))
             ->where('user_id', $user->id)
             ->where('is_revoked', false)
             ->first();
 
-        if (!$session || ($session->expires_at && $session->expires_at->isPast())) {
-            return response()->json(['status' => 'error', 'message' => 'Session expired.'], 401);
-        }
+        if (!$session || ($session->expires_at && $session->expires_at->isPast())) return response()->json(['status' => 'error', 'message' => 'Session expired.'], 401);
 
         $deviceUuid = trim((string) ($request->header('X-SAFA-DEVICE-TOKEN') ?? ''));
-        if ($deviceUuid !== '' && $session->device_uuid !== $deviceUuid) {
-            return response()->json(['status' => 'error', 'message' => 'Device session mismatch.'], 401);
-        }
+        if ($deviceUuid !== '' && !hash_equals((string) $session->device_uuid, $deviceUuid)) return response()->json(['status' => 'error', 'message' => 'Device session mismatch.'], 401);
 
         return response()->json([
             'status' => 'success',
@@ -55,10 +40,7 @@ class SecureAuthController extends Controller
                 'is_activated' => (bool) $user->is_activated,
                 'permissions' => $user->getFormattedPermissions(),
             ],
-            'session' => [
-                'expires_at' => optional($session->expires_at)->toIso8601String(),
-                'device_uuid' => $session->device_uuid,
-            ],
+            'session' => ['expires_at' => optional($session->expires_at)->toIso8601String(), 'device_uuid' => $session->device_uuid],
         ]);
     }
 
@@ -68,29 +50,21 @@ class SecureAuthController extends Controller
         $deviceUuid = trim((string) ($request->input('device_token') ?? $request->input('device_uuid') ?? $request->header('X-SAFA-DEVICE-TOKEN')));
         $fingerprint = trim((string) ($request->input('fingerprint_token') ?? $request->input('fingerprint_hash') ?? $request->header('X-SAFA-FINGERPRINT-TOKEN')));
 
-        if ($refreshToken === '' || $deviceUuid === '' || $fingerprint === '') {
-            return response()->json(['status' => 'error', 'message' => 'Missing refresh security credentials.'], 400);
-        }
+        if ($refreshToken === '' || $deviceUuid === '' || $fingerprint === '') return response()->json(['status' => 'error', 'message' => 'Missing refresh security credentials.'], 400);
 
         $result = DB::transaction(function () use ($refreshToken, $deviceUuid, $fingerprint) {
             $session = AuthSession::query()
-                ->where('refresh_token', $refreshToken)
+                ->where('refresh_token_hash', AuthSession::tokenHash($refreshToken))
                 ->where('device_uuid', $deviceUuid)
                 ->where('is_revoked', false)
                 ->lockForUpdate()
                 ->first();
 
             if (!$session || ($session->expires_at && $session->expires_at->isPast())) return null;
-
             $user = User::find($session->user_id);
             if (!$user || !$user->is_activated) return null;
 
-            $binding = DeviceBinding::query()
-                ->where('user_id', $user->id)
-                ->where('device_uuid', $deviceUuid)
-                ->where('is_active', true)
-                ->first();
-
+            $binding = DeviceBinding::query()->where('user_id', $user->id)->where('device_uuid', $deviceUuid)->where('is_active', true)->first();
             if (!$binding || !hash_equals((string) $binding->fingerprint_hash, $fingerprint)) return null;
 
             $newRefreshToken = Str::random(64);
@@ -136,10 +110,8 @@ class SecureAuthController extends Controller
     {
         $accessToken = $request->bearerToken();
         if (!$accessToken) return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
-
-        $session = AuthSession::query()->where('access_token', $accessToken)->where('is_revoked', false)->first();
+        $session = AuthSession::query()->where('access_token_hash', AuthSession::tokenHash($accessToken))->where('is_revoked', false)->first();
         if (!$session) return response()->json(['status' => 'success', 'message' => 'Session already ended.']);
-
         $session->update(['is_revoked' => true]);
         return response()->json(['status' => 'success', 'message' => 'Logged out successfully.']);
     }
@@ -148,7 +120,6 @@ class SecureAuthController extends Controller
     {
         $user = $request->user() ?? $request->attributes->get('user');
         if (!$user) return response()->json(['status' => 'error', 'message' => 'Authenticated user required.'], 401);
-
         AuthSession::where('user_id', $user->id)->update(['is_revoked' => true]);
         return response()->json(['status' => 'success', 'message' => 'All active sessions have been revoked.']);
     }
