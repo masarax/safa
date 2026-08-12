@@ -27,10 +27,8 @@ use App\Http\Middleware\ValidateSyncDependencies;
 Route::prefix('auth')->group(function () {
     Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 'SAFA API']));
 
-    // Credential login is deliberately independent of the APK's public client key.
-    // The mobile+PIN first factor, TLS, rate limiting and the resulting server-side
-    // session/JWT provide authentication. The public API key remains required for
-    // authenticated business/session endpoints after login.
+    // Credential login is independent of the APK public client key. The API key
+    // is still required for authenticated business/session endpoints.
     Route::post('/login', [MobileLoginController::class, 'login'])
         ->middleware([RejectInactiveLogin::class, 'throttle:5,1']);
 
@@ -45,7 +43,6 @@ Route::prefix('auth')->group(function () {
         Route::post('/operators', [UserManagementController::class, 'store']);
         Route::put('/operators/{id}', [UserManagementController::class, 'update']);
         Route::patch('/operators/{id}', [UserManagementController::class, 'update']);
-        Route::any('/operators/{id}', [UserManagementController::class, 'update']);
         Route::delete('/operators/{id}', [UserManagementController::class, 'destroy']);
         Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
         Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
