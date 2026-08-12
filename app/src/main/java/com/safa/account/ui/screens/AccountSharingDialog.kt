@@ -3,7 +3,6 @@ package com.safa.account.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safa.account.ui.viewmodel.SafaViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun AccountSharingDialog(
@@ -33,6 +33,7 @@ fun AccountSharingDialog(
     onDismiss: () -> Unit
 ) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
     var mobile by remember { mutableStateOf("") }
     var canViewCustomers by remember { mutableStateOf(true) }
     var canViewSuppliers by remember { mutableStateOf(true) }
@@ -93,21 +94,37 @@ fun AccountSharingDialog(
                         return@Button
                     }
                     saving = true
-                    viewModel.viewModelScopeShareAccount(
-                        mobile = normalized,
-                        permissions = mapOf(
-                            "can_view_customers" to canViewCustomers,
-                            "can_view_suppliers" to canViewSuppliers,
-                            "can_view_transactions" to canViewTransactions,
-                            "can_manage_wallet" to canManageWallet,
-                            "can_manage_expenses" to canManageExpenses
-                        )
-                    ) { ok, message ->
-                        saving = false
-                        if (ok) {
-                            success = if (lang == "BN") "অ্যাকাউন্ট শেয়ার হয়েছে" else "Account shared successfully"
-                        } else {
-                            error = message
+                    scope.launch {
+                        try {
+                            val api = viewModel.syncManager?.getApiService()
+                            if (api == null) {
+                                error = if (lang == "BN") "সার্ভার সংযোগ নেই" else "Server connection unavailable"
+                                saving = false
+                                return@launch
+                            }
+                            val accountId = viewModel.tokenManager?.getActiveAccountId() ?: 1
+                            val response = api.shareAccount(
+                                mapOf(
+                                    "mobile" to normalized,
+                                    "account_id" to accountId,
+                                    "permissions" to mapOf(
+                                        "can_view_customers" to canViewCustomers,
+                                        "can_view_suppliers" to canViewSuppliers,
+                                        "can_view_transactions" to canViewTransactions,
+                                        "can_manage_wallet" to canManageWallet,
+                                        "can_manage_expenses" to canManageExpenses
+                                    )
+                                )
+                            )
+                            if (response.isSuccessful) {
+                                success = if (lang == "BN") "অ্যাকাউন্ট শেয়ার হয়েছে" else "Account shared successfully"
+                            } else {
+                                error = "HTTP ${response.code()}"
+                            }
+                        } catch (t: Throwable) {
+                            error = t.localizedMessage ?: if (lang == "BN") "শেয়ার ব্যর্থ" else "Share failed"
+                        } finally {
+                            saving = false
                         }
                     }
                 },
