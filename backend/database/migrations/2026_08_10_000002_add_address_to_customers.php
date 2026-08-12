@@ -8,19 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasColumn('customers', 'address')) {
-            Schema::table('customers', function (Blueprint $table) {
-                $table->string('address', 500)->nullable()->after('phone');
-            });
+        foreach (['customers', 'suppliers'] as $tableName) {
+            if (!Schema::hasTable($tableName) || Schema::hasColumn($tableName, 'address')) continue;
+            Schema::table($tableName, function (Blueprint $table) { $table->string('address', 500)->nullable()->after('phone'); });
         }
     }
 
     public function down(): void
     {
-        if (Schema::hasColumn('customers', 'address')) {
-            Schema::table('customers', function (Blueprint $table) {
-                $table->dropColumn('address');
-            });
+        foreach (['customers', 'suppliers'] as $tableName) {
+            if (!Schema::hasTable($tableName) || !Schema::hasColumn($tableName, 'address')) continue;
+            Schema::table($tableName, function (Blueprint $table) { $table->dropColumn('address'); });
         }
     }
 };
