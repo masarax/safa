@@ -14,6 +14,13 @@ class SyncReconciliationService
         $localId = (int) ($payload['local_id'] ?? 0);
         $sync = is_array($payload['_sync'] ?? null) ? $payload['_sync'] : [];
         $operation = strtoupper((string) ($sync['operation'] ?? $payload['operation'] ?? $defaultOperation ?? ($this->isDeleted($payload) ? 'DELETE' : 'UPSERT')));
+        // Android historically emitted CREATE/UPDATE while the server domain
+        // service uses UPSERT semantics. Normalize both spellings at the
+        // boundary so conflict/idempotency logic remains identical.
+        $operation = match ($operation) {
+            'CREATE', 'UPDATE' => 'UPSERT',
+            default => $operation,
+        };
         $mutationId = trim((string) ($sync['mutation_id'] ?? $payload['mutation_id'] ?? ''));
         $mutationId = $mutationId !== '' ? substr($mutationId, 0, 128) : $this->fallbackMutationId($accountId, $entity, $payload, $operation);
         $baseVersion = array_key_exists('base_version', $sync) ? $this->positiveIntOrNull($sync['base_version']) : $this->positiveIntOrNull($payload['base_version'] ?? null);
@@ -29,7 +36,7 @@ class SyncReconciliationService
         return DB::transaction(function () use ($accountId, $entity, $modelClass, $payload, $attributes, $operation, $mutationId, $baseVersion, $localId) {
             $previousMutation = SyncMutation::where('account_id', $accountId)->where('mutation_id', $mutationId)->lockForUpdate()->first();
             if ($previousMutation) {
-                $response = $previousMutation->response ?: ['local_id' => $localId, 'server_id' => $previousMutation->server_id, 'sync_version' => $previousMutation->sync_version, 'mutation_id' => $mutationId];
+                $response = $previousMutation->response ?: ['local_id' => $localId, 'server_id' => $previousMutation->server_id, 'sync_version' => $previousMutation->sync_version, 'mutation_id' => $mutationId, 'operation' => $operation, 'server_deleted' => false];
                 $response['idempotent'] = true;
                 return ['status' => 'accepted', 'accepted' => $response];
             }
