@@ -25,67 +25,30 @@ use App\Http\Middleware\ValidateLogoUpload;
 use App\Http\Middleware\ValidateSyncDependencies;
 
 Route::prefix('auth')->group(function () {
-    Route::get('/health', function () {
-        return response()->json(['status' => 'ok', 'service' => 'SAFA API']);
-    });
+    Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 'SAFA API']));
+    Route::post('/login', [MobileLoginController::class, 'login'])->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
+    Route::post('/refresh', [SecureAuthController::class, 'refresh'])->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
+    Route::get('/session', [SecureAuthController::class, 'session'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:60,1']);
+    Route::post('/logout', [SecureAuthController::class, 'logout'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:20,1']);
+    Route::post('/logout-all', [SecureAuthController::class, 'logoutAll'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:10,1']);
+    Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
 
-    Route::post('/login', [MobileLoginController::class, 'login'])
-        ->middleware([CheckApiSecurityKey::class, RejectInactiveLogin::class, 'throttle:5,1']);
-
-    Route::post('/refresh', [SecureAuthController::class, 'refresh'])
-        ->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
-
-    Route::get('/session', [SecureAuthController::class, 'session'])
-        ->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:60,1']);
-
-    Route::post('/logout', [SecureAuthController::class, 'logout'])
-        ->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:20,1']);
-
-    Route::post('/logout-all', [SecureAuthController::class, 'logoutAll'])
-        ->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:10,1']);
-
-    Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])
-        ->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
-
-    Route::middleware([
-        CheckApiSecurityKey::class,
-        'verify.multilevel.token',
-        VerifyActiveAuthSession::class,
-        AuditLogMiddleware::class,
-        'throttle:60,1',
-    ])->group(function () {
+    Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
         Route::get('/operators', [UserManagementController::class, 'index']);
         Route::post('/operators', [UserManagementController::class, 'store']);
-        Route::put('/operators/{id}', [UserManagementController::class, 'update']);
-        Route::patch('/operators/{id}', [UserManagementController::class, 'update']);
+        Route::match(['put', 'patch'], '/operators/{id}', [UserManagementController::class, 'update']);
         Route::delete('/operators/{id}', [UserManagementController::class, 'destroy']);
-
         Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
         Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
         Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
     });
 });
 
-Route::middleware([
-    CheckApiSecurityKey::class,
-    'verify.multilevel.token',
-    VerifyActiveAuthSession::class,
-    ResolveGraphQLAccountContext::class,
-    RequireGraphQLPermission::class,
-    AuditLogMiddleware::class,
-    'throttle:60,1',
-])->group(function () {
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, ResolveGraphQLAccountContext::class, RequireGraphQLPermission::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
-Route::middleware([
-    CheckApiSecurityKey::class,
-    'verify.multilevel.token',
-    VerifyActiveAuthSession::class,
-    AuditLogMiddleware::class,
-    RequireBusinessPermission::class,
-    'throttle:60,1',
-])->group(function () {
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:60,1'])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
     Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
