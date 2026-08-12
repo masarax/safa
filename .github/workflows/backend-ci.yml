@@ -25,7 +25,7 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
-          ini-values: memory_limit=1G, max_execution_time=0
+          ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
 
       - name: Prepare CI environment
         run: |
@@ -43,7 +43,15 @@ jobs:
       - name: PHP syntax check
         run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Verify test database migration
+        run: php artisan migrate:fresh --force
+
+      - name: Run account isolation test in isolation
+        env:
+          XDEBUG_MODE: off
+        run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test tests/Feature/AccountContextIsolationTest.php --no-coverage --do-not-cache-result --debug
+
       - name: Run full Laravel test suite
         env:
           XDEBUG_MODE: off
-        run: php -d memory_limit=1G -d max_execution_time=0 artisan test --no-coverage --do-not-cache-result
+        run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
