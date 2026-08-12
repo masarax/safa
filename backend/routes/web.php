@@ -2,14 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 
-// SAFA is a private/API-first service. No public welcome, installer,
-// migration runner, or database controls are exposed through the browser.
+// SAFA is a private/API-first service. The browser root is intentionally not
+// a public welcome/status page; keep the contract consistent with security
+// and branding tests.
 Route::get('/', function () {
-    return response()->json([
-        'status' => 'ok',
-        'service' => 'SAFA',
-        'message' => 'SAFA service is online.',
-    ], 200);
+    return response()->json(['status' => 'not_found'], 404);
 })->name('home');
 
 Route::get('/safa-logo.png', function () {
