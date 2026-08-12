@@ -2,23 +2,19 @@
 
 namespace App\Http\Middleware;
 
-use Closure;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 use App\Http\Controllers\AuthJWTController;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Models\User;
+use Closure;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpFoundation\Response;
 
 class VerifyMultiLevelToken
 {
-    /**
-     * Handle an incoming request by validating all 5 security tokens.
-     */
     public function handle(Request $request, Closure $next): Response
     {
-        // 1. Retrieve all 5 security tokens from headers
         $accessToken = $request->bearerToken();
         $refreshToken = $request->header('X-SAFA-REFRESH-TOKEN') ?? $request->header('x-safa-refresh-token');
         $deviceUuid = $request->header('X-SAFA-DEVICE-TOKEN') ?? $request->header('x-safa-device-token');
@@ -26,90 +22,49 @@ class VerifyMultiLevelToken
         $fingerprintHash = $request->header('X-SAFA-FINGERPRINT-TOKEN') ?? $request->header('x-safa-fingerprint-token');
 
         if (!$accessToken || !$refreshToken || !$deviceUuid || !$sessionToken || !$fingerprintHash) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized: Missing required security tokens. Multi-level verification requires Access, Refresh, Device, Session, and Fingerprint tokens.'
-            ], 401);
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized: missing required security tokens.'], 401);
         }
 
-        // 2. Validate Access Token (JWT)
         $payload = AuthJWTController::verifyJwt($accessToken);
-        if (!$payload) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized: Invalid or expired access token (JWT).'
-            ], 401);
+        if (!$payload) return response()->json(['status' => 'error', 'message' => 'Unauthorized: invalid or expired access token.'], 401);
+
+        $userId = (int) ($payload['user_id'] ?? $payload['sub'] ?? 0);
+        if ($userId <= 0 || (string) ($payload['device_uuid'] ?? '') !== (string) $deviceUuid) {
+            return response()->json(['status' => 'error', 'message' => 'Forbidden: token/device mismatch.'], 403);
         }
 
-        $userId = $payload['user_id'] ?? $payload['sub'] ?? null;
-        $jwtDeviceUuid = $payload['device_uuid'] ?? null;
-        $jwtSessionToken = $payload['session_token'] ?? null;
-
-        if (!$userId || $jwtDeviceUuid !== $deviceUuid || $jwtSessionToken !== $sessionToken) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Forbidden: JWT token claims mismatch with device or session headers.'
-            ], 403);
-        }
-
-        // 3. Validate AuthSession
-        $session = AuthSession::where('user_id', $userId)
+        $session = AuthSession::query()
+            ->where('user_id', $userId)
             ->where('device_uuid', $deviceUuid)
-            ->where('refresh_token', $refreshToken)
-            ->where('session_token', $sessionToken)
+            ->where('refresh_token_hash', AuthSession::tokenHash($refreshToken))
+            ->where('session_token_hash', AuthSession::tokenHash($sessionToken))
+            ->where('access_token_hash', AuthSession::tokenHash($accessToken))
             ->where('is_revoked', false)
             ->first();
 
-        if (!$session) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized: Auth session invalid or revoked.'
-            ], 401);
-        }
+        if (!$session) return response()->json(['status' => 'error', 'message' => 'Unauthorized: auth session invalid or revoked.'], 401);
+        if ($session->expires_at && $session->expires_at->isPast()) return response()->json(['status' => 'error', 'message' => 'Unauthorized: auth session has expired.'], 401);
 
-        if ($session->expires_at && $session->expires_at->isPast()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized: Auth session has expired.'
-            ], 401);
-        }
-
-        // 4. Validate Hardware Device Binding
-        $binding = DeviceBinding::where('user_id', $userId)
+        $binding = DeviceBinding::query()
+            ->where('user_id', $userId)
             ->where('device_uuid', $deviceUuid)
             ->where('is_active', true)
             ->first();
 
-        if (!$binding) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Forbidden: Unbound or inactive device.'
-            ], 403);
+        if (!$binding || !hash_equals((string) $binding->fingerprint_hash, (string) $fingerprintHash)) {
+            return response()->json(['status' => 'error', 'message' => 'Forbidden: device fingerprint verification failed.'], 403);
         }
 
-        if (!hash_equals((string) $binding->fingerprint_hash, (string) $fingerprintHash)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Forbidden: Hardware fingerprint verification failed.'
-            ], 403);
-        }
-
-        // 5. Retrieve & Set User in Request / Auth Context
         $user = User::find($userId);
-        if (!$user) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized: User account not found.'
-            ], 401);
-        }
+        if (!$user || !$user->is_activated) return response()->json(['status' => 'error', 'message' => 'Unauthorized: user account is unavailable.'], 401);
 
         Auth::setUser($user);
         $request->setUserResolver(fn () => $user);
         $request->attributes->set('user', $user);
-        $request->attributes->set('active_account_id', $payload['account_id'] ?? 1);
-        $request->attributes->set('owner_user_id', $payload['owner_user_id'] ?? $userId);
+        $request->attributes->set('auth_session', $session);
+        if (isset($payload['account_id'])) $request->attributes->set('active_account_id', (int) $payload['account_id']);
+        if (isset($payload['owner_user_id'])) $request->attributes->set('owner_user_id', (int) $payload['owner_user_id']);
 
         return $next($request);
-
     }
 }
