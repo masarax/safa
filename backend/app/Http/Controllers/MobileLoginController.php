@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Models\User;
+use App\Support\MobileNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,11 +22,14 @@ class MobileLoginController extends Controller
 {
     public function login(Request $request): JsonResponse
     {
-        $mobile = $this->normalizeMobile((string) ($request->input('mobile') ?? $request->input('email') ?? $request->input('username')));
+        $mobile = MobileNumber::normalize((string) ($request->input('mobile') ?? $request->input('email') ?? $request->input('username')));
         $pin = $this->normalizeDigits(trim((string) ($request->input('pin') ?? $request->input('password'))));
 
         if ($mobile === '') {
             return response()->json(['status' => 'error', 'message' => 'Mobile number is required for login.'], 422);
+        }
+        if (!MobileNumber::isValid($mobile)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid mobile number.'], 422);
         }
         if ($pin === '' || !preg_match('/^\d{6}$/', $pin)) {
             return response()->json(['status' => 'error', 'message' => '6-Digit PIN is required for login.'], 422);
@@ -175,18 +179,13 @@ class MobileLoginController extends Controller
         $user = User::where('mobile', $mobile)->first();
         if ($user) return $user;
 
-        $normalized = $this->normalizeMobile($mobile);
+        $normalized = MobileNumber::normalize($mobile);
         if ($normalized === '') return null;
 
         return User::whereRaw(
             "REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') = ?",
             [$normalized]
         )->first();
-    }
-
-    private function normalizeMobile(string $value): string
-    {
-        return preg_replace('/\D+/', '', $this->normalizeDigits(trim($value))) ?? '';
     }
 
     private function normalizeDigits(string $value): string
