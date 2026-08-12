@@ -1,11 +1,12 @@
 package com.safa.account.ui.components
 
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 
+/**
+ * Backwards-compatible wrapper for the shared destructive confirmation dialog.
+ * Existing screens can keep their current call sites while receiving the
+ * unified spacing, typography, button sizing and overflow behaviour.
+ */
 @Composable
 fun SafaConfirmDialog(
     visible: Boolean,
@@ -17,15 +18,14 @@ fun SafaConfirmDialog(
     onDismiss: () -> Unit
 ) {
     if (!visible) return
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title, style = MaterialTheme.typography.titleMedium) },
-        text = { Text(message, style = MaterialTheme.typography.bodyMedium) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(confirmText, color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(cancelText) } }
+
+    SafaStandardConfirmDialog(
+        title = title,
+        message = message,
+        confirmLabel = confirmText,
+        dismissLabel = cancelText,
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        destructive = true
     )
 }
