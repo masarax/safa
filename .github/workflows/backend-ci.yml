@@ -46,11 +46,6 @@ jobs:
       - name: Verify test database migration
         run: php artisan migrate:fresh --force
 
-      - name: Run account isolation test in isolation
-        env:
-          XDEBUG_MODE: off
-        run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test tests/Feature/AccountContextIsolationTest.php --no-coverage --do-not-cache-result --debug
-
       - name: Run full Laravel test suite
         env:
           XDEBUG_MODE: off
