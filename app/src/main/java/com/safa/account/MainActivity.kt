@@ -281,14 +281,11 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
 fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String, onLogoutClick: () -> Unit) {
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-    val isSuperAdmin = viewModel.currentOperator.value?.role == "SuperAdmin"
     val goldBgColor = if (isDarkMode) Color(0xFF1B1812) else Color(0xFFD7A84B)
     val contentOnGoldColor = if (isDarkMode) Color(0xFFE5C158) else Color(0xFF3E2700)
     val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
     val customAppLogoUri by viewModel.customAppLogoUri.collectAsStateWithLifecycle()
     val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
-    var showShareDialog by remember { mutableStateOf(false) }
-    var showUserManagementDialog by remember { mutableStateOf(false) }
 
     TopAppBar(
         title = {
@@ -305,17 +302,12 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
         },
         actions = {
             Spacer(Modifier.width(4.dp))
-            if (isSuperAdmin) IconButton(onClick = { showUserManagementDialog = true }, modifier = Modifier.testTag("appbar_user_management_btn").size(36.dp)) { Icon(imageVector = Icons.Default.Group, contentDescription = if (currentLang == "BN") "ইউজার ম্যানেজমেন্ট" else "User Management", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
-            IconButton(onClick = { showShareDialog = true }, modifier = Modifier.testTag("appbar_share_account_btn").size(36.dp)) { Icon(imageVector = Icons.Default.Share, contentDescription = if (currentLang == "BN") "অ্যাকাউন্ট শেয়ার" else "Share Account", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Switch Theme", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = goldBgColor), modifier = Modifier.fillMaxWidth()
     )
-
-    if (showShareDialog) AccountSharingDialog(viewModel = viewModel, onDismiss = { showShareDialog = false })
-    if (showUserManagementDialog) UserManagementDialog(viewModel = viewModel, onDismiss = { showUserManagementDialog = false })
 }
 
 @Composable
