@@ -5,6 +5,8 @@ import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.safa.account.data.network.DeviceSecurityHelper
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class TokenManager(private val context: Context) {
     private val legacyPrefs = context.getSharedPreferences("safa_secure_prefs", Context.MODE_PRIVATE)
@@ -15,6 +17,9 @@ class TokenManager(private val context: Context) {
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
+
+    private val _sessionInvalidated = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val sessionInvalidated = _sessionInvalidated.asSharedFlow()
 
     init { migrateLegacyPreferences() }
 
@@ -107,6 +112,12 @@ class TokenManager(private val context: Context) {
         if (!fingerprintToken.isNullOrBlank()) putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
     }
 
+    /** Called only when an authenticated API session can no longer be recovered. */
+    fun notifySessionInvalidated() {
+        clearAllTokens()
+        _sessionInvalidated.tryEmit(Unit)
+    }
+
     /**
      * Clears all authentication material and quick-unlock authorization while
      * deliberately retaining stable device identity for future logins.
@@ -137,16 +148,11 @@ class TokenManager(private val context: Context) {
     fun getBiometricQuickUnlockUserId(): Int? = prefs.getInt(KEY_BIOMETRIC_USER_ID, 0).takeIf { it > 0 }
     fun getBiometricQuickUnlockMobile(): String = prefs.getString(KEY_BIOMETRIC_MOBILE, "") ?: ""
 
-    /**
-     * Quick unlock is account-bound. A biometric scan never selects an arbitrary
-     * local operator; it may only unlock the exact account enrolled on this device.
-     */
     fun isBiometricQuickUnlockBoundTo(userId: Int, mobile: String): Boolean =
         isBiometricQuickUnlockEnabled() &&
             getBiometricQuickUnlockUserId() == userId &&
             getBiometricQuickUnlockMobile().trim() == mobile.trim()
 
-    /** A quick unlock must have a complete resumable server session, not only an access token. */
     fun hasValidLocalSessionForQuickUnlock(): Boolean =
         isBiometricQuickUnlockEnabled() &&
             !getAccessToken().isNullOrBlank() &&
