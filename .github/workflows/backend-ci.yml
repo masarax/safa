@@ -28,7 +28,11 @@ jobs:
           ini-values: memory_limit=1G, max_execution_time=0
 
       - name: Prepare CI environment
-        run: cp .env.testing .env
+        run: |
+          cp .env.testing .env
+          mkdir -p database
+          rm -f database/testing.sqlite
+          touch database/testing.sqlite
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
