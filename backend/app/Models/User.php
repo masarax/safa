@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Support\MobileNumber;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\HasEvents;
+use Illuminate\Database\Eloquent\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -18,6 +20,18 @@ class User extends Authenticatable
     public const ROLE_SUPERADMIN = 'superadmin';
     public const ROLE_ADMIN = 'admin';
     public const ROLE_USER = 'user';
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $user): void {
+            if ($user->isDirty('mobile') && is_string($user->mobile)) {
+                $normalized = MobileNumber::normalize($user->mobile);
+                if ($normalized !== '') {
+                    $user->mobile = $normalized;
+                }
+            }
+        });
+    }
 
     public static function roles(): array
     {
@@ -74,8 +88,6 @@ class User extends Authenticatable
             $userPerms = [];
         }
 
-        // Admins receive only explicitly granted business permissions. The
-        // role itself never grants SuperAdmin privileges.
         $defaults = static::defaultPermissions(false);
         foreach ($defaults as $flag => $value) {
             if (array_key_exists($flag, $userPerms)) {
