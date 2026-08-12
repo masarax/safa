@@ -53,7 +53,7 @@ php artisan migrate:fresh --force
 php artisan test
 ```
 
-The CI workflow uses the same repository-provided `.env.testing` fixture. A production `.env` is never required in CI.
+The manual Backend CI workflow uses the repository-provided `.env.testing` fixture. A production `.env` is never required in CI.
 
 ## Useful commands
 
@@ -78,9 +78,9 @@ Use `migrate:fresh` only against a disposable development/test database.
 
 ## Deployment
 
-Production deployment is performed manually through GitHub Actions. The deployment workflow runs the same deterministic Laravel test environment before production Composer installation and cPanel synchronization when the test gate is enabled.
+Production deployment is manual through GitHub Actions. The deployment workflow always prepares the same deterministic Laravel test environment used by Backend CI and **always runs the mandatory full test suite before production Composer installation or cPanel synchronization**.
 
-Deployment is blocked when mandatory tests fail. After synchronization, the workflow checks:
+Deployment is blocked whenever mandatory tests fail. After synchronization, the workflow checks:
 
 ```text
 GET https://safa.masarax.com/api/auth/health
