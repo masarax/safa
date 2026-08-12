@@ -20,9 +20,14 @@ jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       APP_ENV: testing
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      APP_URL: http://localhost
+      SAFA_API_KEY: safa_testing_key
+      SAFA_API_SECRET: safa_testing_secret
+      DB_UPDATE_SECRET: safa_testing_update_secret
       DB_CONNECTION: sqlite
       DB_DATABASE: ':memory:'
       CACHE_STORE: array
@@ -30,7 +35,7 @@ jobs:
       QUEUE_CONNECTION: sync
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 1
@@ -45,6 +50,11 @@ jobs:
       - name: Install Composer dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare deterministic test environment
+        if: inputs.run_tests == true
+        working-directory: backend
+        run: cp .env.testing .env
 
       - name: PHP syntax check
         working-directory: backend
@@ -77,3 +87,12 @@ jobs:
             storage/framework/views/*
             tests/
             node_modules/
+
+      - name: Verify production API health
+        env:
+          SAFA_PRODUCTION_URL: https://safa.masarax.com
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --max-time 20 "$SAFA_PRODUCTION_URL/api/auth/health")"
+          printf '%s\n' "$response" | grep -q '"status":"ok"'
+          printf '%s\n' "$response" | grep -q '"service":"SAFA API"'
