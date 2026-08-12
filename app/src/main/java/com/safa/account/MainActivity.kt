@@ -67,6 +67,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.safa.account.R
 import com.safa.account.data.api.AuthLifecycleCoordinator
+import com.safa.account.data.network.DeleteConfirmationCoordinator
+import com.safa.account.data.network.DeleteConfirmationRequest
 import com.safa.account.data.repository.AppRepository
 import com.safa.account.ui.screens.*
 import com.safa.account.ui.theme.MyApplicationTheme
@@ -115,6 +117,7 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     var showExitDialog by remember { mutableStateOf(false) }
     var previousOperatorId by remember { mutableStateOf<Int?>(currentOperator?.id) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var deleteConfirmation by remember { mutableStateOf<DeleteConfirmationRequest?>(null) }
 
     LaunchedEffect(currentOperator?.id) {
         val previous = previousOperatorId
@@ -128,6 +131,12 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     LaunchedEffect(Unit) {
         viewModel.tokenManager?.sessionInvalidated?.collect {
             viewModel.logout()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        DeleteConfirmationCoordinator.requests.collect { request ->
+            deleteConfirmation = request
         }
     }
 
@@ -146,6 +155,49 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
                 text = { Text(text = if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?", style = MaterialTheme.typography.bodyMedium) },
                 confirmButton = { TextButton(onClick = { showExitDialog = false; onExit() }) { Text(text = if (currentLanguage == "BN") "হ্যাঁ, বের হব" else "Yes, Exit", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
                 dismissButton = { TextButton(onClick = { showExitDialog = false }) { Text(text = if (currentLanguage == "BN") "না" else "No", fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) } }
+            )
+        }
+
+        deleteConfirmation?.let { request ->
+            AlertDialog(
+                onDismissRequest = {
+                    DeleteConfirmationCoordinator.resolve(request.id, false)
+                    deleteConfirmation = null
+                },
+                title = {
+                    Text(
+                        text = if (currentLanguage == "BN") "ডাটা মুছে ফেলবেন?" else request.title,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                },
+                text = {
+                    Text(
+                        text = if (currentLanguage == "BN") "এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।" else request.message,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        DeleteConfirmationCoordinator.resolve(request.id, true)
+                        deleteConfirmation = null
+                    }) {
+                        Text(
+                            if (currentLanguage == "BN") "মুছে ফেলুন" else "Delete",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        DeleteConfirmationCoordinator.resolve(request.id, false)
+                        deleteConfirmation = null
+                    }) {
+                        Text(if (currentLanguage == "BN") "বাতিল" else "Cancel")
+                    }
+                }
             )
         }
 
