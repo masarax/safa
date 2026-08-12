@@ -217,6 +217,7 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
     val customAppLogo by viewModel.customAppLogo.collectAsStateWithLifecycle()
     val customAppLogoUri by viewModel.customAppLogoUri.collectAsStateWithLifecycle()
     val customAppName by viewModel.customAppName.collectAsStateWithLifecycle()
+    var showShareDialog by remember { mutableStateOf(false) }
 
     TopAppBar(
         title = {
@@ -237,6 +238,7 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
         },
         actions = {
             Spacer(Modifier.width(4.dp))
+            IconButton(onClick = { showShareDialog = true }, modifier = Modifier.testTag("appbar_share_account_btn").size(36.dp)) { Icon(imageVector = Icons.Default.Share, contentDescription = if (currentLang == "BN") "অ্যাকাউন্ট শেয়ার" else "Share Account", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Switch Theme", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
@@ -244,6 +246,10 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
         colors = TopAppBarDefaults.topAppBarColors(containerColor = goldBgColor),
         modifier = Modifier.fillMaxWidth()
     )
+
+    if (showShareDialog) {
+        AccountSharingDialog(viewModel = viewModel, onDismiss = { showShareDialog = false })
+    }
 }
 
 @Composable
