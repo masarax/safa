@@ -32,7 +32,11 @@ jobs:
 
       - name: Prepare deterministic test environment
         working-directory: backend
-        run: cp .env.testing .env
+        run: |
+          cp .env.testing .env
+          mkdir -p database
+          rm -f database/testing.sqlite
+          touch database/testing.sqlite
 
       - name: Install Composer test dependencies
         working-directory: backend
@@ -69,6 +73,7 @@ jobs:
             .git*
             .env
             .env.*
+            database/testing.sqlite
             storage/installed
             storage/framework/cache/*
             storage/framework/sessions/*
