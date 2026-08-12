@@ -125,6 +125,12 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
         previousOperatorId = current
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.tokenManager?.sessionInvalidated?.collect {
+            viewModel.logout()
+        }
+    }
+
     val isMainScreen = currentScreen in setOf(AppScreen.DASHBOARD, AppScreen.CUSTOMERS, AppScreen.SUPPLIERS, AppScreen.WALLET, AppScreen.EXPENSES)
     val showBars = isMainScreen && !isSubPageActive
 
