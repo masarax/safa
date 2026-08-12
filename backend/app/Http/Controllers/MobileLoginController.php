@@ -12,12 +12,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * Dedicated mobile authentication endpoint.
+ * First-factor mobile authentication.
  *
- * Login authenticates an existing User record only. A successful first-factor
- * login creates a device-bound resumable session. Biometric quick unlock is
- * deliberately a client-side unlock of that already authenticated session;
- * it never replaces the mobile + PIN first factor.
+ * PIN + mobile is always required for a new/expired login. Biometric quick
+ * unlock is only a local unlock of an already authenticated session.
  */
 class MobileLoginController extends Controller
 {
@@ -29,50 +27,36 @@ class MobileLoginController extends Controller
         if ($mobile === '') {
             return response()->json(['status' => 'error', 'message' => 'Mobile number is required for login.'], 422);
         }
-
         if ($pin === '' || !preg_match('/^\d{6}$/', $pin)) {
             return response()->json(['status' => 'error', 'message' => '6-Digit PIN is required for login.'], 422);
         }
 
         $user = $this->findUserByMobile($mobile);
-
         if (!$user) {
             return response()->json(['status' => 'error', 'message' => 'Mobile number or PIN is incorrect.'], 401);
         }
-
         if (!(bool) $user->is_activated) {
             return response()->json(['status' => 'error', 'message' => 'This account is inactive. Please contact an administrator.'], 403);
         }
 
-        $hashes = array_filter([$user->pin_hash, $user->password]);
         $pinValid = false;
-
-        foreach ($hashes as $hash) {
+        foreach (array_filter([$user->pin_hash, $user->password]) as $hash) {
             try {
                 if (Hash::check($pin, $hash)) {
                     $pinValid = true;
                     break;
                 }
             } catch (\Throwable) {
-                // Ignore malformed legacy hashes and try the next supported hash.
+                // Ignore malformed legacy hashes and continue with supported hashes.
             }
         }
-
         if (!$pinValid) {
             return response()->json(['status' => 'error', 'message' => 'Mobile number or PIN is incorrect.'], 401);
         }
 
-        $deviceUuid = trim((string) ($request->input('device_uuid')
-            ?? $request->input('device_token')
-            ?? $request->header('X-SAFA-DEVICE-TOKEN')
-            ?? ''));
-        $fingerprintHash = trim((string) ($request->input('fingerprint_hash')
-            ?? $request->input('fingerprint_token')
-            ?? $request->header('X-SAFA-FINGERPRINT-TOKEN')
-            ?? ''));
-        $deviceModel = trim((string) ($request->input('device_model')
-            ?? $request->header('X-SAFA-DEVICE-MODEL')
-            ?? 'Unknown Device'));
+        $deviceUuid = trim((string) ($request->input('device_uuid') ?? $request->input('device_token') ?? $request->header('X-SAFA-DEVICE-TOKEN') ?? ''));
+        $fingerprintHash = trim((string) ($request->input('fingerprint_hash') ?? $request->input('fingerprint_token') ?? $request->header('X-SAFA-FINGERPRINT-TOKEN') ?? ''));
+        $deviceModel = trim((string) ($request->input('device_model') ?? $request->header('X-SAFA-DEVICE-MODEL') ?? 'Unknown Device'));
 
         if ($deviceUuid === '') {
             return response()->json(['status' => 'error', 'message' => 'Device identity is required.'], 400);
@@ -95,17 +79,11 @@ class MobileLoginController extends Controller
                 ], 403)];
             }
 
-            // A known device must keep the same device fingerprint. A normal
-            // PIN login on a genuinely new device creates a new binding; it
-            // must not silently replace the security identity of an existing
-            // active binding.
-            if ($binding && !hash_equals((string) $binding->fingerprint_hash, $fingerprintHash)) {
-                return ['error' => response()->json([
-                    'status' => 'error',
-                    'message' => 'Device security identity changed. Re-bind this device before continuing.',
-                ], 403)];
-            }
-
+            // PIN login is an explicit first factor. When the same stable device
+            // UUID presents a changed fingerprint (OS reset, biometric reset,
+            // emulator restore, or hardware-security implementation change),
+            // re-bind the fingerprint instead of permanently locking out the
+            // legitimate user after logout/re-login.
             if (!$binding) {
                 DeviceBinding::create([
                     'user_id' => $user->id,
@@ -116,11 +94,16 @@ class MobileLoginController extends Controller
                     'bound_at' => now(),
                 ]);
             } else {
-                $binding->update(['device_model' => $deviceModel]);
+                $binding->update([
+                    'device_model' => $deviceModel,
+                    'fingerprint_hash' => $fingerprintHash,
+                    'is_active' => true,
+                ]);
             }
 
-            // One active session per account/device keeps the refresh-token
-            // surface small and makes repeated first-factor logins deterministic.
+            // Re-login deterministically replaces the previous session for this
+            // account/device. A logout followed by PIN login therefore works on
+            // the same device without requiring app data clearing.
             AuthSession::query()
                 ->where('user_id', $user->id)
                 ->where('device_uuid', $deviceUuid)
@@ -159,9 +142,7 @@ class MobileLoginController extends Controller
             ];
         });
 
-        if (isset($result['error'])) {
-            return $result['error'];
-        }
+        if (isset($result['error'])) return $result['error'];
 
         /** @var User $authenticatedUser */
         $authenticatedUser = $result['user'];
@@ -198,14 +179,10 @@ class MobileLoginController extends Controller
     private function findUserByMobile(string $mobile): ?User
     {
         $user = User::where('mobile', $mobile)->first();
-        if ($user) {
-            return $user;
-        }
+        if ($user) return $user;
 
         $normalized = preg_replace('/\D+/', '', $mobile) ?? '';
-        if ($normalized === '') {
-            return null;
-        }
+        if ($normalized === '') return null;
 
         return User::whereRaw(
             "REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') = ?",
