@@ -32,11 +32,11 @@ Route::prefix('auth')->group(function () {
     Route::post('/logout', [SecureAuthController::class, 'logout'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:20,1']);
     Route::post('/logout-all', [SecureAuthController::class, 'logoutAll'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:10,1']);
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
-
     Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
         Route::get('/operators', [UserManagementController::class, 'index']);
         Route::post('/operators', [UserManagementController::class, 'store']);
-        Route::match(['put', 'patch'], '/operators/{id}', [UserManagementController::class, 'update']);
+        Route::put('/operators/{id}', [UserManagementController::class, 'update']);
+        Route::patch('/operators/{id}', [UserManagementController::class, 'update']);
         Route::delete('/operators/{id}', [UserManagementController::class, 'destroy']);
         Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
         Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
