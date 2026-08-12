@@ -4,6 +4,7 @@ import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safa.account.ui.viewmodel.SafaViewModel
-import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -90,10 +90,6 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
         operators.find { it.mobile.trim() == mobileInput.trim() && it.mobile.isNotBlank() }
     }
 
-    // Biometric availability is bound to the server-synchronized operator
-    // profile as well as the local quick-unlock flag. Settings enables the
-    // operator flag; successful first-factor login then persists the secure
-    // quick-unlock binding for this exact account/device.
     val biometricEnabled =
         tokenManager?.isBiometricQuickUnlockEnabled() == true ||
             viewModelBiometricEnabled ||
@@ -103,17 +99,8 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
         val tm = tokenManager ?: return@LaunchedEffect
         val operator = matchingOp ?: return@LaunchedEffect
         if (!hasCompleteLocalSession || !operator.isActive || !biometricEnabled) return@LaunchedEffect
-
-        var sessionReady = isAccessTokenFresh(tm.getAccessToken())
-        if (!sessionReady) {
-            runCatching {
-                val api = viewModel.syncManager?.getApiService()
-                val response = api?.getCurrentSession()
-                sessionReady = response?.isSuccessful == true && isAccessTokenFresh(tm.getAccessToken())
-            }
-        }
-
-        if (sessionReady) viewModel.loginWithBiometric(operator)
+        // Session validation happens after the biometric callback. Merely having
+        // valid tokens on disk must never silently unlock an enabled quick-unlock account.
     }
 
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
@@ -217,6 +204,11 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                                     return@launch
                                 }
 
+                                // Biometric is only the local unlock factor. It does
+                                // not authenticate the user to the server by itself.
+                                // Approve the already-authenticated session, then let
+                                // the interceptor refresh/revalidate it server-side.
+                                tm.approveBiometricUnlock()
                                 var sessionReady = isAccessTokenFresh(tm.getAccessToken())
                                 if (!sessionReady) {
                                     runCatching {
@@ -227,10 +219,9 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                                 }
 
                                 if (sessionReady) {
-                                    tm.enableBiometricQuickUnlock(biometricOperator.id, biometricOperator.mobile)
                                     viewModel.loginWithBiometric(biometricOperator)
                                 } else {
-                                    tm.disableBiometricQuickUnlock()
+                                    tm.revokeBiometricUnlockApproval()
                                     loginError = if (currentLang == "BN") {
                                         "সেশন শেষ হয়েছে। আবার মোবাইল ও পিন দিয়ে লগইন করুন।"
                                     } else {
