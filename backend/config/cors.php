@@ -4,8 +4,7 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    // Keep the browser surface explicit. CORS is not an authentication layer,
-    // but wildcard methods unnecessarily widen the cross-origin attack surface.
+    // Final production CORS policy: explicit methods only; CORS never replaces auth.
     'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
     'allowed_origins' => array_values(array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'https://safa.masarax.com'))))),
