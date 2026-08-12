@@ -27,9 +27,9 @@ class MobileLoginApiTest extends TestCase
         ];
     }
 
-    private function seedUser(): array
+    private function seedUser(array $overrides = []): array
     {
-        $user = User::create([
+        $user = User::create(array_merge([
             'name' => 'Test Admin',
             'email' => 'test-admin@safa.local',
             'mobile' => '0536308965',
@@ -38,7 +38,7 @@ class MobileLoginApiTest extends TestCase
             'role' => 'superadmin',
             'is_activated' => true,
             'permissions' => User::defaultPermissions(true),
-        ]);
+        ], $overrides));
         $account = Account::create(['name' => 'SAFA Account', 'owner_user_id' => $user->id, 'balance' => 0]);
         $apiKey = 'safa_testing_key';
         $apiSecret = 'safa_testing_secret';
@@ -78,6 +78,36 @@ class MobileLoginApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('user.id', $user->id);
+    }
+
+    public function test_formatted_mobile_and_bengali_digits_are_accepted(): void
+    {
+        [$user] = $this->seedUser(['mobile' => '0536-308-965']);
+
+        $response = $this->postJson('/api/auth/login', [
+            'mobile' => '০৫৩৬ ৩০৮ ৯৬৫',
+            'pin' => '১২৩৪৫৬',
+            'device_uuid' => 'localized-device',
+            'fingerprint_hash' => 'localized-fingerprint',
+        ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('user.id', $user->id);
+    }
+
+    public function test_inactive_account_returns_403_before_credential_error(): void
+    {
+        [$user] = $this->seedUser(['is_activated' => false]);
+
+        $this->postJson('/api/auth/login', [
+            'mobile' => $user->mobile,
+            'pin' => '123456',
+            'device_uuid' => 'inactive-device',
+            'fingerprint_hash' => 'inactive-fingerprint',
+        ], ['Accept' => 'application/json'])
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'This account is inactive. Please contact an administrator.');
     }
 
     public function test_authenticated_session_endpoint_accepts_the_current_access_token(): void
