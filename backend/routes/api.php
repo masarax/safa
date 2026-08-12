@@ -35,7 +35,8 @@ Route::prefix('auth')->group(function () {
     Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
         Route::get('/operators', [UserManagementController::class, 'index']);
         Route::post('/operators', [UserManagementController::class, 'store']);
-        Route::match(['PUT', 'PATCH'], '/operators/{id}', [UserManagementController::class, 'update']);
+        Route::put('/operators/{id}', [UserManagementController::class, 'update']);
+        Route::patch('/operators/{id}', [UserManagementController::class, 'update']);
         Route::delete('/operators/{id}', [UserManagementController::class, 'destroy']);
         Route::post('/share-account', [AuthJWTController::class, 'shareAccount']);
         Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']);
