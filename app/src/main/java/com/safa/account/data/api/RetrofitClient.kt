@@ -47,8 +47,6 @@ object RetrofitClient {
                 val security = ApiSecurityInterceptor(apiKey, apiSecret, tokenManager)
                 val clientBuilder = OkHttpClient.Builder()
                 tokenManager?.getContext()?.let { context ->
-                    // Must run before ApiSecurityInterceptor so the HMAC is
-                    // calculated over the final mutation envelope/body.
                     clientBuilder.addInterceptor(LocalFirstSyncInterceptor(context))
                 }
                 val client = clientBuilder
@@ -71,6 +69,11 @@ object RetrofitClient {
         }
     }
 
+    /**
+     * Builds a deliberately minimal Retrofit client for the unauthenticated
+     * health endpoint. The supplied URL may be either the API base
+     * (https://host/api/) or the host root (https://host/).
+     */
     fun getHealthApiService(baseUrl: String): ApiService {
         val healthBaseUrl = healthBaseUrl(baseUrl)
         val current = healthInstance
@@ -100,15 +103,17 @@ object RetrofitClient {
         }
     }
 
-    private fun healthBaseUrl(apiBaseUrl: String): String {
-        val normalized = if (apiBaseUrl.endsWith("/")) apiBaseUrl else "$apiBaseUrl/"
+    private fun healthBaseUrl(baseUrl: String): String {
+        val normalized = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         return try {
             val uri = URI(normalized)
             val scheme = uri.scheme ?: "https"
             val authority = uri.rawAuthority ?: throw IllegalArgumentException("Invalid base URL")
-            "$scheme://$authority/"
+            val path = uri.rawPath.orEmpty().trimEnd('/')
+            val apiPath = if (path.endsWith("/api")) path else "$path/api"
+            "$scheme://$authority${if (apiPath == "/api") "/api/" else "$apiPath/"}"
         } catch (_: Exception) {
-            "https://safa.masarax.com/"
+            "https://safa.masarax.com/api/"
         }
     }
 
