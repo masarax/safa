@@ -84,6 +84,8 @@ class MobileLoginApiTest extends TestCase
     {
         [$user] = $this->seedUser(['mobile' => '0536-308-965']);
 
+        $this->assertSame('0536308965', $user->fresh()->mobile);
+
         $response = $this->postJson('/api/auth/login', [
             'mobile' => '০৫৩৬ ৩০৮ ৯৬৫',
             'pin' => '১২৩৪৫৬',
@@ -93,7 +95,8 @@ class MobileLoginApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('status', 'success')
-            ->assertJsonPath('user.id', $user->id);
+            ->assertJsonPath('user.id', $user->id)
+            ->assertJsonPath('user.mobile', '0536308965');
     }
 
     public function test_inactive_account_returns_403_before_credential_error(): void
