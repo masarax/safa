@@ -132,12 +132,24 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
         viewModel.tokenManager?.sessionInvalidated?.collect { viewModel.logout() }
     }
 
+    // Persist the account's quick-unlock preference only after an authenticated
+    // operator is present. This keeps the setting available across app restarts
+    // without writing a biometric secret or PIN to the server/local database.
+    LaunchedEffect(currentOperator?.id) {
+        viewModel.isBiometricEnabled.collect { enabled ->
+            val operator = viewModel.currentOperator.value ?: return@collect
+            if (enabled) viewModel.tokenManager?.enableBiometricQuickUnlock(operator.id, operator.mobile)
+            else viewModel.tokenManager?.disableBiometricQuickUnlock()
+        }
+    }
+
     LaunchedEffect(Unit) {
         DeleteConfirmationCoordinator.requests.collect { request -> deleteConfirmation = request }
     }
 
-    // Resume a valid server session after process restart/app relaunch. Explicit
-    // logout clears these tokens, so logout always returns to full PIN login.
+    // Resume a valid server session after process restart/app relaunch. When
+    // biometric quick-unlock is enabled, the interceptor blocks this request
+    // until the fingerprint gate has approved the existing session.
     LaunchedEffect(currentOperator?.id, currentScreen) {
         if (currentOperator != null || currentScreen != AppScreen.LOCK_SCREEN) return@LaunchedEffect
         val tm = viewModel.tokenManager ?: return@LaunchedEffect
