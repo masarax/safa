@@ -7,6 +7,14 @@ jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -22,9 +30,9 @@ jobs:
       - name: PHP syntax check
         working-directory: backend
         run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: Run unit tests
+      - name: Run full test suite
         working-directory: backend
-        run: php artisan test --testsuite=Unit
+        run: php artisan test
       - name: Install production Composer dependencies
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
