@@ -60,7 +60,7 @@ fun AppStatusChip(
         color = background
     ) {
         Text(
-            text = text,
+            text = UiCopy.compact(text),
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
             color = content,
             maxLines = 1,
@@ -88,11 +88,12 @@ fun AppMetricCard(
         ) {
             Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
             Text(
-                title,
+                UiCopy.compact(title),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                softWrap = false,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -132,19 +133,21 @@ fun AppSectionHeader(
             if (icon != null) Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    title,
+                    UiCopy.compact(title),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false
                 )
                 if (subtitle != null) {
                     Text(
-                        subtitle,
+                        UiCopy.compact(subtitle),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false
                     )
                 }
             }
@@ -155,7 +158,7 @@ fun AppSectionHeader(
                 contentPadding = PaddingValues(horizontal = SafaDimensions.xs, vertical = 2.dp)
             ) {
                 Text(
-                    actionText,
+                    UiCopy.compact(actionText),
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
@@ -191,8 +194,8 @@ fun AppPrimaryButton(
             Spacer(Modifier.width(SafaDimensions.xs))
         }
         Text(
-            text,
-            style = MaterialTheme.typography.labelLarge,
+            UiCopy.compact(text),
+            style = MaterialTheme.typography.labelMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             softWrap = false
@@ -221,8 +224,8 @@ fun AppOutlinedButton(
             Spacer(Modifier.width(SafaDimensions.xs))
         }
         Text(
-            text,
-            style = MaterialTheme.typography.labelLarge,
+            UiCopy.compact(text),
+            style = MaterialTheme.typography.labelMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             softWrap = false
@@ -244,10 +247,10 @@ fun AppTextField(
         value = value,
         onValueChange = onValueChange,
         label = {
-            Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(UiCopy.compact(label), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false)
         },
         placeholder = placeholder?.let {
-            { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) }
         },
         singleLine = singleLine,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
