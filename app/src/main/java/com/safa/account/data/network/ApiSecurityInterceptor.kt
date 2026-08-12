@@ -13,9 +13,9 @@ import java.util.concurrent.TimeUnit
  * Adds public SAFA client identity and authenticated session headers.
  * Server secrets never ship in the Android APK.
  *
- * Destructive DELETEs are protected by a server-side confirmation handshake.
- * The actual modal is rendered by Compose through DeleteConfirmationCoordinator,
- * not from the network thread.
+ * Every destructive HTTP DELETE is confirmed in the UI before the request is
+ * sent. This prevents accidental deletion and also protects operations that
+ * originate from screens that do not implement their own dialog.
  */
 class ApiSecurityInterceptor(
     private val apiKey: String,
@@ -27,46 +27,46 @@ class ApiSecurityInterceptor(
         val path = originalRequest.url.encodedPath
         val isLoginRequest = path.endsWith("/auth/login")
         val isRefreshRequest = path.endsWith("/auth/refresh")
+        val isDeleteRequest = originalRequest.method.equals("DELETE", ignoreCase = true)
+        val alreadyConfirmed = originalRequest.header("X-SAFA-DELETE-CONFIRM") == "true"
 
-        var response = chain.proceed(
-            buildSecuredRequest(originalRequest, includeAuthTokens = !isLoginRequest && !isRefreshRequest)
-        )
-
-        if (
-            originalRequest.method.equals("DELETE", ignoreCase = true) &&
-            response.code == 409 &&
-            originalRequest.header("X-SAFA-DELETE-CONFIRM") != "true" &&
-            isConfirmationRequired(response)
-        ) {
+        if (isDeleteRequest && !alreadyConfirmed) {
             val confirmed = DeleteConfirmationCoordinator.awaitConfirmation(
                 title = "Delete data?",
                 message = "This action cannot be undone."
             )
-            if (confirmed) {
-                response.close()
-                val confirmedUrl = originalRequest.url.newBuilder().setQueryParameter("confirmed", "true").build()
-                response = chain.proceed(
-                    buildSecuredRequest(
-                        originalRequest.newBuilder()
-                            .url(confirmedUrl)
-                            .header("X-SAFA-DELETE-CONFIRM", "true")
-                            .build(),
-                        includeAuthTokens = true
-                    )
-                )
+            if (!confirmed) {
+                return Response.Builder()
+                    .request(originalRequest)
+                    .protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(499)
+                    .message("Delete cancelled by user")
+                    .body("{\"status\":\"cancelled\",\"message\":\"Delete cancelled by user.\"}".toResponseBody("application/json".toMediaTypeOrNull()))
+                    .build()
             }
-            // Cancel keeps the original 409 response. No second DELETE is sent.
         }
+
+        val securedRequest = if (isDeleteRequest && !alreadyConfirmed) {
+            val confirmedUrl = originalRequest.url.newBuilder().setQueryParameter("confirmed", "true").build()
+            originalRequest.newBuilder()
+                .url(confirmedUrl)
+                .header("X-SAFA-DELETE-CONFIRM", "true")
+                .build()
+        } else originalRequest
+
+        var response = chain.proceed(
+            buildSecuredRequest(securedRequest, includeAuthTokens = !isLoginRequest && !isRefreshRequest)
+        )
 
         if (
             !isLoginRequest &&
             !isRefreshRequest &&
             response.code == 401 &&
             tokenManager != null &&
-            originalRequest.header("X-SAFA-RETRY") != "true"
+            securedRequest.header("X-SAFA-RETRY") != "true"
         ) {
             synchronized(tokenManager) {
-                val requestAccessToken = originalRequest.header("Authorization")?.removePrefix("Bearer ")
+                val requestAccessToken = securedRequest.header("Authorization")?.removePrefix("Bearer ")
                 val currentAccessToken = tokenManager.getAccessToken()
                 val newToken = if (!currentAccessToken.isNullOrBlank() && currentAccessToken != requestAccessToken) {
                     currentAccessToken
@@ -78,7 +78,7 @@ class ApiSecurityInterceptor(
                     response.close()
                     response = chain.proceed(
                         buildSecuredRequest(
-                            originalRequest.newBuilder().header("X-SAFA-RETRY", "true").build(),
+                            securedRequest.newBuilder().header("X-SAFA-RETRY", "true").build(),
                             includeAuthTokens = true
                         )
                     )
@@ -89,14 +89,6 @@ class ApiSecurityInterceptor(
         }
 
         return response
-    }
-
-    private fun isConfirmationRequired(response: Response): Boolean {
-        return runCatching {
-            val json = JSONObject(response.peekBody(64 * 1024).string())
-            json.optBoolean("requires_confirmation", false) ||
-                json.optString("status").equals("confirmation_required", true)
-        }.getOrDefault(false)
     }
 
     private fun buildSecuredRequest(request: Request, includeAuthTokens: Boolean): Request {
@@ -153,13 +145,11 @@ class ApiSecurityInterceptor(
                 .execute()
                 .use { response ->
                     if (!response.isSuccessful) return null
-
                     val json = JSONObject(response.body?.string().orEmpty())
                     val access = json.optString("access_token").ifBlank {
                         json.optJSONObject("tokens")?.optString("access_token").orEmpty()
                     }
                     if (access.isBlank()) return null
-
                     val tokens = json.optJSONObject("tokens")
                     tm.saveAccessToken(access)
                     tokens?.optString("refresh_token")?.takeIf { it.isNotBlank() }?.let(tm::saveRefreshToken)
