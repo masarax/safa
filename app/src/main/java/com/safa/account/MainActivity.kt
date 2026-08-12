@@ -145,7 +145,7 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
 
         runCatching {
             val response = viewModel.syncManager?.getApiService()?.getCurrentSession()
-            if (!response?.isSuccessful == true) return@runCatching
+            if (response?.isSuccessful != true) return@runCatching
             val map = response.body() ?: return@runCatching
             @Suppress("UNCHECKED_CAST")
             val user = map["user"] as? Map<String, Any?> ?: return@runCatching
@@ -156,7 +156,6 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
             @Suppress("UNCHECKED_CAST")
             val permissions = user["permissions"] as? Map<String, Any?> ?: emptyMap()
             fun perm(key: String): Boolean = permissions[key]?.let { it == true || it.toString().equals("true", true) || it.toString() == "1" } ?: false
-
             val role = user["role"]?.toString().orEmpty().let { raw ->
                 when {
                     raw.equals("superadmin", true) || raw.equals("manager", true) || raw.equals("owner", true) -> "SuperAdmin"
@@ -164,15 +163,17 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
                     else -> "Staff"
                 }
             }
+            val userId = (user["id"] as? Number)?.toInt() ?: 0
+            val mobile = user["mobile"]?.toString().orEmpty()
             val restored = com.safa.account.data.model.OperatorAccount(
-                id = (user["id"] as? Number)?.toInt() ?: 0,
+                id = userId,
                 username = user["name"]?.toString().orEmpty(),
                 role = role,
-                mobile = user["mobile"]?.toString().orEmpty(),
+                mobile = mobile,
                 email = user["email"]?.toString().orEmpty(),
                 isActivated = bool("is_activated", true),
                 isActive = bool("is_activated", true),
-                isBiometricEnabled = tm.isBiometricQuickUnlockBoundTo((user["id"] as? Number)?.toInt() ?: 0, user["mobile"]?.toString().orEmpty()),
+                isBiometricEnabled = tm.isBiometricQuickUnlockBoundTo(userId, mobile),
                 canViewCustomers = perm("can_view_customers"),
                 canAddCustomers = perm("can_add_customers"),
                 canEditCustomers = perm("can_edit_customers"),
@@ -216,24 +217,11 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
 
         deleteConfirmation?.let { request ->
             AlertDialog(
-                onDismissRequest = {
-                    DeleteConfirmationCoordinator.resolve(request.id, false)
-                    deleteConfirmation = null
-                },
+                onDismissRequest = { DeleteConfirmationCoordinator.resolve(request.id, false); deleteConfirmation = null },
                 title = { Text(if (currentLanguage == "BN") "ডাটা মুছে ফেলবেন?" else request.title, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
                 text = { Text(if (currentLanguage == "BN") "এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।" else request.message, style = MaterialTheme.typography.bodyMedium) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        DeleteConfirmationCoordinator.resolve(request.id, true)
-                        deleteConfirmation = null
-                    }) { Text(if (currentLanguage == "BN") "মুছে ফেলুন" else "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        DeleteConfirmationCoordinator.resolve(request.id, false)
-                        deleteConfirmation = null
-                    }) { Text(if (currentLanguage == "BN") "বাতিল" else "Cancel") }
-                }
+                confirmButton = { TextButton(onClick = { DeleteConfirmationCoordinator.resolve(request.id, true); deleteConfirmation = null }) { Text(if (currentLanguage == "BN") "মুছে ফেলুন" else "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) } },
+                dismissButton = { TextButton(onClick = { DeleteConfirmationCoordinator.resolve(request.id, false); deleteConfirmation = null }) { Text(if (currentLanguage == "BN") "বাতিল" else "Cancel") } }
             )
         }
 
@@ -247,12 +235,7 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
             ) { innerPadding ->
                 PullToRefreshBox(
                     isRefreshing = isRefreshing,
-                    onRefresh = {
-                        if (!isRefreshing) {
-                            isRefreshing = true
-                            viewModel.triggerFullSync { _, _ -> isRefreshing = false }
-                        }
-                    },
+                    onRefresh = { if (!isRefreshing) { isRefreshing = true; viewModel.triggerFullSync { _, _ -> isRefreshing = false } } },
                     modifier = Modifier.fillMaxSize().padding(innerPadding)
                 ) {
                     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("safa_refresh_container")) {
@@ -261,11 +244,9 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
                             transitionSpec = {
                                 val isBackward = navDirection == NavDirection.BACKWARD
                                 if (isBackward) {
-                                    slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith
-                                        slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                                    slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
                                 } else {
-                                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith
-                                        slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
                                 }
                             },
                             label = "SqueezeTransition",
@@ -314,8 +295,7 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp).clickable { viewModel.navigateTo(AppScreen.SETTINGS) }) {
                 Box(Modifier.size(28.dp).clip(CircleShape).background(if (isDarkMode) Color(0xFF2D2513) else Color(0xFFFFF6DF)), contentAlignment = Alignment.Center) {
                     val logoUri = customAppLogoUri ?: if (customAppLogo.startsWith("content://") || customAppLogo.startsWith("file://") || customAppLogo.startsWith("http")) customAppLogo else null
-                    if (logoUri != null) AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUri).crossfade(true).build(), contentDescription = "Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    else androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(id = R.drawable.safa_logo), contentDescription = "SAFA Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                    if (logoUri != null) AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(logoUri).crossfade(true).build(), contentDescription = "Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(id = R.drawable.safa_logo), contentDescription = "SAFA Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                 }
                 Column {
                     Text(text = customAppName, style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, color = contentOnGoldColor), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -331,8 +311,7 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
             IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
         },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = goldBgColor),
-        modifier = Modifier.fillMaxWidth()
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = goldBgColor), modifier = Modifier.fillMaxWidth()
     )
 
     if (showShareDialog) AccountSharingDialog(viewModel = viewModel, onDismiss = { showShareDialog = false })
@@ -344,18 +323,14 @@ fun SafaBottomNavigationBar(viewModel: SafaViewModel, currentScreen: AppScreen) 
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     androidx.compose.material3.Surface(modifier = Modifier.fillMaxWidth(), color = if (isDarkMode) Color(0xFF1E2638) else Color(0xFFFAF8F5), tonalElevation = 0.dp, shadowElevation = 0.dp) {
         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).size(height = 64.dp, width = androidx.compose.ui.unit.Dp.Infinity)) {
-            val navItems = listOf(
-                Triple(AppScreen.DASHBOARD, Icons.Default.Home, "dashboard"), Triple(AppScreen.CUSTOMERS, Icons.Default.People, "customers"), Triple(AppScreen.SUPPLIERS, Icons.Default.AccountBalance, "suppliers"), Triple(AppScreen.WALLET, Icons.Default.AccountBalanceWallet, "wallet"), Triple(AppScreen.EXPENSES, Icons.Default.Payments, "expenses")
-            )
+            val navItems = listOf(Triple(AppScreen.DASHBOARD, Icons.Default.Home, "dashboard"), Triple(AppScreen.CUSTOMERS, Icons.Default.People, "customers"), Triple(AppScreen.SUPPLIERS, Icons.Default.AccountBalance, "suppliers"), Triple(AppScreen.WALLET, Icons.Default.AccountBalanceWallet, "wallet"), Triple(AppScreen.EXPENSES, Icons.Default.Payments, "expenses"))
             navItems.forEach { item ->
                 val screen = item.first; val icon = item.second; val key = item.third; val isSelected = currentScreen == screen
                 NavigationBarItem(
                     selected = isSelected, onClick = { viewModel.navigateTo(screen) },
                     icon = { Icon(imageVector = icon, contentDescription = viewModel.t(key), modifier = Modifier.size(20.dp)) },
                     label = { Text(text = viewModel.t(key), style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium, fontSize = 10.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = if (isDarkMode) Color(0xFF6EA8FF) else Color(0xFFA82222), selectedTextColor = if (isDarkMode) Color(0xFF6EA8FF) else Color(0xFFA82222), indicatorColor = if (isDarkMode) Color(0xFF1E293B) else Color(0xFFFFEBEE), unselectedIconColor = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF666666), unselectedTextColor = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF666666)
-                    ), modifier = Modifier.testTag("bottom_nav_$key")
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = if (isDarkMode) Color(0xFF6EA8FF) else Color(0xFFA82222), selectedTextColor = if (isDarkMode) Color(0xFF6EA8FF) else Color(0xFFA82222), indicatorColor = if (isDarkMode) Color(0xFF1E293B) else Color(0xFFFFEBEE), unselectedIconColor = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF666666), unselectedTextColor = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF666666)), modifier = Modifier.testTag("bottom_nav_$key")
                 )
             }
         }
