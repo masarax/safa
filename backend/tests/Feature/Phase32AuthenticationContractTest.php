@@ -25,6 +25,7 @@ class Phase32AuthenticationContractTest extends TestCase
         $this->assertNotNull($loginRoute);
         $this->assertSame(MobileLoginController::class, $loginRoute->getControllerClass());
         $this->assertSame('login', $loginRoute->getActionMethod());
+        $this->assertFalse(method_exists(AuthJWTController::class, 'login'), 'AuthJWTController must not retain a second credential-login implementation.');
 
         foreach (Route::getRoutes()->getRoutes() as $candidate) {
             $this->assertStringNotContainsString(

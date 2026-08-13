@@ -1009,7 +1009,7 @@ class SafaViewModel(
                         return@launch
                     } else {
                         val errorStr = response.errorBody()?.string() ?: ""
-                        onResult(false, if (errorStr.isNotBlank() && !errorStr.startsWith("{")) errorStr else t("invalid_credentials"))
+                        onResult(false, extractLoginErrorMessage(errorStr))
                         return@launch
                     }
                 } else {
@@ -1022,6 +1022,40 @@ class SafaViewModel(
                 return@launch
             }
         }
+    }
+
+    private fun extractLoginErrorMessage(raw: String): String {
+        val body = raw.trim()
+        if (body.isBlank()) return t("invalid_credentials")
+        if (!body.startsWith("{")) return body
+
+        return try {
+            val json = org.json.JSONObject(body)
+            val message = json.optString("message").trim()
+            if (message.isNotBlank()) return message
+
+            val errors = json.optJSONObject("errors")
+            if (errors != null) {
+                val messages = mutableListOf<String>()
+                val keys = errors.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val value = errors.opt(key)
+                    when (value) {
+                        is org.json.JSONArray -> {
+                            for (i in 0 until value.length()) {
+                                value.optString(i).takeIf { it.isNotBlank() }?.let(messages::add)
+                            }
+                        }
+                        else -> value?.toString()?.takeIf { it.isNotBlank() }?.let(messages::add)
+                    }
+                }
+                if (messages.isNotEmpty()) return messages.joinToString(" ")
+            }
+        } catch (_: Exception) {
+            // Preserve the generic credential message for malformed JSON.
+        }
+        return t("invalid_credentials")
     }
 
     // loginWithMobileAndPin() REMOVED: All authentication is server-driven via loginWithServer()
