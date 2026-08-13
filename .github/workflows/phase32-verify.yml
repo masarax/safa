@@ -1,0 +1,65 @@
+name: Phase 32 Verify
+
+on:
+  push:
+    paths:
+      - '.github/phase32-verify.trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
+          coverage: none
+          ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
+
+      - name: Backend tests
+        working-directory: backend
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          APP_DEBUG: 'false'
+          APP_URL: http://localhost
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/testing.sqlite
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+          SAFA_API_KEY: safa_testing_key
+          SAFA_API_SECRET: safa_testing_secret
+          DB_UPDATE_SECRET: safa_testing_update_secret
+          XDEBUG_MODE: off
+        run: |
+          mkdir -p database
+          rm -f database/testing.sqlite
+          touch database/testing.sqlite
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+          php artisan test --no-coverage --do-not-cache-result
+
+      - name: Android unit tests, lint and assemble
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace
+          ./gradlew lintDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Cleanup temporary verification workflow
+        if: success()
+        run: |
+          rm -f .github/phase32-verify.trigger .github/workflows/phase32-verify.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A .github/phase32-verify.trigger .github/workflows/phase32-verify.yml
+          git diff --cached --quiet || git commit -m "chore: remove temporary phase 32 verification workflow"
+          git push
