@@ -1,6 +1,8 @@
 name: Deploy Laravel Backend to cPanel
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -13,7 +15,7 @@ concurrency:
 jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
-    runs-on: [self-hosted, windows, x64, safa]
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Checkout Repository
@@ -30,18 +32,17 @@ jobs:
           ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
       - name: Prepare test database
         working-directory: backend
-        shell: powershell
+        shell: bash
         run: |
-          New-Item -ItemType Directory -Force database | Out-Null
-          if (Test-Path database/testing.sqlite) { Remove-Item database/testing.sqlite -Force }
-          New-Item -ItemType File database/testing.sqlite | Out-Null
+          mkdir -p database
+          rm -f database/testing.sqlite
+          touch database/testing.sqlite
       - name: Install Composer test dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
       - name: PHP syntax check
         working-directory: backend
-        shell: powershell
-        run: Get-ChildItem app,config,database,routes,tests -Recurse -Filter *.php | ForEach-Object { php -l $_.FullName }
+        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Run mandatory full test suite
         working-directory: backend
         run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
@@ -68,13 +69,11 @@ jobs:
             tests/
             node_modules/
       - name: Production health smoke check
-        shell: powershell
+        shell: bash
         env:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
         run: |
-          if (-not $env:PRODUCTION_BASE_URL) { throw 'PRODUCTION_BASE_URL is required' }
-          $base = $env:PRODUCTION_BASE_URL.TrimEnd('/')
-          $health = Invoke-WebRequest -Uri "$base/api/health" -UseBasicParsing -TimeoutSec 20
-          if ($health.StatusCode -ne 200) { throw "Health check failed: $($health.StatusCode)" }
-          $version = Invoke-WebRequest -Uri "$base/api/version" -UseBasicParsing -TimeoutSec 20
-          if ($version.StatusCode -ne 200) { throw "Version check failed: $($version.StatusCode)" }
+          test -n "$PRODUCTION_BASE_URL" || { echo 'PRODUCTION_BASE_URL is required'; exit 1; }
+          base="${PRODUCTION_BASE_URL%/}"
+          curl --fail --silent --show-error --max-time 20 "$base/api/health" >/dev/null
+          curl --fail --silent --show-error --max-time 20 "$base/api/version" >/dev/null
