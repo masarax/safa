@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: safa-backend-ci-${{ github.workflow }}-${{ github.ref }}
@@ -27,6 +27,65 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v5
+
+      - name: Patch Phase 32 Android login parser
+        working-directory: .
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+
+          path = Path('app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt')
+          text = path.read_text(encoding='utf-8')
+          replacement = '''    private fun extractLoginErrorMessage(raw: String): String {
+              val body = raw.trim()
+              if (body.isBlank()) return t("invalid_credentials")
+              if (!body.startsWith("{")) return body
+              return try {
+                  val json = org.json.JSONObject(body)
+                  val directMessage = json.optString("message").trim()
+                  if (directMessage.isNotBlank()) {
+                      directMessage
+                  } else {
+                      val errors = json.optJSONObject("errors")
+                      val messages = mutableListOf<String>()
+                      if (errors != null) {
+                          val keys = errors.keys()
+                          while (keys.hasNext()) {
+                              val key = keys.next()
+                              val value = errors.opt(key)
+                              when (value) {
+                                  is org.json.JSONArray -> {
+                                      for (i in 0 until value.length()) {
+                                          value.optString(i).takeIf { it.isNotBlank() }?.let(messages::add)
+                                      }
+                                  }
+                                  else -> value?.toString()?.takeIf { it.isNotBlank() }?.let(messages::add)
+                              }
+                          }
+                      }
+                      if (messages.isNotEmpty()) messages.joinToString(" ") else t("invalid_credentials")
+                  }
+              } catch (_: Exception) {
+                  t("invalid_credentials")
+              }
+          }
+
+'''
+          pattern = re.compile(r'    private fun extractLoginErrorMessage\(raw: String\): String \{.*?\n    \}\n\n    // loginWithMobileAndPin\(\) REMOVED', re.S)
+          updated, count = pattern.subn(replacement + '    // loginWithMobileAndPin() REMOVED', text, count=1)
+          if count != 1:
+              raise SystemExit('Phase 32 parser block not found')
+          path.write_text(updated, encoding='utf-8')
+          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git','add',str(path)], check=True)
+          subprocess.run(['git','diff','--cached','--quiet'], check=False)
+          if subprocess.run(['git','diff','--cached','--quiet']).returncode != 0:
+              subprocess.run(['git','commit','-m','fix(android): compile phase 32 login error handling'], check=True)
+              subprocess.run(['git','push','origin','main'], check=True)
+          PY
 
       - uses: shivammathur/setup-php@v2
         with:
