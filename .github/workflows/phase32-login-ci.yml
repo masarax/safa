@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   backend-login:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows, x64, safa]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
@@ -21,39 +21,18 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
-          ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
       - name: Run Phase 32 backend authentication tests
         working-directory: backend
-        env:
-          APP_ENV: testing
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          APP_DEBUG: 'false'
-          APP_URL: http://localhost
-          DB_CONNECTION: sqlite
-          DB_DATABASE: database/testing.sqlite
-          CACHE_STORE: array
-          SESSION_DRIVER: array
-          QUEUE_CONNECTION: sync
-          SAFA_API_KEY: safa_testing_key
-          SAFA_API_SECRET: safa_testing_secret
-          DB_UPDATE_SECRET: safa_testing_update_secret
-          XDEBUG_MODE: off
+        shell: powershell
         run: |
-          mkdir -p database
-          rm -f database/testing.sqlite
-          touch database/testing.sqlite
+          New-Item -ItemType Directory -Force database | Out-Null
+          if (Test-Path database/testing.sqlite) { Remove-Item database/testing.sqlite -Force }
+          New-Item -ItemType File database/testing.sqlite | Out-Null
           composer install --no-interaction --prefer-dist --optimize-autoloader
-          php artisan test --no-coverage --do-not-cache-result \
-            tests/Feature/MobileLoginApiTest.php \
-            tests/Feature/MobileLoginRebindTest.php \
-            tests/Feature/Phase32AuthIdentitySafetyTest.php \
-            tests/Feature/Phase32AuthRouteContractTest.php \
-            tests/Feature/Phase32AuthenticationContractTest.php \
-            tests/Feature/Phase32CrossModelIdentityTest.php \
-            tests/Feature/Phase32LoginThrottleTest.php
+          php artisan test --no-coverage --do-not-cache-result tests/Feature/MobileLoginApiTest.php tests/Feature/MobileLoginRebindTest.php tests/Feature/Phase32AuthIdentitySafetyTest.php tests/Feature/Phase32AuthRouteContractTest.php tests/Feature/Phase32AuthenticationContractTest.php tests/Feature/Phase32CrossModelIdentityTest.php tests/Feature/Phase32LoginThrottleTest.php
 
   android-login:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows, x64, safa]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
@@ -62,9 +41,6 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - run: chmod +x gradlew
       - name: Run Phase 32 Android login tests
-        run: |
-          ./gradlew testDebugUnitTest --no-daemon --stacktrace \
-            --tests com.safa.account.data.api.Phase32LoginApiContractTest \
-            --tests com.safa.account.data.network.LoginErrorResponseInterceptorTest
+        shell: powershell
+        run: .\gradlew.bat testDebugUnitTest --no-daemon --stacktrace --tests com.safa.account.data.api.Phase32LoginApiContractTest --tests com.safa.account.data.network.LoginErrorResponseInterceptorTest
