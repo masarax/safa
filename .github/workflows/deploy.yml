@@ -13,7 +13,7 @@ concurrency:
 jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Checkout Repository
