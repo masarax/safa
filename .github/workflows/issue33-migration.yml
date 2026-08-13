@@ -1,0 +1,108 @@
+name: Issue 33 migration and verification
+
+on:
+  push:
+    paths:
+      - '.github/workflows/issue33-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Apply Room-first repository migration
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('app/src/main/java/com/safa/account/data/repository/AppRepository.kt')
+          s = p.read_text()
+
+          s = s.replace(
+              'import com.safa.account.data.local.LocalFirstStore\n',
+              'import com.safa.account.data.local.LocalFirstStore\nimport com.safa.account.data.local.RoomDomainRecord\nimport com.safa.account.data.local.RoomLocalDatabase\n'
+          )
+          s = s.replace(
+              'import kotlinx.coroutines.withContext\n',
+              'import kotlinx.coroutines.withContext\nimport kotlinx.coroutines.runBlocking\n'
+          )
+
+          old = 'class AppRepository private constructor(private val api: ApiService, private val localStore: LocalFirstStore?) {'
+          new = 'class AppRepository private constructor(private val api: ApiService, private val localStore: LocalFirstStore?, private val roomDatabase: RoomLocalDatabase?) {'
+          assert old in s
+          s = s.replace(old, new, 1)
+          assert 'constructor(api: ApiService) : this(api, null)' in s
+          s = s.replace('constructor(api: ApiService) : this(api, null)', 'constructor(api: ApiService) : this(api, null, null)', 1)
+          assert 'constructor(context: Context) : this(remoteApi(context), LocalFirstStore(context.applicationContext))' in s
+          s = s.replace(
+              'constructor(context: Context) : this(remoteApi(context), LocalFirstStore(context.applicationContext))',
+              'constructor(context: Context) : this(remoteApi(context), LocalFirstStore(context.applicationContext), RoomLocalDatabase.get(context.applicationContext))',
+              1
+          )
+
+          old_persist = '''    private fun persist(entity: String, localId: Int, serverId: Int, payload: Map<String, Any?>, operation: String, status: Int = LocalFirstStore.PENDING) {\n        val store = localStore ?: return\n        val json = mapToJson(payload)\n        store.upsertRecord(entity, localId, serverId, json, status)\n        if (status != LocalFirstStore.SYNCED) store.enqueue(entity, localId, serverId, operation, json)\n    }'''
+          new_persist = '''    private fun persist(entity: String, localId: Int, serverId: Int, payload: Map<String, Any?>, operation: String, status: Int = LocalFirstStore.PENDING) {\n        val store = localStore ?: return\n        val json = mapToJson(payload)\n        store.upsertRecord(entity, localId, serverId, json, status)\n        roomDatabase?.let { db ->\n            runBlocking(Dispatchers.IO) {\n                val objectJson = runCatching { JSONObject(json) }.getOrNull()\n                val syncVersion = objectJson?.optLong("sync_version", 0L)?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt() ?: 0\n                val mutationId = objectJson?.optJSONObject("_sync")?.optString("mutation_id")?.takeIf { it.isNotBlank() }\n                db.domainRecords().upsert(RoomDomainRecord(entity, localId, serverId, json, syncVersion, status, mutationId, System.currentTimeMillis()))\n            }\n        }\n        if (status != LocalFirstStore.SYNCED) store.enqueue(entity, localId, serverId, operation, json)\n    }'''
+          assert old_persist in s
+          s = s.replace(old_persist, new_persist, 1)
+
+          start = s.index('    private fun publish() {')
+          end = s.index('    private fun loadLocalSnapshot()', start)
+          old_publish = s[start:end]
+          new_publish = '''    private fun publish() {\n        val store = localStore ?: return\n        val room = roomDatabase\n        if (room == null) {\n            publishFromLegacyStore(store)\n            return\n        }\n        runBlocking(Dispatchers.IO) {\n            val entities = listOf("customers", "suppliers", "transactions", "supplier_deposits", "expenses_incomes", "wallet_ledgers", "wallet_batches", "operators")\n            for (entity in entities) {\n                if (room.domainRecords().count(entity) == 0) {\n                    val legacy = store.getRecordPayloads(entity)\n                    if (legacy.isNotEmpty()) {\n                        room.domainRecords().upsertAll(legacy.map { row ->\n                            val obj = runCatching { JSONObject(row.payload) }.getOrNull()\n                            RoomDomainRecord(\n                                entity = row.entity,\n                                localId = row.localId,\n                                serverId = row.serverId,\n                                payload = row.payload,\n                                syncVersion = obj?.optLong("sync_version", 0L)?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt() ?: 0,\n                                syncStatus = row.syncStatus,\n                                mutationId = obj?.optJSONObject("_sync")?.optString("mutation_id")?.takeIf { it.isNotBlank() },\n                                updatedAt = System.currentTimeMillis()\n                            )\n                        })\n                    }\n                }\n            }\n            val rows = { entity: String -> room.domainRecords().getAll(entity) }\n            _customers.value = rows("customers").mapNotNull { runCatching { customer(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n            _suppliers.value = rows("suppliers").mapNotNull { runCatching { supplier(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n            _transactions.value = rows("transactions").mapNotNull { runCatching { transaction(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n            _deposits.value = rows("supplier_deposits").mapNotNull { runCatching { deposit(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n            _expenses.value = rows("expenses_incomes").mapNotNull { runCatching { expense(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n            _ledgers.value = rows("wallet_ledgers").mapNotNull { runCatching { ledger(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n            _batches.value = rows("wallet_batches").mapNotNull { runCatching { batch(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n            _operators.value = rows("operators").mapNotNull { runCatching { operator(jsonToMap(it.payload)) }.getOrNull() }\n        }\n    }\n\n    private fun publishFromLegacyStore(store: LocalFirstStore) {\n        _customers.value = store.getRecordPayloads("customers").mapNotNull { runCatching { customer(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n        _suppliers.value = store.getRecordPayloads("suppliers").mapNotNull { runCatching { supplier(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n        _transactions.value = store.getRecordPayloads("transactions").mapNotNull { runCatching { transaction(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n        _deposits.value = store.getRecordPayloads("supplier_deposits").mapNotNull { runCatching { deposit(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n        _expenses.value = store.getRecordPayloads("expenses_incomes").mapNotNull { runCatching { expense(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n        _ledgers.value = store.getRecordPayloads("wallet_ledgers").mapNotNull { runCatching { ledger(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n        _batches.value = store.getRecordPayloads("wallet_batches").mapNotNull { runCatching { batch(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }\n        _operators.value = store.getRecordPayloads("operators").mapNotNull { runCatching { operator(jsonToMap(it.payload)) }.getOrNull() }\n    }\n'''
+          s = s[:start] + new_publish + s[end:]
+          p.write_text(s)
+
+          # Add a Room-first architecture regression test without touching production APIs.
+          t = Path('app/src/test/java/com/safa/account/ArchitectureIssue33Test.kt')
+          t.parent.mkdir(parents=True, exist_ok=True)
+          t.write_text('''package com.safa.account\n\nimport org.junit.Test\nimport kotlin.test.assertTrue\n\nclass ArchitectureIssue33Test {\n    @Test\n    fun issue33RoomArchitectureIsPresent() {\n        val source = java.io.File("src/main/java/com/safa/account/data/local/RoomLocalDatabase.kt").readText()\n        assertTrue(source.contains("@Database"))\n        assertTrue(source.contains("RoomDomainRecord"))\n        assertTrue(source.contains("domain_records"))\n    }\n}\n''')
+          PY
+
+      - name: Run Android regression suite
+        run: |
+          chmod +x ./gradlew
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Run backend regression suite
+        working-directory: backend
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          APP_DEBUG: 'false'
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/testing.sqlite
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+          SAFA_API_KEY: safa_testing_key
+          SAFA_API_SECRET: safa_testing_secret
+          DB_UPDATE_SECRET: safa_testing_update_secret
+        run: |
+          mkdir -p database
+          touch database/testing.sqlite
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+          php artisan test --no-coverage --do-not-cache-result
+
+      - name: Commit verified migration
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/safa/account/data/repository/AppRepository.kt app/src/test/java/com/safa/account/ArchitectureIssue33Test.kt
+          git diff --cached --quiet || git commit -m 'fix(android): make Room authoritative for offline domain reads'
+          git push
+
+      - name: Remove temporary workflow
+        if: success()
+        shell: bash
+        run: |
+          git rm .github/workflows/issue33-migration.yml
+          git commit -m 'chore(ci): remove temporary issue 33 migration workflow'
+          git push
