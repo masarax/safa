@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\MobileLoginController;
 use App\Http\Controllers\AuthJWTController;
+use App\Http\Controllers\MobileLoginController;
+use App\Models\DeviceBinding;
 use App\Models\OperatorAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,7 +18,6 @@ class Phase32AuthenticationContractTest extends TestCase
 
     public function test_active_login_route_has_one_mobile_authentication_source_of_truth(): void
     {
-        $route = Route::getRoutes()->getByName('');
         $loginRoute = collect(Route::getRoutes()->getRoutes())
             ->first(fn ($candidate) => in_array('POST', $candidate->methods()) && $candidate->uri() === 'api/auth/login');
 
@@ -26,15 +26,12 @@ class Phase32AuthenticationContractTest extends TestCase
         $this->assertSame('login', $loginRoute->getActionMethod());
 
         foreach (Route::getRoutes()->getRoutes() as $candidate) {
-            $action = $candidate->getActionName();
             $this->assertStringNotContainsString(
                 AuthJWTController::class . '@login',
-                $action,
+                $candidate->getActionName(),
                 'AuthJWTController::login must not be registered as a production login route.'
             );
         }
-
-        unset($route);
     }
 
     public function test_duplicate_legacy_mobile_identity_is_rejected_instead_of_guessed(): void
@@ -97,7 +94,8 @@ class Phase32AuthenticationContractTest extends TestCase
             'permissions' => User::defaultPermissions(false),
         ]);
 
-        $user->deviceBindings()->create([
+        DeviceBinding::create([
+            'user_id' => $user->id,
             'device_uuid' => 'revoked-device',
             'device_model' => 'Test Device',
             'fingerprint_hash' => 'revoked-fingerprint',
