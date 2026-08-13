@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   android:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: self-hosted
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
