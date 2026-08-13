@@ -14,9 +14,31 @@ class SupplierController extends Controller
     {
         $context = $this->resolveAuthorizedAccountContext($request);
         if (isset($context['error'])) return $context['error'];
+
+        $validator = Validator::make($request->query(), [
+            'page' => 'sometimes|integer|min:1|max:1000000',
+            'per_page' => 'sometimes|integer|min:1|max:200',
+        ]);
+        if ($validator->fails()) return response()->json(['status' => 'error', 'message' => 'Invalid pagination parameters.', 'errors' => $validator->errors()], 422);
+
+        $page = (int) $request->query('page', 1);
+        $perPage = (int) $request->query('per_page', 50);
+        $paginator = Supplier::where('account_id', $context['account_id'])
+            ->whereNull('deleted_at')
+            ->orderBy('name', 'asc')
+            ->orderBy('id', 'asc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
         return response()->json([
             'status' => 'success',
-            'suppliers' => Supplier::where('account_id', $context['account_id'])->whereNull('deleted_at')->orderBy('name', 'asc')->get(),
+            'suppliers' => $paginator->items(),
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'last_page' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+                'has_more' => $paginator->hasMorePages(),
+            ],
         ]);
     }
 
