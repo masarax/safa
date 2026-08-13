@@ -14,16 +14,17 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
-      - name: Apply Room-first migration and compatible lifecycle dependency
+      - name: Apply Room-first migration and correct lifecycle artifact
         shell: bash
         run: |
           python3 <<'PY'
           from pathlib import Path
+          import re
           p = Path('gradle/libs.versions.toml')
           s = p.read_text()
           for key in ('lifecycleRuntimeKtx', 'lifecycleViewmodelCompose', 'lifecycleRuntimeCompose'):
-              import re
               s = re.sub(rf'{key} = "[^"]+"', f'{key} = "2.8.4"', s)
+          s = s.replace('androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "runtime-compose", version.ref = "lifecycleRuntimeCompose" }', 'androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }')
           p.write_text(s)
 
           p = Path('app/src/main/java/com/safa/account/data/repository/AppRepository.kt')
