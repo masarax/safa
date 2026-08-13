@@ -51,7 +51,7 @@ class Phase32CrossModelIdentityTest extends TestCase
             'email' => 'linked@safa.local',
             'mobile' => '01987654321',
             'pin_hash' => null,
-            'password' => null,
+            'password' => Hash::make('legacy-only-placeholder'),
             'role' => 'staff',
             'is_activated' => true,
             'permissions' => User::defaultPermissions(false),
