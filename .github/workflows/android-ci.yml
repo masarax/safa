@@ -141,7 +141,7 @@ jobs:
           disable-animations: true
           disk-size: 4096M
           script: |
-            set -euo pipefail
+            set -eu
             ./gradlew --no-daemon connectedDebugAndroidTest assembleRelease
             APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
             test -n "$APK"
