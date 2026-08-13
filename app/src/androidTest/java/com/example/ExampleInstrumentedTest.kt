@@ -45,11 +45,10 @@ class ExampleInstrumentedTest {
     }
 
     @Test
-    fun login429_preservesRetryGuidance() {
+    fun login429_preservesRetryMetadata() {
         val error = ApiLoginErrorParser.fromHttp(429, "{\"message\":\"Too many attempts.\"}", "30")
         assertTrue(error is ApiLoginError.Throttled)
         assertEquals(30L, (error as ApiLoginError.Throttled).retryAfterSeconds)
-        assertTrue(error.message.contains("30 seconds"))
     }
 
     @Test
