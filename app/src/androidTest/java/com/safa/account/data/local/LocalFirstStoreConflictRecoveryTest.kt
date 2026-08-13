@@ -4,17 +4,12 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
-/**
- * Device-level tests for the conflict/recovery path that runs around an HTTP
- * request. These tests deliberately keep the network out of the test so the
- * durable SQLite state machine is verified independently.
- */
 @RunWith(AndroidJUnit4::class)
 class LocalFirstStoreConflictRecoveryTest {
     private lateinit var context: Context
@@ -45,7 +40,6 @@ class LocalFirstStoreConflictRecoveryTest {
 
         val inFlight = store.getReadyOutbox().single()
         assertEquals(LocalFirstStore.OUTBOX_PROCESSING, inFlight.status)
-
         assertTrue(
             store.rebaseProcessingOutbox(
                 outboxId = inFlight.id,
@@ -55,8 +49,6 @@ class LocalFirstStoreConflictRecoveryTest {
             )
         )
 
-        // The repository's conflict rejection path promotes deferred work back
-        // into the normal pending queue atomically.
         store.markFailed(
             entity = "customers",
             localId = 6101,
@@ -85,8 +77,6 @@ class LocalFirstStoreConflictRecoveryTest {
         val inFlight = store.getReadyOutbox().single()
         assertEquals(LocalFirstStore.OUTBOX_PROCESSING, inFlight.status)
 
-        // Simulate a process that died after claiming the row. The recovery
-        // scanner must make it eligible again instead of losing the mutation.
         store.writableDatabase.execSQL(
             "UPDATE outbox SET updated_at=? WHERE id=?",
             arrayOf(System.currentTimeMillis() - 10 * 60 * 1000L, inFlight.id),
