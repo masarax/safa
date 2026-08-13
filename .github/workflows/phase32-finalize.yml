@@ -1,0 +1,69 @@
+name: Phase 32 finalization
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message, 'phase32-finalize') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply Phase 32 final fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          auth = Path('backend/app/Http/Controllers/AuthJWTController.php')
+          text = auth.read_text()
+          marker = '    public function login(Request $request)\n'
+          start = text.find(marker)
+          if start < 0:
+              raise SystemExit('AuthJWTController login method not found')
+          activate = text.find('    public function activateSuperAdmin(Request $request)\n', start)
+          if activate < 0:
+              raise SystemExit('activateSuperAdmin boundary not found')
+          text = text[:start] + text[activate:]
+          auth.write_text(text)
+
+          vm = Path('app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt')
+          v = vm.read_text()
+          old = 'if (errorStr.isNotBlank() && !errorStr.startsWith("{")) errorStr else "invalid_credentials"'
+          new = 'if (errorStr.isNotBlank()) extractLoginErrorMessage(errorStr) else "invalid_credentials"'
+          if old not in v:
+              raise SystemExit('legacy ViewModel JSON masking expression not found')
+          v = v.replace(old, new, 1)
+          helper = '''\n    private fun extractLoginErrorMessage(raw: String): String {\n        val body = raw.trim()\n        if (!body.startsWith("{")) return body\n        return try {\n            org.json.JSONObject(body).optString("message").takeIf { it.isNotBlank() }\n                ?: "invalid_credentials"\n        } catch (_: Exception) {\n            "invalid_credentials"\n        }\n    }\n'''
+          insert_at = v.rfind('\n}')
+          if insert_at < 0:
+              raise SystemExit('SafaViewModel class boundary not found')
+          v = v[:insert_at] + helper + v[insert_at:]
+          vm.write_text(v)
+
+          login = Path('app/src/main/java/com/safa/account/ui/screens/LoginScreen.kt')
+          l = login.read_text()
+          l2 = re.sub(r'(?s)errorStr\.isNotBlank\(\)\s*&&\s*!errorStr\.startsWith\("\{"\)', 'errorStr.isNotBlank()', l, count=1)
+          if l2 == l:
+              raise SystemExit('LoginScreen JSON masking guard not found')
+          login.write_text(l2)
+
+      - name: Add source-of-truth guard
+        shell: bash
+        run: |
+          grep -q "Route::post('/login', \[MobileLoginController::class, 'login'\])" backend/routes/api.php
+          ! grep -q "public function login(Request \$request)" backend/app/Http/Controllers/AuthJWTController.php
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/Http/Controllers/AuthJWTController.php app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt app/src/main/java/com/safa/account/ui/screens/LoginScreen.kt
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: finalize phase32 authentication source of truth'
+          git push
