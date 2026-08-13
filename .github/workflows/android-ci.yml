@@ -1,22 +1,6 @@
 name: Android CI
 
 on:
-  push:
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - '*.gradle*'
-      - 'gradlew'
-      - 'gradlew.bat'
-      - '.github/workflows/android-ci.yml'
-  pull_request:
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - '*.gradle*'
-      - 'gradlew'
-      - 'gradlew.bat'
-      - '.github/workflows/android-ci.yml'
   workflow_dispatch:
 
 permissions:
