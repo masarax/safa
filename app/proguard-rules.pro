@@ -6,9 +6,18 @@
 
 # --- Data models and API DTOs ---
 # Business persistence uses the encrypted LocalFirstStore/SQLiteOpenHelper
-# implementation. Room and SQLCipher are not production runtime dependencies.
+# implementation. Room and SQLCipher are not SAFA business persistence dependencies.
 -keep class com.safa.account.data.model.** { *; }
 -keep class com.safa.account.data.api.dto.** { *; }
+
+# WorkManager is a runtime dependency and internally uses a generated Room
+# database implementation. Its no-arg constructor is reflectively instantiated
+# during AndroidX Startup, so R8 must retain that constructor. This rule is
+# intentionally scoped to WorkManager and does not make Room/SQLCipher part of
+# SAFA's business persistence architecture.
+-keep class androidx.work.impl.WorkDatabase_Impl {
+    <init>();
+}
 
 # --- Retrofit + Moshi ---
 # DTO adapters are generated with Moshi codegen; keep the JSON contract and
