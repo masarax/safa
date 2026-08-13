@@ -141,16 +141,13 @@ jobs:
           disable-animations: true
           disk-size: 4096M
           script: |
-            set -eu
             ./gradlew --no-daemon connectedDebugAndroidTest assembleRelease
-            APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
-            test -n "$APK"
-            adb install -r "$APK"
+            test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+            adb install -r "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
             adb shell am force-stop com.safa.account
             adb shell am start -W -n com.safa.account/.MainActivity
             sleep 3
-            PID="$(adb shell pidof com.safa.account | tr -d '\r')"
-            test -n "$PID"
+            adb shell pidof com.safa.account | grep -q '[0-9]'
 
       - name: Upload instrumentation and release-smoke results
         if: always()
