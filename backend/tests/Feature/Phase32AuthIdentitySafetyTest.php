@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\OperatorAccount;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -13,18 +14,20 @@ class Phase32AuthIdentitySafetyTest extends TestCase
 
     public function test_duplicate_legacy_mobile_is_rejected_instead_of_guessing(): void
     {
-        OperatorAccount::create([
-            'name' => 'Legacy One',
-            'email' => 'one@safa.local',
+        User::create([
+            'name' => 'Canonical User',
+            'email' => 'canonical@safa.local',
             'mobile' => '01900000001',
-            'role' => 'staff',
             'pin_hash' => Hash::make('123456'),
+            'password' => Hash::make('123456'),
+            'role' => 'staff',
             'is_activated' => true,
-            'permissions' => [],
+            'permissions' => User::defaultPermissions(false),
         ]);
+
         OperatorAccount::create([
-            'name' => 'Legacy Two',
-            'email' => 'two@safa.local',
+            'name' => 'Legacy Operator',
+            'email' => 'legacy@safa.local',
             'mobile' => '01900000001',
             'role' => 'staff',
             'pin_hash' => Hash::make('123456'),
