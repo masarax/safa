@@ -3,6 +3,7 @@ package com.safa.account.data.api
 import com.safa.account.BuildConfig
 import com.safa.account.data.network.ApiSecurityInterceptor
 import com.safa.account.data.network.LocalFirstSyncInterceptor
+import com.safa.account.data.network.LoginErrorResponseInterceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -51,6 +52,7 @@ object RetrofitClient {
                 }
                 val client = clientBuilder
                     .addInterceptor(security)
+                    .addInterceptor(LoginErrorResponseInterceptor())
                     .addInterceptor(logging)
                     .connectTimeout(30, TimeUnit.SECONDS)
                     .readTimeout(30, TimeUnit.SECONDS)
