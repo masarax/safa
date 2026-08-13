@@ -3,6 +3,7 @@ package com.safa.account.data.network
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -13,7 +14,7 @@ import org.mockito.kotlin.whenever
 class LoginErrorResponseInterceptorTest {
     private val request = Request.Builder()
         .url("https://safa.masarax.com/api/auth/login")
-        .post("{}".toResponseBody())
+        .post("{}".toRequestBody())
         .build()
 
     private fun responseJson(code: Int, json: String): JSONObject {
@@ -22,8 +23,7 @@ class LoginErrorResponseInterceptorTest {
         whenever(chain.proceed(request)).thenReturn(
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("error").body(json.toResponseBody()).build()
         )
-        val response = LoginErrorResponseInterceptor().intercept(chain)
-        return JSONObject(response.body!!.string())
+        return JSONObject(LoginErrorResponseInterceptor().intercept(chain).body!!.string())
     }
 
     @Test fun `401 remains generic credential error`() {
@@ -48,13 +48,20 @@ class LoginErrorResponseInterceptorTest {
         assertEquals("RATE_LIMITED", json.getJSONObject("error").getString("code"))
     }
 
-    @Test fun `5xx becomes server error`() {
+    @Test fun `5xx remains distinguishable`() {
         val json = responseJson(503, "{\"message\":\"database failed\"}")
         assertEquals("SERVER_ERROR", json.getJSONObject("error").getString("code"))
     }
 
-    @Test fun `malformed body becomes controlled unexpected response`() {
-        val json = responseJson(502, "not-json")
-        assertEquals("SERVER_ERROR", json.getJSONObject("error").getString("code"))
+    @Test fun `malformed body remains controlled for caller classification`() {
+        val response = run {
+            val chain = mock<okhttp3.Interceptor.Chain>()
+            whenever(chain.request()).thenReturn(request)
+            whenever(chain.proceed(request)).thenReturn(
+                Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(500).message("error").body("not-json".toResponseBody()).build()
+            )
+            LoginErrorResponseInterceptor().intercept(chain)
+        }
+        assertEquals("not-json", response.body!!.string())
     }
 }
