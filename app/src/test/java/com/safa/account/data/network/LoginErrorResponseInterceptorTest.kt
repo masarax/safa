@@ -3,8 +3,8 @@ package com.safa.account.data.network
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.mock
@@ -13,50 +13,48 @@ import org.mockito.kotlin.whenever
 class LoginErrorResponseInterceptorTest {
     private val request = Request.Builder()
         .url("https://safa.masarax.com/api/auth/login")
-        .post("{}".toRequestBody())
+        .post("{}".toResponseBody())
         .build()
 
-    private fun transformed(code: Int, json: String): String {
+    private fun responseJson(code: Int, json: String): JSONObject {
         val chain = mock<okhttp3.Interceptor.Chain>()
         whenever(chain.request()).thenReturn(request)
         whenever(chain.proceed(request)).thenReturn(
-            Response.Builder()
-                .request(request)
-                .protocol(Protocol.HTTP_1_1)
-                .code(code)
-                .message("error")
-                .body(json.toResponseBody())
-                .build()
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("error").body(json.toResponseBody()).build()
         )
-
-        return LoginErrorResponseInterceptor()
-            .intercept(chain)
-            .body!!
-            .string()
+        val response = LoginErrorResponseInterceptor().intercept(chain)
+        return JSONObject(response.body!!.string())
     }
 
-    @Test
-    fun `401 remains generic credential error`() {
-        assertEquals("Mobile number or PIN is incorrect.", transformed(401, "{\"message\":\"Invalid 6-Digit PIN.\"}"))
+    @Test fun `401 remains generic credential error`() {
+        val json = responseJson(401, "{\"message\":\"Invalid PIN\"}")
+        assertEquals("INVALID_CREDENTIALS", json.getJSONObject("error").getString("code"))
+        assertEquals("Mobile number or PIN is incorrect.", json.getString("message"))
     }
 
-    @Test
-    fun `403 exposes account or device error`() {
-        assertEquals("Account/device error: Device is revoked.", transformed(403, "{\"message\":\"Device is revoked.\"}"))
+    @Test fun `403 revoked device stays distinguishable`() {
+        val json = responseJson(403, "{\"error\":{\"code\":\"DEVICE_REVOKED\",\"message\":\"Device revoked\"}}")
+        assertEquals("DEVICE_REVOKED", json.getJSONObject("error").getString("code"))
     }
 
-    @Test
-    fun `422 preserves validation error`() {
-        assertEquals("Validation error: Invalid mobile number.", transformed(422, "{\"message\":\"Invalid mobile number.\"}"))
+    @Test fun `422 preserves validation code`() {
+        val json = responseJson(422, "{\"error\":{\"code\":\"MOBILE_INVALID\",\"message\":\"Invalid mobile\"}}")
+        assertEquals("MOBILE_INVALID", json.getJSONObject("error").getString("code"))
+        assertEquals("Invalid mobile", json.getString("message"))
     }
 
-    @Test
-    fun `429 is exposed as rate limit`() {
-        assertEquals("Rate limit: Too many login attempts.", transformed(429, "{\"message\":\"Too many login attempts.\"}"))
+    @Test fun `429 remains rate limited`() {
+        val json = responseJson(429, "{\"message\":\"Too many attempts\"}")
+        assertEquals("RATE_LIMITED", json.getJSONObject("error").getString("code"))
     }
 
-    @Test
-    fun `5xx is exposed as server error`() {
-        assertEquals("Server error: Authentication backend failed.", transformed(503, "{\"message\":\"Authentication backend failed.\"}"))
+    @Test fun `5xx becomes server error`() {
+        val json = responseJson(503, "{\"message\":\"database failed\"}")
+        assertEquals("SERVER_ERROR", json.getJSONObject("error").getString("code"))
+    }
+
+    @Test fun `malformed body becomes controlled unexpected response`() {
+        val json = responseJson(502, "not-json")
+        assertEquals("SERVER_ERROR", json.getJSONObject("error").getString("code"))
     }
 }
