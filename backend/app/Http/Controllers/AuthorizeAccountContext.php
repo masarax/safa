@@ -30,11 +30,33 @@ trait AuthorizeAccountContext
             return ['error' => response()->json(['status' => 'error', 'message' => 'Unauthorized: user account not found or deactivated.'], 401)];
         }
 
-        $requestedAccountId = (int) ($payload['account_id'] ?? 0);
+        // Account switching must survive a JWT that was minted while another
+        // account was active. Explicit client context and the server session are
+        // therefore evaluated before the token's backward-compatible account_id.
+        $requestedAccountId = 0;
+        $headerAccountId = $request->header('X-SAFA-ACCOUNT-ID');
+        if ($headerAccountId !== null && ctype_digit((string) $headerAccountId)) {
+            $requestedAccountId = (int) $headerAccountId;
+        }
+
+        if ($requestedAccountId <= 0 && $request->hasSession()) {
+            $sessionAccountId = $request->session()->get('safa_active_account_id');
+            if ($sessionAccountId !== null && ctype_digit((string) $sessionAccountId)) {
+                $requestedAccountId = (int) $sessionAccountId;
+            }
+        }
+
         if ($requestedAccountId <= 0) {
-            $headerAccountId = $request->header('X-SAFA-ACCOUNT-ID') ?? $request->input('account_id');
-            if ($headerAccountId !== null && ctype_digit((string) $headerAccountId)) {
-                $requestedAccountId = (int) $headerAccountId;
+            $requestedAccountId = (int) ($payload['account_id'] ?? 0);
+        }
+
+        // Explicit account-selection endpoints can supply account_id when no
+        // header/session/token context is available. Authorization below still
+        // verifies ownership/share membership before the context is accepted.
+        if ($requestedAccountId <= 0) {
+            $inputAccountId = $request->input('account_id');
+            if ($inputAccountId !== null && ctype_digit((string) $inputAccountId)) {
+                $requestedAccountId = (int) $inputAccountId;
             }
         }
 
