@@ -90,4 +90,14 @@ class AccountContextIsolationTest extends TestCase
         $this->assertSame(403, $response->getStatusCode());
         $this->assertSame($accountA->id, $session->get('safa_active_account_id'));
     }
+
+    public function test_legacy_and_canonical_switch_routes_use_the_same_controller_action(): void
+    {
+        $router = app('router');
+        $legacy = $router->getRoutes()->match(Request::create('/api/auth/switch-account', 'POST'));
+        $canonical = $router->getRoutes()->match(Request::create('/api/accounts/switch', 'POST'));
+
+        $this->assertSame(AccountContextController::class . '@switch', $legacy->getActionName());
+        $this->assertSame(AccountContextController::class . '@switch', $canonical->getActionName());
+    }
 }
