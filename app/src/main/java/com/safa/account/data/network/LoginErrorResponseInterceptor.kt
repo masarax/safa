@@ -3,24 +3,18 @@ package com.safa.account.data.network
 import okhttp3.Interceptor
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.json.JSONObject
 
-/**
- * Keeps the login endpoint's failure class visible to the existing UI
- * contract. Only /auth/login responses are transformed.
- */
+/** Keeps login HTTP failure classes and backend messages visible to the client. */
 class LoginErrorResponseInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val response = chain.proceed(request)
-
-        if (!request.url.encodedPath.endsWith("/auth/login") || response.isSuccessful) {
-            return response
-        }
+        if (!request.url.encodedPath.endsWith("/auth/login") || response.isSuccessful) return response
 
         val body = response.body ?: return response
         val raw = body.string()
         val message = extractMessage(raw)
-
         val fallback = when (response.code) {
             401 -> "Mobile number or PIN is incorrect."
             403 -> "Authentication was denied for this account or device."
@@ -29,7 +23,6 @@ class LoginErrorResponseInterceptor : Interceptor {
             in 500..599 -> "The authentication server is unavailable. Please try again later."
             else -> "Login failed (HTTP ${response.code})."
         }
-
         val text = when {
             response.code == 401 -> fallback
             response.code == 403 -> "Account/device error: ${message.ifBlank { fallback }}"
@@ -38,20 +31,10 @@ class LoginErrorResponseInterceptor : Interceptor {
             response.code in 500..599 -> "Server error: ${message.ifBlank { fallback }}"
             else -> "Login error: ${message.ifBlank { fallback }}"
         }
-
-        return response.newBuilder()
-            .body(text.toResponseBody(body.contentType()))
-            .build()
+        return response.newBuilder().body(text.toResponseBody(body.contentType())).build()
     }
 
-    private fun extractMessage(raw: String): String {
-        val match = Regex("\\\"message\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"")
-            .find(raw)
-            ?: return ""
-        return match.groupValues[1]
-            .replace("\\\\\"", "\"")
-            .replace("\\\\\\\\", "\\")
-            .replace("\\\\n", "\n")
-            .trim()
-    }
+    private fun extractMessage(raw: String): String = runCatching {
+        JSONObject(raw).optString("message").trim()
+    }.getOrDefault("")
 }
