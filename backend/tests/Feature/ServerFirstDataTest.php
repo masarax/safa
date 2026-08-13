@@ -12,8 +12,10 @@ use App\Models\SafaApiKey;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Http\Controllers\AuthJWTController;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 
 class ServerFirstDataTest extends TestCase
 {
@@ -163,5 +165,19 @@ class ServerFirstDataTest extends TestCase
         $res = $this->withHeaders($headers)->postJson('/api/transactions', json_decode($createBody, true));
         $res->assertStatus(201);
         $this->assertDatabaseHas('transactions', ['amount_sar' => 500.00, 'amount_bdt' => 16250.00]);
+    }
+
+    public function test_protected_business_route_uses_named_api_rate_limiter(): void
+    {
+        $context = $this->createAuthenticatedContext();
+        RateLimiter::for('api', fn () => Limit::perMinute(1)->by('named-api-route-contract'));
+
+        $this->withHeaders($this->getHeaders($context, 'GET', 'api/customers'))
+            ->get('/api/customers')
+            ->assertOk();
+
+        $this->withHeaders($this->getHeaders($context, 'GET', 'api/customers'))
+            ->get('/api/customers')
+            ->assertStatus(429);
     }
 }
