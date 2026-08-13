@@ -12,18 +12,21 @@ import kotlinx.coroutines.CancellationException
  * Persistent background reconciliation for the local-first data layer.
  *
  * The durable outbox owns record-level retry state. WorkManager owns process-level
- * retry/backoff. A transient network/server failure must therefore return
- * Result.retry() instead of escaping from doWork() as a permanent worker failure.
+ * retry/backoff, but the worker also caps transient attempts so a permanently
+ * unreachable service cannot create an unbounded retry loop.
  */
 class SafaSyncWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
+    companion object {
+        private const val MAX_TRANSIENT_ATTEMPTS = 5
+    }
+
     override suspend fun doWork(): Result {
         val tokenManager = TokenManager(applicationContext)
         if (tokenManager.getAccessToken().isNullOrBlank()) {
-            // Nothing can be synchronized until the user has authenticated.
             return Result.success()
         }
 
@@ -38,24 +41,21 @@ class SafaSyncWorker(
             if (result != null) {
                 Result.success()
             } else {
-                // Another sync owns the gate. Keep the durable outbox untouched and
-                // let WorkManager retry using the request's exponential backoff.
-                Result.retry()
+                retryOrFail("sync coordinator lock timeout")
             }
         } catch (t: CancellationException) {
-            // CoroutineWorker uses cancellation to stop work safely. Never convert
-            // cooperative cancellation into a permanent worker failure.
             throw t
         } catch (t: Throwable) {
-            when {
-                isTransient(t) -> Result.retry()
-                // Authentication/authorization failures are not solved by retrying
-                // forever. The interceptor owns refresh; if that boundary failed,
-                // stop this run and let the next authenticated session start fresh.
-                else -> Result.failure()
-            }
+            if (isTransient(t)) retryOrFail(t.message ?: "transient sync failure") else Result.failure()
         }
     }
+
+    private fun retryOrFail(reason: String): Result =
+        if (runAttemptCount >= MAX_TRANSIENT_ATTEMPTS) {
+            Result.failure()
+        } else {
+            Result.retry()
+        }
 
     private fun isTransient(t: Throwable): Boolean {
         if (t is IOException) return true
