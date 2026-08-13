@@ -1,5 +1,6 @@
 name: Phase 32 finalization
 
+# phase32-finalize-pass-3
 on:
   push:
     branches: [main]
@@ -29,17 +30,15 @@ jobs:
 
           vm = Path('app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt')
           v = vm.read_text()
-          matches = [line for line in v.splitlines() if 'invalid_credentials' in line]
-          if not matches:
-              raise SystemExit('No invalid_credentials handling found in SafaViewModel')
           pattern = re.compile(r'(?m)^(\s*).*invalid_credentials.*$')
           v2, count = pattern.subn(r'\1if (errorStr.isNotBlank()) extractLoginErrorMessage(errorStr) else "invalid_credentials"', v, count=1)
           if count != 1:
-              raise SystemExit(f'Could not replace ViewModel error mapping: {matches}')
+              raise SystemExit('ViewModel error mapping not found')
           helper = '''\n    private fun extractLoginErrorMessage(raw: String): String {\n        val body = raw.trim()\n        if (!body.startsWith("{")) return body\n        return try {\n            org.json.JSONObject(body).optString("message").takeIf { it.isNotBlank() }\n                ?: "invalid_credentials"\n        } catch (_: Exception) {\n            "invalid_credentials"\n        }\n    }\n'''
           insert_at = v2.rfind('\n}')
-          v2 = v2[:insert_at] + helper + v2[insert_at:]
-          vm.write_text(v2)
+          if insert_at < 0:
+              raise SystemExit('ViewModel class boundary not found')
+          vm.write_text(v2[:insert_at] + helper + v2[insert_at:])
 
           login = Path('app/src/main/java/com/safa/account/ui/screens/LoginScreen.kt')
           l = login.read_text()
