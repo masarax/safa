@@ -26,7 +26,7 @@ env:
 jobs:
   build-apk:
     name: Manual ${{ inputs.build_type }} APK
-    runs-on: [self-hosted, linux, x64]
+    runs-on: self-hosted
     timeout-minutes: 30
 
     steps:
