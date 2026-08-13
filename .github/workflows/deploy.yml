@@ -95,3 +95,15 @@ jobs:
             storage/framework/views/*
             tests/
             node_modules/
+
+      - name: Production health smoke check
+        env:
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+        run: |
+          test -n "$PRODUCTION_BASE_URL"
+          base="${PRODUCTION_BASE_URL%/}"
+          health_code=$(curl -L -sS -o /tmp/safa-health.json -w '%{http_code}' --max-time 20 "$base/api/health")
+          test "$health_code" = "200"
+          grep -Eq '"status"[[:space:]]*:[[:space:]]*"(ok|healthy)"' /tmp/safa-health.json
+          version_code=$(curl -L -sS -o /tmp/safa-version.json -w '%{http_code}' --max-time 20 "$base/api/version")
+          test "$version_code" = "200"
