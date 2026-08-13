@@ -35,11 +35,13 @@ jobs:
           coverage: none
           ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
 
-      - name: Prepare test database
+      - name: Prepare test database and Laravel environment
         run: |
           mkdir -p database
           rm -f database/testing.sqlite
           touch database/testing.sqlite
+          cp .env.example .env
+          sed -i 's/^APP_KEY=.*/APP_KEY=base64:U2FmYV9waGFzZTMyX3Rlc3Rfa2V5XzEyMzQ1Njc4OTA=/' .env
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
