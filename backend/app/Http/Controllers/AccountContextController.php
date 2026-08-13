@@ -62,14 +62,33 @@ class AccountContextController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Invalid account_id.', 'errors' => $validator->errors()], 422);
         }
 
-        $context = $this->resolveAuthorizedAccountContext($request);
+        $requestedAccountId = (int) $request->input('account_id');
+
+        // The access token may still contain the previous account_id. Resolve the
+        // requested target explicitly against the authenticated user so A -> B
+        // cannot silently resolve back to A.
+        $targetContextRequest = Request::create($request->getRequestUri(), 'GET', [
+            'account_id' => $requestedAccountId,
+        ]);
+        $targetContextRequest->setUserResolver(fn () => $request->user());
+
+        $context = $this->resolveAuthorizedAccountContext($targetContextRequest);
         if (isset($context['error'])) return $context['error'];
 
-        $request->session()->put('safa_active_account_id', (int) $context['account_id']);
+        if ((int) $context['account_id'] !== $requestedAccountId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Requested account context could not be activated.',
+            ], 409);
+        }
+
+        $request->session()->put('safa_active_account_id', $requestedAccountId);
+        $request->attributes->set('active_account_id', $requestedAccountId);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Active account changed successfully.',
-            'active_account_id' => (int) $context['account_id'],
+            'active_account_id' => $requestedAccountId,
         ]);
     }
 
