@@ -1,8 +1,6 @@
 name: Deploy Laravel Backend to cPanel
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -30,13 +28,15 @@ jobs:
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
           ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
-      - name: Prepare test database
+      - name: Prepare CI environment
         working-directory: backend
         shell: bash
         run: |
           mkdir -p database
           rm -f database/testing.sqlite
           touch database/testing.sqlite
+          cp .env.example .env
+          php -r '$env=file_get_contents(".env"); $key="base64:".base64_encode(random_bytes(32)); $env=preg_replace("/^APP_KEY=.*$/m", "APP_KEY=$key", $env); $env=preg_replace("/^DB_CONNECTION=.*$/m", "DB_CONNECTION=sqlite", $env); $env=preg_replace("/^DB_DATABASE=.*$/m", "DB_DATABASE=".getcwd()."/database/testing.sqlite", $env); file_put_contents(".env", $env);'
       - name: Install Composer test dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
