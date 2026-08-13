@@ -65,7 +65,6 @@ class MobileLoginController extends Controller
                 try {
                     $pinValid = Hash::check($pin, $legacyHash);
                     if ($pinValid) {
-                        // Promote the legacy credential into the canonical user record.
                         $user->pin_hash = $legacyHash;
                         $user->password = $legacyHash;
                         $user->save();
@@ -105,8 +104,6 @@ class MobileLoginController extends Controller
                 ], 403)];
             }
 
-            // PIN login is an explicit first factor. When the same stable device
-            // UUID presents a changed fingerprint, re-bind the fingerprint.
             if (!$binding) {
                 DeviceBinding::create([
                     'user_id' => $user->id,
@@ -198,16 +195,32 @@ class MobileLoginController extends Controller
 
     private function findUserByMobile(string $mobile): ?User
     {
-        $user = User::where('mobile', $mobile)->first();
-        if ($user) return $user;
-
         $normalized = MobileNumber::normalize($mobile);
         if ($normalized === '') return null;
 
-        return User::whereRaw(
+        $query = User::query()->where('mobile', $normalized);
+        $count = $query->count();
+        if ($count > 1) {
+            abort(response()->json([
+                'status' => 'error',
+                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
+            ], 409));
+        }
+        if ($count === 1) return $query->first();
+
+        $fallback = User::query()->whereRaw(
             "REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') = ?",
             [$normalized]
-        )->first();
+        );
+        $fallbackCount = $fallback->count();
+        if ($fallbackCount > 1) {
+            abort(response()->json([
+                'status' => 'error',
+                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
+            ], 409));
+        }
+
+        return $fallbackCount === 1 ? $fallback->first() : null;
     }
 
     private function resolveLegacyOperator(string $mobile): ?User
@@ -230,6 +243,16 @@ class MobileLoginController extends Controller
         if (!$operator) return null;
 
         $user = $operator->user_id ? User::find($operator->user_id) : null;
+        if ($user) {
+            $linkedMobile = MobileNumber::normalize((string) $user->mobile);
+            if ($linkedMobile !== $normalized) {
+                abort(response()->json([
+                    'status' => 'error',
+                    'message' => 'Legacy account linkage is inconsistent. Please contact an administrator.',
+                ], 409));
+            }
+        }
+
         if (!$user) {
             $existing = $this->findUserByMobile($normalized);
             if ($existing) {
