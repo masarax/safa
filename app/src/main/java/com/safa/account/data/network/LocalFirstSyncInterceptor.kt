@@ -1,6 +1,7 @@
 package com.safa.account.data.network
 
 import com.safa.account.data.local.LocalFirstStore
+import com.safa.account.data.sync.SyncSnapshotGuard
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -16,13 +17,14 @@ import java.util.UUID
 class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor {
     private val store = LocalFirstStore(context.applicationContext)
     private val entities = listOf("customers", "suppliers", "wallet_ledgers", "supplier_deposits", "wallet_batches", "transactions", "expenses_incomes")
+    private val timestampFields = setOf("timestamp", "created_at", "updated_at", "deleted_at", "date")
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
         val path = original.url.encodedPath
         if (!path.endsWith("/sync/up")) {
             val response = chain.proceed(original)
-            return if (path.endsWith("/sync/down")) captureServerVersions(response) else response
+            return if (path.endsWith("/sync/down")) captureAndFilterServerSnapshot(response) else response
         }
         val preparedJson = prepareUpload(readRequestBody(original))
         val preparedRequest = original.newBuilder().method(original.method, preparedJson.toRequestBody("application/json; charset=utf-8".toMediaType())).build()
@@ -75,10 +77,6 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                     remainingConflicts.put(conflict); continue
                 }
                 val operation = operationFor(requestRow, serverId)
-                val rebased = JSONObject(requestRow.toString()).apply {
-                    put("server_id", serverId); put("sync_version", serverVersion)
-                    put("_sync", JSONObject().apply { put("mutation_id", UUID.randomUUID().toString()); put("base_version", serverVersion); put("operation", operation) })
-                }
                 val rebasedStored = store.rebaseLatestProcessingOutbox(entity, localId, serverId, serverVersion, conflict.optString("server_snapshot").takeIf { it.isNotBlank() })
                 if (rebasedStored) {
                     rejected.put(JSONObject().apply { put("entity", entity); put("local_id", localId); put("reason", "REBASED_CONFLICT: local mutation rebased on server version $serverVersion"); put("code", "CONFLICT_REBASED") })
@@ -104,19 +102,53 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
         }
     }
 
-    private fun captureServerVersions(response: Response): Response {
+    /** Filters delayed sync-down rows before they can reach AppRepository. */
+    private fun captureAndFilterServerSnapshot(response: Response): Response {
         val responseBody = response.body ?: return response
         val bodyText = responseBody.string()
         val root = runCatching { JSONObject(bodyText) }.getOrElse { return response.newBuilder().body(bodyText.toResponseBody(responseBody.contentType())).build() }
         entities.forEach { entity ->
             val rows = root.optJSONArray(entity) ?: return@forEach
+            val filtered = JSONArray()
             for (i in 0 until rows.length()) {
                 val row = rows.optJSONObject(i) ?: continue
-                val localId = row.optInt("local_id", 0); val serverId = row.optInt("id", row.optInt("server_id", 0)); val version = row.optInt("sync_version", 0)
-                if (localId > 0 && serverId > 0) store.recordServerVersion(entity, localId, serverId, version)
+                normalizeTimestamps(row)
+                val localId = resolveLocalId(entity, row)
+                val serverId = row.optInt("id", row.optInt("server_id", 0))
+                val incomingVersion = row.optInt("sync_version", 0)
+                if (localId <= 0 || serverId <= 0) {
+                    filtered.put(row)
+                    continue
+                }
+                val localVersion = store.serverVersion(entity, localId).toLong()
+                val pending = store.hasPending(entity, localId)
+                if (SyncSnapshotGuard.decide(incomingVersion.toLong(), localVersion, pending) == SyncSnapshotGuard.Decision.APPLY) {
+                    filtered.put(row)
+                    store.recordServerVersion(entity, localId, serverId, incomingVersion)
+                }
             }
+            root.put(entity, filtered)
         }
-        return response.newBuilder().body(root.toString().toResponseBody(responseBody.contentType())).build()
+        return response.newBuilder().body(root.toString().toResponseBody(responseBody.contentType() ?: "application/json".toMediaType())).build()
+    }
+
+    private fun resolveLocalId(entity: String, row: JSONObject): Int {
+        row.optInt("local_id", 0).takeIf { it > 0 }?.let { return it }
+        val serverId = row.optInt("id", row.optInt("server_id", 0))
+        if (serverId <= 0) return 0
+        return store.getRecordPayloads(entity).firstOrNull { it.serverId == serverId }?.localId ?: 0
+    }
+
+    private fun normalizeTimestamps(row: JSONObject) {
+        val keys = row.keys()
+        val values = mutableMapOf<String, Long>()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            if (key !in timestampFields) continue
+            val normalized = SyncSnapshotGuard.parseTimestamp(row.opt(key)) ?: continue
+            values[key] = normalized
+        }
+        values.forEach { (key, value) -> row.put(key, value) }
     }
 
     private fun operationFor(row: JSONObject, serverId: Int): String {

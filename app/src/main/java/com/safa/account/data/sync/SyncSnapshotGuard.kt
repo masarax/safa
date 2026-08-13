@@ -1,6 +1,7 @@
 package com.safa.account.data.sync
 
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -27,7 +28,7 @@ object SyncSnapshotGuard {
                 OffsetDateTime.parse(raw, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli()
             } catch (_: DateTimeParseException) {
                 try {
-                    java.time.LocalDateTime.parse(raw, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    LocalDateTime.parse(raw, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                         .atOffset(ZoneOffset.UTC).toInstant().toEpochMilli()
                 } catch (_: DateTimeParseException) {
                     null
