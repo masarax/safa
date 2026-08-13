@@ -40,6 +40,20 @@ class Phase2InstallerTest extends TestCase
         }
     }
 
+    public function test_retired_installer_controller_methods_cannot_execute_database_or_update_work(): void
+    {
+        $controller = new InstallerController();
+
+        foreach (['index', 'testDb', 'process', 'success', 'updateView', 'updateProcess'] as $method) {
+            $response = $controller->{$method}();
+            $this->assertSame(404, $response->getStatusCode());
+            $payload = $response->getData(true);
+            $this->assertSame('not_found', $payload['status'] ?? null);
+            $this->assertStringNotContainsString('PDO', $response->getContent());
+            $this->assertStringNotContainsString('Exception:', $response->getContent());
+        }
+    }
+
     public function test_pending_migrations_are_empty_after_migration(): void
     {
         Artisan::call('migrate', ['--force' => true]);
