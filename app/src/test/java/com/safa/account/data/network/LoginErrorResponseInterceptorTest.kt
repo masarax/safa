@@ -40,6 +40,11 @@ class LoginErrorResponseInterceptorTest {
     }
 
     @Test
+    fun `403 preserves account or device error`() {
+        assertEquals("Account or device access is forbidden.", transformed(403, "{\"message\":\"Device is revoked.\"}"))
+    }
+
+    @Test
     fun `422 preserves validation error`() {
         assertEquals("Validation error: Invalid mobile number.", transformed(422, "{\"message\":\"Invalid mobile number.\"}"))
     }
