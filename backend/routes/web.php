@@ -2,12 +2,16 @@
 
 use Illuminate\Support\Facades\Route;
 
-// SAFA is API-only. Explicitly absorb legacy browser/installer paths so they
-// cannot resolve to a method-specific route and return 405 responses.
-Route::any('/install', fn () => response()->json(['status' => 'not_found'], 404));
-Route::any('/install/update', fn () => response()->json(['status' => 'not_found'], 404));
-Route::any('/install/update-process', fn () => response()->json(['status' => 'not_found'], 404));
-Route::any('/update-db', fn () => response()->json(['status' => 'not_found'], 404));
+// SAFA is API-only. Explicitly absorb every legacy browser/installer path so
+// no method-specific route can leak a 405 or reach the retired installer
+// controller. The production product has no web installer surface.
+$closedInstallerResponse = fn () => response()->json(['status' => 'not_found'], 404);
+Route::any('/install', $closedInstallerResponse);
+Route::any('/install/test-db', $closedInstallerResponse);
+Route::any('/install/process', $closedInstallerResponse);
+Route::any('/install/update', $closedInstallerResponse);
+Route::any('/install/update-process', $closedInstallerResponse);
+Route::any('/update-db', $closedInstallerResponse);
 
 // Branding assets are intentionally public, while the application remains
 // API-only. Serve them explicitly so feature tests and non-static PHP servers
