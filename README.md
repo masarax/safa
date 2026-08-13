@@ -5,7 +5,8 @@ SAFA is an offline-first financial/account-management system with an Android cli
 ## Production
 
 - Website/service host: `https://safa.masarax.com`
-- API base: `https://safa.masarax.com/api`
+- Canonical mobile API base: `https://safa.masarax.com/api/v1`
+- Compatibility API base: `https://safa.masarax.com/api`
 - Health endpoint: `GET https://safa.masarax.com/api/auth/health`
 - Browser root `/` is intentionally private and returns `404 {"status":"not_found"}`.
 
@@ -14,7 +15,10 @@ SAFA is an offline-first financial/account-management system with an Android cli
 ```text
 Android (Kotlin / Jetpack Compose)
         |
-        | HTTPS REST API
+        +-- Encrypted LocalFirstStore (SQLiteOpenHelper + durable outbox)
+        +-- WorkManager reconciliation/retry
+        |
+        | HTTPS versioned REST API + Moshi
         | JWT + device/session/fingerprint verification
         v
 Laravel 13 Backend
@@ -30,19 +34,19 @@ MySQL
 
 ### Android local storage
 
-The current Android implementation uses a custom `SQLiteOpenHelper` local-first store. Payloads are encrypted before being written to the local database and the store contains a durable outbox, retry state, server versions and mutation metadata.
+The production Android implementation uses a custom `SQLiteOpenHelper` local-first store (`LocalFirstStore`). Payloads are encrypted before being written to the local database and the store contains a durable outbox, retry state, server versions and mutation metadata.
 
-It is **not** currently SQLCipher/Room. Documentation should not describe it as SQLCipher/Room until the implementation is actually migrated.
+It is **not** SQLCipher/Room. Documentation, dependencies and shrink rules must not describe Room/SQLCipher as part of the production persistence architecture unless a future migration explicitly reintroduces them.
 
 ### Authentication
 
 The backend uses a custom JWT-based access token plus refresh/session/device/fingerprint security model. Auth-session token values are encrypted at rest and indexed using SHA-256 hashes for lookup.
 
-The Android client stores its authentication credentials using `EncryptedSharedPreferences`.
+The Android client stores its authentication credentials using Keystore-backed encrypted storage.
 
 ### Database
 
-The supported production configuration is currently MySQL, as reflected by `backend/.env.example` and the production-oriented migrations. SQLite is used by CI for isolated automated tests where supported.
+The supported production configuration is MySQL, as reflected by `backend/.env.example` and the production-oriented migrations. SQLite is used by CI for isolated automated backend tests where supported.
 
 ## Core Modules
 
@@ -78,7 +82,7 @@ Requested Account
 
 A share for one account never authorizes another account owned by the same user.
 
-Financial values are persisted using MySQL `DECIMAL` columns and API mutation paths normalize decimal strings instead of relying on binary floating-point arithmetic.
+Financial values are persisted using MySQL `DECIMAL` columns. Android financial calculations must follow the repository's canonical exact-money contract and must not rely on binary floating-point equality.
 
 ## Local Development
 
@@ -97,7 +101,8 @@ From the repository root:
 ```bash
 ./gradlew testDebugUnitTest
 ./gradlew lintDebug
-./gradlew assembleDebug
+./gradlew connectedDebugAndroidTest
+./gradlew assembleRelease
 ```
 
 Do not put private API secrets in the APK. The mobile API key is a public client identifier; server secrets remain server-side.
@@ -121,7 +126,7 @@ php artisan safa:provision-admin
 
 ### Fresh development database
 
-This project is still under active development. For a clean schema, it is acceptable to reset the development database:
+For a clean disposable development schema:
 
 ```bash
 php artisan migrate:fresh
@@ -131,19 +136,17 @@ Only use `migrate:fresh` against a disposable development/test database.
 
 ## CI/CD
 
-GitHub Actions are intentionally **manual-only** (`workflow_dispatch`). A push to `main` or a pull request does not automatically consume runner minutes.
+Production-readiness CI runs automatically for relevant pull requests and pushes to `main`:
 
-The manual workflows cover:
+- Laravel syntax checks and the complete backend test suite.
+- Android unit tests and lint.
+- A real minified/resource-shrunk release APK build using an ephemeral CI-only signing key.
+- Emulator-backed Android instrumentation tests, including local-first recovery/conflict coverage.
+- Test/build reports uploaded for failure diagnosis.
 
-- PHP syntax
-- Laravel migrations in isolated SQLite CI
-- Full Laravel test suite
-- Android unit tests
-- Android lint
-- Android debug build
-- Manual production deployment with a mandatory backend test gate
+Production deployment itself remains manual. Deployment first runs the mandatory backend gate, then synchronizes the Laravel backend and performs read-only HTTPS smoke verification of the live health endpoint, private installer/root surface and protected critical routes. A deployment is not considered successful if any smoke check fails.
 
-Production deployment remains blocked until the complete mandatory backend test suite passes. After cPanel synchronization, the deployment workflow performs a production API health check.
+Third-party GitHub Actions are pinned to immutable commit SHAs. Production signing credentials and deployment credentials remain GitHub secrets and are not exposed to pull-request code.
 
 ## Important Development Rules
 
@@ -152,8 +155,9 @@ Production deployment remains blocked until the complete mandatory backend test 
 3. Every business table/query must remain account-scoped.
 4. Every foreign business relationship must be verified against the active account.
 5. Do not use PHP/Android binary floating point as the authoritative representation of money.
-6. REST, GraphQL and Android sync should converge on the same domain validation rules.
+6. REST and any supported compatibility API must converge on the same domain validation rules; GraphQL business mutations are deprecated.
 7. Add a regression test for every security or synchronization bug that is fixed.
+8. Do not introduce an unused backend/platform dependency without an implemented feature and documented production role.
 
 ## Tests
 
@@ -167,9 +171,10 @@ php artisan test
 Android:
 
 ```bash
-./gradlew test
+./gradlew testDebugUnitTest
 ./gradlew lintDebug
-./gradlew assembleDebug
+./gradlew connectedDebugAndroidTest
+./gradlew assembleRelease
 ```
 
 ## License
