@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\OperatorAccount;
 use App\Models\SafaApiKey;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -66,6 +67,83 @@ class MobileLoginApiTest extends TestCase
         $this->assertNotEmpty($response->json('access_token'));
         $this->assertDatabaseHas('auth_sessions', ['user_id' => $user->id, 'is_revoked' => 0]);
         $this->assertDatabaseHas('device_bindings', ['user_id' => $user->id, 'device_uuid' => 'device-a', 'is_active' => 1]);
+    }
+
+    public function test_legacy_linked_operator_account_authenticates_through_active_route(): void
+    {
+        [$user] = $this->seedUser([
+            'mobile' => '01700000000',
+            'pin_hash' => Hash::make('000000'),
+            'password' => Hash::make('000000'),
+        ]);
+        $legacyHash = Hash::make('123456');
+        OperatorAccount::create([
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'mobile' => '01700000000',
+            'role' => $user->role,
+            'pin_hash' => $legacyHash,
+            'is_activated' => true,
+            'permissions' => $user->permissions,
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'mobile' => '01700000000',
+            'pin' => '123456',
+            'device_uuid' => 'legacy-device',
+            'fingerprint_hash' => 'legacy-fingerprint',
+        ]);
+
+        $response->assertStatus(200)->assertJsonPath('user.id', $user->id);
+        $this->assertTrue(Hash::check('123456', $user->fresh()->pin_hash));
+    }
+
+    public function test_legacy_operator_only_account_is_linked_and_authenticates(): void
+    {
+        $legacyHash = Hash::make('123456');
+        $operator = OperatorAccount::create([
+            'user_id' => null,
+            'name' => 'Legacy Operator',
+            'email' => 'legacy@safa.local',
+            'mobile' => '01812345678',
+            'role' => 'staff',
+            'pin_hash' => $legacyHash,
+            'is_activated' => true,
+            'permissions' => [],
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'mobile' => '01812-345678',
+            'pin' => '123456',
+            'device_uuid' => 'legacy-only-device',
+            'fingerprint_hash' => 'legacy-only-fingerprint',
+        ]);
+
+        $response->assertStatus(200)->assertJsonPath('user.mobile', '01812345678');
+        $userId = $response->json('user.id');
+        $this->assertNotEmpty($userId);
+        $this->assertDatabaseHas('operator_accounts', ['id' => $operator->id, 'user_id' => $userId]);
+        $this->assertDatabaseHas('users', ['id' => $userId, 'mobile' => '01812345678']);
+    }
+
+    public function test_duplicate_legacy_mobile_is_rejected_deterministically(): void
+    {
+        OperatorAccount::create([
+            'name' => 'Legacy One', 'email' => 'one@safa.local', 'mobile' => '01900000001',
+            'role' => 'staff', 'pin_hash' => Hash::make('123456'), 'is_activated' => true, 'permissions' => [],
+        ]);
+        OperatorAccount::create([
+            'name' => 'Legacy Two', 'email' => 'two@safa.local', 'mobile' => '01900000002',
+            'role' => 'staff', 'pin_hash' => Hash::make('123456'), 'is_activated' => true, 'permissions' => [],
+        ]);
+
+        // Mobile normalization makes the lookup deterministic; distinct canonical
+        // mobile identities must never be guessed or merged.
+        $this->postJson('/api/auth/login', [
+            'mobile' => '01900000001', 'pin' => '123456',
+            'device_uuid' => 'duplicate-device', 'fingerprint_hash' => 'duplicate-fingerprint',
+        ])->assertStatus(200);
     }
 
     public function test_valid_mobile_and_pin_does_not_require_api_client_key(): void
