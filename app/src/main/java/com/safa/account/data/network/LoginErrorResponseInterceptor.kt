@@ -6,9 +6,8 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.JSONObject
 
 /**
- * Keeps the login endpoint's real API failure class visible to the existing
- * ViewModel/UI contract. Only /auth/login is transformed; other API responses
- * are left untouched.
+ * Keeps the login endpoint's failure class visible to the existing UI
+ * contract. Only /auth/login responses are transformed.
  */
 class LoginErrorResponseInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -41,15 +40,14 @@ class LoginErrorResponseInterceptor : Interceptor {
             else -> "Login failed (HTTP ${response.code})."
         }
 
-        val prefix = when {
-            response.code == 401 -> ""
-            response.code == 403 -> "Account/device error: "
-            response.code == 422 -> "Validation error: "
-            response.code == 429 -> "Rate limit: "
-            response.code in 500..599 -> "Server error: "
-            else -> "Login error: "
+        val text = when {
+            response.code == 401 -> fallback
+            response.code == 403 -> "Account/device error: ${message.ifBlank { fallback }}"
+            response.code == 422 -> "Validation error: ${message.ifBlank { fallback }}"
+            response.code == 429 -> "Rate limit: ${message.ifBlank { fallback }}"
+            response.code in 500..599 -> "Server error: ${message.ifBlank { fallback }}"
+            else -> "Login error: ${message.ifBlank { fallback }}"
         }
-        val text = prefix + message.ifBlank { fallback }
 
         return response.newBuilder()
             .body(text.toResponseBody(body.contentType()))
