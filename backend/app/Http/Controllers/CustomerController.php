@@ -16,9 +16,30 @@ class CustomerController extends Controller
         if (isset($context['error'])) return $context['error'];
         $accountId = $context['account_id'];
 
+        $validator = Validator::make($request->query(), [
+            'page' => 'sometimes|integer|min:1|max:1000000',
+            'per_page' => 'sometimes|integer|min:1|max:200',
+        ]);
+        if ($validator->fails()) return response()->json(['status' => 'error', 'message' => 'Invalid pagination parameters.', 'errors' => $validator->errors()], 422);
+
+        $page = (int) $request->query('page', 1);
+        $perPage = (int) $request->query('per_page', 50);
+        $paginator = Customer::where('account_id', $accountId)
+            ->whereNull('deleted_at')
+            ->orderBy('name', 'asc')
+            ->orderBy('id', 'asc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
         return response()->json([
             'status' => 'success',
-            'customers' => Customer::where('account_id', $accountId)->whereNull('deleted_at')->orderBy('name', 'asc')->get(),
+            'customers' => $paginator->items(),
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'last_page' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+                'has_more' => $paginator->hasMorePages(),
+            ],
         ]);
     }
 
