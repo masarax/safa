@@ -4,20 +4,16 @@
 -repackageclasses ''
 -keepattributes Signature,*Annotation*,Exceptions,InnerClasses
 
-# --- Data models (Room entities & API DTOs must not be obfuscated) ---
+# --- Data models and API DTOs ---
 -keep class com.safa.account.data.model.** { *; }
 -keep class com.safa.account.data.api.dto.** { *; }
 
-# --- Room ---
+# --- Room compatibility layer ---
+# Remove these rules together with the remaining Room source/dependencies once
+# the LocalFirstStore-only persistence migration is complete.
 -keep class * extends androidx.room.RoomDatabase
 -keep @androidx.room.Entity class *
 -keep @androidx.room.Dao class *
-
-# --- SQLCipher ---
--keep class net.sqlcipher.** { *; }
--keep class net.sqlcipher.database.** { *; }
--dontwarn net.sqlcipher.**
-
 
 # --- Retrofit + Moshi ---
 -keepclassmembers class * {
@@ -37,20 +33,16 @@
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 
-# --- Keep Log calls available for production diagnostics ---
-
 # --- Biometric ---
 -keep class androidx.biometric.** { *; }
 
-# --- Compose (required for reflection-based tooling) ---
+# --- Compose ---
 -keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
 
-# --- Security & Crypto (Google Tink & AndroidX Security) ---
+# --- AndroidX Security ---
 -keep class androidx.security.crypto.** { *; }
 -dontwarn androidx.security.crypto.**
--keep class com.google.crypto.tink.** { *; }
--dontwarn com.google.crypto.tink.**
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn org.checkerframework.**
 -dontwarn javax.annotation.**
