@@ -40,6 +40,8 @@ object SyncSnapshotGuard {
     private fun normalizeEpoch(value: Long, nowMillis: Long): Long? {
         if (value <= 0L) return null
         val millis = if (value < 2_000_000_000L) value * 1000L else value
-        return millis.takeIf { it <= nowMillis + 24L * 60L * 60L * 1000L }
+        val allowance = 86_400_000L
+        val upperBound = if (nowMillis >= Long.MAX_VALUE - allowance) Long.MAX_VALUE else nowMillis + allowance
+        return millis.takeIf { it <= upperBound }
     }
 }
