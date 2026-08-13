@@ -135,8 +135,34 @@ class RemoteConfigController extends Controller
         $validated = $request->validate(['version_code' => 'nullable|integer|min:1']);
         $currentCode = (int) ($validated['version_code'] ?? 1);
         $version = AppVersion::where('platform', 'android')->latest()->first();
-        if (!$version) return response()->json(['force_update' => false, 'latest_version_code' => 1, 'update_url' => null, 'message' => 'App is up to date.']);
-        $forceUpdate = $currentCode < $version->min_version_code || $version->force_update;
-        return response()->json(['force_update' => $forceUpdate, 'latest_version_code' => $version->latest_version_code, 'update_url' => $version->update_url, 'message' => $forceUpdate ? 'A mandatory update is required to continue.' : 'Optional update available.']);
+
+        if (!$version) {
+            return response()->json([
+                'force_update' => false,
+                'update_available' => false,
+                'latest_version_code' => 1,
+                'update_url' => null,
+                'message' => 'App is up to date.',
+            ]);
+        }
+
+        $latestCode = (int) $version->latest_version_code;
+        $minimumCode = (int) $version->min_version_code;
+        $updateAvailable = $currentCode < $latestCode;
+        $forceUpdate = $updateAvailable && ($currentCode < $minimumCode || (bool) $version->force_update);
+
+        $message = match (true) {
+            $forceUpdate => 'A mandatory update is required to continue.',
+            $updateAvailable => 'An optional update is available.',
+            default => 'App is up to date.',
+        };
+
+        return response()->json([
+            'force_update' => $forceUpdate,
+            'update_available' => $updateAvailable,
+            'latest_version_code' => $latestCode,
+            'update_url' => $version->update_url,
+            'message' => $message,
+        ]);
     }
 }
