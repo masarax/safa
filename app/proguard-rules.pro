@@ -5,17 +5,14 @@
 -keepattributes Signature,*Annotation*,Exceptions,InnerClasses
 
 # --- Data models and API DTOs ---
+# Business persistence uses the encrypted LocalFirstStore/SQLiteOpenHelper
+# implementation. Room and SQLCipher are not production runtime dependencies.
 -keep class com.safa.account.data.model.** { *; }
 -keep class com.safa.account.data.api.dto.** { *; }
 
-# --- Room compatibility layer ---
-# Remove these rules together with the remaining Room source/dependencies once
-# the LocalFirstStore-only persistence migration is complete.
--keep class * extends androidx.room.RoomDatabase
--keep @androidx.room.Entity class *
--keep @androidx.room.Dao class *
-
 # --- Retrofit + Moshi ---
+# DTO adapters are generated with Moshi codegen; keep the JSON contract and
+# generated/annotated adapter surface used by Retrofit.
 -keepclassmembers class * {
     @com.squareup.moshi.Json <fields>;
 }
