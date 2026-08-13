@@ -52,7 +52,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
     Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:api'])->group(function () {
         Route::get('/operators', [UserManagementController::class, 'index']); Route::post('/operators', [UserManagementController::class, 'store']); Route::put('/operators/{id}', [UserManagementController::class, 'update']); Route::patch('/operators/{id}', [UserManagementController::class, 'update']); Route::delete('/operators/{id}', [UserManagementController::class, 'destroy']);
-        Route::post('/share-account', [AuthJWTController::class, 'shareAccount']); Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']); Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
+        Route::post('/share-account', [AuthJWTController::class, 'shareAccount']); Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']); Route::post('/switch-account', [AccountContextController::class, 'switch']);
     });
 });
 
