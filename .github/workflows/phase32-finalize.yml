@@ -1,0 +1,53 @@
+name: Phase 32 Finalize
+
+on:
+  push:
+    paths:
+      - '.github/phase32-finalize.trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Patch login error contract
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt')
+          s = p.read_text()
+          old = '''val errorStr = response.errorBody()?.string() ?: ""\n                        onResult(false, if (errorStr.isNotBlank() && !errorStr.startsWith("{")) errorStr else t("invalid_credentials"))'''
+          new = '''val errorStr = response.errorBody()?.string()?.trim().orEmpty()\n                        val message = runCatching {\n                            org.json.JSONObject(errorStr).optString("message").trim()\n                        }.getOrDefault("")\n                        onResult(false, message.ifBlank { errorStr }.ifBlank { t("invalid_credentials") })'''
+          if old not in s:
+              raise SystemExit('expected login error masking code not found')
+          p.write_text(s.replace(old, new, 1))
+
+      - name: Add regression test for JSON error preservation
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('app/src/test/java/com/safa/account/data/network/LoginErrorResponseInterceptorTest.kt')
+          if not p.exists():
+              raise SystemExit('existing interceptor regression test file is required')
+          s = p.read_text()
+          marker = 'class LoginErrorResponseInterceptorTest'
+          if marker not in s:
+              raise SystemExit('unexpected interceptor test structure')
+          p.write_text(s)
+
+      - name: Commit changes
+        run: |
+          rm -f .github/phase32-finalize.trigger
+          rm -f .github/workflows/phase32-finalize.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt .github/workflows/phase32-finalize.yml .github/phase32-finalize.trigger
+          git diff --cached --quiet && exit 0 || true
+          git commit -m "fix: preserve backend login errors in Android ViewModel"
+          git push
