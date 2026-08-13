@@ -19,10 +19,12 @@ class Phase32AuthenticationContractTest extends TestCase
     // Phase 32: production login must remain on MobileLoginController.
     public function test_active_login_route_has_one_mobile_authentication_source_of_truth(): void
     {
-        $loginRoute = collect(Route::getRoutes()->getRoutes())
-            ->first(fn ($candidate) => in_array('POST', $candidate->methods()) && $candidate->uri() === 'api/auth/login');
+        $loginRoutes = collect(Route::getRoutes()->getRoutes())
+            ->filter(fn ($candidate) => in_array('POST', $candidate->methods()) && $candidate->uri() === 'api/auth/login')
+            ->values();
 
-        $this->assertNotNull($loginRoute);
+        $this->assertCount(1, $loginRoutes);
+        $loginRoute = $loginRoutes->first();
         $this->assertSame(MobileLoginController::class, $loginRoute->getControllerClass());
         $this->assertSame('login', $loginRoute->getActionMethod());
         $this->assertFalse(method_exists(AuthJWTController::class, 'login'), 'AuthJWTController must not retain a second credential-login implementation.');
