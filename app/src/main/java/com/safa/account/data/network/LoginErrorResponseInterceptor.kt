@@ -3,7 +3,6 @@ package com.safa.account.data.network
 import okhttp3.Interceptor
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
-import org.json.JSONObject
 
 /**
  * Keeps the login endpoint's failure class visible to the existing UI
@@ -20,16 +19,7 @@ class LoginErrorResponseInterceptor : Interceptor {
 
         val body = response.body ?: return response
         val raw = body.string()
-        val message = runCatching {
-            val json = JSONObject(raw)
-            json.optString("message").trim().ifBlank {
-                json.optJSONObject("errors")?.let { errors ->
-                    errors.keys().asSequence().mapNotNull { key ->
-                        errors.optJSONArray(key)?.optString(0)?.takeIf { it.isNotBlank() }
-                    }.firstOrNull()
-                } ?: ""
-            }
-        }.getOrDefault("")
+        val message = extractMessage(raw)
 
         val fallback = when (response.code) {
             401 -> "Mobile number or PIN is incorrect."
@@ -52,5 +42,16 @@ class LoginErrorResponseInterceptor : Interceptor {
         return response.newBuilder()
             .body(text.toResponseBody(body.contentType()))
             .build()
+    }
+
+    private fun extractMessage(raw: String): String {
+        val match = Regex("\\\"message\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"")
+            .find(raw)
+            ?: return ""
+        return match.groupValues[1]
+            .replace("\\\\\"", "\"")
+            .replace("\\\\\\\\", "\\")
+            .replace("\\\\n", "\n")
+            .trim()
     }
 }
