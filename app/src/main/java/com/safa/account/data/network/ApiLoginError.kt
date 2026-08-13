@@ -1,8 +1,8 @@
 package com.safa.account.data.network
 
 import android.util.Log
-import org.json.JSONArray
-import org.json.JSONObject
+import com.squareup.moshi.JsonReader
+import okio.Buffer
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -17,7 +17,6 @@ sealed interface ApiLoginError {
     }
 
     data class Authorization(override val code: String, override val message: String) : ApiLoginError
-
     data class Validation(override val code: String, override val message: String) : ApiLoginError
 
     data class Throttled(
@@ -69,9 +68,7 @@ object ApiLoginErrorParser {
                 parseRetryAfter(retryAfter)
             )
             in 500..599 -> ApiLoginError.Server("The authentication server is unavailable. Please try again later.")
-            else -> ApiLoginError.Unexpected(
-                parsed.message ?: "The server returned an unexpected login response."
-            )
+            else -> ApiLoginError.Unexpected(parsed.message ?: "The server returned an unexpected login response.")
         }
         debug(status, error.code)
         return error
@@ -93,36 +90,23 @@ object ApiLoginErrorParser {
 
     private fun parseBody(raw: String): ParsedBody = runCatching {
         if (raw.isBlank()) return ParsedBody(null, null)
-        val root = JSONObject(raw)
-        val nested = root.optJSONObject("error")
+        val value = JsonReader.of(Buffer().writeUtf8(raw)).use { it.readJsonValue() }
+        val root = value as? Map<*, *> ?: return ParsedBody(null, null)
+        val nested = root["error"] as? Map<*, *>
         val code = firstText(
-            nested?.opt("code"),
-            root.opt("code"),
-            nested?.opt("error_code"),
-            root.opt("error_code")
+            nested?.get("code"), root["code"], nested?.get("error_code"), root["error_code"]
         )
-
         val message = firstText(
-            nested?.opt("message"),
-            root.opt("message"),
-            validationMessage(root.optJSONObject("errors")),
-            validationMessage(nested?.optJSONObject("errors"))
+            nested?.get("message"), root["message"], validationMessage(root["errors"]), validationMessage(nested?.get("errors"))
         )
         ParsedBody(code, message)
     }.getOrDefault(ParsedBody(null, null))
 
-    private fun validationMessage(errors: JSONObject?): String? {
-        if (errors == null) return null
-        val keys = errors.keys()
-        while (keys.hasNext()) {
-            val value = errors.opt(keys.next())
+    private fun validationMessage(errors: Any?): String? {
+        val map = errors as? Map<*, *> ?: return null
+        map.values.forEach { value ->
             when (value) {
-                is JSONArray -> {
-                    for (i in 0 until value.length()) {
-                        val message = value.optString(i).trim()
-                        if (message.isNotBlank()) return message
-                    }
-                }
+                is List<*> -> value.asSequence().mapNotNull { it?.toString()?.trim() }.firstOrNull { it.isNotBlank() }?.let { return it }
                 is String -> value.trim().takeIf { it.isNotBlank() }?.let { return it }
             }
         }
@@ -141,9 +125,7 @@ object ApiLoginErrorParser {
 
     private fun debug(status: Int?, code: String) {
         if (com.safa.account.BuildConfig.DEBUG) {
-            runCatching {
-                Log.d("SafaLogin", "login failure classified: status=${status ?: "network"}, code=$code")
-            }
+            runCatching { Log.d("SafaLogin", "login failure classified: status=${status ?: "network"}, code=$code") }
         }
     }
 }
