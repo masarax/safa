@@ -17,6 +17,7 @@ use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
 use App\Http\Middleware\VerifyActiveAuthSession;
 use App\Http\Middleware\RejectInactiveLogin;
+use App\Http\Middleware\RejectAmbiguousLoginIdentity;
 use App\Http\Middleware\RequireBusinessPermission;
 use App\Http\Middleware\RequireGraphQLPermission;
 use App\Http\Middleware\ResolveGraphQLAccountContext;
@@ -30,7 +31,7 @@ Route::prefix('auth')->group(function () {
     // Credential login is independent of the APK public client key. The API key
     // is still required for authenticated business/session endpoints.
     Route::post('/login', [MobileLoginController::class, 'login'])
-        ->middleware([RejectInactiveLogin::class, 'throttle:5,1']);
+        ->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, 'throttle:5,1']);
 
     Route::post('/refresh', [SecureAuthController::class, 'refresh'])->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
     Route::get('/session', [SecureAuthController::class, 'session'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:60,1']);
