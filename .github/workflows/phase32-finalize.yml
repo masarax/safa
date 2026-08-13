@@ -1,6 +1,5 @@
 name: Phase 32 finalization
 
-# Temporary finalization workflow for issue #32.
 on:
   push:
     branches: [main]
@@ -22,38 +21,34 @@ jobs:
 
           auth = Path('backend/app/Http/Controllers/AuthJWTController.php')
           text = auth.read_text()
-          marker = '    public function login(Request $request)\n'
-          start = text.find(marker)
-          if start < 0:
-              raise SystemExit('AuthJWTController login method not found')
+          start = text.find('    public function login(Request $request)\n')
           activate = text.find('    public function activateSuperAdmin(Request $request)\n', start)
-          if activate < 0:
-              raise SystemExit('activateSuperAdmin boundary not found')
-          text = text[:start] + text[activate:]
-          auth.write_text(text)
+          if start < 0 or activate < 0:
+              raise SystemExit('AuthJWTController login boundary not found')
+          auth.write_text(text[:start] + text[activate:])
 
           vm = Path('app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt')
           v = vm.read_text()
-          old = 'if (errorStr.isNotBlank() && !errorStr.startsWith("{")) errorStr else "invalid_credentials"'
-          new = 'if (errorStr.isNotBlank()) extractLoginErrorMessage(errorStr) else "invalid_credentials"'
-          if old not in v:
-              raise SystemExit('legacy ViewModel JSON masking expression not found')
-          v = v.replace(old, new, 1)
+          matches = [line for line in v.splitlines() if 'invalid_credentials' in line]
+          if not matches:
+              raise SystemExit('No invalid_credentials handling found in SafaViewModel')
+          pattern = re.compile(r'(?m)^(\s*).*invalid_credentials.*$')
+          v2, count = pattern.subn(r'\1if (errorStr.isNotBlank()) extractLoginErrorMessage(errorStr) else "invalid_credentials"', v, count=1)
+          if count != 1:
+              raise SystemExit(f'Could not replace ViewModel error mapping: {matches}')
           helper = '''\n    private fun extractLoginErrorMessage(raw: String): String {\n        val body = raw.trim()\n        if (!body.startsWith("{")) return body\n        return try {\n            org.json.JSONObject(body).optString("message").takeIf { it.isNotBlank() }\n                ?: "invalid_credentials"\n        } catch (_: Exception) {\n            "invalid_credentials"\n        }\n    }\n'''
-          insert_at = v.rfind('\n}')
-          if insert_at < 0:
-              raise SystemExit('SafaViewModel class boundary not found')
-          v = v[:insert_at] + helper + v[insert_at:]
-          vm.write_text(v)
+          insert_at = v2.rfind('\n}')
+          v2 = v2[:insert_at] + helper + v2[insert_at:]
+          vm.write_text(v2)
 
           login = Path('app/src/main/java/com/safa/account/ui/screens/LoginScreen.kt')
           l = login.read_text()
-          l2 = re.sub(r'(?s)errorStr\.isNotBlank\(\)\s*&&\s*!errorStr\.startsWith\("\{"\)', 'errorStr.isNotBlank()', l, count=1)
+          l2 = re.sub(r'errorStr\.isNotBlank\(\)\s*&&\s*!errorStr\.startsWith\("\{"\)', 'errorStr.isNotBlank()', l, count=1)
           if l2 == l:
               raise SystemExit('LoginScreen JSON masking guard not found')
           login.write_text(l2)
 
-      - name: Add source-of-truth guard
+      - name: Verify source of truth
         shell: bash
         run: |
           grep -q "Route::post('/login', \[MobileLoginController::class, 'login'\])" backend/routes/api.php
