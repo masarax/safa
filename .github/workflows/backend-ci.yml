@@ -12,39 +12,32 @@ concurrency:
 
 jobs:
   laravel:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows, x64, safa]
     timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v5
-
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
           ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
-
       - name: Prepare test database and Laravel environment
+        shell: powershell
         run: |
-          mkdir -p database
-          rm -f database/testing.sqlite
-          touch database/testing.sqlite
-          cp .env.example .env
-          sed -i 's/^APP_KEY=.*/APP_KEY=base64:U2FmYV9waGFzZTMyX3Rlc3Rfa2V5XzEyMzQ1Njc4OTA=/' .env
-
+          New-Item -ItemType Directory -Force database | Out-Null
+          if (Test-Path database/testing.sqlite) { Remove-Item database/testing.sqlite -Force }
+          New-Item -ItemType File database/testing.sqlite | Out-Null
+          Copy-Item .env.example .env
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
       - name: Clear Laravel configuration cache
         run: php artisan config:clear
-
       - name: PHP syntax check
-        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-
+        shell: powershell
+        run: Get-ChildItem app,config,database,routes,tests -Recurse -Filter *.php | ForEach-Object { php -l $_.FullName }
       - name: Run full Laravel test suite
-        env:
-          XDEBUG_MODE: off
         run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
