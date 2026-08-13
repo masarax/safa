@@ -7,54 +7,96 @@ import retrofit2.http.*
 
 interface ApiService {
     @POST("sync/up") suspend fun syncUp(@Body payload: SyncUpPayload): Response<Map<String, Any>>
-    @GET("sync/down") suspend fun syncDown(): Response<SyncDownResponse>
+
+    /** Raw bounded page used by the canonical v1 sync contract. */
+    @GET("sync/down") suspend fun syncDownPage(@Query("page") page: Int, @Query("per_page") perPage: Int = 100): Response<SyncDownResponse>
+
+    /** Existing repository callers transparently receive all bounded pages. */
+    suspend fun syncDown(): Response<SyncDownResponse> {
+        val transactions = mutableListOf<Map<String, Any?>>()
+        val customers = mutableListOf<Map<String, Any?>>()
+        val suppliers = mutableListOf<Map<String, Any?>>()
+        val deposits = mutableListOf<Map<String, Any?>>()
+        val expenses = mutableListOf<Map<String, Any?>>()
+        val batches = mutableListOf<Map<String, Any?>>()
+        val ledgers = mutableListOf<Map<String, Any?>>()
+        var permissions: Map<String, Any?> = emptyMap()
+        var userPermissions: Map<String, Any?> = emptyMap()
+        var accountId: Int? = null
+        var serverTime: Long? = null
+        var page = 1
+
+        while (page <= 10_000) {
+            val response = syncDownPage(page)
+            if (!response.isSuccessful || response.body() == null) return response
+            val body = response.body()!!
+            accountId = body.accountId ?: accountId
+            serverTime = body.serverTime ?: serverTime
+            if (body.permissions.isNotEmpty()) permissions = body.permissions
+            if (body.userPermissions.isNotEmpty()) userPermissions = body.userPermissions
+            transactions += body.transactions
+            customers += body.customers
+            suppliers += body.suppliers
+            deposits += body.supplierDeposits
+            expenses += body.expensesIncomes
+            batches += body.walletBatches
+            ledgers += body.walletLedgers
+            if (!body.hasMore) break
+            page++
+        }
+
+        return Response.success(SyncDownResponse(
+            status = "success",
+            accountId = accountId,
+            serverTime = serverTime,
+            transactions = transactions,
+            customers = customers,
+            suppliers = suppliers,
+            supplierDeposits = deposits,
+            expensesIncomes = expenses,
+            walletBatches = batches,
+            walletLedgers = ledgers,
+            permissions = permissions,
+            userPermissions = userPermissions,
+            page = page,
+            hasMore = false
+        ))
+    }
 
     @GET("customers") suspend fun getCustomers(): Response<Map<String, Any?>>
     @POST("customers") suspend fun createCustomer(@Body customer: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("customers/{id}") suspend fun updateCustomerApi(@Path("id") id: Int, @Body customer: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("customers/{id}") suspend fun deleteCustomerApi(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
-
     @GET("suppliers") suspend fun getSuppliers(): Response<Map<String, Any?>>
     @POST("suppliers") suspend fun createSupplier(@Body supplier: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("suppliers/{id}") suspend fun updateSupplierApi(@Path("id") id: Int, @Body supplier: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("suppliers/{id}") suspend fun deleteSupplierApi(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
-
     @GET("transactions") suspend fun getTransactions(): Response<Map<String, Any?>>
     @POST("transactions") suspend fun createTransactionApi(@Body transaction: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("transactions/{id}") suspend fun updateTransactionApi(@Path("id") id: Int, @Body transaction: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("transactions/{id}") suspend fun deleteTransactionApi(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
-
     @GET("wallet-ledgers") suspend fun getWalletLedgers(): Response<Map<String, Any>>
     @POST("wallet-ledgers") suspend fun createWalletLedger(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("wallet-ledgers/{id}") suspend fun updateWalletLedger(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("wallet-ledgers/{id}") suspend fun deleteWalletLedger(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
-
     @GET("supplier-deposits") suspend fun getSupplierDeposits(): Response<Map<String, Any>>
     @POST("supplier-deposits") suspend fun createSupplierDeposit(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("supplier-deposits/{id}") suspend fun updateSupplierDeposit(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("supplier-deposits/{id}") suspend fun deleteSupplierDeposit(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
-
     @GET("wallet-batches") suspend fun getWalletBatches(): Response<Map<String, Any>>
     @POST("wallet-batches") suspend fun createWalletBatch(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("wallet-batches/{id}") suspend fun updateWalletBatch(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("wallet-batches/{id}") suspend fun deleteWalletBatch(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
-
     @GET("expenses-incomes") suspend fun getExpensesIncomes(): Response<Map<String, Any?>>
     @POST("expenses-incomes") suspend fun createExpenseIncome(@Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @PUT("expenses-incomes/{id}") suspend fun updateExpenseIncome(@Path("id") id: Int, @Body payload: Map<String, Any?>): Response<Map<String, Any>>
     @DELETE("expenses-incomes/{id}") suspend fun deleteExpenseIncome(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = false): Response<Map<String, Any>>
-
-    // Canonical unauthenticated health contract. This service is built without
-    // HMAC/JWT/session interceptors by RetrofitClient.getHealthApiService().
     @GET("auth/health") suspend fun checkServerHealth(): Response<Map<String, Any>>
-
     @GET("config/remote") suspend fun getRemoteConfig(): Response<Map<String, Any>>
     @POST("config/update") suspend fun updateConfig(@Body config: Map<String, Any?>): Response<Map<String, Any>>
     @Multipart @POST("upload/logo") suspend fun uploadLogo(@Part logo: MultipartBody.Part): Response<Map<String, Any>>
     @GET("version/check") suspend fun checkVersion(@Query("version_code") versionCode: Int): Response<Map<String, Any>>
-
     @POST("graphql") suspend fun postGraphQl(@Body request: GraphQlRequest): Response<GraphQlResponse>
-
     @POST("auth/login") suspend fun login(@Body request: MobilePinLoginRequest): Response<Map<String, Any>>
     @POST("auth/logout") suspend fun logout(): Response<Map<String, Any>>
     @POST("auth/logout-all") suspend fun logoutAll(): Response<Map<String, Any>>
@@ -64,7 +106,6 @@ interface ApiService {
     @POST("auth/operators") suspend fun createOperator(@Body request: OperatorApiRequest): Response<Map<String, Any>>
     @PUT("auth/operators/{id}") suspend fun updateOperator(@Path("id") id: Int, @Body request: OperatorApiRequest): Response<Map<String, Any>>
     @DELETE("auth/operators/{id}") suspend fun deleteOperator(@Path("id") id: Int): Response<Map<String, Any>>
-
     @GET("accounts") suspend fun getAccounts(): Response<Map<String, Any?>>
     @POST("accounts/switch") suspend fun switchAccount(@Body request: Map<String, Any?>): Response<Map<String, Any?>>
     @POST("accounts/share") suspend fun shareAccount(@Body request: Map<String, Any?>): Response<Map<String, Any?>>
