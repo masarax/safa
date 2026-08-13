@@ -1,8 +1,13 @@
 package com.safa.account.data.model
 
 /**
- * Server-authoritative application models.
- * Business data is never persisted on the device; Laravel/MySQL is the source of truth.
+ * Application/domain compatibility models.
+ *
+ * Laravel/MySQL is the server-authoritative source of accepted business state,
+ * while Android keeps an encrypted durable local-first cache and mutation outbox
+ * in LocalFirstStore. The local store survives process/device restarts and is
+ * cleared at the authenticated account boundary. These models are serialized
+ * into that canonical store by AppRepository rather than being Room entities.
  */
 
 data class OperatorAccount(
@@ -177,8 +182,11 @@ data class WalletBatch(
 )
 
 /**
- * Compatibility type for legacy ViewModel code. It is never persisted locally.
- * Failed-network outbox operations are intentionally not stored on-device.
+ * Compatibility projection used by older ViewModel/UI code.
+ *
+ * The authoritative durable mutation state is stored encrypted in
+ * LocalFirstStore.outbox. Network failures, retries and deferred edits remain
+ * recoverable after app/process restart and are replayed by SafaSyncWorker.
  */
 data class SyncOutbox(
     val id: Int = 0,
