@@ -79,10 +79,8 @@ class LocalFirstSyncInterceptor(context: android.content.Context) : Interceptor 
                     put("server_id", serverId); put("sync_version", serverVersion)
                     put("_sync", JSONObject().apply { put("mutation_id", UUID.randomUUID().toString()); put("base_version", serverVersion); put("operation", operation) })
                 }
-                val rebasedStored = store.rebaseLatestProcessingOutbox(entity, localId, serverId, serverVersion, conflict.optString("server_snapshot", null))
+                val rebasedStored = store.rebaseLatestProcessingOutbox(entity, localId, serverId, serverVersion, conflict.optString("server_snapshot").takeIf { it.isNotBlank() })
                 if (rebasedStored) {
-                    // Repository sees this as a non-retryable rejection and the store
-                    // atomically promotes the deferred rebased mutation to PENDING.
                     rejected.put(JSONObject().apply { put("entity", entity); put("local_id", localId); put("reason", "REBASED_CONFLICT: local mutation rebased on server version $serverVersion"); put("code", "CONFLICT_REBASED") })
                 } else {
                     remainingConflicts.put(conflict)
