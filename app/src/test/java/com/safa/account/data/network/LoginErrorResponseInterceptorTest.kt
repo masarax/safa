@@ -41,8 +41,8 @@ class LoginErrorResponseInterceptorTest {
     }
 
     @Test
-    fun `403 preserves account or device error`() {
-        assertEquals("Account or device access is forbidden.", transformed(403, "{\"message\":\"Device is revoked.\"}"))
+    fun `403 exposes account or device error`() {
+        assertEquals("Account/device error: Device is revoked.", transformed(403, "{\"message\":\"Device is revoked.\"}"))
     }
 
     @Test
