@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
+use App\Models\OperatorAccount;
 use App\Models\User;
 use App\Support\MobileNumber;
 use Illuminate\Http\JsonResponse;
@@ -37,6 +38,9 @@ class MobileLoginController extends Controller
 
         $user = $this->findUserByMobile($mobile);
         if (!$user) {
+            $user = $this->resolveLegacyOperator($mobile);
+        }
+        if (!$user) {
             return response()->json(['status' => 'error', 'message' => 'Mobile number or PIN is incorrect.'], 401);
         }
         if (!(bool) $user->is_activated) {
@@ -54,6 +58,24 @@ class MobileLoginController extends Controller
                 // Ignore malformed legacy hashes and continue with supported hashes.
             }
         }
+
+        if (!$pinValid) {
+            $legacyHash = $this->legacyPinHashForUser($user, $mobile);
+            if ($legacyHash !== null) {
+                try {
+                    $pinValid = Hash::check($pin, $legacyHash);
+                    if ($pinValid) {
+                        // Promote the legacy credential into the canonical user record.
+                        $user->pin_hash = $legacyHash;
+                        $user->password = $legacyHash;
+                        $user->save();
+                    }
+                } catch (\Throwable) {
+                    $pinValid = false;
+                }
+            }
+        }
+
         if (!$pinValid) {
             return response()->json(['status' => 'error', 'message' => 'Mobile number or PIN is incorrect.'], 401);
         }
@@ -186,6 +208,66 @@ class MobileLoginController extends Controller
             "REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') = ?",
             [$normalized]
         )->first();
+    }
+
+    private function resolveLegacyOperator(string $mobile): ?User
+    {
+        $normalized = MobileNumber::normalize($mobile);
+        if ($normalized === '') return null;
+
+        $operators = OperatorAccount::query()->get()->filter(function (OperatorAccount $operator) use ($normalized): bool {
+            return MobileNumber::normalize((string) $operator->mobile) === $normalized;
+        });
+
+        if ($operators->count() > 1) {
+            abort(response()->json([
+                'status' => 'error',
+                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
+            ], 409));
+        }
+
+        $operator = $operators->first();
+        if (!$operator) return null;
+
+        $user = $operator->user_id ? User::find($operator->user_id) : null;
+        if (!$user) {
+            $existing = $this->findUserByMobile($normalized);
+            if ($existing) {
+                $operator->user_id = $existing->id;
+                $operator->save();
+                $user = $existing;
+            }
+        }
+
+        if (!$user) {
+            $user = User::create([
+                'name' => $operator->name,
+                'email' => $operator->email ?: ($normalized . '@safa.local'),
+                'mobile' => $normalized,
+                'role' => $operator->role,
+                'pin_hash' => $operator->pin_hash,
+                'password' => $operator->pin_hash,
+                'is_activated' => (bool) $operator->is_activated,
+                'permissions' => is_array($operator->permissions) ? $operator->permissions : [],
+            ]);
+            $operator->user_id = $user->id;
+            $operator->save();
+        }
+
+        return $user;
+    }
+
+    private function legacyPinHashForUser(User $user, string $mobile): ?string
+    {
+        $operator = OperatorAccount::query()->where('user_id', $user->id)->first();
+        if (!$operator) {
+            $normalized = MobileNumber::normalize($mobile);
+            $operator = OperatorAccount::query()->get()->first(
+                fn (OperatorAccount $candidate) => MobileNumber::normalize((string) $candidate->mobile) === $normalized
+            );
+        }
+
+        return $operator?->pin_hash ?: null;
     }
 
     private function normalizeDigits(string $value): string
