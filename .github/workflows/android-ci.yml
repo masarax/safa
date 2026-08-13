@@ -81,9 +81,9 @@ jobs:
             app/build/reports/lint-results-*.xml
 
   instrumentation:
-    name: Emulator instrumentation tests
+    name: Emulator instrumentation and release smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -104,17 +104,43 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run connected Android tests
+      - name: Create ephemeral runtime signing key
+        shell: bash
+        run: |
+          keytool -genkeypair -v \
+            -keystore "$RUNNER_TEMP/safa-ci-runtime.jks" \
+            -storepass ci-only-password \
+            -keypass ci-only-password \
+            -alias safa-ci \
+            -keyalg RSA -keysize 2048 -validity 2 \
+            -dname "CN=SAFA CI Runtime,OU=CI,O=MASARA X,L=Riyadh,C=SA"
+
+      - name: Run connected tests and release runtime smoke
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/safa-ci-runtime.jks
+          STORE_PASSWORD: ci-only-password
+          KEY_ALIAS: safa-ci
+          KEY_PASSWORD: ci-only-password
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
           disable-animations: true
           disk-size: 4096M
-          script: ./gradlew --no-daemon connectedDebugAndroidTest
+          script: |
+            set -euo pipefail
+            ./gradlew --no-daemon connectedDebugAndroidTest assembleRelease
+            APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+            test -n "$APK"
+            adb install -r "$APK"
+            adb shell am force-stop com.safa.account
+            adb shell am start -W -n com.safa.account/.MainActivity
+            sleep 3
+            PID="$(adb shell pidof com.safa.account | tr -d '\r')"
+            test -n "$PID"
 
-      - name: Upload instrumentation results
+      - name: Upload instrumentation and release-smoke results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -123,3 +149,4 @@ jobs:
           path: |
             app/build/reports/androidTests/**
             app/build/outputs/androidTest-results/**
+            app/build/outputs/apk/release/*.apk
