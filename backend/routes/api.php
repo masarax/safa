@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SyncController;
+use App\Http\Controllers\SyncPageController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\AuthJWTController;
 use App\Http\Controllers\SecureAuthController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\VersionedApiProxyController;
+use App\Http\Controllers\VersionedCollectionController;
 use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
 use App\Http\Middleware\VerifyActiveAuthSession;
@@ -26,9 +28,16 @@ use App\Http\Middleware\RequireSuperAdmin;
 use App\Http\Middleware\ValidateLogoUpload;
 use App\Http\Middleware\ValidateSyncDependencies;
 
-// Canonical mobile API version. The proxy preserves the existing route/middleware
-// implementation while allowing the Android client to migrate to /api/v1/*
-// without breaking existing clients still using /api/*.
+// Versioned high-volume reads use the same security boundary as the legacy API.
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:60,1'])->group(function () {
+    Route::get('/v1/sync/down', SyncPageController::class);
+    foreach (['customers', 'suppliers', 'transactions', 'wallet-ledgers', 'supplier-deposits', 'wallet-batches', 'expenses-incomes'] as $resource) {
+        Route::get('/v1/' . $resource, VersionedCollectionController::class)->defaults('resource', $resource);
+    }
+});
+
+// All other v1 requests are transparently dispatched to the existing routes,
+// preserving their established authentication and business middleware.
 Route::any('/v1/{path?}', VersionedApiProxyController::class)->where('path', '.*');
 
 Route::prefix('auth')->group(function () {
@@ -50,8 +59,7 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
 });
 
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:60,1'])->group(function () {
-    Route::get('/sync/down', [SyncController::class, 'syncDown']);
-    Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
+    Route::get('/sync/down', [SyncController::class, 'syncDown']); Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']); Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
     Route::get('/accounts', [AccountContextController::class, 'index']); Route::post('/accounts/switch', [AccountContextController::class, 'switch']); Route::post('/accounts/share', [AccountContextController::class, 'share']);
     Route::get('/customers', [CustomerController::class, 'index']); Route::post('/customers', [CustomerController::class, 'store']); Route::put('/customers/{id}', [CustomerController::class, 'update']); Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
