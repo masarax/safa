@@ -1,40 +1,20 @@
 package com.safa.account.data.network
 
+import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.Response
-import okhttp3.ResponseBody.Companion.toResponseBody
-import org.json.JSONObject
 
-/** Keeps login HTTP failure classes and backend messages visible to the client. */
+/** Preserves the original structured login error body for typed parsing upstream. */
 class LoginErrorResponseInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val response = chain.proceed(request)
-        if (!request.url.encodedPath.endsWith("/auth/login") || response.isSuccessful) return response
-
-        val body = response.body ?: return response
-        val raw = body.string()
-        val message = extractMessage(raw)
-        val fallback = when (response.code) {
-            401 -> "Mobile number or PIN is incorrect."
-            403 -> "Authentication was denied for this account or device."
-            422 -> "The login request is invalid."
-            429 -> "Too many login attempts. Please wait and try again."
-            in 500..599 -> "The authentication server is unavailable. Please try again later."
-            else -> "Login failed (HTTP ${response.code})."
+        if (request.url.encodedPath.endsWith("/auth/login") && !response.isSuccessful) {
+            // Keep HTTP status and Laravel JSON untouched. Never log request bodies or secrets.
+            if (com.safa.account.BuildConfig.DEBUG) {
+                Log.d("SafaLogin", "login HTTP failure: status=${response.code}")
+            }
         }
-        val text = when {
-            response.code == 401 -> fallback
-            response.code == 403 -> "Account/device error: ${message.ifBlank { fallback }}"
-            response.code == 422 -> "Validation error: ${message.ifBlank { fallback }}"
-            response.code == 429 -> "Rate limit: ${message.ifBlank { fallback }}"
-            response.code in 500..599 -> "Server error: ${message.ifBlank { fallback }}"
-            else -> "Login error: ${message.ifBlank { fallback }}"
-        }
-        return response.newBuilder().body(text.toResponseBody(body.contentType())).build()
+        return response
     }
-
-    private fun extractMessage(raw: String): String = runCatching {
-        JSONObject(raw).optString("message").trim()
-    }.getOrDefault("")
 }
