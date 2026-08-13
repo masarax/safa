@@ -14,10 +14,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * First-factor mobile authentication.
+ * Canonical first-factor mobile authentication endpoint.
  *
- * PIN + mobile is always required for a new/expired login. Biometric quick
- * unlock is only a local unlock of an already authenticated session.
+ * Legacy operator data is handled only as a deterministic migration/compatibility
+ * source into the canonical User model; it is not a second credential authority.
  */
 class MobileLoginController extends Controller
 {
@@ -27,24 +27,24 @@ class MobileLoginController extends Controller
         $pin = $this->normalizeDigits(trim((string) ($request->input('pin') ?? $request->input('password'))));
 
         if ($mobile === '') {
-            return response()->json(['status' => 'error', 'message' => 'Mobile number is required for login.'], 422);
+            return $this->error('MOBILE_REQUIRED', 'Mobile number is required for login.', 422);
         }
         if (!MobileNumber::isValid($mobile)) {
-            return response()->json(['status' => 'error', 'message' => 'Invalid mobile number.'], 422);
+            return $this->error('MOBILE_INVALID', 'Invalid mobile number.', 422);
         }
         if ($pin === '' || !preg_match('/^\d{6}$/', $pin)) {
-            return response()->json(['status' => 'error', 'message' => '6-Digit PIN is required for login.'], 422);
+            return $this->error('PIN_INVALID', '6-Digit PIN is required for login.', 422);
         }
 
         $user = $this->findUserByMobile($mobile);
         if (!$user) {
-            $user = $this->resolveLegacyOperator($mobile);
+            $user = $this->migrateLegacyOperator($mobile);
         }
         if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'Mobile number or PIN is incorrect.'], 401);
+            return $this->error('INVALID_CREDENTIALS', 'Mobile number or PIN is incorrect.', 401);
         }
         if (!(bool) $user->is_activated) {
-            return response()->json(['status' => 'error', 'message' => 'This account is inactive. Please contact an administrator.'], 403);
+            return $this->error('ACCOUNT_INACTIVE', 'This account is inactive. Please contact an administrator.', 403);
         }
 
         $pinValid = false;
@@ -60,23 +60,7 @@ class MobileLoginController extends Controller
         }
 
         if (!$pinValid) {
-            $legacyHash = $this->legacyPinHashForUser($user, $mobile);
-            if ($legacyHash !== null) {
-                try {
-                    $pinValid = Hash::check($pin, $legacyHash);
-                    if ($pinValid) {
-                        $user->pin_hash = $legacyHash;
-                        $user->password = $legacyHash;
-                        $user->save();
-                    }
-                } catch (\Throwable) {
-                    $pinValid = false;
-                }
-            }
-        }
-
-        if (!$pinValid) {
-            return response()->json(['status' => 'error', 'message' => 'Mobile number or PIN is incorrect.'], 401);
+            return $this->error('INVALID_CREDENTIALS', 'Mobile number or PIN is incorrect.', 401);
         }
 
         $deviceUuid = trim((string) ($request->input('device_uuid') ?? $request->input('device_token') ?? $request->header('X-SAFA-DEVICE-TOKEN') ?? ''));
@@ -84,10 +68,10 @@ class MobileLoginController extends Controller
         $deviceModel = trim((string) ($request->input('device_model') ?? $request->header('X-SAFA-DEVICE-MODEL') ?? 'Unknown Device'));
 
         if ($deviceUuid === '') {
-            return response()->json(['status' => 'error', 'message' => 'Device identity is required.'], 400);
+            return $this->error('DEVICE_REQUIRED', 'Device identity is required.', 400);
         }
         if ($fingerprintHash === '') {
-            return response()->json(['status' => 'error', 'message' => 'Device fingerprint is required.'], 400);
+            return $this->error('FINGERPRINT_REQUIRED', 'Device fingerprint is required.', 400);
         }
 
         $result = DB::transaction(function () use ($user, $deviceUuid, $fingerprintHash, $deviceModel) {
@@ -98,10 +82,7 @@ class MobileLoginController extends Controller
                 ->first();
 
             if ($binding && !$binding->is_active) {
-                return ['error' => response()->json([
-                    'status' => 'error',
-                    'message' => 'Device is inactive or revoked for this account.',
-                ], 403)];
+                return ['error' => $this->error('DEVICE_REVOKED', 'Device is inactive or revoked for this account.', 403)];
             }
 
             if (!$binding) {
@@ -185,11 +166,6 @@ class MobileLoginController extends Controller
                 'session_token' => $result['session_token'],
                 'fingerprint_token' => $result['fingerprint_token'],
             ],
-            'access_token' => $result['access_token'],
-            'refresh_token' => $result['refresh_token'],
-            'device_token' => $result['device_token'],
-            'session_token' => $result['session_token'],
-            'fingerprint_token' => $result['fingerprint_token'],
         ], 200);
     }
 
@@ -201,42 +177,38 @@ class MobileLoginController extends Controller
         $query = User::query()->where('mobile', $normalized);
         $count = $query->count();
         if ($count > 1) {
-            abort(response()->json([
-                'status' => 'error',
-                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
-            ], 409));
+            abort($this->error('AMBIGUOUS_MOBILE', 'Multiple accounts match this mobile number. Please contact an administrator.', 409));
         }
         if ($count === 1) return $query->first();
 
+        // Compatibility lookup for pre-canonical stored formatting.
         $fallback = User::query()->whereRaw(
             "REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') = ?",
             [$normalized]
         );
         $fallbackCount = $fallback->count();
         if ($fallbackCount > 1) {
-            abort(response()->json([
-                'status' => 'error',
-                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
-            ], 409));
+            abort($this->error('AMBIGUOUS_MOBILE', 'Multiple accounts match this mobile number. Please contact an administrator.', 409));
         }
 
         return $fallbackCount === 1 ? $fallback->first() : null;
     }
 
-    private function resolveLegacyOperator(string $mobile): ?User
+    /**
+     * Migrate a legacy operator record into the canonical User model.
+     * This is compatibility migration, not an independent authentication path.
+     */
+    private function migrateLegacyOperator(string $mobile): ?User
     {
         $normalized = MobileNumber::normalize($mobile);
         if ($normalized === '') return null;
 
-        $operators = OperatorAccount::query()->get()->filter(function (OperatorAccount $operator) use ($normalized): bool {
-            return MobileNumber::normalize((string) $operator->mobile) === $normalized;
-        });
+        $operators = OperatorAccount::query()->get()->filter(
+            fn (OperatorAccount $operator) => MobileNumber::normalize((string) $operator->mobile) === $normalized
+        );
 
         if ($operators->count() > 1) {
-            abort(response()->json([
-                'status' => 'error',
-                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
-            ], 409));
+            abort($this->error('AMBIGUOUS_MOBILE', 'Multiple accounts match this mobile number. Please contact an administrator.', 409));
         }
 
         $operator = $operators->first();
@@ -244,59 +216,52 @@ class MobileLoginController extends Controller
 
         $user = $operator->user_id ? User::find($operator->user_id) : null;
         if ($user) {
-            $linkedMobile = MobileNumber::normalize((string) $user->mobile);
-            if ($linkedMobile !== $normalized) {
-                abort(response()->json([
-                    'status' => 'error',
-                    'message' => 'Legacy account linkage is inconsistent. Please contact an administrator.',
-                ], 409));
+            if (MobileNumber::normalize((string) $user->mobile) !== $normalized) {
+                abort($this->error('LEGACY_LINK_INVALID', 'Legacy account linkage is inconsistent. Please contact an administrator.', 409));
             }
+            return $user;
         }
 
-        if (!$user) {
-            $existing = $this->findUserByMobile($normalized);
-            if ($existing) {
-                $operator->user_id = $existing->id;
-                $operator->save();
-                $user = $existing;
-            }
-        }
-
-        if (!$user) {
-            $user = User::create([
-                'name' => $operator->name,
-                'email' => $operator->email ?: ($normalized . '@safa.local'),
-                'mobile' => $normalized,
-                'role' => $operator->role,
-                'pin_hash' => $operator->pin_hash,
-                'password' => $operator->pin_hash,
-                'is_activated' => (bool) $operator->is_activated,
-                'permissions' => is_array($operator->permissions) ? $operator->permissions : [],
-            ]);
-            $operator->user_id = $user->id;
+        $existing = $this->findUserByMobile($normalized);
+        if ($existing) {
+            $operator->user_id = $existing->id;
             $operator->save();
+            return $existing;
         }
+
+        $user = User::create([
+            'name' => $operator->name,
+            'email' => $operator->email ?: ($normalized . '@safa.local'),
+            'mobile' => $normalized,
+            'role' => $operator->role,
+            'pin_hash' => $operator->pin_hash,
+            'password' => $operator->pin_hash,
+            'is_activated' => (bool) $operator->is_activated,
+            'permissions' => is_array($operator->permissions) ? $operator->permissions : [],
+        ]);
+
+        $operator->user_id = $user->id;
+        $operator->save();
 
         return $user;
     }
 
-    private function legacyPinHashForUser(User $user, string $mobile): ?string
+    private function error(string $code, string $message, int $status, array $details = []): JsonResponse
     {
-        $operator = OperatorAccount::query()->where('user_id', $user->id)->first();
-        if ($operator) return $operator->pin_hash ?: null;
-
-        $normalized = MobileNumber::normalize($mobile);
-        $matches = OperatorAccount::query()->get()->filter(
-            fn (OperatorAccount $candidate) => MobileNumber::normalize((string) $candidate->mobile) === $normalized
-        );
-        if ($matches->count() > 1) {
-            abort(response()->json([
-                'status' => 'error',
-                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
-            ], 409));
+        $payload = [
+            'status' => 'error',
+            'message' => $message,
+            'error' => [
+                'code' => $code,
+                'message' => $message,
+            ],
+        ];
+        if ($details !== []) {
+            $payload['errors'] = $details;
+            $payload['error']['details'] = $details;
         }
 
-        return $matches->first()?->pin_hash ?: null;
+        return response()->json($payload, $status);
     }
 
     private function normalizeDigits(string $value): string
