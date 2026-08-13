@@ -283,14 +283,20 @@ class MobileLoginController extends Controller
     private function legacyPinHashForUser(User $user, string $mobile): ?string
     {
         $operator = OperatorAccount::query()->where('user_id', $user->id)->first();
-        if (!$operator) {
-            $normalized = MobileNumber::normalize($mobile);
-            $operator = OperatorAccount::query()->get()->first(
-                fn (OperatorAccount $candidate) => MobileNumber::normalize((string) $candidate->mobile) === $normalized
-            );
+        if ($operator) return $operator->pin_hash ?: null;
+
+        $normalized = MobileNumber::normalize($mobile);
+        $matches = OperatorAccount::query()->get()->filter(
+            fn (OperatorAccount $candidate) => MobileNumber::normalize((string) $candidate->mobile) === $normalized
+        );
+        if ($matches->count() > 1) {
+            abort(response()->json([
+                'status' => 'error',
+                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
+            ], 409));
         }
 
-        return $operator?->pin_hash ?: null;
+        return $matches->first()?->pin_hash ?: null;
     }
 
     private function normalizeDigits(string $value): string
