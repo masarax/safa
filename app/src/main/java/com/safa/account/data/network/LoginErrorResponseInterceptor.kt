@@ -1,11 +1,12 @@
 package com.safa.account.data.network
 
 import android.util.Log
+import com.safa.account.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import org.json.JSONObject
-import java.io.IOException
 
 /**
  * Keeps login HTTP status codes intact while converting Laravel failures into a
@@ -33,8 +34,6 @@ class LoginErrorResponseInterceptor : Interceptor {
         val rawBody = runCatching { response.peekBody(MAX_PEEK_BYTES).string() }.getOrDefault("")
 
         if (response.isSuccessful) {
-            // A 2xx login without the expected token envelope is an unexpected
-            // server response, not a successful authentication.
             val validTokenEnvelope = runCatching {
                 val root = JSONObject(rawBody)
                 val tokens = root.optJSONObject("tokens")
@@ -85,8 +84,6 @@ class LoginErrorResponseInterceptor : Interceptor {
 
     companion object {
         private const val MAX_PEEK_BYTES = 256L * 1024L
-        private val JSON_MEDIA_TYPE = "application/json".toMediaTypeOrNullCompat()
+        private val JSON_MEDIA_TYPE = "application/json".toMediaTypeOrNull()
     }
 }
-
-private fun String.toMediaTypeOrNullCompat() = okhttp3.MediaType.Companion.toMediaTypeOrNull(this)
