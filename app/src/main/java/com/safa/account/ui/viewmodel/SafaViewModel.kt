@@ -1008,8 +1008,11 @@ class SafaViewModel(
                         onResult(true, null)
                         return@launch
                     } else {
-                        val errorStr = response.errorBody()?.string() ?: ""
-                        onResult(false, if (errorStr.isNotBlank() && !errorStr.startsWith("{")) errorStr else t("invalid_credentials"))
+                        val errorStr = response.errorBody()?.string()?.trim().orEmpty()
+                        val message = runCatching {
+                            org.json.JSONObject(errorStr).optString("message").trim()
+                        }.getOrDefault("")
+                        onResult(false, message.ifBlank { errorStr }.ifBlank { t("invalid_credentials") })
                         return@launch
                     }
                 } else {
