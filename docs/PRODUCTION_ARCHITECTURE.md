@@ -13,7 +13,7 @@ This document is the canonical implementation contract for the production Androi
 
 ## REST API versioning
 
-The canonical mobile contract is URI-versioned under `/api/v1/...`.
+The canonical and only supported business/mobile contract is URI-versioned REST under `/api/v1/...`.
 
 - New Android builds use `/api/v1` for business and sync calls.
 - Existing unversioned `/api/...` routes are compatibility routes during migration and must preserve the same authorization/business rules.
@@ -23,19 +23,17 @@ The canonical mobile contract is URI-versioned under `/api/v1/...`.
 
 A compatibility route may be deprecated only after all supported Android releases have moved to the replacement contract. Removal must be announced in release notes and covered by contract tests before sunset.
 
-## GraphQL compatibility surface
+## GraphQL retirement
 
-GraphQL is a read-only compatibility API. Business writes use the canonical versioned REST API under `/api/v1`.
+GraphQL is not a supported SAFA business API. The legacy `/api/graphql` endpoint exists only as a migration signal and returns `410 GRAPHQL_DEPRECATED` with `/api/v1` as the replacement.
 
-- Collection reads default to `limit=100` and are clamped to a maximum of `250` records per root field.
-- `offset` defaults to `0`, must be non-negative, and is bounded to `1,000,000`.
-- Results use stable ascending `id` ordering.
-- Normal reads exclude soft-deleted rows and are always restricted to the authorized active account.
-- Invalid pagination returns a field error rather than loading an unbounded collection.
-- The custom query document is capped at 32 KiB and a single request may contain at most 20 root fields.
-- GraphQL mutations return `410 GRAPHQL_MUTATIONS_DEPRECATED`; clients must migrate writes to `/api/v1`.
+- GraphQL performs no business reads.
+- GraphQL performs no business mutations.
+- No financial calculation, validation, account-scoping or deletion rule is implemented independently in GraphQL.
+- Android has no supported GraphQL product flow; new integrations must use versioned REST.
+- Removing the endpoint entirely is safe after legacy integrations have completed migration.
 
-For high-volume or rapidly changing mobile synchronization, use the versioned REST/sync pagination contract rather than GraphQL offset pagination.
+This retirement keeps one canonical implementation for account authorization, validation, pagination, deletion semantics, financial rules and synchronization.
 
 ## JSON serialization
 
@@ -58,14 +56,15 @@ Android REST JSON uses **Moshi** only:
 
 ## API rate limiting
 
-The named Laravel `api` limiter is the canonical general REST/GraphQL limiter. Identity must not use the public Android API key alone because that key is shared by installations. The bucket identity combines the client key with authenticated user/session/device identity, falling back to the request IP when no stronger identity exists.
+The named Laravel `api` limiter is the canonical general protected API limiter. Identity must not use the public Android API key alone because that key is shared by installations. The bucket identity combines the client key with authenticated user/session/device identity, falling back to the request IP when no stronger identity exists.
 
 Authentication-sensitive routes may use stricter endpoint-specific limits in addition to the general policy.
 
 ## CI and release gates
 
 - `backend-ci.yml` runs PHP syntax checks and the complete Laravel test suite on backend changes.
-- `android-ci.yml` runs Android unit tests, lint, a minified release build and emulator-backed instrumentation tests.
+- `android-ci.yml` runs Android unit tests, lint, a minified release build, emulator-backed instrumentation tests and a minified release runtime launch smoke test.
+- Android CI rejects a release `versionCode` that is not greater than the tracked last-published version code.
 - Third-party GitHub Actions are pinned to immutable commit SHAs.
 - Production deployment is manual and must pass read-only HTTPS smoke verification after file synchronization.
 - A production deployment is not considered successful until the live health/private-surface checks pass.
