@@ -17,12 +17,12 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: main
           fetch-depth: 1
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
@@ -50,7 +50,7 @@ jobs:
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
       - name: Sync Laravel backend to cPanel
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
@@ -68,12 +68,37 @@ jobs:
             storage/framework/views/*
             tests/
             node_modules/
-      - name: Production health smoke check
+      - name: Production smoke verification
         shell: bash
         env:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
         run: |
+          set -euo pipefail
           test -n "$PRODUCTION_BASE_URL" || { echo 'PRODUCTION_BASE_URL is required'; exit 1; }
           base="${PRODUCTION_BASE_URL%/}"
-          curl --fail --silent --show-error --max-time 20 "$base/api/health" >/dev/null
-          curl --fail --silent --show-error --max-time 20 "$base/api/version" >/dev/null
+          case "$base" in
+            https://*) ;;
+            *) echo 'Production smoke checks require an HTTPS base URL'; exit 1 ;;
+          esac
+
+          health_json="$(curl --fail --silent --show-error --max-time 20 "$base/api/auth/health")"
+          HEALTH_JSON="$health_json" php -r '$d=json_decode(getenv("HEALTH_JSON"), true); if (!is_array($d) || ($d["status"] ?? null) !== "ok" || ($d["service"] ?? null) !== "SAFA API") { fwrite(STDERR, "Unexpected health payload\n"); exit(1); }'
+
+          for path in / /install /install/update /install/update-process /update-db; do
+            body_file="$(mktemp)"
+            code="$(curl --silent --show-error --max-time 20 --output "$body_file" --write-out '%{http_code}' "$base$path")"
+            test "$code" = "404" || { echo "Expected 404 for $path, received $code"; cat "$body_file"; rm -f "$body_file"; exit 1; }
+            BODY_FILE="$body_file" php -r '$d=json_decode(file_get_contents(getenv("BODY_FILE")), true); if (!is_array($d) || ($d["status"] ?? null) !== "not_found") { fwrite(STDERR, "Unexpected private-surface payload\n"); exit(1); }'
+            rm -f "$body_file"
+          done
+
+          # Protected critical routes must exist, but smoke verification never sends
+          # production credentials or mutates business data. Authentication denial
+          # proves the route is deployed without weakening its security boundary.
+          for path in /api/version/check /api/v1/customers /api/v1/sync/down; do
+            code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base$path")"
+            case "$code" in
+              401|403|429) ;;
+              *) echo "Unexpected status $code for protected route $path"; exit 1 ;;
+            esac
+          done
