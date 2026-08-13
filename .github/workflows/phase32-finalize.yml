@@ -1,0 +1,80 @@
+name: Phase 32 Finalize
+
+on:
+  push:
+    paths:
+      - '.github/workflows/phase32-finalize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Apply Phase 32 source-of-truth fixes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          auth = Path('backend/app/Http/Controllers/AuthJWTController.php')
+          text = auth.read_text()
+          start = text.find('    /**\n     * Authenticate user via Mobile + 6-Digit PIN and issue security tokens.\n     */\n    public function login(Request $request)\n')
+          activate = text.find('    /**\n     * Activate SuperAdmin account', start)
+          if start < 0 or activate < 0:
+              raise SystemExit('AuthJWTController login block not found')
+          auth.write_text(text[:start] + text[activate:])
+
+          vm = Path('app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt')
+          v = vm.read_text()
+          old = 'onResult(false, if (errorStr.isNotBlank() && !errorStr.startsWith("{")) errorStr else t("invalid_credentials"))'
+          new = 'onResult(false, extractLoginErrorMessage(errorStr))'
+          if old not in v:
+              raise SystemExit('Expected ViewModel JSON masking expression not found')
+          v = v.replace(old, new, 1)
+          marker = '\n    // loginWithMobileAndPin() REMOVED: All authentication is server-driven via loginWithServer()\n'
+          helper = '''\n    private fun extractLoginErrorMessage(raw: String): String {\n        val body = raw.trim()\n        if (body.isBlank()) return t("invalid_credentials")\n        if (!body.startsWith("{")) return body\n\n        return try {\n            val json = org.json.JSONObject(body)\n            val message = json.optString("message").trim()\n            if (message.isNotBlank()) return message\n\n            val errors = json.optJSONObject("errors")\n            if (errors != null) {\n                val messages = mutableListOf<String>()\n                val keys = errors.keys()\n                while (keys.hasNext()) {\n                    val key = keys.next()\n                    val value = errors.opt(key)\n                    when (value) {\n                        is org.json.JSONArray -> {\n                            for (i in 0 until value.length()) {\n                                value.optString(i).takeIf { it.isNotBlank() }?.let(messages::add)\n                            }\n                        }\n                        else -> value?.toString()?.takeIf { it.isNotBlank() }?.let(messages::add)\n                    }\n                }\n                if (messages.isNotEmpty()) return messages.joinToString(" ")\n            }\n        } catch (_: Exception) {\n            // Preserve the generic credential message for malformed JSON.\n        }\n        return t("invalid_credentials")\n    }\n'''
+          if marker not in v:
+              raise SystemExit('ViewModel insertion marker not found')
+          v = v.replace(marker, helper + marker, 1)
+          vm.write_text(v)
+
+          test = Path('backend/tests/Feature/Phase32AuthenticationContractTest.php')
+          t = test.read_text()
+          needle = '        $this->assertSame(\'login\', $loginRoute->getActionMethod());\n'
+          addition = needle + '        $this->assertFalse(method_exists(AuthJWTController::class, \'login\'), \'AuthJWTController must not retain a second credential-login implementation.\');\n'
+          if needle not in t:
+              raise SystemExit('source-of-truth test insertion marker not found')
+          test.write_text(t.replace(needle, addition, 1))
+          PY
+
+      - name: Verify source of truth
+        run: |
+          ! grep -q 'public function login(Request $request)' backend/app/Http/Controllers/AuthJWTController.php
+          grep -q 'public function login(Request $request): JsonResponse' backend/app/Http/Controllers/MobileLoginController.php
+          grep -q 'extractLoginErrorMessage(errorStr)' app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt
+          grep -q 'method_exists(AuthJWTController::class, .login.)' backend/tests/Feature/Phase32AuthenticationContractTest.php
+
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/Http/Controllers/AuthJWTController.php app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt backend/tests/Feature/Phase32AuthenticationContractTest.php
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: complete issue 32 authentication source of truth'
+          git push origin HEAD:main
+
+      - name: Remove finalize workflow
+        if: success()
+        run: |
+          git rm .github/workflows/phase32-finalize.yml
+          git commit -m 'chore: remove temporary issue 32 finalize workflow'
+          git push origin HEAD:main
