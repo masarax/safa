@@ -6,6 +6,16 @@ plugins {
   alias(libs.plugins.secrets)
 }
 
+val safaVersionCode = providers.gradleProperty("SAFA_VERSION_CODE")
+  .orNull?.toIntOrNull()
+  ?: throw GradleException("SAFA_VERSION_CODE must be a positive integer in gradle.properties")
+val safaVersionName = providers.gradleProperty("SAFA_VERSION_NAME")
+  .orNull?.trim()?.takeIf { it.isNotBlank() }
+  ?: throw GradleException("SAFA_VERSION_NAME must be set in gradle.properties")
+if (safaVersionCode <= 1) {
+  throw GradleException("SAFA_VERSION_CODE must be greater than the legacy release code 1")
+}
+
 android {
   namespace = "com.safa.account"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -13,8 +23,10 @@ android {
     applicationId = "com.safa.account"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = safaVersionCode
+    versionName = safaVersionName
+    buildConfigField("int", "SAFA_RELEASE_VERSION_CODE", safaVersionCode.toString())
+    buildConfigField("String", "SAFA_RELEASE_VERSION_NAME", "\"$safaVersionName\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
   signingConfigs {
@@ -56,4 +68,5 @@ dependencies {
   ksp(libs.moshi.kotlin.codegen)
 }
 
-// Release gate: CI must compile tests and the debug artifact before a production release.
+// Release gate: CI validates unit tests, lint, minified release packaging and
+// emulator-backed instrumentation against the same property-driven identity.
