@@ -23,6 +23,20 @@ The canonical mobile contract is URI-versioned under `/api/v1/...`.
 
 A compatibility route may be deprecated only after all supported Android releases have moved to the replacement contract. Removal must be announced in release notes and covered by contract tests before sunset.
 
+## GraphQL compatibility surface
+
+GraphQL is a read-only compatibility API. Business writes use the canonical versioned REST API under `/api/v1`.
+
+- Collection reads default to `limit=100` and are clamped to a maximum of `250` records per root field.
+- `offset` defaults to `0`, must be non-negative, and is bounded to `1,000,000`.
+- Results use stable ascending `id` ordering.
+- Normal reads exclude soft-deleted rows and are always restricted to the authorized active account.
+- Invalid pagination returns a field error rather than loading an unbounded collection.
+- The custom query document is capped at 32 KiB and a single request may contain at most 20 root fields.
+- GraphQL mutations return `410 GRAPHQL_MUTATIONS_DEPRECATED`; clients must migrate writes to `/api/v1`.
+
+For high-volume or rapidly changing mobile synchronization, use the versioned REST/sync pagination contract rather than GraphQL offset pagination.
+
 ## JSON serialization
 
 Android REST JSON uses **Moshi** only:
