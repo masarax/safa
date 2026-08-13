@@ -75,11 +75,35 @@ class MobileLoginController extends Controller
         if (isset($result['error'])) return $result['error'];
         $authenticatedUser = $result['user'];
         $permissions = $authenticatedUser->getFormattedPermissions();
+        $tokens = [
+            'access_token' => $result['access_token'],
+            'refresh_token' => $result['refresh_token'],
+            'device_token' => $result['device_token'],
+            'session_token' => $result['session_token'],
+            'fingerprint_token' => $result['fingerprint_token'],
+        ];
+
         return response()->json([
-            'status' => 'success', 'message' => 'Login successful.',
-            'user' => ['id' => $authenticatedUser->id, 'name' => $authenticatedUser->name, 'email' => $authenticatedUser->email, 'mobile' => $authenticatedUser->mobile, 'role' => $authenticatedUser->role, 'is_activated' => (bool) $authenticatedUser->is_activated, 'permissions' => $permissions],
+            'status' => 'success',
+            'message' => 'Login successful.',
+            'user' => [
+                'id' => $authenticatedUser->id,
+                'name' => $authenticatedUser->name,
+                'email' => $authenticatedUser->email,
+                'mobile' => $authenticatedUser->mobile,
+                'role' => $authenticatedUser->role,
+                'is_activated' => (bool) $authenticatedUser->is_activated,
+                'permissions' => $permissions,
+            ],
             'permissions' => $permissions,
-            'tokens' => ['access_token' => $result['access_token'], 'refresh_token' => $result['refresh_token'], 'device_token' => $result['device_token'], 'session_token' => $result['session_token'], 'fingerprint_token' => $result['fingerprint_token']],
+            'tokens' => $tokens,
+            // Backward-compatible aliases retained while deployed clients move
+            // to the canonical nested tokens object.
+            'access_token' => $tokens['access_token'],
+            'refresh_token' => $tokens['refresh_token'],
+            'device_token' => $tokens['device_token'],
+            'session_token' => $tokens['session_token'],
+            'fingerprint_token' => $tokens['fingerprint_token'],
         ], 200);
     }
 
