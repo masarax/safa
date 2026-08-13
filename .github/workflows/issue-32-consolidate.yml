@@ -1,0 +1,40 @@
+name: Issue 32 login consolidation
+
+on:
+  push:
+    branches:
+      - fix/issue-32-auth
+
+permissions:
+  contents: write
+
+jobs:
+  consolidate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Replace legacy credential login with canonical implementation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('backend/app/Http/Controllers/AuthJWTController.php')
+          text = path.read_text()
+          start = text.index('    public function login(Request $request)')
+          end = text.index('    /**\n     * Activate SuperAdmin account', start)
+          replacement = '''    /**\n     * Deprecated compatibility entry point. Credential authentication has one\n     * source of truth in MobileLoginController; all legacy callers are routed\n     * through the active implementation.\n     */\n    public function login(Request $request)\n    {\n        return app(MobileLoginController::class)->login($request);\n    }\n\n'''
+          text = text[:start] + replacement + text[end:]
+          if 'use App\\Http\\Controllers\\MobileLoginController;' not in text:
+              text = text.replace('use Illuminate\\Http\\Request;\n', 'use Illuminate\\Http\\Request;\nuse App\\Http\\Controllers\\MobileLoginController;\n', 1)
+          path.write_text(text)
+          PY
+
+      - name: Commit canonical login delegation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/Http/Controllers/AuthJWTController.php
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix(auth): delegate legacy login to canonical controller'
+          git push
