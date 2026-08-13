@@ -28,8 +28,10 @@ use App\Http\Middleware\RequireSuperAdmin;
 use App\Http\Middleware\ValidateLogoUpload;
 use App\Http\Middleware\ValidateSyncDependencies;
 
-// Versioned high-volume reads use the same security boundary as the legacy API.
-Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:60,1'])->group(function () {
+// Versioned high-volume reads use the same security boundary and named API
+// limiter as the legacy API. The named limiter is user/session/device aware;
+// the public Android client key is never used as a global shared bucket.
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:api'])->group(function () {
     Route::get('/v1/sync/down', SyncPageController::class);
     foreach (['customers', 'suppliers', 'transactions', 'wallet-ledgers', 'supplier-deposits', 'wallet-batches', 'expenses-incomes'] as $resource) {
         Route::get('/v1/' . $resource, VersionedCollectionController::class)->defaults('resource', $resource);
@@ -44,21 +46,21 @@ Route::prefix('auth')->group(function () {
     Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 'SAFA API']));
     Route::post('/login', [MobileLoginController::class, 'login'])->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, 'throttle:5,1']);
     Route::post('/refresh', [SecureAuthController::class, 'refresh'])->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
-    Route::get('/session', [SecureAuthController::class, 'session'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:60,1']);
+    Route::get('/session', [SecureAuthController::class, 'session'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:api']);
     Route::post('/logout', [SecureAuthController::class, 'logout'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:20,1']);
     Route::post('/logout-all', [SecureAuthController::class, 'logoutAll'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:10,1']);
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
-    Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
+    Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:api'])->group(function () {
         Route::get('/operators', [UserManagementController::class, 'index']); Route::post('/operators', [UserManagementController::class, 'store']); Route::put('/operators/{id}', [UserManagementController::class, 'update']); Route::patch('/operators/{id}', [UserManagementController::class, 'update']); Route::delete('/operators/{id}', [UserManagementController::class, 'destroy']);
         Route::post('/share-account', [AuthJWTController::class, 'shareAccount']); Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']); Route::post('/switch-account', [AuthJWTController::class, 'switchAccount']);
     });
 });
 
-Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, ResolveGraphQLAccountContext::class, RequireGraphQLPermission::class, AuditLogMiddleware::class, 'throttle:60,1'])->group(function () {
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, ResolveGraphQLAccountContext::class, RequireGraphQLPermission::class, AuditLogMiddleware::class, 'throttle:api'])->group(function () {
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
-Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:60,1'])->group(function () {
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:api'])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']); Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']); Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
     Route::get('/accounts', [AccountContextController::class, 'index']); Route::post('/accounts/switch', [AccountContextController::class, 'switch']); Route::post('/accounts/share', [AccountContextController::class, 'share']);
