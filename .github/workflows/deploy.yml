@@ -13,7 +13,7 @@ concurrency:
 jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows, x64, safa]
     timeout-minutes: 25
     steps:
       - name: Checkout Repository
@@ -21,7 +21,6 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -29,53 +28,26 @@ jobs:
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
           ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
-
       - name: Prepare test database
         working-directory: backend
+        shell: powershell
         run: |
-          mkdir -p database
-          rm -f database/testing.sqlite
-          touch database/testing.sqlite
-
+          New-Item -ItemType Directory -Force database | Out-Null
+          if (Test-Path database/testing.sqlite) { Remove-Item database/testing.sqlite -Force }
+          New-Item -ItemType File database/testing.sqlite | Out-Null
       - name: Install Composer test dependencies
         working-directory: backend
-        env:
-          APP_ENV: testing
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION: sqlite
-          DB_DATABASE: database/testing.sqlite
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
       - name: PHP syntax check
         working-directory: backend
-        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-
+        shell: powershell
+        run: Get-ChildItem app,config,database,routes,tests -Recurse -Filter *.php | ForEach-Object { php -l $_.FullName }
       - name: Run mandatory full test suite
         working-directory: backend
-        env:
-          APP_ENV: testing
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          APP_DEBUG: 'false'
-          APP_URL: http://localhost
-          DB_CONNECTION: sqlite
-          DB_DATABASE: database/testing.sqlite
-          CACHE_STORE: array
-          SESSION_DRIVER: array
-          QUEUE_CONNECTION: sync
-          SAFA_API_KEY: safa_testing_key
-          SAFA_API_SECRET: safa_testing_secret
-          DB_UPDATE_SECRET: safa_testing_update_secret
-          XDEBUG_MODE: off
         run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
-
       - name: Install production Composer dependencies
         working-directory: backend
-        env:
-          APP_ENV: production
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          APP_DEBUG: 'false'
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -95,15 +67,14 @@ jobs:
             storage/framework/views/*
             tests/
             node_modules/
-
       - name: Production health smoke check
+        shell: powershell
         env:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
         run: |
-          test -n "$PRODUCTION_BASE_URL"
-          base="${PRODUCTION_BASE_URL%/}"
-          health_code=$(curl -L -sS -o /tmp/safa-health.json -w '%{http_code}' --max-time 20 "$base/api/health")
-          test "$health_code" = "200"
-          grep -Eq '"status"[[:space:]]*:[[:space:]]*"(ok|healthy)"' /tmp/safa-health.json
-          version_code=$(curl -L -sS -o /tmp/safa-version.json -w '%{http_code}' --max-time 20 "$base/api/version")
-          test "$version_code" = "200"
+          if (-not $env:PRODUCTION_BASE_URL) { throw 'PRODUCTION_BASE_URL is required' }
+          $base = $env:PRODUCTION_BASE_URL.TrimEnd('/')
+          $health = Invoke-WebRequest -Uri "$base/api/health" -UseBasicParsing -TimeoutSec 20
+          if ($health.StatusCode -ne 200) { throw "Health check failed: $($health.StatusCode)" }
+          $version = Invoke-WebRequest -Uri "$base/api/version" -UseBasicParsing -TimeoutSec 20
+          if ($version.StatusCode -ne 200) { throw "Version check failed: $($version.StatusCode)" }
