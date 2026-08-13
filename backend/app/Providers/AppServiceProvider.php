@@ -16,10 +16,18 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // API rate limiting: 60 requests/minute per API key, fallback to IP
+        // Canonical API policy: 60 requests/minute per authenticated user/session
+        // or device. The Android client API key is intentionally only one part of
+        // the key because it is shared by all installations of the public client.
         RateLimiter::for('api', function (Request $request) {
-            $key = $request->header('X-SAFA-API-KEY') ?? $request->ip();
-            return Limit::perMinute(60)->by($key);
+            $apiKey = (string) ($request->header('X-SAFA-API-KEY') ?: 'no-client-key');
+            $identity = $request->user()?->getAuthIdentifier()
+                ?: $request->header('X-SAFA-SESSION-TOKEN')
+                ?: $request->header('X-SAFA-DEVICE-TOKEN')
+                ?: ($request->bearerToken() ? hash('sha256', $request->bearerToken()) : null)
+                ?: $request->ip();
+
+            return Limit::perMinute(60)->by(hash('sha256', $apiKey . '|' . (string) $identity));
         });
     }
 }
