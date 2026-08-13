@@ -17,7 +17,6 @@ android {
     versionName = "1.0"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
-
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH")
@@ -27,49 +26,29 @@ android {
       if (!keystorePath.isNullOrBlank() && !storePassword.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()) {
         val keystoreFile = file(keystorePath)
         if (!keystoreFile.exists()) throw GradleException("Release keystore not found: $keystorePath")
-        storeFile = keystoreFile
-        this.storePassword = storePassword
-        this.keyAlias = keyAlias
-        this.keyPassword = keyPassword
+        storeFile = keystoreFile; this.storePassword = storePassword; this.keyAlias = keyAlias; this.keyPassword = keyPassword
       }
     }
   }
-
   buildTypes {
-    release {
-      isCrunchPngs = false
-      isMinifyEnabled = true
-      isShrinkResources = true
-      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
-    }
+    release { isCrunchPngs = false; isMinifyEnabled = true; isShrinkResources = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"); signingConfig = signingConfigs.getByName("release") }
     debug { }
   }
-
-  compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-  }
-  buildFeatures {
-    compose = true
-    buildConfig = true
-  }
+  compileOptions { sourceCompatibility = JavaVersion.VERSION_11; targetCompatibility = JavaVersion.VERSION_11 }
+  buildFeatures { compose = true; buildConfig = true }
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-}
+secrets { propertiesFileName = ".env"; defaultPropertiesFileName = ".env.example" }
 
 dependencies {
   implementation(platform(libs.androidx.compose.bom)); implementation(platform(libs.firebase.bom)); implementation(libs.androidx.activity.compose); implementation(libs.androidx.biometric)
   implementation(libs.androidx.compose.material.icons.core); implementation(libs.androidx.compose.material.icons.extended); implementation(libs.androidx.compose.material3); implementation(libs.androidx.compose.ui); implementation(libs.androidx.compose.ui.graphics); implementation(libs.androidx.compose.ui.tooling.preview); implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.compose); implementation(libs.androidx.lifecycle.runtime.ktx); implementation(libs.androidx.lifecycle.viewmodel.compose)
-  implementation("androidx.security:security-crypto:1.1.0-alpha06"); implementation(libs.androidx.work.runtime.ktx); implementation(libs.coil.compose); implementation(libs.converter.moshi); implementation(libs.kotlinx.coroutines.android); implementation(libs.kotlinx.coroutines.core); implementation(libs.logging.interceptor); implementation(libs.moshi.kotlin); implementation(libs.okhttp); implementation(libs.retrofit)
+  implementation("androidx.security:security-crypto:1.1.0-alpha06"); implementation(libs.androidx.work.runtime.ktx); implementation(libs.androidx.room.runtime); implementation(libs.androidx.room.ktx); implementation(libs.androidx.datastore.preferences); implementation(libs.coil.compose); implementation(libs.converter.moshi); implementation(libs.kotlinx.coroutines.android); implementation(libs.kotlinx.coroutines.core); implementation(libs.logging.interceptor); implementation(libs.moshi.kotlin); implementation(libs.okhttp); implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4); testImplementation(libs.androidx.core); testImplementation(libs.androidx.junit); testImplementation(libs.junit); testImplementation(libs.kotlinx.coroutines.test); testImplementation(libs.mockito.kotlin); testImplementation(libs.robolectric); testImplementation(libs.roborazzi); testImplementation(libs.roborazzi.compose); testImplementation(libs.roborazzi.junit.rule)
   androidTestImplementation(platform(libs.androidx.compose.bom)); androidTestImplementation(libs.androidx.compose.ui.test.junit4); androidTestImplementation(libs.androidx.espresso.core); androidTestImplementation(libs.androidx.junit); androidTestImplementation(libs.androidx.runner); debugImplementation(libs.androidx.compose.ui.test.manifest); debugImplementation(libs.androidx.compose.ui.tooling)
-  "ksp"(libs.moshi.kotlin.codegen)
+  ksp(libs.moshi.kotlin.codegen); ksp("androidx.room:room-compiler:2.7.2")
 }
 
 // Release gate: CI must compile tests and the debug artifact before a production release.
