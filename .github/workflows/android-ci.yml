@@ -144,9 +144,12 @@ jobs:
             ./gradlew --no-daemon connectedDebugAndroidTest assembleRelease
             test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
             adb install -r "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+            adb logcat -c
             adb shell am force-stop com.safa.account
             adb shell am start -W -n com.safa.account/.MainActivity
             sleep 3
+            adb shell pidof com.safa.account || adb logcat -d -b crash -v threadtime | tee app/build/release-smoke-crash.log
+            adb shell pidof com.safa.account || adb logcat -d -v threadtime -t 400 | grep -E 'FATAL EXCEPTION|AndroidRuntime|SafaApp|SAFA_DIAGNOSTIC|com\.safa\.account' | tee app/build/release-smoke-logcat.log
             adb shell pidof com.safa.account | grep -q '[0-9]'
 
       - name: Upload instrumentation and release-smoke results
@@ -159,3 +162,4 @@ jobs:
             app/build/reports/androidTests/**
             app/build/outputs/androidTest-results/**
             app/build/outputs/apk/release/*.apk
+            app/build/release-smoke-*.log
