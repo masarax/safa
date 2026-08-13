@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Support\MobileNumber;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class MigrateLegacyOperatorAccounts extends Command
 {
