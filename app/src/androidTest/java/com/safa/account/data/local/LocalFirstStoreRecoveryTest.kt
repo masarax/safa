@@ -3,6 +3,7 @@ package com.safa.account.data.local
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -14,9 +15,9 @@ import org.junit.runner.RunWith
 /**
  * Device-level contract tests for the durable local-first state machine.
  *
- * These tests intentionally exercise the SQLite transaction boundaries rather
- * than mocking the store. They protect against the most dangerous regression:
- * a newer local edit disappearing while an older upload is in flight.
+ * getReadyOutbox() returns the selected pre-claim snapshots while atomically
+ * changing those rows to PROCESSING in SQLite. Parent rows selected earlier in
+ * one batch may therefore unlock dependent rows in that same ordered batch.
  */
 @RunWith(AndroidJUnit4::class)
 class LocalFirstStoreRecoveryTest {
@@ -53,6 +54,8 @@ class LocalFirstStoreRecoveryTest {
         assertEquals("customers", ready.single().entity)
         assertEquals(1001, ready.single().localId)
         assertEquals("RECOVER", ready.single().operation)
+        assertEquals(LocalFirstStore.OUTBOX_PENDING, ready.single().status)
+        assertTrue(store.hasPending("customers", 1001))
     }
 
     @Test
@@ -84,12 +87,20 @@ class LocalFirstStoreRecoveryTest {
         assertEquals("UPDATE", promotedRecord.operation)
         assertEquals(2001, promotedRecord.localId)
         assertEquals(7001, promotedRecord.serverId)
-        assertEquals("{\"local_id\":2001,\"name\":\"Version 2\"}", promotedRecord.payload)
+
+        val payload = JSONObject(promotedRecord.payload)
+        assertEquals(2001, payload.getInt("local_id"))
+        assertEquals("Version 2", payload.getString("name"))
+        assertEquals(7001, payload.getInt("server_id"))
+        assertTrue(payload.has("sync_version"))
+        val sync = payload.getJSONObject("_sync")
+        assertEquals("UPDATE", sync.getString("operation"))
+        assertTrue(sync.getString("mutation_id").isNotBlank())
         assertTrue(store.hasPending("customers", 2001))
     }
 
     @Test
-    fun transaction_waits_for_unsynced_customer_until_parent_is_available() {
+    fun unsynced_customer_is_selected_before_dependent_transaction_in_same_batch() {
         store.upsertRecord(
             entity = "customers",
             localId = 3001,
@@ -105,9 +116,13 @@ class LocalFirstStoreRecoveryTest {
             payload = "{\"local_id\":3002,\"customer_id\":3001,\"supplier_id\":0,\"wallet_batch_id\":0}",
         )
 
-        val ready = store.getReadyOutbox()
+        val ready = store.getReadyOutbox(10)
 
-        assertEquals(0, ready.size)
+        assertEquals(2, ready.size)
+        assertEquals("customers", ready[0].entity)
+        assertEquals(3001, ready[0].localId)
+        assertEquals("transactions", ready[1].entity)
+        assertEquals(3002, ready[1].localId)
     }
 
     @Test
