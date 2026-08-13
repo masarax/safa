@@ -39,7 +39,7 @@ class LocalFirstStoreConflictRecoveryTest {
         )
 
         val inFlight = store.getReadyOutbox().single()
-        assertEquals(LocalFirstStore.OUTBOX_PROCESSING, inFlight.status)
+        assertEquals(LocalFirstStore.OUTBOX_PENDING, inFlight.status)
         assertTrue(
             store.rebaseProcessingOutbox(
                 outboxId = inFlight.id,
@@ -75,7 +75,7 @@ class LocalFirstStoreConflictRecoveryTest {
         )
 
         val inFlight = store.getReadyOutbox().single()
-        assertEquals(LocalFirstStore.OUTBOX_PROCESSING, inFlight.status)
+        assertEquals(LocalFirstStore.OUTBOX_PENDING, inFlight.status)
 
         store.writableDatabase.execSQL(
             "UPDATE outbox SET updated_at=? WHERE id=?",
@@ -83,8 +83,9 @@ class LocalFirstStoreConflictRecoveryTest {
         )
 
         val recovered = store.getReadyOutbox().single()
-        assertEquals(LocalFirstStore.OUTBOX_PROCESSING, recovered.status)
+        assertEquals(LocalFirstStore.OUTBOX_PENDING, recovered.status)
         assertEquals(inFlight.id, recovered.id)
         assertEquals(6201, recovered.localId)
+        assertTrue(store.hasPending("customers", 6201))
     }
 }
