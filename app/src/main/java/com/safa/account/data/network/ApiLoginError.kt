@@ -63,6 +63,8 @@ object ApiLoginErrorParser {
     }.getOrDefault(Pair(null, null))
 
     private fun debug(status: Int?, code: String) {
-        if (com.safa.account.BuildConfig.DEBUG) Log.d("SafaLogin", "login failure classified: status=${status ?: "network"}, code=$code")
+        if (com.safa.account.BuildConfig.DEBUG) {
+            runCatching { Log.d("SafaLogin", "login failure classified: status=${status ?: "network"}, code=$code") }
+        }
     }
 }
