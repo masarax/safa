@@ -23,12 +23,17 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v5
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: mbstring, xml, pdo, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
-          coverage: none
-          ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
+      - name: Verify runner PHP toolchain
+        shell: powershell
+        run: |
+          php -v
+          php -m
+          composer --version
+          $required = @('mbstring','xml','pdo','pdo_sqlite','bcmath','ctype','fileinfo','json','tokenizer')
+          $modules = php -m
+          foreach ($extension in $required) {
+            if ($modules -notcontains $extension) { throw "Required PHP extension is missing: $extension" }
+          }
       - name: Prepare test database and Laravel environment
         shell: powershell
         run: |
