@@ -61,11 +61,18 @@ object SyncWorkScheduler {
         )
     }
 
-    /**
-     * Cancel only an explicitly queued immediate run. Persistent periodic sync
-     * remains installed and continues to reconcile when connectivity returns.
-     */
+    /** Cancel an explicitly queued immediate run. */
     fun cancelImmediate(context: Context) {
         WorkManager.getInstance(context.applicationContext).cancelUniqueWork(IMMEDIATE_WORK_NAME)
+    }
+
+    /**
+     * Authentication boundary: no sync work may continue carrying an old
+     * account's queued mutation after logout/account switching.
+     */
+    fun cancelAll(context: Context) {
+        val workManager = WorkManager.getInstance(context.applicationContext)
+        workManager.cancelUniqueWork(IMMEDIATE_WORK_NAME)
+        workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
     }
 }
