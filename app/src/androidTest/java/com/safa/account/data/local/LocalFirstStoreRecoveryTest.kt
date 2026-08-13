@@ -4,12 +4,12 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /**
  * Device-level contract tests for the durable local-first state machine.
@@ -80,10 +80,11 @@ class LocalFirstStoreRecoveryTest {
 
         val promoted = store.getReadyOutbox().singleOrNull()
         assertNotNull(promoted)
-        assertEquals("UPDATE", promoted.operation)
-        assertEquals(2001, promoted.localId)
-        assertEquals(7001, promoted.serverId)
-        assertEquals("{\"local_id\":2001,\"name\":\"Version 2\"}", promoted.payload)
+        val promotedRecord = requireNotNull(promoted)
+        assertEquals("UPDATE", promotedRecord.operation)
+        assertEquals(2001, promotedRecord.localId)
+        assertEquals(7001, promotedRecord.serverId)
+        assertEquals("{\"local_id\":2001,\"name\":\"Version 2\"}", promotedRecord.payload)
         assertTrue(store.hasPending("customers", 2001))
     }
 
