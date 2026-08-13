@@ -3,6 +3,7 @@ package com.safa.account.data.network
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -12,7 +13,7 @@ import org.mockito.kotlin.whenever
 class LoginErrorResponseInterceptorTest {
     private val request = Request.Builder()
         .url("https://safa.masarax.com/api/auth/login")
-        .post("{}".toResponseBody())
+        .post("{}".toRequestBody())
         .build()
 
     private fun transformed(code: Int, json: String): String {
