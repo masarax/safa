@@ -54,8 +54,10 @@ class SyncRetryHardeningTest {
             val result = manager.syncAll()
 
             assertTrue(result.isFailure)
-            assertEquals(failure, result.exceptionOrNull())
-            assertTrue(manager.syncState.value is SyncState.Error)
+            val returned = result.exceptionOrNull()
+            assertTrue(returned is IllegalStateException)
+            assertEquals("HTTP 500", returned?.message)
+            assertEquals(SyncState.Error("HTTP 500"), manager.syncState.value)
             verify(repository, times(1)).processOutbox()
             verify(repository, never()).refreshAll()
         }
@@ -78,8 +80,10 @@ class SyncRetryHardeningTest {
             val result = manager.syncAll()
 
             assertTrue(result.isFailure)
-            assertEquals(failure, result.exceptionOrNull())
-            assertTrue(manager.syncState.value is SyncState.Error)
+            val returned = result.exceptionOrNull()
+            assertTrue(returned is IllegalStateException)
+            assertEquals("HTTP 422", returned?.message)
+            assertEquals(SyncState.Error("HTTP 422"), manager.syncState.value)
             verify(repository, times(1)).processOutbox()
             verify(repository, times(1)).refreshAll()
         }
