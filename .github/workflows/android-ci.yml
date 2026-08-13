@@ -5,6 +5,7 @@ on:
     paths:
       - 'app/**'
       - 'gradle/**'
+      - 'release/**'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle.properties'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'app/**'
       - 'gradle/**'
+      - 'release/**'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle.properties'
@@ -45,6 +47,16 @@ jobs:
 
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
+
+      - name: Validate monotonically increasing release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(sed -n 's/^SAFA_VERSION_CODE=//p' gradle.properties | tail -n 1 | tr -d '[:space:]')"
+          published="$(tr -d '[:space:]' < release/android-last-published-version-code.txt)"
+          [[ "$current" =~ ^[0-9]+$ ]] || { echo 'SAFA_VERSION_CODE must be an integer'; exit 1; }
+          [[ "$published" =~ ^[0-9]+$ ]] || { echo 'Published version baseline must be an integer'; exit 1; }
+          test "$current" -gt "$published" || { echo "Release versionCode $current must be greater than last published code $published"; exit 1; }
 
       - name: Run debug unit tests and lint
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
