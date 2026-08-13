@@ -1,21 +1,15 @@
 package com.safa.account.data.local
 
 import android.content.Context
+import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
 import androidx.room.Index
-import androidx.room.PrimaryKey
-import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Room
 
-/**
- * Room-backed local source for offline-capable domain snapshots.
- * The legacy SQLite store remains available only as a migration/compatibility
- * bridge; new local domain reads/writes must use this database.
- */
 @Entity(
     tableName = "domain_records",
     primaryKeys = ["entity", "localId"],
@@ -50,20 +44,18 @@ interface RoomDomainRecordDao {
     suspend fun delete(entity: String, localId: Int)
 }
 
-@Database(entities = [RoomDomainRecord::class], version = 1, exportSchema = true)
+@Database(entities = [RoomDomainRecord::class], version = 1, exportSchema = false)
 abstract class RoomLocalDatabase : androidx.room.RoomDatabase() {
     abstract fun domainRecords(): RoomDomainRecordDao
 
     companion object {
         @Volatile private var INSTANCE: RoomLocalDatabase? = null
 
-        fun get(context: Context): RoomLocalDatabase =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    RoomLocalDatabase::class.java,
-                    "safa_room.db"
-                ).fallbackToDestructiveMigrationOnDowngrade().build().also { INSTANCE = it }
-            }
+        fun get(context: Context): RoomLocalDatabase = INSTANCE ?: synchronized(this) {
+            INSTANCE ?: Room.databaseBuilder(context.applicationContext, RoomLocalDatabase::class.java, "safa_room.db")
+                .fallbackToDestructiveMigrationOnDowngrade()
+                .build()
+                .also { INSTANCE = it }
+        }
     }
 }
