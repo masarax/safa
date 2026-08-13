@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   laravel:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: self-hosted
     timeout-minutes: 15
     defaults:
       run:
