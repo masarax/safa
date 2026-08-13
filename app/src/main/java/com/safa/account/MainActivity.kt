@@ -76,6 +76,7 @@ import com.safa.account.ui.viewmodel.AppScreen
 import com.safa.account.ui.viewmodel.NavDirection
 import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.viewmodel.SafaViewModelFactory
+import com.safa.account.utils.SafaLogger
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,11 +93,16 @@ class MainActivity : FragmentActivity() {
                 SafaRoot(viewModel = viewModel, onExit = { finish() })
             }
         } catch (t: Throwable) {
-            android.util.Log.e("SafaApp", "FATAL_STARTUP_ERROR", t)
+            val diagnosticId = java.util.UUID.randomUUID().toString().take(8).uppercase()
+            if (BuildConfig.DEBUG) {
+                SafaLogger.error("FATAL_STARTUP_ERROR", "support_id=$diagnosticId", t)
+            } else {
+                SafaLogger.error("FATAL_STARTUP_ERROR", "support_id=$diagnosticId")
+            }
             setContent {
                 MyApplicationTheme(darkTheme = false) {
                     StartupErrorScreen(
-                        message = t.localizedMessage ?: t.javaClass.simpleName,
+                        diagnosticId = diagnosticId,
                         onRetry = { recreate() }
                     )
                 }
@@ -342,12 +348,16 @@ fun SafaBottomNavigationBar(viewModel: SafaViewModel, currentScreen: AppScreen) 
 }
 
 @Composable
-private fun StartupErrorScreen(message: String, onRetry: () -> Unit) {
+private fun StartupErrorScreen(diagnosticId: String, onRetry: () -> Unit) {
+    val context = LocalContext.current
+    val language = context.resources.configuration.locales[0]?.language.orEmpty()
+    val isBangla = language.equals("bn", ignoreCase = true)
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(24.dp)) {
-            Text("SAFA Startup Error", style = MaterialTheme.typography.headlineSmall)
-            Text(message)
-            TextButton(onClick = onRetry) { Text("Retry") }
+            Text(if (isBangla) "SAFA চালু করা যায়নি" else "SAFA could not start", style = MaterialTheme.typography.headlineSmall)
+            Text(if (isBangla) "অ্যাপটি চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।" else "The app could not be initialized. Please try again.")
+            Text(if (isBangla) "সহায়তা আইডি: $diagnosticId" else "Support ID: $diagnosticId", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onRetry) { Text(if (isBangla) "আবার চেষ্টা করুন" else "Retry") }
         }
     }
 }
