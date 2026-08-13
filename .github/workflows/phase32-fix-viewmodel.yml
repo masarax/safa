@@ -19,8 +19,8 @@ jobs:
           fetch-depth: 1
 
       - name: Patch login error parser and remove temporary workflow
-        shell: python
         run: |
+          python3 - <<'PY'
           from pathlib import Path
           import re
           import subprocess
@@ -29,39 +29,39 @@ jobs:
           text = path.read_text(encoding='utf-8')
 
           replacement = '''    private fun extractLoginErrorMessage(raw: String): String {
-        val body = raw.trim()
-        if (body.isBlank()) return t("invalid_credentials")
-        if (!body.startsWith("{")) return body
+              val body = raw.trim()
+              if (body.isBlank()) return t("invalid_credentials")
+              if (!body.startsWith("{")) return body
 
-        return try {
-            val json = org.json.JSONObject(body)
-            val directMessage = json.optString("message").trim()
-            if (directMessage.isNotBlank()) {
-                directMessage
-            } else {
-                val errors = json.optJSONObject("errors")
-                val messages = mutableListOf<String>()
-                if (errors != null) {
-                    val keys = errors.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        val value = errors.opt(key)
-                        when (value) {
-                            is org.json.JSONArray -> {
-                                for (i in 0 until value.length()) {
-                                    value.optString(i).takeIf { it.isNotBlank() }?.let(messages::add)
-                                }
-                            }
-                            else -> value?.toString()?.takeIf { it.isNotBlank() }?.let(messages::add)
-                        }
-                    }
-                }
-                if (messages.isNotEmpty()) messages.joinToString(" ") else t("invalid_credentials")
-            }
-        } catch (_: Exception) {
-            t("invalid_credentials")
-        }
-    }
+              return try {
+                  val json = org.json.JSONObject(body)
+                  val directMessage = json.optString("message").trim()
+                  if (directMessage.isNotBlank()) {
+                      directMessage
+                  } else {
+                      val errors = json.optJSONObject("errors")
+                      val messages = mutableListOf<String>()
+                      if (errors != null) {
+                          val keys = errors.keys()
+                          while (keys.hasNext()) {
+                              val key = keys.next()
+                              val value = errors.opt(key)
+                              when (value) {
+                                  is org.json.JSONArray -> {
+                                      for (i in 0 until value.length()) {
+                                          value.optString(i).takeIf { it.isNotBlank() }?.let(messages::add)
+                                      }
+                                  }
+                                  else -> value?.toString()?.takeIf { it.isNotBlank() }?.let(messages::add)
+                              }
+                          }
+                      }
+                      if (messages.isNotEmpty()) messages.joinToString(" ") else t("invalid_credentials")
+                  }
+              } catch (_: Exception) {
+                  t("invalid_credentials")
+              }
+          }
 
 '''
 
@@ -76,7 +76,8 @@ jobs:
 
           subprocess.run(['git', 'config', 'user.name', 'github-actions[bot]'], check=True)
           subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
-          subprocess.run(['git', 'add', str(path), '.github/workflows/phase32-fix-viewmodel.yml'], check=True)
+          subprocess.run(['git', 'add', str(path)], check=True)
           subprocess.run(['git', 'rm', '.github/workflows/phase32-fix-viewmodel.yml'], check=True)
           subprocess.run(['git', 'commit', '-m', 'fix(android): compile phase 32 login error handling'], check=True)
           subprocess.run(['git', 'push', 'origin', 'main'], check=True)
+          PY
