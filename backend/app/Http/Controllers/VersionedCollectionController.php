@@ -10,15 +10,20 @@ use App\Models\Transaction;
 use App\Models\WalletBatch;
 use App\Models\WalletLedger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class VersionedCollectionController extends Controller
 {
     use AuthorizeAccountContext;
 
+    private const DEFAULT_PAGE_SIZE = 100;
+    private const MAX_PAGE_SIZE = 250;
+
     public function __invoke(Request $request, string $resource)
     {
         $context = $this->resolveAuthorizedAccountContext($request);
         if (isset($context['error'])) return $context['error'];
+
         $map = [
             'customers' => [Customer::class, 'customers'],
             'suppliers' => [Supplier::class, 'suppliers'],
@@ -29,10 +34,31 @@ class VersionedCollectionController extends Controller
             'expenses-incomes' => [ExpenseIncome::class, 'expenses_incomes'],
         ];
         abort_unless(isset($map[$resource]), 404);
+
+        $validator = Validator::make($request->query(), [
+            'page' => 'sometimes|integer|min:1|max:1000000',
+            'per_page' => 'sometimes|integer|min:1|max:' . self::MAX_PAGE_SIZE,
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid pagination parameters.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         [$model, $key] = $map[$resource];
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = min(250, max(1, (int) $request->query('per_page', 100)));
-        $paginator = $model::withTrashed()->where('account_id', (int) $context['account_id'])->orderBy('id')->paginate($perPage, ['*'], 'page', $page);
+        $page = (int) $request->query('page', 1);
+        $perPage = (int) $request->query('per_page', self::DEFAULT_PAGE_SIZE);
+
+        // Normal REST collection reads expose active records only. Tombstones are
+        // reserved for sync/reconciliation endpoints and never leak into UI lists.
+        $paginator = $model::query()
+            ->where('account_id', (int) $context['account_id'])
+            ->whereNull('deleted_at')
+            ->orderBy('id', 'asc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
         return response()->json([
             'status' => 'success',
             $key => $paginator->items(),
