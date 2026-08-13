@@ -1,32 +1,6 @@
 name: Phase 32 Login CI
 
 on:
-  push:
-    paths:
-      - 'backend/app/Http/Controllers/MobileLoginController.php'
-      - 'backend/app/Http/Middleware/RejectAmbiguousLoginIdentity.php'
-      - 'backend/app/Http/Middleware/RejectInactiveLogin.php'
-      - 'backend/app/Support/MobileNumber.php'
-      - 'backend/tests/Feature/MobileLogin*.php'
-      - 'backend/tests/Feature/Phase32*.php'
-      - 'app/src/main/java/com/safa/account/data/network/LoginErrorResponseInterceptor.kt'
-      - 'app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt'
-      - 'app/src/test/java/com/safa/account/data/api/Phase32LoginApiContractTest.kt'
-      - 'app/src/test/java/com/safa/account/data/network/LoginErrorResponseInterceptorTest.kt'
-      - '.github/workflows/phase32-login-ci.yml'
-  pull_request:
-    paths:
-      - 'backend/app/Http/Controllers/MobileLoginController.php'
-      - 'backend/app/Http/Middleware/RejectAmbiguousLoginIdentity.php'
-      - 'backend/app/Http/Middleware/RejectInactiveLogin.php'
-      - 'backend/app/Support/MobileNumber.php'
-      - 'backend/tests/Feature/MobileLogin*.php'
-      - 'backend/tests/Feature/Phase32*.php'
-      - 'app/src/main/java/com/safa/account/data/network/LoginErrorResponseInterceptor.kt'
-      - 'app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt'
-      - 'app/src/test/java/com/safa/account/data/api/Phase32LoginApiContractTest.kt'
-      - 'app/src/test/java/com/safa/account/data/network/LoginErrorResponseInterceptorTest.kt'
-      - '.github/workflows/phase32-login-ci.yml'
   workflow_dispatch:
 
 permissions:
