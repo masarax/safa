@@ -1,0 +1,59 @@
+name: Laravel Backend CI
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Syntax and full Laravel tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
+          coverage: none
+          ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
+
+      - name: Prepare test environment
+        working-directory: backend
+        shell: bash
+        run: |
+          mkdir -p database
+          rm -f database/testing.sqlite
+          touch database/testing.sqlite
+          cp .env.example .env
+          php -r '$env=file_get_contents(".env"); $key="base64:".base64_encode(random_bytes(32)); $env=preg_replace("/^APP_KEY=.*$/m", "APP_KEY=$key", $env); $env=preg_replace("/^DB_CONNECTION=.*$/m", "DB_CONNECTION=sqlite", $env); $env=preg_replace("/^DB_DATABASE=.*$/m", "DB_DATABASE=".getcwd()."/database/testing.sqlite", $env); file_put_contents(".env", $env);'
+
+      - name: Install Composer dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: PHP syntax check
+        working-directory: backend
+        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Run full test suite
+        working-directory: backend
+        run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
