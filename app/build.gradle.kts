@@ -42,7 +42,7 @@ android {
 secrets { propertiesFileName = ".env"; defaultPropertiesFileName = ".env.example" }
 
 dependencies {
-  implementation(platform(libs.androidx.compose.bom)); implementation(platform(libs.firebase.bom)); implementation(libs.androidx.activity.compose); implementation(libs.androidx.biometric)
+  implementation(platform(libs.androidx.compose.bom)); implementation(libs.androidx.activity.compose); implementation(libs.androidx.biometric)
   implementation(libs.androidx.compose.material.icons.core); implementation(libs.androidx.compose.material.icons.extended); implementation(libs.androidx.compose.material3); implementation(libs.androidx.compose.ui); implementation(libs.androidx.compose.ui.graphics); implementation(libs.androidx.compose.ui.tooling.preview); implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.compose); implementation(libs.androidx.lifecycle.runtime.ktx); implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation("androidx.security:security-crypto:1.1.0-alpha06"); implementation(libs.androidx.work.runtime.ktx); implementation(libs.androidx.room.runtime); implementation(libs.androidx.room.ktx); implementation(libs.androidx.datastore.preferences); implementation(libs.coil.compose); implementation(libs.converter.moshi); implementation(libs.kotlinx.coroutines.android); implementation(libs.kotlinx.coroutines.core); implementation(libs.logging.interceptor); implementation(libs.moshi.kotlin); implementation(libs.okhttp); implementation(libs.retrofit)
