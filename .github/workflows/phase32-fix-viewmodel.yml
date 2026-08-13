@@ -1,0 +1,82 @@
+name: Phase 32 ViewModel fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/phase32-fix-viewmodel.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Patch login error parser and remove temporary workflow
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          import subprocess
+
+          path = Path('app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt')
+          text = path.read_text(encoding='utf-8')
+
+          replacement = '''    private fun extractLoginErrorMessage(raw: String): String {
+        val body = raw.trim()
+        if (body.isBlank()) return t("invalid_credentials")
+        if (!body.startsWith("{")) return body
+
+        return try {
+            val json = org.json.JSONObject(body)
+            val directMessage = json.optString("message").trim()
+            if (directMessage.isNotBlank()) {
+                directMessage
+            } else {
+                val errors = json.optJSONObject("errors")
+                val messages = mutableListOf<String>()
+                if (errors != null) {
+                    val keys = errors.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val value = errors.opt(key)
+                        when (value) {
+                            is org.json.JSONArray -> {
+                                for (i in 0 until value.length()) {
+                                    value.optString(i).takeIf { it.isNotBlank() }?.let(messages::add)
+                                }
+                            }
+                            else -> value?.toString()?.takeIf { it.isNotBlank() }?.let(messages::add)
+                        }
+                    }
+                }
+                if (messages.isNotEmpty()) messages.joinToString(" ") else t("invalid_credentials")
+            }
+        } catch (_: Exception) {
+            t("invalid_credentials")
+        }
+    }
+
+'''
+
+          pattern = re.compile(
+              r'    private fun extractLoginErrorMessage\(raw: String\): String \{.*?\n    \}\n\n    // loginWithMobileAndPin\(\) REMOVED',
+              re.DOTALL,
+          )
+          updated, count = pattern.subn(replacement + '    // loginWithMobileAndPin() REMOVED', text, count=1)
+          if count != 1:
+              raise SystemExit('Phase 32 parser block was not found exactly once')
+          path.write_text(updated, encoding='utf-8')
+
+          subprocess.run(['git', 'config', 'user.name', 'github-actions[bot]'], check=True)
+          subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git', 'add', str(path), '.github/workflows/phase32-fix-viewmodel.yml'], check=True)
+          subprocess.run(['git', 'rm', '.github/workflows/phase32-fix-viewmodel.yml'], check=True)
+          subprocess.run(['git', 'commit', '-m', 'fix(android): compile phase 32 login error handling'], check=True)
+          subprocess.run(['git', 'push', 'origin', 'main'], check=True)
