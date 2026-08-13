@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\OperatorAccount;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -50,21 +51,20 @@ class LegacyOperatorMigrationTest extends TestCase
         $this->assertSame(1, User::where('mobile', '01987654321')->count());
     }
 
-    public function test_duplicate_canonical_mobile_fails_without_arbitrary_selection(): void
+    public function test_canonical_mobile_uniqueness_prevents_ambiguous_live_identity(): void
     {
         User::create(['name'=>'A','email'=>'a@safa.local','mobile'=>'01911111111','pin_hash'=>Hash::make('123456'),'password'=>Hash::make('123456'),'role'=>'staff','is_activated'=>true,'permissions'=>[]]);
-        User::create(['name'=>'B','email'=>'b@safa.local','mobile'=>'01911111111','pin_hash'=>Hash::make('123456'),'password'=>Hash::make('123456'),'role'=>'staff','is_activated'=>true,'permissions'=>[]]);
-        OperatorAccount::create(['name'=>'Legacy','email'=>'legacy2@safa.local','mobile'=>'01911111111','role'=>'staff','pin_hash'=>Hash::make('123456'),'is_activated'=>true,'permissions'=>[]]);
 
-        $this->artisan('safa:migrate-legacy-operators')->assertExitCode(1);
-        $this->assertNull(OperatorAccount::first()->user_id);
+        $this->expectException(UniqueConstraintViolationException::class);
+        User::create(['name'=>'B','email'=>'b@safa.local','mobile'=>'01911111111','pin_hash'=>Hash::make('123456'),'password'=>Hash::make('123456'),'role'=>'staff','is_activated'=>true,'permissions'=>[]]);
     }
 
     public function test_deactivated_canonical_user_cannot_authenticate(): void
     {
         $user = User::create(['name'=>'Inactive','email'=>'inactive@safa.local','mobile'=>'01922222222','pin_hash'=>Hash::make('123456'),'password'=>Hash::make('123456'),'role'=>'staff','is_activated'=>false,'permissions'=>[]]);
         $this->postJson('/api/auth/login', ['mobile'=>'01922222222','pin'=>'123456','device_uuid'=>'inactive-device','fingerprint_hash'=>'inactive-fingerprint'])
-            ->assertStatus(403)->assertJsonPath('error.code', 'ACCOUNT_INACTIVE');
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'This account is inactive. Please contact an administrator.');
         $this->assertNotNull($user->id);
     }
 
