@@ -16,6 +16,7 @@ class Phase32AuthenticationContractTest extends TestCase
 {
     use RefreshDatabase;
 
+    // Phase 32: production login must remain on MobileLoginController.
     public function test_active_login_route_has_one_mobile_authentication_source_of_truth(): void
     {
         $loginRoute = collect(Route::getRoutes()->getRoutes())
