@@ -58,11 +58,31 @@ object RetrofitClient {
         return if (path.endsWith("/api")) normalized.removeSuffix("/") + "/v1/" else normalized.removeSuffix("/") + "/api/v1/"
     }
 
-    private fun healthBaseUrl(baseUrl: String): String {
+    internal fun healthBaseUrl(baseUrl: String): String {
         val normalized = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-        return try {
-            val uri = URI(normalized); val scheme = uri.scheme ?: "https"; val authority = uri.rawAuthority ?: throw IllegalArgumentException("Invalid base URL"); val path = uri.rawPath.orEmpty().trimEnd('/'); val apiPath = if (path.endsWith("/api")) path else "$path/api"; "$scheme://$authority${if (apiPath == "/api") "/api/" else "$apiPath/"}"
-        } catch (_: Exception) { "https://safa.masarax.com/api/" }
+        val uri = try {
+            URI(normalized)
+        } catch (e: Exception) {
+            throw IllegalArgumentException("Invalid API base URL.", e)
+        }
+
+        val scheme = uri.scheme?.lowercase() ?: throw IllegalArgumentException("API base URL must include a scheme.")
+        val authority = uri.rawAuthority?.takeIf { it.isNotBlank() }
+            ?: throw IllegalArgumentException("API base URL must include a host.")
+        if (uri.userInfo != null) throw IllegalArgumentException("API base URL must not contain user credentials.")
+        if (scheme != "https" && !(BuildConfig.DEBUG && scheme == "http")) {
+            throw IllegalArgumentException("HTTPS is required for the API base URL.")
+        }
+        if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Unsupported API URL scheme.")
+
+        val path = uri.rawPath.orEmpty().trimEnd('/')
+        val apiPath = when {
+            path.endsWith("/api/v1") -> path.removeSuffix("/v1")
+            path.endsWith("/api") -> path
+            path.isBlank() || path == "/" -> "/api"
+            else -> "$path/api"
+        }
+        return "$scheme://$authority${apiPath.trimEnd('/')}/"
     }
 
     fun getApiService(baseUrl: String, apiKey: String, apiSecret: String, tokenManager: TokenManager? = null): ApiService = getInstance(baseUrl, apiKey, apiSecret, tokenManager).create(ApiService::class.java)
