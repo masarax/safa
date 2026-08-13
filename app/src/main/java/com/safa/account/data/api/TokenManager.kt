@@ -202,8 +202,8 @@ class TokenManager(private val context: Context) {
     fun getForeignCurrency(): String = prefs.getString("foreign_curr", "SAR") ?: "SAR"
     fun saveRateFeatureEnabled(enabled: Boolean) = prefs.edit { putBoolean("rate_feature", enabled) }
     fun getRateFeatureEnabled(): Boolean = prefs.getBoolean("rate_feature", true)
-    fun saveSupplierRateEnabled(enabled: Boolean) = prefs.getBoolean("supplier_rate_enabled", true)
-    fun getSupplierRateEnabled(enabled: Boolean): Boolean = prefs.getBoolean("supplier_rate_enabled", true)
+    fun saveSupplierRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("supplier_rate_enabled", enabled) }
+    fun getSupplierRateEnabled(): Boolean = prefs.getBoolean("supplier_rate_enabled", true)
     fun saveWalletRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("wallet_rate_enabled", enabled) }
     fun getWalletRateEnabled(): Boolean = prefs.getBoolean("wallet_rate_enabled", true)
 }
