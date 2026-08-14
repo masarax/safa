@@ -421,10 +421,15 @@ class AppRepository private constructor(
     suspend fun enqueueOutbox(outbox: SyncOutbox) {
         val store = localStore ?: return
         val entity = canonicalEntity(outbox.entityType)
-        // Modern repository mutations already created the durable canonical row.
-        // Legacy ViewModel enqueue calls remain compatible without replacing that
-        // richer payload or creating a duplicate singular entity row.
-        if (store.hasPending(entity, outbox.entityLocalId)) return
+        val hasCanonicalPendingMutation = store.hasPending(entity, outbox.entityLocalId)
+
+        // Modern repository mutations persist the record and canonical outbox in
+        // one local-first operation. Legacy ViewModel enqueue calls must never
+        // create a destructive mutation by themselves: if confirmation was
+        // cancelled, there is no pending tombstone and this DELETE is ignored.
+        if (hasCanonicalPendingMutation) return
+        if (outbox.operation.equals(OutboxOperation.DELETE, ignoreCase = true)) return
+
         store.enqueue(entity, outbox.entityLocalId, outbox.entityServerId, outbox.operation, outbox.payloadJson)
     }
     suspend fun getPendingOutbox(): List<SyncOutbox> = localStore?.getReadyOutbox()?.map { SyncOutbox(id = it.id.toInt(), entityType = it.entity, entityLocalId = it.localId, entityServerId = it.serverId, operation = it.operation, payloadJson = it.payload, retryCount = it.retryCount, lastError = it.error) } ?: emptyList()
