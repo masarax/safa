@@ -21,6 +21,13 @@ class Phase3BrandingAssetTest extends TestCase
         $this->get('/safa-logo.png')->assertOk(); $this->get('/favicon.svg')->assertOk();
     }
 
+    public function test_public_web_server_rules_do_not_deny_branding_assets(): void
+    {
+        $rules = (string) file_get_contents(public_path('.htaccess'));
+        $this->assertStringNotContainsString('safa-logo', $rules);
+        $this->assertStringNotContainsString('favicon', $rules);
+    }
+
     public function test_private_root_does_not_render_a_public_welcome_page(): void
     {
         $this->get('/')->assertNotFound();
