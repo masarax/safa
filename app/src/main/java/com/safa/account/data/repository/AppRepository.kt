@@ -221,29 +221,19 @@ class AppRepository private constructor(
         val accountId = serverAccountId?.takeIf { it > 0 } ?: return
         val tokenManager = TokenManager(context)
         val expected = tokenManager.getActiveAccountId()
-        if (expected != null && expected != accountId) {
-            error("Server account context mismatch")
-        }
+        if (expected != null && expected != accountId) error("Server account context mismatch")
         val result = LocalAccountBoundary.bind(context, accountId)
-        if (result == LocalAccountBoundary.Result.BLOCKED_BY_PENDING_MUTATIONS) {
-            error("Account switch blocked by unresolved local mutations")
-        }
+        if (result == LocalAccountBoundary.Result.BLOCKED_BY_PENDING_MUTATIONS) error("Account switch blocked by unresolved local mutations")
         if (result == LocalAccountBoundary.Result.SWITCHED) clearLocalPresentation()
         if (expected == null) tokenManager.saveActiveAccountId(accountId)
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun <T : Any> mergeServerRows(
-        entity: String,
-        serverRows: List<Map<String, Any?>>,
-        mapper: (Map<String, Any?>) -> T,
-        payload: (T) -> Map<String, Any?>
-    ) {
+    private fun <T : Any> mergeServerRows(entity: String, serverRows: List<Map<String, Any?>>, mapper: (Map<String, Any?>) -> T, payload: (T) -> Map<String, Any?>) {
         val store = localStore ?: return
         serverRows.forEach { raw ->
             val serverId = raw.v("id", "server_id").i()
             if (serverId <= 0) return@forEach
-
             val records = store.getRecordPayloads(entity)
             val requestedLocalId = raw.v("local_id").i().takeIf { it > 0 }
             val existing = records.firstOrNull { it.serverId == serverId } ?: requestedLocalId?.let { requested -> records.firstOrNull { it.localId == requested } }
@@ -251,10 +241,7 @@ class AppRepository private constructor(
             val incomingVersion = raw.v("sync_version", "version").i().coerceAtLeast(0)
             val localVersion = maxOf(store.serverVersion(entity, localId), existing?.let { runCatching { JSONObject(it.payload).optInt("sync_version", 0) }.getOrDefault(0) } ?: 0)
             val hasLocalMutation = store.hasPending(entity, localId) || (existing != null && existing.syncStatus != LocalFirstStore.SYNCED)
-
             if (SyncSnapshotGuard.decide(incomingVersion.toLong(), localVersion.toLong(), hasLocalMutation) == SyncSnapshotGuard.Decision.IGNORE) return@forEach
-            // Equal revisions are idempotent. Never let a same-version replay with
-            // different/missing fields replace a previously accepted snapshot.
             if (existing != null && incomingVersion == localVersion) return@forEach
 
             val item = mapper(raw)
@@ -268,10 +255,7 @@ class AppRepository private constructor(
                 is WalletBatch -> item.copy(id = localId, serverId = serverId, syncStatus = SyncStatus.SYNCED) as T
                 else -> item
             }
-            val durablePayload = payload(model).toMutableMap().apply {
-                put("server_id", serverId)
-                put("sync_version", incomingVersion)
-            }
+            val durablePayload = payload(model).toMutableMap().apply { put("server_id", serverId); put("sync_version", incomingVersion) }
             store.upsertRecord(entity, localId, serverId, mapToJson(durablePayload), LocalFirstStore.SYNCED)
             store.recordServerVersion(entity, localId, serverId, incomingVersion)
         }
@@ -380,7 +364,19 @@ class AppRepository private constructor(
     private fun operatorMap(o: OperatorAccount) = mapOf("id" to o.id, "username" to o.username, "name" to o.username, "role" to o.role, "mobile" to o.mobile, "email" to o.email, "is_activated" to o.isActivated, "is_active" to o.isActive, "is_biometric_enabled" to o.isBiometricEnabled, "can_view_customers" to o.canViewCustomers, "can_add_customers" to o.canAddCustomers, "can_edit_customers" to o.canEditCustomers, "can_delete_customers" to o.canDeleteCustomers, "can_view_suppliers" to o.canViewSuppliers, "can_add_suppliers" to o.canAddSuppliers, "can_edit_suppliers" to o.canEditSuppliers, "can_delete_suppliers" to o.canDeleteSuppliers, "can_view_transactions" to o.canViewTransactions, "can_add_transactions" to o.canAddTransactions, "can_edit_transactions" to o.canEditTransactions, "can_delete_transactions" to o.canDeleteTransactions, "can_manage_wallet" to o.canManageWallet, "can_manage_expenses" to o.canManageExpenses, "can_view_reports" to o.canViewReports)
     suspend fun insertOperator(o: OperatorAccount): Int { val id = if (o.id > 0) o.id else localId(0); val x = o.copy(id = id); localStore?.upsertRecord("operators", id, id, mapToJson(operatorMap(x)), LocalFirstStore.SYNCED); publish(); return id }
     suspend fun updateOperator(o: OperatorAccount) { localStore?.upsertRecord("operators", o.id, o.id, mapToJson(operatorMap(o)), LocalFirstStore.SYNCED); publish(); runCatching { api.updateOperator(o.id, operatorRequest(o)) } }
-    suspend fun deleteOperator(o: OperatorAccount) { if (!confirmDelete("operators")) return; runCatching { api.deleteOperator(o.id) }; localStore?.clearEntity("operators"); publish() }
+    suspend fun deleteOperator(o: OperatorAccount) {
+        val db = localStore?.writableDatabase ?: return
+        db.beginTransaction()
+        try {
+            db.delete("records", "entity=? AND local_id=?", arrayOf("operators", o.id.toString()))
+            db.delete("outbox", "entity=? AND local_id=?", arrayOf("operators", o.id.toString()))
+            db.delete("server_versions", "entity=? AND local_id=?", arrayOf("operators", o.id.toString()))
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        publish()
+    }
     suspend fun getOperatorByUsername(u: String) = _operators.value.firstOrNull { it.username == u }
     suspend fun getOperatorByMobile(m: String) = _operators.value.firstOrNull { it.mobile == m }
 
@@ -388,7 +384,27 @@ class AppRepository private constructor(
         localStore?.getRecordPayloads(entity)?.filter { it.syncStatus != LocalFirstStore.SYNCED && it.retryCount < 5 }
             ?.mapNotNull { runCatching { mapper(jsonToMap(it.payload)) }.getOrNull() } ?: emptyList()
 
-    suspend fun enqueueOutbox(outbox: SyncOutbox) { localStore?.enqueue(outbox.entityType.lowercase(), outbox.entityLocalId, outbox.entityServerId, outbox.operation, outbox.payloadJson) }
+    private fun canonicalEntity(raw: String): String = when (raw.trim().lowercase()) {
+        "customer", "customers" -> "customers"
+        "supplier", "suppliers" -> "suppliers"
+        "transaction", "transactions" -> "transactions"
+        "supplier_deposit", "supplier_deposits", "supplier-deposit", "supplier-deposits" -> "supplier_deposits"
+        "expense_income", "expenses_incomes", "expense-income", "expenses-incomes" -> "expenses_incomes"
+        "wallet_batch", "wallet_batches", "wallet-batch", "wallet-batches" -> "wallet_batches"
+        "wallet_ledger", "wallet_ledgers", "wallet-ledger", "wallet-ledgers" -> "wallet_ledgers"
+        "operator", "operators" -> "operators"
+        else -> raw.trim().lowercase()
+    }
+
+    suspend fun enqueueOutbox(outbox: SyncOutbox) {
+        val store = localStore ?: return
+        val entity = canonicalEntity(outbox.entityType)
+        // Modern repository mutations already created the durable canonical row.
+        // Legacy ViewModel enqueue calls remain compatible without replacing that
+        // richer payload or creating a duplicate singular entity row.
+        if (store.hasPending(entity, outbox.entityLocalId)) return
+        store.enqueue(entity, outbox.entityLocalId, outbox.entityServerId, outbox.operation, outbox.payloadJson)
+    }
     suspend fun getPendingOutbox(): List<SyncOutbox> = localStore?.getReadyOutbox()?.map { SyncOutbox(id = it.id.toInt(), entityType = it.entity, entityLocalId = it.localId, entityServerId = it.serverId, operation = it.operation, payloadJson = it.payload, retryCount = it.retryCount, lastError = it.error) } ?: emptyList()
     suspend fun deleteOutbox(id: Int) { localStore?.deleteOutbox(id.toLong()) }
 
@@ -396,9 +412,7 @@ class AppRepository private constructor(
         val context = appContext ?: return
         val active = TokenManager(context).getActiveAccountId() ?: error("Active account selection is required before synchronization")
         val result = LocalAccountBoundary.bind(context, active)
-        if (result == LocalAccountBoundary.Result.BLOCKED_BY_PENDING_MUTATIONS) {
-            error("Local mutation account boundary mismatch")
-        }
+        if (result == LocalAccountBoundary.Result.BLOCKED_BY_PENDING_MUTATIONS) error("Local mutation account boundary mismatch")
     }
 
     suspend fun processOutbox(): Result<Int> = withContext(Dispatchers.IO) {
