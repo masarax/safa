@@ -70,6 +70,8 @@ import com.safa.account.data.api.AuthLifecycleCoordinator
 import com.safa.account.data.network.DeleteConfirmationCoordinator
 import com.safa.account.data.network.DeleteConfirmationRequest
 import com.safa.account.data.repository.AppRepository
+import com.safa.account.ui.components.StartupFailurePolicy
+import com.safa.account.ui.components.StartupFailurePresentation
 import com.safa.account.ui.screens.*
 import com.safa.account.ui.theme.MyApplicationTheme
 import com.safa.account.ui.viewmodel.AppScreen
@@ -94,15 +96,17 @@ class MainActivity : FragmentActivity() {
             }
         } catch (t: Throwable) {
             val diagnosticId = java.util.UUID.randomUUID().toString().take(8).uppercase()
-            if (BuildConfig.DEBUG) {
-                SafaLogger.error("FATAL_STARTUP_ERROR", "support_id=$diagnosticId", t)
-            } else {
-                SafaLogger.error("FATAL_STARTUP_ERROR", "support_id=$diagnosticId")
-            }
+            val language = resources.configuration.locales[0]?.language.orEmpty()
+            val presentation = StartupFailurePolicy.presentation(language, diagnosticId, t)
+            SafaLogger.error(
+                "FATAL_STARTUP_ERROR",
+                "support_id=$diagnosticId",
+                StartupFailurePolicy.diagnosticThrowable(BuildConfig.DEBUG, t)
+            )
             setContent {
                 MyApplicationTheme(darkTheme = false) {
                     StartupErrorScreen(
-                        diagnosticId = diagnosticId,
+                        presentation = presentation,
                         onRetry = { recreate() }
                     )
                 }
@@ -348,16 +352,13 @@ fun SafaBottomNavigationBar(viewModel: SafaViewModel, currentScreen: AppScreen) 
 }
 
 @Composable
-private fun StartupErrorScreen(diagnosticId: String, onRetry: () -> Unit) {
-    val context = LocalContext.current
-    val language = context.resources.configuration.locales[0]?.language.orEmpty()
-    val isBangla = language.equals("bn", ignoreCase = true)
+private fun StartupErrorScreen(presentation: StartupFailurePresentation, onRetry: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(24.dp)) {
-            Text(if (isBangla) "SAFA চালু করা যায়নি" else "SAFA could not start", style = MaterialTheme.typography.headlineSmall)
-            Text(if (isBangla) "অ্যাপটি চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।" else "The app could not be initialized. Please try again.")
-            Text(if (isBangla) "সহায়তা আইডি: $diagnosticId" else "Support ID: $diagnosticId", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = onRetry) { Text(if (isBangla) "আবার চেষ্টা করুন" else "Retry") }
+            Text(presentation.title, style = MaterialTheme.typography.headlineSmall)
+            Text(presentation.message)
+            Text(presentation.supportLabel, style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onRetry) { Text(presentation.retryLabel) }
         }
     }
 }
