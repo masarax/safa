@@ -369,6 +369,19 @@ class AppRepository private constructor(
     suspend fun insertOperator(o: OperatorAccount): Int { val id = if (o.id > 0) o.id else localId(0); val x = o.copy(id = id); localStore?.upsertRecord("operators", id, id, mapToJson(operatorMap(x)), LocalFirstStore.SYNCED); publish(); return id }
     suspend fun updateOperator(o: OperatorAccount) { localStore?.upsertRecord("operators", o.id, o.id, mapToJson(operatorMap(o)), LocalFirstStore.SYNCED); publish(); runCatching { api.updateOperator(o.id, operatorRequest(o)) } }
     suspend fun deleteOperator(o: OperatorAccount) {
+        // User-management callers may invoke local cleanup even after a cancelled
+        // or failed server DELETE. Treat the server list as authoritative and
+        // remove the local row only after the operator is confirmed absent.
+        val response = runCatching { api.getOperators() }.getOrNull() ?: return
+        if (!response.isSuccessful || response.body() == null) return
+        @Suppress("UNCHECKED_CAST")
+        val serverOperators = response.body()!!["operators"] as? List<Map<String, Any?>> ?: emptyList()
+        val stillExists = serverOperators.any { raw ->
+            val id = (raw["id"] as? Number)?.toInt() ?: raw["id"]?.toString()?.toIntOrNull() ?: 0
+            id == o.id
+        }
+        if (stillExists) return
+
         val db = localStore?.writableDatabase ?: return
         db.beginTransaction()
         try {
