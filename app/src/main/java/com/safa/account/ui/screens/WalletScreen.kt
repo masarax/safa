@@ -248,7 +248,7 @@ fun WalletScreen(
                                 Text(
                                     text = "৳ ${currencyFormatter.format(ledgerBalance)}",
                                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
-                                    color = if (ledgerBalance > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                                    color = if (ledgerBalance.signum() > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -381,7 +381,7 @@ fun WalletScreen(
                                                 Text(
                                                     text = "Total Remaining: ৳${currencyFormatter.format(combinedRemaining)}",
                                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                    color = if (combinedRemaining > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                                                    color = if (combinedRemaining.signum() > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
                                                 )

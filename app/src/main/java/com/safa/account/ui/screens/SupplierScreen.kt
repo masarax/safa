@@ -2402,7 +2402,7 @@ fun AddFundPage(
                         onClick = { currentStep = 2 },
                         modifier = Modifier.fillMaxWidth().height(36.dp),
                         shape = RoundedCornerShape(12.dp),
-                        enabled = sarVal > 0
+                        enabled = sarVal.signum() > 0
                     ) {
                         Text(if (lang == "BN") "পরবর্তী ধাপ" else "Next Step", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(8.dp))

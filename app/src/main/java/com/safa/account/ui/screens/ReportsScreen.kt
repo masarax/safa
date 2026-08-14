@@ -311,13 +311,14 @@ fun ReportsScreen(
                     // Net Income Hero Card
                     val isRateBasedMode by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
                     if (isRateBasedMode) {
+                        val isProfitable = netRevenueBdt.signum() >= 0
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (netRevenueBdt >= 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                                containerColor = if (isProfitable) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
                             ),
-                            border = BorderStroke(1.dp, if (netRevenueBdt >= 0) Color(0xFFA5D6A7) else Color(0xFFEF9A9A))
+                            border = BorderStroke(1.dp, if (isProfitable) Color(0xFFA5D6A7) else Color(0xFFEF9A9A))
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
@@ -328,19 +329,19 @@ fun ReportsScreen(
                                     Text(
                                         text = if (lang == "BN") "নিট প্রফিট মার্জিন" else "Net Revenue",
                                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
-                                        color = if (netRevenueBdt >= 0) Color(0xFF1B5E20) else Color(0xFFC62828)
+                                        color = if (isProfitable) Color(0xFF1B5E20) else Color(0xFFC62828)
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "৳${currencyFormatter.format(netRevenueBdt)} ${localCur}",
                                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                                        color = if (netRevenueBdt >= 0) Color(0xFF2E7D32) else Color(0xFFD32F2F)
+                                        color = if (isProfitable) Color(0xFF2E7D32) else Color(0xFFD32F2F)
                                     )
                                 }
 
                                 Surface(
                                     shape = RoundedCornerShape(20.dp),
-                                    color = if (netRevenueBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                    color = if (isProfitable) Color(0xFF2E7D32) else Color(0xFFC62828)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -348,13 +349,13 @@ fun ReportsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Icon(
-                                            imageVector = if (netRevenueBdt >= 0) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                            imageVector = if (isProfitable) Icons.Default.CheckCircle else Icons.Default.Warning,
                                             contentDescription = null,
                                             tint = Color.White,
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Text(
-                                            text = if (netRevenueBdt >= 0) (if (lang == "BN") "লাভজনক" else "Profitable") else (if (lang == "BN") "ঘাটতি" else "Deficit"),
+                                            text = if (isProfitable) (if (lang == "BN") "লাভজনক" else "Profitable") else (if (lang == "BN") "ঘাটতি" else "Deficit"),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                             color = Color.White
                                         )
