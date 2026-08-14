@@ -63,6 +63,27 @@ object LocalAccountBoundary {
         }
     }
 
+    /**
+     * Authentication boundary: destroy every account-owned durable structure in
+     * one SQLite transaction before credentials can be reused by another user.
+     * Device/local-id seed metadata is intentionally retained; business/account
+     * data, outbox mutations, revisions and the active-account binding are not.
+     */
+    fun destroyAccountState(context: Context) {
+        withStore(context) { db ->
+            db.beginTransaction()
+            try {
+                db.delete("records", null, null)
+                db.delete("outbox", null, null)
+                db.delete("server_versions", null, null)
+                db.delete("meta", "key=?", arrayOf(META_ACTIVE_ACCOUNT_ID))
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+        }
+    }
+
     fun clearBinding(context: Context) {
         withStore(context) { db ->
             db.delete("meta", "key=?", arrayOf(META_ACTIVE_ACCOUNT_ID))
