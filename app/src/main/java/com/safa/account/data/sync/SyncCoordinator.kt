@@ -23,4 +23,12 @@ object SyncCoordinator {
         withTimeoutOrNull(LOCK_TIMEOUT_MS) {
             mutex.withLock { block() }
         }
+
+    /**
+     * Security/lifecycle boundary for logout and credential destruction.
+     * Unlike a normal sync attempt, this operation must not time out and race a
+     * still-running worker: cancellation releases the mutex, then the caller gets
+     * exclusive ownership before destroying account state and credentials.
+     */
+    suspend fun <T> runExclusive(block: suspend () -> T): T = mutex.withLock { block() }
 }
