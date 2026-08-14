@@ -24,6 +24,19 @@ Route::get('/favicon.svg', function () {
     return response()->file(public_path('favicon.svg'));
 });
 
+// Uploaded branding is stored outside Laravel's storage symlink contract.
+// Route only generated raster logo names through the application so both a
+// project-root and a public/ cPanel document root serve the same safe asset.
+Route::get('/storage/logos/{file}', function (string $file) {
+    $path = public_path('storage/logos/' . $file);
+    if (!is_file($path)) return response()->json(['status' => 'not_found'], 404);
+
+    return response()->file($path, [
+        'Cache-Control' => 'public, max-age=86400',
+        'X-Content-Type-Options' => 'nosniff',
+    ]);
+})->where('file', 'logo_[A-Za-z0-9_-]+\\.(?:png|jpe?g|gif|webp)');
+
 // No browser-facing website or public status page is exposed.
 Route::fallback(function () {
     return response()->json(['status' => 'not_found'], 404);
