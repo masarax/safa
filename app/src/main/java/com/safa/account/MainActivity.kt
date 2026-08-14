@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +50,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.safa.account.R
+import com.safa.account.data.api.AccountChoice
 import com.safa.account.data.api.AuthLifecycleCoordinator
 import com.safa.account.data.network.DeleteConfirmationCoordinator
 import com.safa.account.data.network.DeleteConfirmationRequest
@@ -79,6 +82,7 @@ import com.safa.account.ui.viewmodel.NavDirection
 import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.viewmodel.SafaViewModelFactory
 import com.safa.account.utils.SafaLogger
+import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -124,22 +128,58 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
     var showExitDialog by remember { mutableStateOf(false) }
     var previousOperatorId by remember { mutableStateOf<Int?>(currentOperator?.id) }
     var isRefreshing by remember { mutableStateOf(false) }
     var deleteConfirmation by remember { mutableStateOf<DeleteConfirmationRequest?>(null) }
+    var activeAccountId by remember { mutableStateOf(viewModel.tokenManager?.getActiveAccountId()) }
+    var accountChoices by remember { mutableStateOf<List<AccountChoice>>(emptyList()) }
+    var showAccountDialog by remember { mutableStateOf(false) }
+    var accountLoading by remember { mutableStateOf(false) }
+    var accountSwitching by remember { mutableStateOf(false) }
+    var accountError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(currentOperator?.id) {
         val previous = previousOperatorId
         val current = currentOperator?.id
         if (previous != null && current == null) {
             viewModel.tokenManager?.let { AuthLifecycleCoordinator(it).logout() }
+            activeAccountId = null
+            accountChoices = emptyList()
+            showAccountDialog = false
+            accountError = null
         }
         previousOperatorId = current
     }
 
     LaunchedEffect(Unit) {
         viewModel.tokenManager?.sessionInvalidated?.collect { viewModel.logout() }
+    }
+
+    LaunchedEffect(currentOperator?.id) {
+        val operator = currentOperator ?: return@LaunchedEffect
+        if (!operator.isActive) return@LaunchedEffect
+        val tm = viewModel.tokenManager ?: return@LaunchedEffect
+        activeAccountId = tm.getActiveAccountId()
+        if (activeAccountId == null) {
+            // Never expose a previously cached account while this authenticated
+            // session has not selected its canonical business account yet.
+            viewModel.repository.clearLocalPresentation()
+        }
+        val manager = viewModel.syncManager ?: return@LaunchedEffect
+        accountLoading = true
+        accountError = null
+        val result = manager.listAccounts()
+        accountLoading = false
+        if (result.isSuccess) {
+            accountChoices = result.getOrDefault(emptyList())
+            activeAccountId = tm.getActiveAccountId()
+            showAccountDialog = activeAccountId == null
+        } else if (activeAccountId == null) {
+            accountError = if (currentLanguage == "BN") "অ্যাকাউন্ট তালিকা লোড করা যায়নি। আবার চেষ্টা করুন।" else "Could not load your accounts. Please retry."
+            showAccountDialog = true
+        }
     }
 
     // Persist the account's quick-unlock preference only after an authenticated
@@ -223,7 +263,7 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     val showBars = isMainScreen && !isSubPageActive
 
     MyApplicationTheme(darkTheme = isDarkMode) {
-        if (currentScreen != AppScreen.LOCK_SCREEN) {
+        if (currentScreen != AppScreen.LOCK_SCREEN && !showAccountDialog) {
             BackHandler { if (!viewModel.navigateBack()) showExitDialog = true }
         }
 
@@ -247,12 +287,138 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
             )
         }
 
+        if (showAccountDialog && currentOperator != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    if (activeAccountId != null && !accountSwitching) showAccountDialog = false
+                },
+                title = {
+                    Text(
+                        if (currentLanguage == "BN") "ব্যবসার অ্যাকাউন্ট নির্বাচন" else "Select business account",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (accountLoading || accountSwitching) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                Text(if (accountSwitching) {
+                                    if (currentLanguage == "BN") "অ্যাকাউন্ট পরিবর্তন হচ্ছে…" else "Switching account…"
+                                } else {
+                                    if (currentLanguage == "BN") "অ্যাকাউন্ট লোড হচ্ছে…" else "Loading accounts…"
+                                })
+                            }
+                        }
+                        accountError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        accountChoices.forEach { account ->
+                            val selected = account.accountId == activeAccountId
+                            TextButton(
+                                onClick = {
+                                    if (accountSwitching) return@TextButton
+                                    if (selected) {
+                                        showAccountDialog = false
+                                        return@TextButton
+                                    }
+                                    val manager = viewModel.syncManager ?: return@TextButton
+                                    accountSwitching = true
+                                    accountError = null
+                                    scope.launch {
+                                        val result = manager.switchAccount(account.accountId)
+                                        accountSwitching = false
+                                        if (result.isSuccess) {
+                                            activeAccountId = result.getOrNull()
+                                            showAccountDialog = false
+                                        } else {
+                                            val pending = result.exceptionOrNull()?.message?.contains("pending", ignoreCase = true) == true
+                                            accountError = if (pending) {
+                                                if (currentLanguage == "BN") "আগে বর্তমান অ্যাকাউন্টের পেন্ডিং পরিবর্তন সিঙ্ক করুন।" else "Sync pending changes before switching accounts."
+                                            } else {
+                                                if (currentLanguage == "BN") "অ্যাকাউন্ট পরিবর্তন করা যায়নি। আবার চেষ্টা করুন।" else "Could not switch account. Please retry."
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = !accountSwitching,
+                                modifier = Modifier.fillMaxWidth().testTag("business_account_${account.accountId}")
+                            ) {
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Icon(
+                                        if (selected) Icons.Default.CheckCircle else Icons.Default.AccountBalance,
+                                        contentDescription = null,
+                                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(account.ownerName.ifBlank { if (currentLanguage == "BN") "অ্যাকাউন্ট #${account.accountId}" else "Account #${account.accountId}" }, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                                        Text("${account.role} • #${account.accountId}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                }
+                            }
+                        }
+                        if (!accountLoading && accountChoices.isEmpty()) {
+                            Text(if (currentLanguage == "BN") "কোনো অনুমোদিত অ্যাকাউন্ট পাওয়া যায়নি।" else "No authorized account is available.")
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val manager = viewModel.syncManager ?: return@TextButton
+                            accountLoading = true
+                            accountError = null
+                            scope.launch {
+                                val result = manager.listAccounts()
+                                accountLoading = false
+                                if (result.isSuccess) {
+                                    accountChoices = result.getOrDefault(emptyList())
+                                    activeAccountId = viewModel.tokenManager?.getActiveAccountId()
+                                    if (activeAccountId != null && accountChoices.size <= 1) showAccountDialog = false
+                                } else {
+                                    accountError = if (currentLanguage == "BN") "অ্যাকাউন্ট তালিকা লোড করা যায়নি।" else "Could not load account list."
+                                }
+                            }
+                        },
+                        enabled = !accountLoading && !accountSwitching
+                    ) { Text(if (currentLanguage == "BN") "রিফ্রেশ" else "Refresh") }
+                },
+                dismissButton = {
+                    if (activeAccountId != null) {
+                        TextButton(onClick = { showAccountDialog = false }, enabled = !accountSwitching) {
+                            Text(if (currentLanguage == "BN") "বন্ধ" else "Close")
+                        }
+                    }
+                }
+            )
+        }
+
         if (currentScreen == AppScreen.LOCK_SCREEN) {
             LoginScreen(viewModel = viewModel)
         } else {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                topBar = { if (showBars) SafaTopAppBar(viewModel, viewModel.t("app_title"), currentOperator?.username ?: "") { viewModel.logout() } },
+                topBar = {
+                    if (showBars) SafaTopAppBar(
+                        viewModel = viewModel,
+                        title = viewModel.t("app_title"),
+                        operatorName = currentOperator?.username ?: "",
+                        onAccountClick = {
+                            showAccountDialog = true
+                            accountLoading = true
+                            accountError = null
+                            scope.launch {
+                                val result = viewModel.syncManager?.listAccounts()
+                                accountLoading = false
+                                if (result?.isSuccess == true) {
+                                    accountChoices = result.getOrDefault(emptyList())
+                                    activeAccountId = viewModel.tokenManager?.getActiveAccountId()
+                                } else {
+                                    accountError = if (currentLanguage == "BN") "অ্যাকাউন্ট তালিকা লোড করা যায়নি।" else "Could not load account list."
+                                }
+                            }
+                        },
+                        onLogoutClick = { viewModel.logout() }
+                    )
+                },
                 bottomBar = { if (showBars) SafaBottomNavigationBar(viewModel, currentScreen) }
             ) { innerPadding ->
                 PullToRefreshBox(
@@ -300,7 +466,13 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String, onLogoutClick: () -> Unit) {
+fun SafaTopAppBar(
+    viewModel: SafaViewModel,
+    title: String,
+    operatorName: String,
+    onAccountClick: () -> Unit,
+    onLogoutClick: () -> Unit
+) {
     val currentLang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val goldBgColor = if (isDarkMode) Color(0xFF1B1812) else Color(0xFFD7A84B)
@@ -324,6 +496,7 @@ fun SafaTopAppBar(viewModel: SafaViewModel, title: String, operatorName: String,
         },
         actions = {
             Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onAccountClick, modifier = Modifier.testTag("appbar_account_switch").size(36.dp)) { Icon(imageVector = Icons.Default.SwitchAccount, contentDescription = "Switch Account", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Switch Theme", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
             IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
