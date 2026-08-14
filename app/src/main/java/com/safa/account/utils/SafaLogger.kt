@@ -8,7 +8,7 @@ object SafaLogger {
     private const val MAX_STACK_FRAMES = 8
 
     fun log(tag: String, message: String) {
-        runCatching { Log.i(TAG, [$tag] $message") }
+        runCatching { Log.i(TAG, "[$tag] $message") }
     }
 
     fun error(tag: String, message: String, throwable: Throwable? = null) {
@@ -49,6 +49,6 @@ object SafaLogger {
     }
 
     fun warn(tag: String, message: String) {
-        runCatching { Log.w(TAG, [$tag] $message") }
+        runCatching { Log.w(TAG, "[$tag] $message") }
     }
 }
