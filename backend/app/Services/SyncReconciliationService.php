@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\SyncMutation;
+use App\Support\MoneyDecimal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,15 @@ class SyncReconciliationService
     public function apply(int $accountId, string $entity, string $modelClass, array $payload, callable $attributes, ?callable $validate = null, ?string $defaultOperation = null): array
     {
         $localId = (int) ($payload['local_id'] ?? 0);
+        try {
+            // Normalize money before mutation identity, validation and persistence.
+            // Equivalent values (for example 0.3 and 0.30000000000000004) now
+            // converge to one fixed-scale representation without PHP float math.
+            $payload = MoneyDecimal::canonicalizeEntityPayload($entity, $payload);
+        } catch (\InvalidArgumentException $e) {
+            return $this->rejected($entity, $localId, $e->getMessage(), 'VALIDATION');
+        }
+
         $sync = is_array($payload['_sync'] ?? null) ? $payload['_sync'] : [];
         $operation = strtoupper((string) ($sync['operation'] ?? $payload['operation'] ?? $defaultOperation ?? ($this->isDeleted($payload) ? 'DELETE' : 'UPSERT')));
         $operation = match ($operation) { 'CREATE', 'UPDATE' => 'UPSERT', default => $operation };
@@ -20,7 +30,7 @@ class SyncReconciliationService
         $baseVersion = array_key_exists('base_version', $sync) ? $this->positiveIntOrNull($sync['base_version']) : $this->positiveIntOrNull($payload['base_version'] ?? null);
         if ($localId <= 0) return $this->rejected($entity, $localId, 'Missing local_id', 'VALIDATION');
         if (!in_array($operation, ['UPSERT', 'DELETE', 'RESTORE'], true)) return $this->rejected($entity, $localId, 'Unsupported sync operation', 'VALIDATION', $mutationId);
-        if ($domainError = $this->validateDomainPayload($entity, $payload)) return $this->rejected($entity, $localId, $domainError, 'VALIDATION', $mutationId);
+        if ($domainError = $this->validateDomainPayload($payload)) return $this->rejected($entity, $localId, $domainError, 'VALIDATION', $mutationId);
         if ($validate) { $validationError = $validate($payload); if ($validationError) return $this->rejected($entity, $localId, $validationError, 'VALIDATION', $mutationId); }
 
         return DB::transaction(function () use ($accountId, $entity, $modelClass, $payload, $attributes, $operation, $mutationId, $baseVersion, $localId) {
@@ -65,18 +75,16 @@ class SyncReconciliationService
         });
     }
 
-    private function validateDomainPayload(string $entity, array $payload): ?string
+    private function validateDomainPayload(array $payload): ?string
     {
-        $numericFields = match ($entity) { 'transactions' => ['amount', 'amount_sar', 'customer_rate', 'supplier_rate', 'amount_bdt'], 'supplier_deposits' => ['amount_sar', 'rate', 'amount_bdt', 'paid_bdt'], 'wallet_batches' => ['rate', 'initial_bdt', 'remaining_bdt'], 'expenses_incomes' => ['amount'], default => [] };
-        foreach ($numericFields as $field) {
-            if (!array_key_exists($field, $payload) || $payload[$field] === null || $payload[$field] === '') continue;
-            if (is_array($payload[$field]) || is_object($payload[$field]) || !is_numeric($payload[$field])) return "Invalid numeric field: {$field}";
-            if ((float) $payload[$field] < 0) return "Negative value is not allowed: {$field}";
-            if (abs((float) $payload[$field]) > 1000000000000) return "Numeric value is outside the supported range: {$field}";
+        foreach (['customer_id', 'supplier_id', 'wallet_batch_id', 'ledger_id', 'supplier_deposit_id'] as $field) {
+            if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '' && (!is_numeric($payload[$field]) || (int) $payload[$field] < 0)) {
+                return "Invalid identifier: {$field}";
+            }
         }
-        foreach (['customer_id', 'supplier_id', 'wallet_batch_id', 'ledger_id', 'supplier_deposit_id'] as $field) if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '' && (!is_numeric($payload[$field]) || (int) $payload[$field] < 0)) return "Invalid identifier: {$field}";
         return null;
     }
+
     private function legacyStaleAck(string $entity, int $localId, Model $record, string $mutationId, string $operation): array { return ['status' => 'accepted', 'accepted' => ['local_id' => $localId, 'server_id' => (int) $record->id, 'sync_version' => (int) ($record->sync_version ?? 0), 'mutation_id' => $mutationId, 'operation' => $operation, 'stale' => true, 'server_authoritative' => true]]; }
     private function conflict(string $entity, int $localId, Model $record, string $mutationId, int $version, string $operation): array { return ['status' => 'conflict', 'conflict' => ['entity' => $entity, 'local_id' => $localId, 'server_id' => (int) $record->id, 'reason' => 'STALE_BASE_VERSION', 'mutation_id' => $mutationId, 'operation' => $operation, 'server_version' => $version, 'server' => $record->toArray()]]; }
     private function rejected(string $entity, int $localId, string $reason, string $code, ?string $mutationId = null): array { return ['status' => 'rejected', 'rejected' => ['entity' => $entity, 'local_id' => $localId, 'reason' => $reason, 'code' => $code, 'mutation_id' => $mutationId]]; }
