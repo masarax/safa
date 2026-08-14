@@ -23,8 +23,9 @@ data class DeleteConfirmationRequest(
 
 object DeleteConfirmationCoordinator {
     private const val CONFIRMATION_TIMEOUT_MS = 60_000L
+    private const val PERMIT_TTL_MS = 30_000L
     private val pending = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
-    private val permits = ConcurrentHashMap.newKeySet<String>()
+    private val permits = ConcurrentHashMap<String, Long>()
     private val _requests = MutableSharedFlow<DeleteConfirmationRequest>(extraBufferCapacity = 16)
     val requests = _requests.asSharedFlow()
 
@@ -41,20 +42,25 @@ object DeleteConfirmationCoordinator {
     }
 
     /**
-     * Confirms a named destructive action and leaves a one-shot permit for the
-     * repository mutation that follows a successful direct API delete.
+     * Confirms a named destructive action and leaves a short-lived one-shot
+     * acknowledgement for the repository mutation that follows a successful
+     * direct API delete. Exact target scoping + expiry prevents stale permits
+     * from authorizing an unrelated future delete.
      */
     suspend fun requestAndGrant(targetKey: String, title: String, message: String): Boolean {
         if (!requestConfirmation(title, message)) return false
-        permits += targetKey
+        grant(targetKey)
         return true
     }
 
     fun grant(targetKey: String) {
-        permits += targetKey
+        permits[targetKey] = System.currentTimeMillis() + PERMIT_TTL_MS
     }
 
-    fun consume(targetKey: String): Boolean = permits.remove(targetKey)
+    fun consume(targetKey: String): Boolean {
+        val expiresAt = permits.remove(targetKey) ?: return false
+        return expiresAt >= System.currentTimeMillis()
+    }
 
     fun resolve(id: String, confirmed: Boolean) {
         pending.remove(id)?.complete(confirmed)
