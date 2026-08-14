@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.safa.account.data.model.Customer
+import com.safa.account.data.model.OutboxOperation
+import com.safa.account.data.model.SyncOutbox
 import com.safa.account.data.model.SyncStatus
 import com.safa.account.data.network.DeleteConfirmationCoordinator
 import com.safa.account.data.repository.AppRepository
@@ -12,6 +14,7 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -65,5 +68,40 @@ class RemoteAcceptedDeletePersistenceTest {
         assertFalse(store.hasPending("customers", localId))
         assertEquals(0, store.outboxCount())
         assertNull(repository.getCustomerById(localId))
+    }
+
+    @Test
+    fun legacyDeleteEnqueueCannotCreateUnconfirmedDestructiveMutation() = runBlocking {
+        val repository = AppRepository(context)
+        val localId = repository.insertCustomer(
+            Customer(
+                serverId = 9802,
+                name = "Keep Me",
+                phone = "0500000002",
+                syncStatus = SyncStatus.SYNCED,
+            )
+        )
+
+        // This mirrors the legacy ViewModel call that follows its repository
+        // delete attempt. If the user cancelled confirmation, the canonical
+        // repository mutation is absent and this compatibility call must no-op.
+        repository.enqueueOutbox(
+            SyncOutbox(
+                entityType = "CUSTOMER",
+                entityLocalId = localId,
+                entityServerId = 9802,
+                operation = OutboxOperation.DELETE,
+                payloadJson = JSONObject(
+                    mapOf("local_id" to localId, "server_id" to 9802)
+                ).toString(),
+            )
+        )
+
+        assertEquals(0, store.outboxCount())
+        assertFalse(store.hasPending("customers", localId))
+        assertNotNull(repository.getCustomerById(localId))
+        val raw = store.getRecordPayloads("customers").single { it.localId == localId }
+        assertEquals(LocalFirstStore.SYNCED, raw.syncStatus)
+        assertFalse(JSONObject(raw.payload).has("deleted_at") && !JSONObject(raw.payload).isNull("deleted_at"))
     }
 }
