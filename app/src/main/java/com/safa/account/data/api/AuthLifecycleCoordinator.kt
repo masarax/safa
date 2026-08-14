@@ -2,6 +2,7 @@ package com.safa.account.data.api
 
 import android.content.Context
 import com.safa.account.data.local.LocalAccountBoundary
+import com.safa.account.data.sync.SyncCoordinator
 import com.safa.account.data.sync.SyncWorkScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,18 +34,28 @@ class AuthLifecycleCoordinator(private val tokenManager: TokenManager) {
         } catch (t: Throwable) {
             serverResult = Result.failure(t)
         } finally {
-            // Stop both immediate and periodic reconciliation before destroying
-            // local account state so no worker can carry account A data into B.
             val context: Context = tokenManager.getContext().applicationContext
+
+            // Stop future/immediate WorkManager runs first. Cancellation is
+            // asynchronous, so the process-wide sync mutex below is the actual
+            // race-free lifecycle barrier against a worker that is already active.
             SyncWorkScheduler.cancelAll(context)
 
-            // Do not rely on filesystem deletion alone: an AppRepository may
-            // still own an open SQLite connection. The transactional wipe is the
-            // zero-leakage guarantee; file deletion below is extra cleanup.
-            runCatching { LocalAccountBoundary.destroyAccountState(context) }
+            SyncCoordinator.runExclusive {
+                // Do not rely on filesystem deletion alone: an AppRepository may
+                // still own an open SQLite connection. The transactional wipe is
+                // the zero-leakage guarantee.
+                runCatching { LocalAccountBoundary.destroyAccountState(context) }
 
-            tokenManager.clearAllTokens()
-            RetrofitClient.clearCache()
+                // Credentials are cleared only while we exclusively own the sync
+                // gate, so no same-process sync can read A's credentials after the
+                // durable A state has been destroyed or repopulate it afterward.
+                tokenManager.clearAllTokens()
+                RetrofitClient.clearCache()
+            }
+
+            // Extra cleanup after the transactional wipe. This may be a no-op if
+            // another repository still owns an open SQLite handle, which is safe.
             runCatching { context.deleteDatabase("safa_local.db") }
         }
         serverResult ?: Result.failure(IllegalStateException("Logout did not complete"))
