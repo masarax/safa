@@ -74,8 +74,8 @@ class SyncRetryHardeningTest {
             assertTrue(result.isFailure)
             val returned = result.exceptionOrNull()
             assertTrue(returned is IllegalStateException)
-            assertEquals("HTTP 500", returned?.message)
-            assertEquals(SyncState.Error("HTTP 500"), manager.syncState.value)
+            assertEquals("Synchronization failed", returned?.message)
+            assertEquals(SyncState.Error("Synchronization failed"), manager.syncState.value)
             verify(repository, times(1)).processOutbox()
             verify(repository, never()).refreshAll()
         }
@@ -101,8 +101,8 @@ class SyncRetryHardeningTest {
             assertTrue(result.isFailure)
             val returned = result.exceptionOrNull()
             assertTrue(returned is IllegalStateException)
-            assertEquals("HTTP 422", returned?.message)
-            assertEquals(SyncState.Error("HTTP 422"), manager.syncState.value)
+            assertEquals("Synchronization failed", returned?.message)
+            assertEquals(SyncState.Error("Synchronization failed"), manager.syncState.value)
             verify(repository, times(1)).processOutbox()
             verify(repository, times(1)).refreshAll()
         }
