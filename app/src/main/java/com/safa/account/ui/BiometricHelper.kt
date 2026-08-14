@@ -56,7 +56,10 @@ fun launchBiometricPrompt(context: Context, lang: String, onSuccess: () -> Unit,
             .setNegativeButtonText(if (lang == "BN") "PIN দিয়ে প্রবেশ" else "Use PIN")
             .setAllowedAuthenticators(authenticators)
             .build()
-        runCatching { prompt.authenticate(info) }.onFailure { onError(it.localizedMessage ?: "Biometric prompt failed") }
+        runCatching { prompt.authenticate(info) }.onFailure {
+            com.safa.account.utils.SafaLogger.error("BIOMETRIC", "Biometric prompt launch failed", it)
+            onError(if (lang == "BN") "ফিঙ্গারপ্রিন্ট যাচাই শুরু করা যায়নি।" else "Biometric authentication could not be started.")
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 package com.safa.account.data.model
 
 import com.safa.account.data.money.MoneyMath
+import java.math.BigDecimal
 
 /**
  * Application/domain compatibility models.
@@ -11,9 +12,9 @@ import com.safa.account.data.money.MoneyMath
  * cleared at the authenticated account boundary. These models are serialized
  * into that canonical store by AppRepository rather than being Room entities.
  *
- * Money/rate Double properties remain as a Compose compatibility projection;
- * business calculations and persistence/wire formatting use MoneyMath's exact
- * BigDecimal contract (amount scale 2, rate scale 4).
+ * Money and rate properties are exact BigDecimal values. UI code may project
+ * them to Float/Double only for drawing or platform formatting; domain
+ * calculations, persistence and network synchronization stay fixed-scale.
  */
 
 data class OperatorAccount(
@@ -23,25 +24,25 @@ data class OperatorAccount(
     val pin: String = "",
     val mobile: String = "",
     val email: String = "",
-    val isActivated: Boolean = true,
-    val permissions: String = "edit,create,delete,update",
+    val isActivated: Boolean = false,
+    val permissions: String = "",
     val isBiometricEnabled: Boolean = false,
-    val isActive: Boolean = true,
-    val canViewCustomers: Boolean = true,
-    val canAddCustomers: Boolean = true,
-    val canEditCustomers: Boolean = true,
-    val canDeleteCustomers: Boolean = true,
-    val canViewSuppliers: Boolean = true,
-    val canAddSuppliers: Boolean = true,
-    val canEditSuppliers: Boolean = true,
-    val canDeleteSuppliers: Boolean = true,
-    val canViewTransactions: Boolean = true,
-    val canAddTransactions: Boolean = true,
-    val canEditTransactions: Boolean = true,
-    val canDeleteTransactions: Boolean = true,
-    val canManageWallet: Boolean = true,
-    val canManageExpenses: Boolean = true,
-    val canViewReports: Boolean = true
+    val isActive: Boolean = false,
+    val canViewCustomers: Boolean = false,
+    val canAddCustomers: Boolean = false,
+    val canEditCustomers: Boolean = false,
+    val canDeleteCustomers: Boolean = false,
+    val canViewSuppliers: Boolean = false,
+    val canAddSuppliers: Boolean = false,
+    val canEditSuppliers: Boolean = false,
+    val canDeleteSuppliers: Boolean = false,
+    val canViewTransactions: Boolean = false,
+    val canAddTransactions: Boolean = false,
+    val canEditTransactions: Boolean = false,
+    val canDeleteTransactions: Boolean = false,
+    val canManageWallet: Boolean = false,
+    val canManageExpenses: Boolean = false,
+    val canViewReports: Boolean = false
 )
 
 object SyncStatus {
@@ -92,12 +93,12 @@ data class RemittanceTransaction(
     val serverId: Int = 0,
     val customerId: Int = 0,
     val supplierId: Int = 0,
-    val amountSar: Double = 0.0,
-    val customerRate: Double = 0.0,
-    val supplierRate: Double = 0.0,
-    val amountBdt: Double = 0.0,
-    val sarCollected: Double = amountSar,
-    val bdtDisbursed: Double = amountBdt,
+    val amountSar: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val customerRate: BigDecimal = MoneyMath.ZERO_RATE,
+    val supplierRate: BigDecimal = MoneyMath.ZERO_RATE,
+    val amountBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val sarCollected: BigDecimal = amountSar,
+    val bdtDisbursed: BigDecimal = amountBdt,
     val receiverName: String = "",
     val receiverPhone: String = "",
     val receiverAccountType: String = "",
@@ -113,18 +114,18 @@ data class RemittanceTransaction(
     val retryCount: Int = 0,
     val lastSyncAttemptAt: Long? = null
 ) {
-    fun getProfitBdt(): Double = MoneyMath.profitBdt(amountSar, customerRate, supplierRate).toDouble()
-    fun getProfitSar(): Double = MoneyMath.profitSar(amountSar, amountBdt, customerRate).toDouble()
+    fun getProfitBdt(): BigDecimal = MoneyMath.profitBdt(amountSar, customerRate, supplierRate)
+    fun getProfitSar(): BigDecimal = MoneyMath.profitSar(amountSar, amountBdt, customerRate)
 }
 
 data class SupplierDeposit(
     val id: Int = 0,
     val serverId: Int = 0,
     val supplierId: Int = 0,
-    val amountSar: Double = 0.0,
-    val rate: Double = 0.0,
-    val amountBdt: Double = 0.0,
-    val paidBdt: Double = 0.0,
+    val amountSar: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val rate: BigDecimal = MoneyMath.ZERO_RATE,
+    val amountBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val paidBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
     val transactionType: String = "SAR_GIVEN",
     val notes: String = "",
     val timestamp: Long = System.currentTimeMillis(),
@@ -139,7 +140,7 @@ data class ExpenseIncome(
     val id: Int = 0,
     val serverId: Int = 0,
     val title: String = "",
-    val amount: Double = 0.0,
+    val amount: BigDecimal = MoneyMath.ZERO_AMOUNT,
     val currency: String = "BDT",
     val isExpense: Boolean = true,
     val category: String = "General",
@@ -153,8 +154,8 @@ data class ExpenseIncome(
 
 data class DailyRate(
     val date: String = "",
-    val customerRate: Double = 0.0,
-    val supplierRate: Double = 0.0
+    val customerRate: BigDecimal = MoneyMath.ZERO_RATE,
+    val supplierRate: BigDecimal = MoneyMath.ZERO_RATE
 )
 
 data class WalletLedger(
@@ -173,9 +174,9 @@ data class WalletBatch(
     val id: Int = 0,
     val serverId: Int = 0,
     val ledgerId: Int = 0,
-    val rate: Double = 0.0,
-    val initialBdt: Double = 0.0,
-    val remainingBdt: Double = 0.0,
+    val rate: BigDecimal = MoneyMath.ZERO_RATE,
+    val initialBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val remainingBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
     val supplierId: Int = 0,
     val supplierDepositId: Int = 0,
     val notes: String = "",

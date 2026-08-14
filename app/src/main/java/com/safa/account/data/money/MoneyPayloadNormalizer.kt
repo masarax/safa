@@ -25,26 +25,31 @@ class MoneyPayloadNormalizer : Interceptor {
         val original = buffer.readUtf8()
         if (original.isBlank()) return chain.proceed(request)
 
-        val normalized = normalizeJson(original) ?: return chain.proceed(request)
+        val normalized = try {
+            normalizeJson(original)
+        } catch (failure: RuntimeException) {
+            throw java.io.IOException("Invalid financial payload.", failure)
+        } ?: return chain.proceed(request)
         val replacement = normalized.toRequestBody(mediaType.toString().toMediaTypeOrNull())
         return chain.proceed(request.newBuilder().method(request.method, replacement).build())
     }
 
     companion object {
-        private val amountFields = setOf(
-            "amount", "amount_sar", "amount_bdt", "sar_collected", "bdt_disbursed",
+        private val unsignedAmountFields = setOf(
+            "amount", "amount_sar", "amount_bdt", "bdt_disbursed",
             "paid_bdt", "initial_bdt", "remaining_bdt", "balance"
         )
+        private val signedAmountFields = setOf("sar_collected")
         private val rateFields = setOf("rate", "customer_rate", "supplier_rate")
 
-        fun normalizeJson(raw: String): String? = runCatching {
+        fun normalizeJson(raw: String): String? {
             val trimmed = raw.trim()
-            when {
+            return when {
                 trimmed.startsWith("{") -> normalizeObject(JSONObject(trimmed)).toString()
                 trimmed.startsWith("[") -> normalizeArray(JSONArray(trimmed)).toString()
                 else -> null
             }
-        }.getOrNull()
+        }
 
         private fun normalizeObject(obj: JSONObject): JSONObject {
             val keys = obj.keys().asSequence().toList()
@@ -54,8 +59,9 @@ class MoneyPayloadNormalizer : Interceptor {
                     value is JSONObject -> obj.put(key, normalizeObject(value))
                     value is JSONArray -> obj.put(key, normalizeArray(value))
                     value == null || value == JSONObject.NULL -> Unit
-                    key in amountFields -> obj.put(key, MoneyMath.amountString(value))
-                    key in rateFields -> obj.put(key, MoneyMath.rateString(value))
+                    key in unsignedAmountFields -> obj.put(key, MoneyMath.nonNegativeAmount(value).toPlainString())
+                    key in signedAmountFields -> obj.put(key, MoneyMath.amountString(value))
+                    key in rateFields -> obj.put(key, MoneyMath.nonNegativeRate(value).toPlainString())
                 }
             }
             return obj

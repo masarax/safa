@@ -242,7 +242,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
                                     },
                                     onClick = {
                                         showAccountDropdown = false
-                                        viewModel.switchOperatorDirectly(op)
+                                        viewModel.requestOperatorSwitch(op)
                                     }
                                 )
                             }
@@ -444,8 +444,6 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
             )
         }
 
-        val isOwnerOrAdmin = activeOperator?.role == "Owner" || activeOperator?.role == "Admin"
-
         // Section 2: Security and Accounts Category
         item {
             Text(
@@ -461,7 +459,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
             )
         }
 
-        if (activeOperator?.role in listOf("SuperAdmin", "Owner", "Admin", "Manager", "superadmin", "owner", "admin", "manager") || activeOperator == null) {
+        if (activeOperator?.role == "SuperAdmin") {
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.People,
@@ -942,6 +940,19 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
     var expandedOperatorId by remember { mutableStateOf<Int?>(null) }
     var editingOperator by remember { mutableStateOf<com.safa.account.data.model.OperatorAccount?>(null) }
     var showDeleteConfirmByOp by remember { mutableStateOf<com.safa.account.data.model.OperatorAccount?>(null) }
+    var managementError by remember { mutableStateOf<String?>(null) }
+
+    if (activeOperator?.role != "SuperAdmin") {
+        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
+            PageHeader(title = viewModel.t("manage_operators"), icon = Icons.Default.People, onBack = onBack)
+            Text(
+                if (lang == "BN") "শুধু SuperAdmin অপারেটর ব্যবস্থাপনা করতে পারবেন।" else "Only a SuperAdmin can manage operators.",
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
+        return
+    }
 
     LaunchedEffect(Unit) {
         viewModel.fetchOperatorsFromServer()
@@ -949,6 +960,9 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
         PageHeader(title = viewModel.t("manage_operators"), icon = Icons.Default.People, onBack = onBack)
+        managementError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+        }
 
         if (isAddingOperator) {
             var newName by remember { mutableStateOf("") }
@@ -1018,7 +1032,10 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
 
                     OutlinedTextField(
                         value = newPin,
-                        onValueChange = { if (it.length <= 6) { newPin = it; errorMsg = null } },
+                        onValueChange = {
+                            val normalized = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(it)
+                            if (normalized.length <= 6) { newPin = normalized; errorMsg = null }
+                        },
                         label = { Text(viewModel.t("enter_pin")) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -1027,7 +1044,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
 
                     Text(if (lang == "BN") "রোল" else "Role", style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = newRole == "Owner", onClick = { newRole = "Owner" }, label = { Text("Manager / Owner") })
+                        FilterChip(selected = newRole == "Manager", onClick = { newRole = "Manager" }, label = { Text("Manager") })
                         FilterChip(selected = newRole == "Staff", onClick = { newRole = "Staff" }, label = { Text("Staff") })
                     }
 
@@ -1067,7 +1084,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                         Button(
                             onClick = {
                                 if (newName.isBlank() || newMobile.isBlank() || newPin.length != 6) {
-                                    errorMsg = if (lang == "BN") "সব তথ্য দিন এবং পিন ৪ ডিজিট হতে হবে" else "Fill name, mobile, and 6-digit PIN"
+                                    errorMsg = if (lang == "BN") "সব তথ্য দিন এবং পিন ৬ সংখ্যার হতে হবে" else "Fill name, mobile, and 6-digit PIN"
                                     return@Button
                                 }
                                 val permsMap = mapOf(
@@ -1094,8 +1111,8 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                                     role = newRole,
                                     pin = newPin,
                                     permissionsMap = permsMap
-                                ) {
-                                    isAddingOperator = false
+                                ) { success, message ->
+                                    if (success) isAddingOperator = false else errorMsg = message
                                 }
                             },
                             modifier = Modifier.weight(1f)
@@ -1244,14 +1261,17 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                     )
                     OutlinedTextField(
                         value = pinInput,
-                        onValueChange = { if (it.length <= 6) pinInput = it },
-                        label = { Text(if (lang == "BN") "নতুন ৪-ডিজিটের পিন (ঐচ্ছিক)" else "New 6-digit PIN (Optional)") },
+                        onValueChange = {
+                            val normalized = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(it)
+                            if (normalized.length <= 6) pinInput = normalized
+                        },
+                        label = { Text(if (lang == "BN") "নতুন ৬-ডিজিটের পিন (ঐচ্ছিক)" else "New 6-digit PIN (Optional)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text("Role", style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = roleInput == "Owner", onClick = { roleInput = "Owner" }, label = { Text("Owner") })
+                        FilterChip(selected = roleInput == "Manager", onClick = { roleInput = "Manager" }, label = { Text("Manager") })
                         FilterChip(selected = roleInput == "Staff", onClick = { roleInput = "Staff" }, label = { Text("Staff") })
                     }
 
@@ -1281,11 +1301,10 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                     onClick = {
                         val original = editingOperator
                         if (original != null && usernameInput.isNotBlank()) {
-                            val newHashedPin = if (pinInput.length == 6) com.safa.account.utils.HashUtils.hashPin(pinInput) else original.pin
                             val updated = original.copy(
                                 username = usernameInput,
                                 mobile = mobileInput,
-                                pin = newHashedPin,
+                                pin = "",
                                 role = roleInput,
                                 canViewCustomers = canViewCustomers,
                                 canAddCustomers = canAddCustomers,
@@ -1303,8 +1322,8 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                                 canManageExpenses = canManageExpenses,
                                 canViewReports = canViewReports
                             )
-                            viewModel.updateOperatorOnServer(updated, pinInput.takeIf { it.length == 6 }) {
-                                editingOperator = null
+                            viewModel.updateOperatorOnServer(updated, pinInput.takeIf { it.length == 6 }) { success, message ->
+                                if (success) editingOperator = null else managementError = message
                             }
                         }
                     }
@@ -1343,8 +1362,8 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                     onClick = {
                         val victim = showDeleteConfirmByOp
                         if (victim != null) {
-                            viewModel.deleteOperatorOnServer(victim) {
-                                showDeleteConfirmByOp = null
+                            viewModel.deleteOperatorOnServer(victim) { success, message ->
+                                if (success) showDeleteConfirmByOp = null else managementError = message
                             }
                         }
                     },
@@ -1371,6 +1390,7 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
     var newPin by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var successMsg by remember { mutableStateOf<String?>(null) }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
         PageHeader(title = if (lang == "BN") "পিন পরিবর্তন" else "Change PIN", icon = Icons.Default.Lock, onBack = onBack)
@@ -1383,14 +1403,22 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = oldPin,
-                    onValueChange = { if (it.length <= 6) oldPin = it; errorMsg = null; successMsg = null },
+                    onValueChange = {
+                        val normalized = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(it)
+                        if (normalized.length <= 6) oldPin = normalized
+                        errorMsg = null; successMsg = null
+                    },
                     label = { Text(if (lang == "BN") "বর্তমান পিন" else "Current PIN") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = newPin,
-                    onValueChange = { if (it.length <= 6) newPin = it; errorMsg = null; successMsg = null },
+                    onValueChange = {
+                        val normalized = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(it)
+                        if (normalized.length <= 6) newPin = normalized
+                        errorMsg = null; successMsg = null
+                    },
                     label = { Text(if (lang == "BN") "নতুন পিন" else "New PIN") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     modifier = Modifier.fillMaxWidth()
@@ -1404,25 +1432,34 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
                 }
 
                 Button(
-                    onClick = { 
-                        if (oldPin.length == 6 && newPin.length == 6) {
-                            if (com.safa.account.utils.HashUtils.verifyPin(oldPin, viewModel.currentOperator.value?.pin ?: "")) {
-                                viewModel.updateOperatorPin(newPin) {
+                    onClick = {
+                        if (oldPin.length == 6 && newPin.length == 6 && oldPin != newPin) {
+                            isSubmitting = true
+                            viewModel.updateOperatorPin(oldPin, newPin) { success, message ->
+                                isSubmitting = false
+                                if (success) {
                                     successMsg = if (lang == "BN") "পিন সফলভাবে পরিবর্তন করা হয়েছে!" else "PIN changed successfully!"
                                     oldPin = ""
                                     newPin = ""
+                                } else {
+                                    errorMsg = message
                                 }
-                            } else {
-                                errorMsg = if (lang == "BN") "বর্তমান পিন ভুল!" else "Current PIN is incorrect!"
                             }
                         } else {
-                            errorMsg = if (lang == "BN") "পিন অবশ্যই ৪ ডিজিটের হতে হবে" else "PIN must be 4 digits"
+                            errorMsg = if (lang == "BN") "বর্তমান ও নতুন পিন আলাদা ৬ সংখ্যার হতে হবে" else "Current and new PIN must be different six-digit PINs"
                         }
                     },
+                    enabled = !isSubmitting,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (lang == "BN") "পিন আপডেট করুন" else "Update PIN", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        if (isSubmitting) {
+                            if (lang == "BN") "আপডেট হচ্ছে…" else "Updating…"
+                        } else if (lang == "BN") "পিন আপডেট করুন" else "Update PIN",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

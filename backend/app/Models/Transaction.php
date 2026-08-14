@@ -12,7 +12,7 @@ class Transaction extends Model
     protected $fillable = [
         'account_id', 'local_id', 'type', 'amount', 'timestamp', 'hash',
         'customer_id', 'supplier_id', 'amount_sar', 'customer_rate', 'supplier_rate',
-        'amount_bdt', 'receiver_name', 'receiver_phone', 'receiver_account_type',
+        'amount_bdt', 'sar_collected', 'bdt_disbursed', 'receiver_name', 'receiver_phone', 'receiver_account_type',
         'receiver_account_no', 'wallet_batch_id', 'notes', 'deleted_at'
     ];
 
@@ -22,5 +22,7 @@ class Transaction extends Model
         'customer_rate' => 'decimal:4',
         'supplier_rate' => 'decimal:4',
         'amount_bdt' => 'decimal:2',
+        'sar_collected' => 'decimal:2',
+        'bdt_disbursed' => 'decimal:2',
     ];
 }

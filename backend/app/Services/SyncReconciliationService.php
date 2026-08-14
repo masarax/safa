@@ -18,8 +18,8 @@ class SyncReconciliationService
             // Equivalent values (for example 0.3 and 0.30000000000000004) now
             // converge to one fixed-scale representation without PHP float math.
             $payload = MoneyDecimal::canonicalizeEntityPayload($entity, $payload);
-        } catch (\InvalidArgumentException $e) {
-            return $this->rejected($entity, $localId, $e->getMessage(), 'VALIDATION');
+        } catch (\InvalidArgumentException) {
+            return $this->rejected($entity, $localId, 'The record contains an invalid financial decimal.', 'VALIDATION');
         }
 
         $sync = is_array($payload['_sync'] ?? null) ? $payload['_sync'] : [];
@@ -56,12 +56,12 @@ class SyncReconciliationService
             $record->local_id = $localId;
             try {
                 $data = $attributes($payload, $accountId, $record);
-            } catch (\RuntimeException $e) {
-                return $this->rejected($entity, $localId, $e->getMessage(), 'DEPENDENCY', $mutationId);
-            } catch (\InvalidArgumentException $e) {
-                return $this->rejected($entity, $localId, $e->getMessage(), 'VALIDATION', $mutationId);
+            } catch (\RuntimeException) {
+                return $this->rejected($entity, $localId, 'A referenced record has not been synchronized yet.', 'DEPENDENCY', $mutationId);
+            } catch (\InvalidArgumentException) {
+                return $this->rejected($entity, $localId, 'The record contains invalid or unsupported values.', 'VALIDATION', $mutationId);
             }
-            if ($data instanceof \Throwable) return $this->rejected($entity, $localId, $data->getMessage(), 'DEPENDENCY', $mutationId);
+            if ($data instanceof \Throwable) return $this->rejected($entity, $localId, 'A referenced record could not be synchronized.', 'DEPENDENCY', $mutationId);
             foreach ($data as $key => $value) $record->{$key} = $value;
             $record->timestamp = $incomingTimestamp;
             $nextVersion = (int) ($record->sync_version ?? 0) + 1;

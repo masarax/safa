@@ -7,6 +7,8 @@ use App\Models\DeviceBinding;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class SecureAuthController extends Controller
@@ -122,5 +124,90 @@ class SecureAuthController extends Controller
         if (!$user) return response()->json(['status' => 'error', 'message' => 'Authenticated user required.'], 401);
         AuthSession::where('user_id', $user->id)->update(['is_revoked' => true]);
         return response()->json(['status' => 'success', 'message' => 'All active sessions have been revoked.']);
+    }
+
+    /**
+     * Change the authenticated user's six-digit PIN without trusting local
+     * credential state. The current session remains usable; every other
+     * session is revoked so a stolen token cannot survive a credential change.
+     */
+    public function changePin(Request $request)
+    {
+        $user = $request->user() ?? $request->attributes->get('user');
+        $session = $request->attributes->get('auth_session');
+        if (!$user || !$session) {
+            return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
+        }
+
+        $currentPin = $this->normalizeDigits(trim((string) $request->input('current_pin')));
+        $newPin = $this->normalizeDigits(trim((string) $request->input('new_pin')));
+        if (!preg_match('/^\d{6}$/', $currentPin) || !preg_match('/^\d{6}$/', $newPin)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Both current and new PIN must contain exactly six digits.',
+                'errors' => ['pin' => ['A six-digit current PIN and new PIN are required.']],
+            ], 422);
+        }
+        if (hash_equals($currentPin, $newPin)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'The new PIN must be different from the current PIN.',
+                'errors' => ['new_pin' => ['Choose a different six-digit PIN.']],
+            ], 422);
+        }
+
+        $changed = DB::transaction(function () use ($user, $session, $currentPin, $newPin): bool {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->first();
+            if (!$lockedUser || !$lockedUser->is_activated) return false;
+
+            $currentPinValid = false;
+            foreach (array_filter([$lockedUser->pin_hash, $lockedUser->password]) as $hash) {
+                try {
+                    if (Hash::check($currentPin, $hash)) {
+                        $currentPinValid = true;
+                        break;
+                    }
+                } catch (\Throwable) {
+                    // A malformed legacy hash is never accepted as a credential.
+                }
+            }
+            if (!$currentPinValid) return false;
+
+            $newHash = Hash::make($newPin);
+            $lockedUser->pin_hash = $newHash;
+            $lockedUser->password = $newHash;
+            $lockedUser->save();
+
+            AuthSession::query()
+                ->where('user_id', $lockedUser->id)
+                ->where('id', '!=', $session->id)
+                ->update(['is_revoked' => true]);
+
+            if (Schema::hasTable('operator_accounts')) {
+                DB::table('operator_accounts')
+                    ->where(function ($query) use ($lockedUser) {
+                        $query->where('user_id', $lockedUser->id);
+                        if ($lockedUser->mobile) $query->orWhere('mobile', $lockedUser->mobile);
+                    })
+                    ->update(['pin_hash' => $newHash, 'updated_at' => now()]);
+            }
+
+            return true;
+        });
+
+        if (!$changed) {
+            return response()->json(['status' => 'error', 'message' => 'Current PIN is incorrect.'], 401);
+        }
+
+        return response()->json(['status' => 'success', 'message' => 'PIN changed successfully.']);
+    }
+
+    private function normalizeDigits(string $value): string
+    {
+        return strtr($value, [
+            '٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9',
+            '۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',
+            '০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9',
+        ]);
     }
 }

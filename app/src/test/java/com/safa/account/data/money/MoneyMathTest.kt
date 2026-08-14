@@ -2,6 +2,7 @@ package com.safa.account.data.money
 
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -30,7 +31,7 @@ class MoneyMathTest {
         assertEquals("32.1235", MoneyMath.rateString("32.12345"))
     }
 
-    @Test fun compatibilityDoubleUsesDecimalStringSemantics() {
+    @Test fun legacyJsonNumberIsCanonicalizedAtTheIngestionBoundary() {
         val value = 0.1 + 0.2
         assertTrue(MoneyMath.sameAmount(value, BigDecimal("0.30")))
     }
@@ -38,5 +39,34 @@ class MoneyMathTest {
     @Test fun negativeAndZeroRemainDeterministic() {
         assertEquals("0.00", MoneyMath.amountString(0))
         assertEquals("-1.25", MoneyMath.amountString("-1.25"))
+    }
+
+    @Test fun weightedWalletRateUsesExactBaseUnits() {
+        val rate = MoneyMath.weightedRate(
+            listOf(
+                MoneyMath.amount("3200") to MoneyMath.rate("32"),
+                MoneyMath.amount("3300") to MoneyMath.rate("33")
+            )
+        )
+        assertEquals("32.5000", rate.toPlainString())
+    }
+
+    @Test fun maximumValuesAreAcceptedAndRoundingOverflowIsRejected() {
+        assertEquals("9999999999999.99", MoneyMath.amountString("9999999999999.99"))
+        assertEquals("999999.9999", MoneyMath.rateString("999999.9999"))
+        assertThrows(IllegalArgumentException::class.java) {
+            MoneyMath.amountString("9999999999999.995")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MoneyMath.add("9999999999999.99", "0.01")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            MoneyMath.multiply("9999999999999.99", "2")
+        }
+    }
+
+    @Test fun nonNegativeBusinessBoundariesRejectNegativeValues() {
+        assertThrows(IllegalArgumentException::class.java) { MoneyMath.nonNegativeAmount("-0.01") }
+        assertThrows(IllegalArgumentException::class.java) { MoneyMath.nonNegativeRate("-0.0001") }
     }
 }

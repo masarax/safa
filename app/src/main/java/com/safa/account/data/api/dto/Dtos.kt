@@ -47,6 +47,6 @@ data class GraphQlResponse(@Json(name = "data") val data: Map<String, Any?>? = n
 @JsonClass(generateAdapter = true)
 data class MobilePinLoginRequest(@Json(name = "mobile") val mobile: String, @Json(name = "pin") val pin: String)
 @JsonClass(generateAdapter = true)
-data class ActivateSuperAdminRequest(@Json(name = "name") val name: String, @Json(name = "email") val email: String, @Json(name = "mobile") val mobile: String, @Json(name = "pin") val pin: String, @Json(name = "new_pin") val newPin: String = pin)
+data class ChangePinRequest(@Json(name = "current_pin") val currentPin: String, @Json(name = "new_pin") val newPin: String)
 @JsonClass(generateAdapter = true)
 data class OperatorApiRequest(@Json(name = "name") val name: String, @Json(name = "mobile") val mobile: String, @Json(name = "email") val email: String? = null, @Json(name = "role") val role: String, @Json(name = "pin") val pin: String? = null, @Json(name = "is_activated") val isActivated: Boolean = true, @Json(name = "permissions") val permissions: Map<String, Boolean> = emptyMap())

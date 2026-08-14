@@ -86,7 +86,18 @@ Deployment is blocked whenever mandatory tests fail. After synchronization, the 
 GET https://safa.masarax.com/api/auth/health
 ```
 
-and requires the response to report `status=ok` and `service=SAFA API`.
+and requires `status=ok`, `service=SAFA API`, and an exact 40-character
+`build` identity matching the deployed GitHub commit. The same response must
+report every runtime, database, schema, cache/session-store and writable-storage
+readiness check as true.
+
+FTP never executes production migrations or Laravel cache mutations. For a
+schema-changing release, an authorized operator must review pending migrations
+in the cPanel terminal, run `php artisan migrate --force`, then run
+`php artisan optimize:clear` and `php artisan optimize`. `migrate:fresh` is
+forbidden in production. Until that explicit maintenance completes, the health
+endpoint returns HTTP 503 and the deployment workflow fails rather than
+reporting an unhealthy release as successful.
 
 The cPanel document root must expose only the intended Laravel public entry point (`backend/public` or the equivalent hosting layout). Application source, `.env`, tests and private runtime files must not be web-accessible.
 

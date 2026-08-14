@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.viewmodel.AppScreen
+import com.safa.account.data.money.MoneyMath
 import java.io.File
 import java.io.FileWriter
 import java.text.DecimalFormat
@@ -97,10 +98,20 @@ fun ReportsScreen(
     }
 
     // Calculations
-    val totalVolumeSar = remember(periodTransactions) { periodTransactions.sumOf { it.amountSar } }
-    val totalProfitBdt = remember(periodTransactions) { periodTransactions.sumOf { it.getProfitBdt() } }
-    val totalExpenseBdt = remember(periodExpenses) { periodExpenses.sumOf { if (it.currency == localCur) it.amount else 0.0 } }
-    val totalExpenseSar = remember(periodExpenses) { periodExpenses.sumOf { if (it.currency == foreignCur) it.amount else 0.0 } }
+    val totalVolumeSar = remember(periodTransactions) {
+        periodTransactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) }
+    }
+    val totalProfitBdt = remember(periodTransactions) {
+        periodTransactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.getProfitBdt()) }
+    }
+    val totalExpenseBdt = remember(periodExpenses, localCur) {
+        periodExpenses.filter { it.currency == localCur }
+            .fold(MoneyMath.ZERO_AMOUNT) { total, item -> MoneyMath.add(total, item.amount) }
+    }
+    val totalExpenseSar = remember(periodExpenses, foreignCur) {
+        periodExpenses.filter { it.currency == foreignCur }
+            .fold(MoneyMath.ZERO_AMOUNT) { total, item -> MoneyMath.add(total, item.amount) }
+    }
     val netRevenueBdt = remember(totalProfitBdt, totalExpenseBdt) { totalProfitBdt - totalExpenseBdt }
 
     // Function to generate report file
@@ -144,10 +155,10 @@ fun ReportsScreen(
         if (isRateBasedMode) {
             report.append("3. NET RETAINED BOTTOM-LINE:\n")
             report.append("-----------------------------------------\n")
-            if (netRevenueBdt >= 0) {
+            if (netRevenueBdt.signum() >= 0) {
                 report.append("NET INCOME (SURPLUS):  $localCur  ${currencyFormatter.format(netRevenueBdt)} (PROFITABLE)\n")
             } else {
-                report.append("NET INCOME (DEFICIT):  TK  ${currencyFormatter.format(Math.abs(netRevenueBdt))} (UNPROFITABLE)\n")
+                report.append("NET INCOME (DEFICIT):  TK  ${currencyFormatter.format(netRevenueBdt.abs())} (UNPROFITABLE)\n")
             }
         }
         report.append("=========================================\n")
@@ -300,13 +311,14 @@ fun ReportsScreen(
                     // Net Income Hero Card
                     val isRateBasedMode by viewModel.isRateBasedModeEnabled.collectAsStateWithLifecycle()
                     if (isRateBasedMode) {
+                        val isProfitable = netRevenueBdt.signum() >= 0
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (netRevenueBdt >= 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                                containerColor = if (isProfitable) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
                             ),
-                            border = BorderStroke(1.dp, if (netRevenueBdt >= 0) Color(0xFFA5D6A7) else Color(0xFFEF9A9A))
+                            border = BorderStroke(1.dp, if (isProfitable) Color(0xFFA5D6A7) else Color(0xFFEF9A9A))
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
@@ -317,19 +329,19 @@ fun ReportsScreen(
                                     Text(
                                         text = if (lang == "BN") "নিট প্রফিট মার্জিন" else "Net Revenue",
                                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
-                                        color = if (netRevenueBdt >= 0) Color(0xFF1B5E20) else Color(0xFFC62828)
+                                        color = if (isProfitable) Color(0xFF1B5E20) else Color(0xFFC62828)
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "৳${currencyFormatter.format(netRevenueBdt)} ${localCur}",
                                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                                        color = if (netRevenueBdt >= 0) Color(0xFF2E7D32) else Color(0xFFD32F2F)
+                                        color = if (isProfitable) Color(0xFF2E7D32) else Color(0xFFD32F2F)
                                     )
                                 }
 
                                 Surface(
                                     shape = RoundedCornerShape(20.dp),
-                                    color = if (netRevenueBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                    color = if (isProfitable) Color(0xFF2E7D32) else Color(0xFFC62828)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -337,13 +349,13 @@ fun ReportsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Icon(
-                                            imageVector = if (netRevenueBdt >= 0) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                            imageVector = if (isProfitable) Icons.Default.CheckCircle else Icons.Default.Warning,
                                             contentDescription = null,
                                             tint = Color.White,
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Text(
-                                            text = if (netRevenueBdt >= 0) (if (lang == "BN") "লাভজনক" else "Profitable") else (if (lang == "BN") "ঘাটতি" else "Deficit"),
+                                            text = if (isProfitable) (if (lang == "BN") "লাভজনক" else "Profitable") else (if (lang == "BN") "ঘাটতি" else "Deficit"),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                             color = Color.White
                                         )
@@ -374,7 +386,7 @@ fun ReportsScreen(
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                             )
 
-                            val maxVal = Math.max(totalProfitBdt, totalExpenseBdt).toFloat().coerceAtLeast(1.0f)
+                            val maxVal = maxOf(totalProfitBdt, totalExpenseBdt).toFloat().coerceAtLeast(1.0f)
                             val profitRatio = (totalProfitBdt.toFloat() / maxVal).coerceIn(0f, 1f)
 
                             Row(

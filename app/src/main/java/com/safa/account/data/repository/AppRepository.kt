@@ -4,11 +4,11 @@ import android.content.Context
 import com.safa.account.data.api.ApiService
 import com.safa.account.data.api.RetrofitClient
 import com.safa.account.data.api.TokenManager
-import com.safa.account.data.api.dto.OperatorApiRequest
 import com.safa.account.data.api.dto.SyncUpPayload
 import com.safa.account.data.local.LocalAccountBoundary
 import com.safa.account.data.local.LocalFirstStore
 import com.safa.account.data.model.*
+import com.safa.account.data.money.MoneyMath
 import com.safa.account.data.money.MoneyPayloadNormalizer
 import com.safa.account.data.network.DeleteConfirmationCoordinator
 import com.safa.account.data.sync.SyncSnapshotGuard
@@ -79,7 +79,10 @@ class AppRepository private constructor(
     init { loadLocalSnapshot() }
 
     private fun Any?.i(): Int = when (this) { is Number -> toInt(); else -> this?.toString()?.toIntOrNull() ?: 0 }
-    private fun Any?.d(): Double = when (this) { is Number -> toDouble(); else -> this?.toString()?.toDoubleOrNull() ?: 0.0 }
+    private fun Any?.amount() = MoneyMath.amount(this)
+    private fun Any?.nonNegativeAmount() = MoneyMath.nonNegativeAmount(this)
+    private fun Any?.rate() = MoneyMath.rate(this)
+    private fun Any?.nonNegativeRate() = MoneyMath.nonNegativeRate(this)
     private fun Any?.s(): String = this?.toString() ?: ""
     private fun Any?.b(): Boolean = this == true || this?.toString()?.lowercase() in setOf("1", "true", "yes", "on")
     private fun Any?.time(): Long? = SyncSnapshotGuard.parseTimestamp(this)
@@ -115,9 +118,9 @@ class AppRepository private constructor(
 
     private fun transaction(m: Map<String, Any?>) = RemittanceTransaction(
         id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), customerId = m.v("customer_id").i(),
-        supplierId = m.v("supplier_id").i(), amountSar = m.v("amount_sar", "amount").d(), customerRate = m.v("customer_rate").d(),
-        supplierRate = m.v("supplier_rate").d(), amountBdt = m.v("amount_bdt").d(), sarCollected = m.v("sar_collected").let { if (it == null) m.v("amount_sar", "amount").d() else it.d() },
-        bdtDisbursed = m.v("bdt_disbursed").let { if (it == null) m.v("amount_bdt").d() else it.d() }, receiverName = m.v("receiver_name").s(),
+        supplierId = m.v("supplier_id").i(), amountSar = m.v("amount_sar", "amount").nonNegativeAmount(), customerRate = m.v("customer_rate").nonNegativeRate(),
+        supplierRate = m.v("supplier_rate").nonNegativeRate(), amountBdt = m.v("amount_bdt").nonNegativeAmount(), sarCollected = m.v("sar_collected").let { if (it == null) m.v("amount_sar", "amount").nonNegativeAmount() else it.amount() },
+        bdtDisbursed = m.v("bdt_disbursed").let { if (it == null) m.v("amount_bdt").nonNegativeAmount() else it.nonNegativeAmount() }, receiverName = m.v("receiver_name").s(),
         receiverPhone = m.v("receiver_phone").s(), receiverAccountType = m.v("receiver_account_type").s(), receiverAccountNo = m.v("receiver_account_no").s(),
         status = m.v("status", "type").s().ifBlank { "Pending" }, operatorId = m.v("operator_id").i(), walletBatchId = m.v("wallet_batch_id").i(),
         notes = m.v("notes").s(), timestamp = m.v("timestamp", "created_at").time() ?: 0L, deletedAt = m.v("deleted_at").time()
@@ -125,14 +128,14 @@ class AppRepository private constructor(
 
     private fun deposit(m: Map<String, Any?>) = SupplierDeposit(
         id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), supplierId = m.v("supplier_id").i(),
-        amountSar = m.v("amount_sar", "amount").d(), rate = m.v("rate", "supplier_rate").d(), amountBdt = m.v("amount_bdt").d(),
-        paidBdt = m.v("paid_bdt").d(), transactionType = m.v("transaction_type", "type").s().ifBlank { "SAR_GIVEN" }, notes = m.v("notes").s(),
+        amountSar = m.v("amount_sar", "amount").nonNegativeAmount(), rate = m.v("rate", "supplier_rate").nonNegativeRate(), amountBdt = m.v("amount_bdt").nonNegativeAmount(),
+        paidBdt = m.v("paid_bdt").nonNegativeAmount(), transactionType = m.v("transaction_type", "type").s().ifBlank { "SAR_GIVEN" }, notes = m.v("notes").s(),
         timestamp = m.v("timestamp", "created_at").time() ?: 0L, deletedAt = m.v("deleted_at").time()
     )
 
     private fun expense(m: Map<String, Any?>) = ExpenseIncome(
         id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), title = m.v("title", "name").s(),
-        amount = m.v("amount").d(), currency = m.v("currency").s().ifBlank { "BDT" }, isExpense = m.v("is_expense").b(),
+        amount = m.v("amount").nonNegativeAmount(), currency = m.v("currency").s().ifBlank { "BDT" }, isExpense = m.v("is_expense").b(),
         category = m.v("category").s().ifBlank { "General" }, timestamp = m.v("timestamp", "created_at").time() ?: 0L,
         deletedAt = m.v("deleted_at").time()
     )
@@ -143,19 +146,26 @@ class AppRepository private constructor(
     )
 
     private fun batch(m: Map<String, Any?>) = WalletBatch(
-        id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), ledgerId = m.v("ledger_id").i(), rate = m.v("rate").d(),
-        initialBdt = m.v("initial_bdt").d(), remainingBdt = m.v("remaining_bdt").d(), supplierId = m.v("supplier_id").i(),
+        id = m.v("local_id", "id").i(), serverId = m.v("server_id", "id").i(), ledgerId = m.v("ledger_id").i(), rate = m.v("rate").nonNegativeRate(),
+        initialBdt = m.v("initial_bdt").nonNegativeAmount(), remainingBdt = m.v("remaining_bdt").nonNegativeAmount(), supplierId = m.v("supplier_id").i(),
         supplierDepositId = m.v("supplier_deposit_id").i(), notes = m.v("notes").s(), timestamp = m.v("timestamp", "created_at").time() ?: 0L,
         deletedAt = m.v("deleted_at").time()
     )
 
+    private fun dailyRate(m: Map<String, Any?>) = DailyRate(
+        date = m.v("date").s(),
+        customerRate = m.v("customer_rate").nonNegativeRate(),
+        supplierRate = m.v("supplier_rate").nonNegativeRate()
+    )
+
     private fun cp(c: Customer) = mapOf("name" to c.name, "phone" to c.phone, "avatar_color" to c.avatarColor, "avatar_emoji" to c.avatarEmoji, "address" to c.address, "security_notes" to c.securityNotes, "local_id" to c.id, "server_id" to c.serverId, "timestamp" to c.timestamp, "deleted_at" to c.deletedAt)
     private fun sp(s: Supplier) = mapOf("name" to s.name, "phone" to s.phone, "avatar_color" to s.avatarColor, "avatar_emoji" to s.avatarEmoji, "address" to s.address, "trade_license" to s.tradeLicense, "security_notes" to s.securityNotes, "local_id" to s.id, "server_id" to s.serverId, "timestamp" to s.timestamp, "deleted_at" to s.deletedAt)
-    private fun tp(t: RemittanceTransaction) = mapOf("customer_id" to t.customerId, "supplier_id" to t.supplierId, "amount_sar" to t.amountSar, "customer_rate" to t.customerRate, "supplier_rate" to t.supplierRate, "amount_bdt" to t.amountBdt, "sar_collected" to t.sarCollected, "bdt_disbursed" to t.bdtDisbursed, "receiver_name" to t.receiverName, "receiver_phone" to t.receiverPhone, "receiver_account_type" to t.receiverAccountType, "receiver_account_no" to t.receiverAccountNo, "status" to t.status, "operator_id" to t.operatorId, "wallet_batch_id" to t.walletBatchId, "notes" to t.notes, "timestamp" to t.timestamp, "local_id" to t.id, "server_id" to t.serverId, "deleted_at" to t.deletedAt)
-    private fun dp(d: SupplierDeposit) = mapOf("supplier_id" to d.supplierId, "amount_sar" to d.amountSar, "rate" to d.rate, "amount_bdt" to d.amountBdt, "paid_bdt" to d.paidBdt, "transaction_type" to d.transactionType, "notes" to d.notes, "timestamp" to d.timestamp, "local_id" to d.id, "server_id" to d.serverId, "deleted_at" to d.deletedAt)
-    private fun ep(e: ExpenseIncome) = mapOf("title" to e.title, "amount" to e.amount, "currency" to e.currency, "is_expense" to e.isExpense, "category" to e.category, "timestamp" to e.timestamp, "local_id" to e.id, "server_id" to e.serverId, "deleted_at" to e.deletedAt)
+    private fun tp(t: RemittanceTransaction) = mapOf("customer_id" to t.customerId, "supplier_id" to t.supplierId, "amount_sar" to MoneyMath.nonNegativeAmount(t.amountSar).toPlainString(), "customer_rate" to MoneyMath.nonNegativeRate(t.customerRate).toPlainString(), "supplier_rate" to MoneyMath.nonNegativeRate(t.supplierRate).toPlainString(), "amount_bdt" to MoneyMath.nonNegativeAmount(t.amountBdt).toPlainString(), "sar_collected" to MoneyMath.amountString(t.sarCollected), "bdt_disbursed" to MoneyMath.nonNegativeAmount(t.bdtDisbursed).toPlainString(), "receiver_name" to t.receiverName, "receiver_phone" to t.receiverPhone, "receiver_account_type" to t.receiverAccountType, "receiver_account_no" to t.receiverAccountNo, "status" to t.status, "operator_id" to t.operatorId, "wallet_batch_id" to t.walletBatchId, "notes" to t.notes, "timestamp" to t.timestamp, "local_id" to t.id, "server_id" to t.serverId, "deleted_at" to t.deletedAt)
+    private fun dp(d: SupplierDeposit) = mapOf("supplier_id" to d.supplierId, "amount_sar" to MoneyMath.nonNegativeAmount(d.amountSar).toPlainString(), "rate" to MoneyMath.nonNegativeRate(d.rate).toPlainString(), "amount_bdt" to MoneyMath.nonNegativeAmount(d.amountBdt).toPlainString(), "paid_bdt" to MoneyMath.nonNegativeAmount(d.paidBdt).toPlainString(), "transaction_type" to d.transactionType, "notes" to d.notes, "timestamp" to d.timestamp, "local_id" to d.id, "server_id" to d.serverId, "deleted_at" to d.deletedAt)
+    private fun ep(e: ExpenseIncome) = mapOf("title" to e.title, "amount" to MoneyMath.nonNegativeAmount(e.amount).toPlainString(), "currency" to e.currency, "is_expense" to e.isExpense, "category" to e.category, "timestamp" to e.timestamp, "local_id" to e.id, "server_id" to e.serverId, "deleted_at" to e.deletedAt)
     private fun lp(l: WalletLedger) = mapOf("name" to l.name, "timestamp" to l.timestamp, "local_id" to l.id, "server_id" to l.serverId, "deleted_at" to l.deletedAt)
-    private fun bp(b: WalletBatch) = mapOf("ledger_id" to b.ledgerId, "rate" to b.rate, "initial_bdt" to b.initialBdt, "remaining_bdt" to b.remainingBdt, "supplier_id" to b.supplierId, "supplier_deposit_id" to b.supplierDepositId, "notes" to b.notes, "timestamp" to b.timestamp, "local_id" to b.id, "server_id" to b.serverId, "deleted_at" to b.deletedAt)
+    private fun bp(b: WalletBatch) = mapOf("ledger_id" to b.ledgerId, "rate" to MoneyMath.nonNegativeRate(b.rate).toPlainString(), "initial_bdt" to MoneyMath.nonNegativeAmount(b.initialBdt).toPlainString(), "remaining_bdt" to MoneyMath.nonNegativeAmount(b.remainingBdt).toPlainString(), "supplier_id" to b.supplierId, "supplier_deposit_id" to b.supplierDepositId, "notes" to b.notes, "timestamp" to b.timestamp, "local_id" to b.id, "server_id" to b.serverId, "deleted_at" to b.deletedAt)
+    private fun rp(r: DailyRate) = mapOf("date" to r.date, "customer_rate" to MoneyMath.rateString(r.customerRate), "supplier_rate" to MoneyMath.rateString(r.supplierRate))
 
     private fun persist(entity: String, localId: Int, serverId: Int, payload: Map<String, Any?>, operation: String, status: Int = LocalFirstStore.PENDING) {
         val store = localStore ?: return
@@ -174,13 +184,17 @@ class AppRepository private constructor(
         _ledgers.value = store.getRecordPayloads("wallet_ledgers").mapNotNull { runCatching { ledger(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
         _batches.value = store.getRecordPayloads("wallet_batches").mapNotNull { runCatching { batch(jsonToMap(it.payload)) }.getOrNull() }.filter { it.deletedAt == null }
         _operators.value = store.getRecordPayloads("operators").mapNotNull { runCatching { operator(jsonToMap(it.payload)) }.getOrNull() }
+        _rates.value = store.getRecordPayloads("daily_rates")
+            .mapNotNull { runCatching { dailyRate(jsonToMap(it.payload)) }.getOrNull() }
+            .filter { it.date.isNotBlank() }
+            .sortedByDescending { it.date }
     }
 
     private fun loadLocalSnapshot() = runCatching { publish() }
 
     fun clearLocalPresentation() {
         _operators.value = emptyList(); _customers.value = emptyList(); _suppliers.value = emptyList(); _transactions.value = emptyList()
-        _deposits.value = emptyList(); _expenses.value = emptyList(); _ledgers.value = emptyList(); _batches.value = emptyList()
+        _deposits.value = emptyList(); _expenses.value = emptyList(); _rates.value = emptyList(); _ledgers.value = emptyList(); _batches.value = emptyList()
     }
 
     fun boundAccountId(): Int? = appContext?.let(LocalAccountBoundary::currentAccountId)
@@ -337,7 +351,19 @@ class AppRepository private constructor(
     suspend fun resetExpenseIncomeRetry(id: Int, targetStatus: Int) { localStore?.retry("expenses_incomes", id); publish() }
     suspend fun retryFailedExpenseIncome(id: Int) { localStore?.retry("expenses_incomes", id); publish() }
 
-    suspend fun insertDailyRate(r: DailyRate) { _rates.value = _rates.value.filterNot { it.date == r.date } + r }
+    suspend fun insertDailyRate(r: DailyRate) {
+        val exact = r.copy(
+            customerRate = MoneyMath.nonNegativeRate(r.customerRate),
+            supplierRate = MoneyMath.nonNegativeRate(r.supplierRate)
+        )
+        val localId = exact.date.filter(Char::isDigit).toIntOrNull()
+            ?.takeIf { it > 0 }
+            ?: exact.date.hashCode().and(Int.MAX_VALUE).coerceAtLeast(1)
+        localStore?.upsertRecord("daily_rates", localId, 0, mapToJson(rp(exact)), LocalFirstStore.SYNCED)
+        if (localStore != null) publish() else {
+            _rates.value = (_rates.value.filterNot { it.date == exact.date } + exact).sortedByDescending { it.date }
+        }
+    }
     suspend fun getDailyRateByDate(date: String) = _rates.value.firstOrNull { it.date == date }
 
     suspend fun insertWalletLedger(l: WalletLedger): Int { val id = localId(l.id); val accepted = isServerAcceptedCreate(l.serverId, l.syncStatus); val x = if (accepted) l.copy(id = id, syncStatus = SyncStatus.SYNCED, syncError = null, retryCount = 0) else l.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("wallet_ledgers", id, x.serverId, lp(x), OutboxOperation.CREATE, if (accepted) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish(); return id }
@@ -366,13 +392,9 @@ class AppRepository private constructor(
     suspend fun resetWalletBatchRetry(id: Int, targetStatus: Int) { localStore?.retry("wallet_batches", id); publish() }
     suspend fun retryFailedWalletBatch(id: Int) { localStore?.retry("wallet_batches", id); publish() }
 
-    private fun operatorRequest(o: OperatorAccount) = OperatorApiRequest(
-        name = o.username, mobile = o.mobile, email = o.email.ifBlank { null }, role = o.role, pin = o.pin.ifBlank { null }, isActivated = o.isActivated,
-        permissions = mapOf("can_view_customers" to o.canViewCustomers, "can_add_customers" to o.canAddCustomers, "can_edit_customers" to o.canEditCustomers, "can_delete_customers" to o.canDeleteCustomers, "can_view_suppliers" to o.canViewSuppliers, "can_add_suppliers" to o.canAddSuppliers, "can_edit_suppliers" to o.canEditSuppliers, "can_delete_suppliers" to o.canDeleteSuppliers, "can_view_transactions" to o.canViewTransactions, "can_add_transactions" to o.canAddTransactions, "can_edit_transactions" to o.canEditTransactions, "can_delete_transactions" to o.canDeleteTransactions, "can_manage_wallet" to o.canManageWallet, "can_manage_expenses" to o.canManageExpenses, "can_view_reports" to o.canViewReports)
-    )
     private fun operatorMap(o: OperatorAccount) = mapOf("id" to o.id, "username" to o.username, "name" to o.username, "role" to o.role, "mobile" to o.mobile, "email" to o.email, "is_activated" to o.isActivated, "is_active" to o.isActive, "is_biometric_enabled" to o.isBiometricEnabled, "can_view_customers" to o.canViewCustomers, "can_add_customers" to o.canAddCustomers, "can_edit_customers" to o.canEditCustomers, "can_delete_customers" to o.canDeleteCustomers, "can_view_suppliers" to o.canViewSuppliers, "can_add_suppliers" to o.canAddSuppliers, "can_edit_suppliers" to o.canEditSuppliers, "can_delete_suppliers" to o.canDeleteSuppliers, "can_view_transactions" to o.canViewTransactions, "can_add_transactions" to o.canAddTransactions, "can_edit_transactions" to o.canEditTransactions, "can_delete_transactions" to o.canDeleteTransactions, "can_manage_wallet" to o.canManageWallet, "can_manage_expenses" to o.canManageExpenses, "can_view_reports" to o.canViewReports)
     suspend fun insertOperator(o: OperatorAccount): Int { val id = if (o.id > 0) o.id else localId(0); val x = o.copy(id = id); localStore?.upsertRecord("operators", id, id, mapToJson(operatorMap(x)), LocalFirstStore.SYNCED); publish(); return id }
-    suspend fun updateOperator(o: OperatorAccount) { localStore?.upsertRecord("operators", o.id, o.id, mapToJson(operatorMap(o)), LocalFirstStore.SYNCED); publish(); runCatching { api.updateOperator(o.id, operatorRequest(o)) } }
+    suspend fun updateOperator(o: OperatorAccount) { localStore?.upsertRecord("operators", o.id, o.id, mapToJson(operatorMap(o)), LocalFirstStore.SYNCED); publish() }
     suspend fun deleteOperator(o: OperatorAccount) {
         // User-management callers may invoke local cleanup even after a cancelled
         // or failed server DELETE. Treat the server list as authoritative and
@@ -380,13 +402,20 @@ class AppRepository private constructor(
         val response = runCatching { api.getOperators() }.getOrNull() ?: return
         if (!response.isSuccessful || response.body() == null) return
         @Suppress("UNCHECKED_CAST")
-        val serverOperators = response.body()!!["operators"] as? List<Map<String, Any?>> ?: emptyList()
+        val body = response.body()!!
+        val serverOperators = (body["users"] as? List<Map<String, Any?>>)
+            ?: (body["operators"] as? List<Map<String, Any?>>)
+            ?: return
         val stillExists = serverOperators.any { raw ->
             val id = (raw["id"] as? Number)?.toInt() ?: raw["id"]?.toString()?.toIntOrNull() ?: 0
             id == o.id
         }
         if (stillExists) return
 
+        removeOperatorLocally(o)
+    }
+
+    suspend fun removeOperatorLocally(o: OperatorAccount) {
         val db = localStore?.writableDatabase ?: return
         db.beginTransaction()
         try {

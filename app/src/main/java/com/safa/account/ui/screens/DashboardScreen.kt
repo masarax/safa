@@ -27,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safa.account.ui.viewmodel.AppScreen
 import com.safa.account.ui.viewmodel.SafaViewModel
+import com.safa.account.data.money.MoneyMath
 import java.text.DecimalFormat
+import java.math.BigDecimal
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -53,8 +55,8 @@ sealed class UnifiedLedgerEntry {
     abstract val details: String
     abstract val typeLabel: String
     open fun getTypeLabel(lang: String = "BN"): String = typeLabel
-    abstract val amountBdt: Double
-    abstract val amountSar: Double
+    abstract val amountBdt: BigDecimal
+    abstract val amountSar: BigDecimal
     abstract val status: String
     abstract val notes: String
 
@@ -65,8 +67,8 @@ sealed class UnifiedLedgerEntry {
         override val key: String = "cust_tx_${tx.id}",
         override val details: String = "${tx.receiverAccountType} -> ${tx.receiverAccountNo}",
         override val typeLabel: String = "কাস্টমার বিক্রয়",
-        override val amountBdt: Double = tx.amountBdt,
-        override val amountSar: Double = tx.amountSar,
+        override val amountBdt: BigDecimal = tx.amountBdt,
+        override val amountSar: BigDecimal = tx.amountSar,
         override val status: String = tx.status,
         override val notes: String = tx.notes
     ) : UnifiedLedgerEntry() {
@@ -86,8 +88,8 @@ sealed class UnifiedLedgerEntry {
             "BDT_WITHDRAW" -> "তহবিল উত্তোলন"
             else -> "তহবিল বিবরণ"
         },
-        override val amountBdt: Double = dep.amountBdt,
-        override val amountSar: Double = dep.amountSar,
+        override val amountBdt: BigDecimal = dep.amountBdt,
+        override val amountSar: BigDecimal = dep.amountSar,
         override val status: String = "Delivered",
         override val notes: String = dep.notes
     ) : UnifiedLedgerEntry() {
@@ -131,7 +133,7 @@ fun DashboardScreen(
     val currencyFormatter = remember { DecimalFormat("#,##0") }
 
     // Dynamic exchange rate derived from system rates
-    val activeCustomerRate = remember(rawRates) { rawRates?.customerRate ?: 32.0 }
+    val activeCustomerRate = remember(rawRates) { rawRates?.customerRate ?: MoneyMath.rate("32") }
 
     // Interactive Search, Filter, and Custom Reports downloadable state
     var searchQuery by remember { mutableStateOf("") }
@@ -208,7 +210,7 @@ fun DashboardScreen(
         return num.toString().map { if (it.isDigit()) bnDigits[it - '0'] else it }.joinToString("")
     }
 
-    fun toBnFloatString(amount: Double): String {
+    fun toBnFloatString(amount: BigDecimal): String {
         val rounded = amount.toInt()
         return currencyFormatter.format(rounded)
     }
@@ -225,10 +227,16 @@ fun DashboardScreen(
     }
 
     val periodIncomeBdt = remember(filteredPeriodExpenses, activeCustomerRate) {
-        filteredPeriodExpenses.filter { !it.isExpense }.sumOf { if (it.currency == "SAR") it.amount * activeCustomerRate else it.amount }
+        filteredPeriodExpenses.filter { !it.isExpense }
+            .fold(MoneyMath.ZERO_AMOUNT) { total, item ->
+                MoneyMath.add(total, if (item.currency == "SAR") MoneyMath.multiply(item.amount, activeCustomerRate) else item.amount)
+            }
     }
     val periodExpenseBdt = remember(filteredPeriodExpenses, activeCustomerRate) {
-        filteredPeriodExpenses.filter { it.isExpense }.sumOf { if (it.currency == "SAR") it.amount * activeCustomerRate else it.amount }
+        filteredPeriodExpenses.filter { it.isExpense }
+            .fold(MoneyMath.ZERO_AMOUNT) { total, item ->
+                MoneyMath.add(total, if (item.currency == "SAR") MoneyMath.multiply(item.amount, activeCustomerRate) else item.amount)
+            }
     }
     val periodBalanceBdt = remember(periodIncomeBdt, periodExpenseBdt) {
         periodIncomeBdt - periodExpenseBdt
@@ -258,8 +266,11 @@ fun DashboardScreen(
             "HAS_BALANCE" -> {
                 list.filter { customer ->
                     val customerTxs = transactions.filter { it.customerId == customer.id }
-                    val totalDueAmount = customerTxs.sumOf { it.amountSar } - customerTxs.sumOf { it.sarCollected }
-                    java.lang.Math.abs(totalDueAmount) > 0.05
+                    val totalDueAmount = MoneyMath.subtract(
+                        MoneyMath.sumAmounts(customerTxs.map { it.amountSar }),
+                        MoneyMath.sumAmounts(customerTxs.map { it.sarCollected })
+                    )
+                    totalDueAmount.abs() > MoneyMath.amount("0.05")
                 }
             }
             "A_Z" -> {
@@ -665,8 +676,8 @@ fun DashboardScreen(
                                         
                                         val amountColor = when (unifiedEntry) {
                                             is UnifiedLedgerEntry.CustomerTx -> {
-                                                val dueSar = unifiedEntry.tx.amountSar - unifiedEntry.tx.sarCollected
-                                                if (dueSar > 0.05) Color(0xFFC62828) else Color(0xFF2E7D32)
+                                                val dueSar = MoneyMath.subtract(unifiedEntry.tx.amountSar, unifiedEntry.tx.sarCollected)
+                                                if (dueSar > MoneyMath.amount("0.05")) Color(0xFFC62828) else Color(0xFF2E7D32)
                                             }
                                             is UnifiedLedgerEntry.SupplierTx -> {
                                                 val dep = unifiedEntry.dep
@@ -954,7 +965,7 @@ fun DashboardScreen(
                             report.append("-----------------------------------------\n")
                             report.append("Total Riyal Recvd:    ${foreignCurrency} ${stats.totalSarReceived}\n")
                             report.append("Total Outstandings:   TK  ${stats.totalBdtPending}\n")
-                            report.append("Total Payable Pool:   TK  ${Math.abs(stats.supplierUnsettledBdt)}\n")
+                            report.append("Total Payable Pool:   TK  ${stats.supplierUnsettledBdt.abs()}\n")
                             report.append("Total Active Capital: TK  ${stats.totalBoughtPoolBdt}\n")
                             report.append("-----------------------------------------\n")
                             
@@ -969,15 +980,15 @@ fun DashboardScreen(
                             val curTime = System.currentTimeMillis()
                             val filteredTxs = transactions.filter { (curTime - it.timestamp) <= targetTimeLimitMs }
                             
-                            val totalSentSar = filteredTxs.sumOf { it.amountSar }
-                            var totalCustomerBdtPaid = 0.0
-                            var totalSupplierBdtValue = 0.0
+                            val totalSentSar = MoneyMath.sumAmounts(filteredTxs.map { it.amountSar })
+                            var totalCustomerBdtPaid = MoneyMath.ZERO_AMOUNT
+                            var totalSupplierBdtValue = MoneyMath.ZERO_AMOUNT
                             filteredTxs.forEach { tx ->
-                                totalCustomerBdtPaid += tx.amountSar * tx.customerRate
-                                totalSupplierBdtValue += tx.amountSar * tx.supplierRate
+                                totalCustomerBdtPaid = MoneyMath.add(totalCustomerBdtPaid, MoneyMath.multiply(tx.amountSar, tx.customerRate))
+                                totalSupplierBdtValue = MoneyMath.add(totalSupplierBdtValue, MoneyMath.multiply(tx.amountSar, tx.supplierRate))
                             }
                             
-                            val profitLossEst = totalSupplierBdtValue - totalCustomerBdtPaid
+                            val profitLossEst = MoneyMath.subtract(totalCustomerBdtPaid, totalSupplierBdtValue)
                             
                             report.append("PERIOD EXPORT ANALYSIS (${selectedReportPeriod}):\n")
                             report.append("-----------------------------------------\n")
@@ -985,10 +996,10 @@ fun DashboardScreen(
                             report.append("Volume Processed (${foreignCurrency}): ${foreignCurrency} $totalSentSar\n")
                             report.append("Customer ${localCurrency} Paid:      TK  $totalCustomerBdtPaid\n")
                             report.append("Supplier ${localCurrency} Value:     TK  $totalSupplierBdtValue\n")
-                            if (profitLossEst >= 0) {
+                            if (profitLossEst.signum() >= 0) {
                                 report.append("Estimated Net Profit:   TK  $profitLossEst (EARNINGS)\n")
                             } else {
-                                report.append("Estimated Net Loss:     TK  ${Math.abs(profitLossEst)} (DEFICIT)\n")
+                                report.append("Estimated Net Loss:     TK  ${profitLossEst.abs()} (DEFICIT)\n")
                             }
                             report.append("-----------------------------------------\n")
                             report.append("          END OF STATEMENT REPORT        \n")

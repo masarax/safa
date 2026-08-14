@@ -40,6 +40,7 @@ import com.safa.account.data.model.Customer
 import com.safa.account.data.model.RemittanceTransaction
 import com.safa.account.data.model.Supplier
 import com.safa.account.ui.viewmodel.SafaViewModel
+import com.safa.account.data.money.MoneyMath
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -146,7 +147,7 @@ fun TransactionScreen(
     LaunchedEffect(preselectCustomerId) {
         if (preselectCustomerId != null) {
             selectedCustomerId = preselectCustomerId!!
-            selectedBatchId = walletBatches.firstOrNull { it.remainingBdt > 0.05 }?.id ?: 0
+            selectedBatchId = walletBatches.firstOrNull { it.remainingBdt > MoneyMath.amount("0.05") }?.id ?: 0
             showAddDialog = true
             viewModel.clearTransactionPreselect()
         }
@@ -213,9 +214,15 @@ fun TransactionScreen(
     }
 
     // Dynamic Live calculated Stats Dashboard values
-    val statsSarTotal = remember(filteredTxs) { filteredTxs.sumOf { it.amountSar } }
-    val statsBdtTotal = remember(filteredTxs) { filteredTxs.sumOf { it.amountBdt } }
-    val statsProfitTotal = remember(filteredTxs) { filteredTxs.sumOf { it.getProfitBdt() } }
+    val statsSarTotal = remember(filteredTxs) {
+        filteredTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) }
+    }
+    val statsBdtTotal = remember(filteredTxs) {
+        filteredTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountBdt) }
+    }
+    val statsProfitTotal = remember(filteredTxs) {
+        filteredTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.getProfitBdt()) }
+    }
     val statsPendingCount = remember(filteredTxs) { filteredTxs.count { it.status == "Pending" } }
     val statsDeliveredCount = remember(filteredTxs) { filteredTxs.count { it.status == "Delivered" } }
 
@@ -797,7 +804,7 @@ fun TransactionScreen(
                                 // Wallet Ledger/Batch selector layout
                                 item {
                                     val activeBatches = remember(walletBatches, walletLedgers) {
-                                        walletBatches.filter { it.remainingBdt > 0.05 }.map { batch ->
+                                        walletBatches.filter { it.remainingBdt > MoneyMath.amount("0.05") }.map { batch ->
                                             val ledgerName = walletLedgers.find { it.id == batch.ledgerId }?.name ?: "Unknown Ledger"
                                             Pair(batch, ledgerName)
                                         }
@@ -963,18 +970,20 @@ fun TransactionScreen(
                                 // Interactive Calculations Panel with Estimated Earnings
                                 item {
                                     val computedBdt = remember(sarAmountInput, customerRateInput) {
-                                        val s = sarAmountInput.toDoubleOrNull() ?: 0.0
-                                        val cr = customerRateInput.toDoubleOrNull() ?: 0.0
-                                        s * cr
+                                        MoneyMath.multiply(
+                                            sarAmountInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT,
+                                            customerRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                                        )
                                     }
                                     val computedProfitBdt = remember(sarAmountInput, customerRateInput, supplierRateInput) {
-                                        val s = sarAmountInput.toDoubleOrNull() ?: 0.0
-                                        val cr = customerRateInput.toDoubleOrNull() ?: 0.0
-                                        val sr = supplierRateInput.toDoubleOrNull() ?: 0.0
-                                        if (sr > 0) s * (sr - cr) else 0.0
+                                        MoneyMath.profitBdt(
+                                            sarAmountInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT,
+                                            customerRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE,
+                                            supplierRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                                        )
                                     }
 
-                                    if (computedBdt > 0.01) {
+                                    if (computedBdt.signum() > 0) {
                                         Card(
                                             modifier = Modifier.fillMaxWidth(),
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
@@ -1011,7 +1020,7 @@ fun TransactionScreen(
                                                     Text(
                                                         text = "৳ ${currencyFormatter.format(computedProfitBdt)}",
                                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold),
-                                                        color = if (computedProfitBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                                        color = if (computedProfitBdt.signum() >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
                                                     )
                                                 }
                                             }
@@ -1129,8 +1138,8 @@ fun TransactionScreen(
                             // Action confirm button
                             Button(
                                 onClick = {
-                                    val sar = sarAmountInput.toDoubleOrNull() ?: 0.0
-                                    val cr = customerRateInput.toDoubleOrNull() ?: 32.0
+                                    val sar = sarAmountInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                                    val cr = customerRateInput.toBigDecimalOrNull() ?: MoneyMath.rate("32")
                                     viewModel.createRemittance(
                                         customerId = selectedCustomerId,
                                         walletBatchId = selectedBatchId,
@@ -1421,17 +1430,19 @@ fun TransactionScreen(
 
                             // Dynamic calculations review
                             val previewBdt = remember(editSarAmountInput, editCustomerRateInput) {
-                                val s = editSarAmountInput.toDoubleOrNull() ?: 0.0
-                                    val cr = editCustomerRateInput.toDoubleOrNull() ?: 0.0
-                                    s * cr
+                                MoneyMath.multiply(
+                                    editSarAmountInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT,
+                                    editCustomerRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                                )
                             }
                             val previewProfit = remember(editSarAmountInput, editCustomerRateInput, editSupplierRateInput) {
-                                val s = editSarAmountInput.toDoubleOrNull() ?: 0.0
-                                val cr = editCustomerRateInput.toDoubleOrNull() ?: 0.0
-                                val sr = editSupplierRateInput.toDoubleOrNull() ?: 0.0
-                                s * (sr - cr)
+                                MoneyMath.profitBdt(
+                                    editSarAmountInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT,
+                                    editCustomerRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE,
+                                    editSupplierRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                                )
                             }
-                            if (previewBdt > 0.01) {
+                            if (previewBdt.signum() > 0) {
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
@@ -1448,7 +1459,7 @@ fun TransactionScreen(
                                         Text(
                                             text = "Net Arbitrage: ৳ ${currencyFormatter.format(previewProfit)}",
                                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                            color = if (previewProfit >= 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                                            color = if (previewProfit.signum() >= 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
                                         )
                                     }
                                 }
@@ -1461,14 +1472,14 @@ fun TransactionScreen(
                                 com.safa.account.ui.BiometricTriggerButton(
                                     lang = lang,
                                     onSuccess = {
-                                        val sar = editSarAmountInput.toDoubleOrNull() ?: 0.0
-                                        val cr = editCustomerRateInput.toDoubleOrNull() ?: 0.0
-                                        val sr = editSupplierRateInput.toDoubleOrNull() ?: 0.0
+                                        val sar = editSarAmountInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                                        val cr = editCustomerRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                                        val sr = editSupplierRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
                                         val updatedTx = editingTx!!.copy(
                                             amountSar = sar,
                                             customerRate = cr,
                                             supplierRate = sr,
-                                            amountBdt = sar * cr,
+                                            amountBdt = MoneyMath.multiply(sar, cr),
                                             receiverAccountType = editReceiverAccountTypeInput,
                                             receiverAccountNo = if (editReceiverAccountTypeInput == "Cash") "Cash Payout" else editReceiverAccountNoInput,
                                             supplierId = editSupplierIdInput,
@@ -1492,7 +1503,7 @@ fun TransactionScreen(
                                 )
                             } else {
                                 Text(
-                                    text = if (lang == "BN") "মালিক বা ৪-ডিজিট সিকিউরিটি পিন দিন" else "Confirm 6-digit Security PIN",
+                                    text = if (lang == "BN") "মালিক বা ৬-ডিজিট সিকিউরিটি পিন দিন" else "Confirm 6-digit Security PIN",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.error
                                 )
@@ -1527,14 +1538,14 @@ fun TransactionScreen(
                             // Save Button
                             Button(
                                 onClick = {
-                                    val sar = editSarAmountInput.toDoubleOrNull() ?: 0.0
-                                    val cr = editCustomerRateInput.toDoubleOrNull() ?: 0.0
-                                    val sr = editSupplierRateInput.toDoubleOrNull() ?: 0.0
+                                    val sar = editSarAmountInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                                    val cr = editCustomerRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                                    val sr = editSupplierRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
                                     val updatedTx = editingTx!!.copy(
                                         amountSar = sar,
                                         customerRate = cr,
                                         supplierRate = sr,
-                                        amountBdt = sar * cr,
+                                        amountBdt = MoneyMath.multiply(sar, cr),
                                         receiverAccountType = editReceiverAccountTypeInput,
                                         receiverAccountNo = if (editReceiverAccountTypeInput == "Cash") "Cash Payout" else editReceiverAccountNoInput,
                                         supplierId = editSupplierIdInput,
@@ -1957,7 +1968,13 @@ fun TransactionPremiumCard(
                             
                             val netProfitBdt = tx.getProfitBdt()
                             val netProfitSar = tx.getProfitSar()
-                            val profitMarginPct = if (tx.customerRate > 0) ((tx.supplierRate - tx.customerRate) / tx.customerRate) * 100 else 0.0
+                            val profitMarginPct = if (tx.customerRate.signum() > 0) {
+                                tx.customerRate.subtract(tx.supplierRate)
+                                    .divide(tx.customerRate, 4, MoneyMath.ROUNDING)
+                                    .multiply(java.math.BigDecimal("100"))
+                            } else {
+                                java.math.BigDecimal.ZERO
+                            }
 
                             Divider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                             
@@ -1973,12 +1990,12 @@ fun TransactionPremiumCard(
                                     Text(
                                         text = "৳ ${currencyFormatter.format(netProfitBdt)}",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black),
-                                        color = if (netProfitBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                        color = if (netProfitBdt.signum() >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
                                     )
                                     Text(
                                         text = "(${currencyFormatter.format(netProfitSar)} ${foreignCur}| Margin: ${String.format(Locale.getDefault(), "%.2f", profitMarginPct)}%)",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = if (netProfitBdt >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                        color = if (netProfitBdt.signum() >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
                                     )
                                 }
                             }

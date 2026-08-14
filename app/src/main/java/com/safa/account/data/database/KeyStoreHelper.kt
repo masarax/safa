@@ -6,6 +6,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.safa.account.utils.SafaLogger
 import java.security.SecureRandom
 
 object KeyStoreHelper {
@@ -53,7 +54,7 @@ object KeyStoreHelper {
             }
             return android.util.Base64.decode(passphraseBase64, android.util.Base64.NO_WRAP)
         } catch (e: Exception) {
-            android.util.Log.w("SafaKeyStore", "Hardware KeyStore access failed, reading from secure passphrase store: ${e.message}")
+            SafaLogger.error("KEYSTORE", "Hardware KeyStore access failed; using secure passphrase fallback", e)
             // Fallback storage preserving existing passphrase without destroying database keys
             val fallbackPrefs = context.getSharedPreferences(FALLBACK_PREF_FILE, Context.MODE_PRIVATE)
             var fallbackBase64 = fallbackPrefs.getString(KEY_PASSPHRASE, null)

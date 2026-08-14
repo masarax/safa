@@ -16,6 +16,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\VersionedApiProxyController;
 use App\Http\Controllers\VersionedCollectionController;
+use App\Http\Controllers\ServiceHealthController;
 use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
 use App\Http\Middleware\VerifyActiveAuthSession;
@@ -43,7 +44,7 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
 Route::any('/v1/{path?}', VersionedApiProxyController::class)->where('path', '.*');
 
 Route::prefix('auth')->group(function () {
-    Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 'SAFA API']));
+    Route::get('/health', ServiceHealthController::class)->middleware('throttle:30,1');
     Route::post('/login', [MobileLoginController::class, 'login'])->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, 'throttle:5,1']);
     Route::post('/refresh', [SecureAuthController::class, 'refresh'])->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
     Route::get('/session', [SecureAuthController::class, 'session'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:api']);
@@ -51,6 +52,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/logout-all', [SecureAuthController::class, 'logoutAll'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:10,1']);
     Route::post('/bind-device', [AuthJWTController::class, 'bindDevice'])->middleware([CheckApiSecurityKey::class, 'throttle:10,1']);
     Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:api'])->group(function () {
+        Route::post('/change-pin', [SecureAuthController::class, 'changePin'])->middleware('throttle:5,1');
         Route::get('/operators', [UserManagementController::class, 'index']); Route::post('/operators', [UserManagementController::class, 'store']); Route::put('/operators/{id}', [UserManagementController::class, 'update']); Route::patch('/operators/{id}', [UserManagementController::class, 'update']); Route::delete('/operators/{id}', [UserManagementController::class, 'destroy']);
         Route::post('/share-account', [AuthJWTController::class, 'shareAccount']); Route::get('/shared-accounts', [AuthJWTController::class, 'getSharedAccounts']); Route::post('/switch-account', [AccountContextController::class, 'switch']);
     });

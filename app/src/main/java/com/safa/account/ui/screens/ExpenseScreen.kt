@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.viewmodel.AppScreen
 import com.safa.account.ui.screens.CalculatorDialog
+import com.safa.account.data.money.MoneyMath
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -61,6 +62,7 @@ fun ExpenseScreen(
     val foreignCurrency by viewModel.selectedForeignCurrency.collectAsStateWithLifecycle()
     val localCurrency by viewModel.selectedLocalCurrency.collectAsStateWithLifecycle()
     val currentOperator by viewModel.currentOperator.collectAsStateWithLifecycle()
+    val currentRates by viewModel.currentRates.collectAsStateWithLifecycle()
 
     if (currentOperator != null && !currentOperator!!.canManageExpenses) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -282,8 +284,8 @@ fun ExpenseScreen(
 
                     Button(
                         onClick = {
-                            val amt = amountInput.toDoubleOrNull() ?: 0.0
-                            if (titleInput.isNotBlank() && amt > 0) {
+                            val amt = amountInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                            if (titleInput.isNotBlank() && amt.signum() > 0) {
                                 viewModel.addExpenseIncome(titleInput, amt, currencyInput, isExpenseInput, categoryInput) {
                                     titleInput = ""
                                     amountInput = ""
@@ -580,7 +582,13 @@ fun ExpenseScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         grouped.forEach { (cat, catItems) ->
-                            val totalCatAmount = catItems.sumOf { if (it.currency == "SAR") it.amount * 32.5 else it.amount }
+                            val conversionRate = currentRates?.supplierRate ?: MoneyMath.rate("32.5")
+                            val totalCatAmount = catItems.fold(MoneyMath.ZERO_AMOUNT) { total, item ->
+                                MoneyMath.add(
+                                    total,
+                                    if (item.currency == "SAR") MoneyMath.multiply(item.amount, conversionRate) else item.amount
+                                )
+                            }
                             Card(
                                 shape = RoundedCornerShape(8.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f))
@@ -1016,5 +1024,4 @@ fun ExpenseScreen(
 }
     }
 }
-
 

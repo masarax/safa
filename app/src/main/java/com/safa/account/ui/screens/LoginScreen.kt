@@ -1,6 +1,5 @@
 package com.safa.account.ui.screens
 
-import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -33,38 +32,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.launch
-import org.json.JSONObject
-
-private fun normalizeDigits(value: String): String = buildString(value.length) {
-    value.forEach { ch ->
-        when (ch) {
-            in '০'..'৯' -> append(('0'.code + (ch.code - '০'.code)).toChar())
-            in '٠'..'٩' -> append(('0'.code + (ch.code - '٠'.code)).toChar())
-            else -> append(ch)
-        }
-    }
-}
-
-private fun serverErrorMessage(raw: String): String? {
-    val match = Regex("\\\"message\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"").find(raw)
-    return match?.groupValues?.getOrNull(1)
-        ?.replace("\\u0027", "'")
-        ?.replace("\\\\\\\"", "\\\"")
-        ?.takeIf { it.isNotBlank() }
-}
-
-private fun isAccessTokenFresh(token: String?, minimumLifetimeSeconds: Long = 30): Boolean {
-    if (token.isNullOrBlank()) return false
-    return try {
-        val parts = token.split('.')
-        if (parts.size != 3) return false
-        val payload = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP), Charsets.UTF_8)
-        val exp = JSONObject(payload).optLong("exp", 0L)
-        exp > (System.currentTimeMillis() / 1000L) + minimumLifetimeSeconds
-    } catch (_: Throwable) {
-        false
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,14 +61,6 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
         tokenManager?.isBiometricQuickUnlockEnabled() == true ||
             viewModelBiometricEnabled ||
             matchingOp?.isBiometricEnabled == true
-
-    LaunchedEffect(matchingOp, hasCompleteLocalSession, biometricEnabled) {
-        val tm = tokenManager ?: return@LaunchedEffect
-        val operator = matchingOp ?: return@LaunchedEffect
-        if (!hasCompleteLocalSession || !operator.isActive || !biometricEnabled) return@LaunchedEffect
-        // Session validation happens after the biometric callback. Merely having
-        // valid tokens on disk must never silently unlock an enabled quick-unlock account.
-    }
 
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
         Row(
@@ -162,8 +121,8 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                 OutlinedTextField(
                     value = pinInput,
                     onValueChange = {
-                        val normalized = normalizeDigits(it)
-                        if (normalized.length <= 6 && normalized.all(Char::isDigit)) {
+                        val normalized = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(it)
+                        if (normalized.length <= 6) {
                             pinInput = normalized
                             loginError = null
                         }
@@ -209,23 +168,20 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                                 // Approve the already-authenticated session, then let
                                 // the interceptor refresh/revalidate it server-side.
                                 tm.approveBiometricUnlock()
-                                var sessionReady = isAccessTokenFresh(tm.getAccessToken())
-                                if (!sessionReady) {
-                                    runCatching {
-                                        val api = viewModel.syncManager?.getApiService()
-                                        val response = api?.getCurrentSession()
-                                        sessionReady = response?.isSuccessful == true && isAccessTokenFresh(tm.getAccessToken())
-                                    }
-                                }
+                                val sessionReady = runCatching {
+                                    val response = viewModel.syncManager?.getApiService()?.getCurrentSession()
+                                    @Suppress("UNCHECKED_CAST")
+                                    val user = response?.body()?.get("user") as? Map<String, Any?>
+                                    response?.isSuccessful == true && user != null &&
+                                        viewModel.restoreAuthenticatedSession(user)
+                                }.getOrDefault(false)
 
-                                if (sessionReady) {
-                                    viewModel.loginWithBiometric(biometricOperator)
-                                } else {
+                                if (!sessionReady) {
                                     tm.revokeBiometricUnlockApproval()
                                     loginError = if (currentLang == "BN") {
-                                        "সেশন শেষ হয়েছে। আবার মোবাইল ও পিন দিয়ে লগইন করুন।"
+                                        "সেশন যাচাই করা যায়নি। আবার মোবাইল ও পিন দিয়ে লগইন করুন।"
                                     } else {
-                                        "Session expired. Please sign in again with mobile and PIN."
+                                        "The session could not be verified. Sign in again with mobile and PIN."
                                     }
                                 }
                             }
@@ -236,8 +192,8 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
 
                 Button(
                     onClick = {
-                        val normalizedMobile = normalizeDigits(mobileInput).trim()
-                        val normalizedPin = normalizeDigits(pinInput).trim()
+                        val normalizedMobile = com.safa.account.data.api.MobileNumberNormalizer.normalize(mobileInput)
+                        val normalizedPin = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(pinInput)
                         if (normalizedMobile.isBlank()) {
                             loginError = if (currentLang == "BN") "মোবাইল দিন" else "Enter mobile"
                             return@Button
@@ -250,9 +206,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                         viewModel.loginWithServer(normalizedMobile, normalizedPin) { success, result ->
                             isLoading = false
                             if (!success) {
-                                val parsed = result?.let(::serverErrorMessage)
-                                loginError = parsed
-                                    ?: result?.takeIf { it.isNotBlank() }
+                                loginError = result?.takeIf { it.isNotBlank() }
                                     ?: viewModel.t("invalid_credentials", currentLang)
                             }
                         }

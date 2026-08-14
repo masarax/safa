@@ -35,15 +35,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safa.account.data.model.Customer
 import com.safa.account.data.model.RemittanceTransaction
+import com.safa.account.data.money.MoneyMath
 import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.BiometricTriggerButton
 import com.safa.account.ui.screens.CalculatorDialog
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
+import java.math.BigDecimal
 import java.util.*
 import java.io.File
 import java.io.FileOutputStream
 import android.widget.Toast
+
+private val CUSTOMER_MONEY_THRESHOLD: BigDecimal = MoneyMath.amount("0.05")
+private val CUSTOMER_DETAIL_THRESHOLD: BigDecimal = MoneyMath.amount("0.01")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,13 +123,13 @@ fun CustomerScreen(
         if (selectedFilterStatus != "All") {
             list = list.filter { customer ->
                 val customerTxs = transactions.filter { it.customerId == customer.id }
-                val totalSarSpent = customerTxs.sumOf { it.amountSar }
-                val totalSarCollected = customerTxs.sumOf { it.sarCollected }
-                val totalDue = totalSarSpent - totalSarCollected
+                val totalSarSpent = customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) }
+                val totalSarCollected = customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.sarCollected) }
+                val totalDue = MoneyMath.subtract(totalSarSpent, totalSarCollected)
                 if (selectedFilterStatus == "Due") {
-                    totalDue > 0.05
+                    totalDue > CUSTOMER_MONEY_THRESHOLD
                 } else {
-                    totalDue < -0.05
+                    totalDue < CUSTOMER_MONEY_THRESHOLD.negate()
                 }
             }
         }
@@ -135,11 +140,17 @@ fun CustomerScreen(
             "A-Z" -> list.sortedBy { it.name.lowercase(java.util.Locale.ROOT) }
             "Due" -> list.sortedByDescending { customer ->
                 val customerTxs = transactions.filter { it.customerId == customer.id }
-                customerTxs.sumOf { it.amountSar } - customerTxs.sumOf { it.sarCollected }
+                MoneyMath.subtract(
+                    customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) },
+                    customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.sarCollected) }
+                )
             }
             "Advance" -> list.sortedBy { customer ->
                 val customerTxs = transactions.filter { it.customerId == customer.id }
-                customerTxs.sumOf { it.amountSar } - customerTxs.sumOf { it.sarCollected }
+                MoneyMath.subtract(
+                    customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) },
+                    customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.sarCollected) }
+                )
             }
             else -> list.sortedByDescending { it.timestamp } // Newest First
         }
@@ -493,7 +504,7 @@ fun CustomerScreen(
                             val customerTxs = remember(transactions) {
                                 transactions.filter { it.customerId == customer.id }
                             }
-                            val totalSarSpent = customerTxs.sumOf { it.amountSar }
+                            val totalSarSpent = customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) }
 
                             Card(
                                 modifier = Modifier
@@ -510,9 +521,13 @@ fun CustomerScreen(
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                 )
                             ) {
-                                 val totalSarCollected = remember(customerTxs) { customerTxs.sumOf { it.sarCollected } }
-                                 val totalDue = remember(totalSarSpent, totalSarCollected) { totalSarSpent - totalSarCollected }
-                                 val totalBdt = remember(customerTxs) { customerTxs.sumOf { it.amountBdt } }
+                                 val totalSarCollected = remember(customerTxs) {
+                                     customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.sarCollected) }
+                                 }
+                                 val totalDue = remember(totalSarSpent, totalSarCollected) { MoneyMath.subtract(totalSarSpent, totalSarCollected) }
+                                 val totalBdt = remember(customerTxs) {
+                                     customerTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountBdt) }
+                                 }
 
                                  Column(
                                      modifier = Modifier
@@ -567,21 +582,21 @@ fun CustomerScreen(
                                          
                                          Column(horizontalAlignment = Alignment.End) {
                                              Text(
-                                                 text = if (totalDue <= -0.05) {
+                                                 text = if (totalDue <= CUSTOMER_MONEY_THRESHOLD.negate()) {
                                                      if (lang == "BN") "কাস্টমার পাবে" else "Customer Owed"
                                                  } else {
                                                      if (lang == "BN") "মোট বকেয়া" else "Total Due"
                                                  },
                                                  style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                 color = if (totalDue > 0.05) Color(0xFFD32F2F) else if (totalDue <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32),
+                                                 color = if (totalDue > CUSTOMER_MONEY_THRESHOLD) Color(0xFFD32F2F) else if (totalDue <= CUSTOMER_MONEY_THRESHOLD.negate()) Color(0xFF1565C0) else Color(0xFF2E7D32),
                                                  maxLines = 1,
                                                  overflow = TextOverflow.Ellipsis
                                              )
                                              Spacer(modifier = Modifier.height(1.dp))
                                              Text(
-                                                 text = "${currencyFormatter.format(Math.abs(totalDue))} ${foreignCur}",
+                                                 text = "${currencyFormatter.format(totalDue.abs())} ${foreignCur}",
                                                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
-                                                 color = if (totalDue > 0.05) Color(0xFFD32F2F) else if (totalDue <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32),
+                                                 color = if (totalDue > CUSTOMER_MONEY_THRESHOLD) Color(0xFFD32F2F) else if (totalDue <= CUSTOMER_MONEY_THRESHOLD.negate()) Color(0xFF1565C0) else Color(0xFF2E7D32),
                                                  maxLines = 1,
                                                  overflow = TextOverflow.Ellipsis
                                              )
@@ -752,12 +767,12 @@ fun CustomerProfileView(
     // Confirmation page states
     var showConfirmationPage by remember { mutableStateOf(false) }
     var confirmCustName by remember { mutableStateOf("") }
-    var confirmAmountSar by remember { mutableStateOf(0.0) }
-    var confirmCustomerRate by remember { mutableStateOf(32.10) }
-    var confirmCollectedSar by remember { mutableStateOf(0.0) }
-    var confirmDueCollectedSar by remember { mutableStateOf(0.0) }
-    var confirmNewDueSar by remember { mutableStateOf(0.0) }
-    var confirmTotalRemainingDueSar by remember { mutableStateOf(0.0) }
+    var confirmAmountSar by remember { mutableStateOf(MoneyMath.ZERO_AMOUNT) }
+    var confirmCustomerRate by remember { mutableStateOf(MoneyMath.rate("32.10")) }
+    var confirmCollectedSar by remember { mutableStateOf(MoneyMath.ZERO_AMOUNT) }
+    var confirmDueCollectedSar by remember { mutableStateOf(MoneyMath.ZERO_AMOUNT) }
+    var confirmNewDueSar by remember { mutableStateOf(MoneyMath.ZERO_AMOUNT) }
+    var confirmTotalRemainingDueSar by remember { mutableStateOf(MoneyMath.ZERO_AMOUNT) }
     var confirmPaymentMethod by remember { mutableStateOf("Cash") }
     var confirmRecipientNo by remember { mutableStateOf("") }
     var confirmTimestamp by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -797,10 +812,17 @@ fun CustomerProfileView(
         "👤", "🧑‍💼", "👑", "💰", "⭐", "💼", "⚡", "❤️", "🏡"
     )
 
-    val totalSpentSar = remember(transactions) { transactions.sumOf { it.amountSar } }
-    val totalDisbursedBdt = remember(transactions) { transactions.sumOf { it.amountBdt } }
+    val totalSpentSar = remember(transactions) {
+        transactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) }
+    }
+    val totalDisbursedBdt = remember(transactions) {
+        transactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountBdt) }
+    }
     val totalUncollectedSar = remember(transactions) {
-        (transactions.sumOf { it.amountSar } - transactions.sumOf { it.sarCollected })
+        MoneyMath.subtract(
+            transactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) },
+            transactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.sarCollected) }
+        )
     }
 
     val transactionsByDate = remember(transactions, lang) {
@@ -839,16 +861,16 @@ fun CustomerProfileView(
                 editAmountSar = editAmountSar,
                 onEditAmountSarChange = { newValue ->
                     editAmountSar = newValue
-                    val s = newValue.toDoubleOrNull() ?: 0.0
-                    val r = editCustomerRate.toDoubleOrNull() ?: 0.0
-                    editBdtDisbursed = Math.round(s * r).toString()
+                    val s = newValue.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                    val r = editCustomerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                    editBdtDisbursed = MoneyMath.multiply(s, r).toPlainString()
                 },
                 editCustomerRate = editCustomerRate,
                 onEditCustomerRateChange = { newValue ->
                     editCustomerRate = newValue
-                    val s = editAmountSar.toDoubleOrNull() ?: 0.0
-                    val r = newValue.toDoubleOrNull() ?: 0.0
-                    editBdtDisbursed = Math.round(s * r).toString()
+                    val s = editAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                    val r = newValue.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                    editBdtDisbursed = MoneyMath.multiply(s, r).toPlainString()
                 },
                 editSupplierRate = editSupplierRate,
                 onEditSupplierRateChange = { editSupplierRate = it },
@@ -875,16 +897,17 @@ fun CustomerProfileView(
                 onCancel = { txToEdit = null },
                 onSave = {
                     if (txToEdit != null) {
-                        val amt = editAmountSar.toDoubleOrNull() ?: 0.0
-                        val cRate = editCustomerRate.toDoubleOrNull() ?: 0.0
-                        val sRate = editSupplierRate.toDoubleOrNull() ?: 0.0
-                        val col = editSarCollected.toDoubleOrNull() ?: amt
-                        val dis = editBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
+                        val amt = editAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                        val cRate = editCustomerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                        val sRate = editSupplierRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                        val col = editSarCollected.toBigDecimalOrNull() ?: amt
+                        val amountBdt = MoneyMath.multiply(amt, cRate)
+                        val dis = editBdtDisbursed.toBigDecimalOrNull() ?: amountBdt
                         val updatedTx = txToEdit!!.copy(
                             amountSar = amt,
                             customerRate = cRate,
                             supplierRate = sRate,
-                            amountBdt = amt * cRate,
+                            amountBdt = amountBdt,
                             receiverName = editReceiverName,
                             receiverPhone = editReceiverPhone,
                             receiverAccountType = editReceiverAccountType,
@@ -909,32 +932,32 @@ fun CustomerProfileView(
                 onSelectedBatchChange = { batchId ->
                     selectedBatchId = batchId
                     val batch = walletBatches.find { it.id == batchId }
-                    val latestRate = batch?.rate ?: currentRatesState?.supplierRate ?: 32.00
+                    val latestRate = batch?.rate ?: currentRatesState?.supplierRate ?: MoneyMath.rate("32.00")
                     
                     inputSupplierRate = latestRate.toString()
                     
-                    val defaultCustRate = currentRatesState?.customerRate ?: 32.10
+                    val defaultCustRate = currentRatesState?.customerRate ?: MoneyMath.rate("32.10")
                     inputCustomerRate = defaultCustRate.toString()
 
                     inputSarCollected = inputAmountSar
 
-                    val amountDouble = inputAmountSar.toDoubleOrNull() ?: 0.0
-                    inputBdtDisbursed = Math.round(amountDouble * defaultCustRate).toString()
+                    val amount = inputAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                    inputBdtDisbursed = MoneyMath.multiply(amount, defaultCustRate).toPlainString()
                 },
                 amountSar = inputAmountSar,
                 onAmountChange = {
                     inputAmountSar = it
-                    val amountDouble = it.toDoubleOrNull() ?: 0.0
-                    val rateDouble = inputCustomerRate.toDoubleOrNull() ?: 32.10
-                    inputBdtDisbursed = Math.round(amountDouble * rateDouble).toString()
+                    val amount = it.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                    val rate = inputCustomerRate.toBigDecimalOrNull() ?: MoneyMath.rate("32.10")
+                    inputBdtDisbursed = MoneyMath.multiply(amount, rate).toPlainString()
                     inputSarCollected = it
                 },
                 customerRate = inputCustomerRate,
                 onCustomerRateChange = {
                     inputCustomerRate = it
-                    val amountDouble = inputAmountSar.toDoubleOrNull() ?: 0.0
-                    val rateDouble = it.toDoubleOrNull() ?: 0.0
-                    inputBdtDisbursed = Math.round(amountDouble * rateDouble).toString()
+                    val amount = inputAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                    val rate = it.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                    inputBdtDisbursed = MoneyMath.multiply(amount, rate).toPlainString()
                 },
                 supplierRate = inputSupplierRate,
                 onSupplierRateChange = { inputSupplierRate = it },
@@ -963,12 +986,12 @@ fun CustomerProfileView(
                 isSupplierRateEnabled = isSupplierRateEnabled,
                 onCancel = { isAddingTransaction = false },
                 onSubmit = {
-                    val amt = inputAmountSar.toDoubleOrNull() ?: 0.0
-                    val cRate = inputCustomerRate.toDoubleOrNull() ?: 32.10
+                    val amt = inputAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                    val cRate = inputCustomerRate.toBigDecimalOrNull() ?: MoneyMath.rate("32.10")
                     val batchId = selectedBatchId ?: 0
-                    val col = inputSarCollected.toDoubleOrNull() ?: amt
-                    val dis = inputBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
-                    val dueAmt = inputDueSarCollected.toDoubleOrNull() ?: 0.0
+                    val col = inputSarCollected.toBigDecimalOrNull() ?: amt
+                    val dis = inputBdtDisbursed.toBigDecimalOrNull() ?: MoneyMath.multiply(amt, cRate)
+                    val dueAmt = inputDueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                     val rcvStr = if (inputReceiverAccountType == "Cash") "Cash" else inputReceiverAccountNo
 
                     confirmCustName = customer.name
@@ -976,15 +999,18 @@ fun CustomerProfileView(
                     confirmCustomerRate = cRate
                     confirmCollectedSar = col
                     confirmDueCollectedSar = dueAmt
-                    confirmNewDueSar = amt - col
-                    val dueAmtEffect = if (isAdvanceReturn || totalUncollectedSar <= -0.05) -dueAmt else dueAmt
-                    confirmTotalRemainingDueSar = totalUncollectedSar + confirmNewDueSar + dueAmtEffect
+                    confirmNewDueSar = MoneyMath.subtract(amt, col)
+                    val dueAmtEffect = if (isAdvanceReturn || totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) dueAmt.negate() else dueAmt
+                    confirmTotalRemainingDueSar = MoneyMath.subtract(
+                        MoneyMath.add(totalUncollectedSar, confirmNewDueSar),
+                        dueAmtEffect
+                    )
                     confirmPaymentMethod = inputReceiverAccountType
                     confirmRecipientNo = rcvStr
                     confirmTimestamp = inputTimestamp
-                    confirmIsAdvanceReturn = isAdvanceReturn || (totalUncollectedSar <= -0.05 && dueAmt > 0.05)
+                    confirmIsAdvanceReturn = isAdvanceReturn || (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate() && dueAmt > CUSTOMER_MONEY_THRESHOLD)
 
-                    if (amt > 0.05 && batchId > 0 && rcvStr.isNotBlank()) {
+                    if (amt > CUSTOMER_MONEY_THRESHOLD && batchId > 0 && rcvStr.isNotBlank()) {
                         viewModel.createRemittance(
                             customerId = customer.id,
                             walletBatchId = batchId,
@@ -999,19 +1025,19 @@ fun CustomerProfileView(
                             bdtDisbursed = dis,
                             timestamp = inputTimestamp
                         ) {
-                            if (dueAmt > 0.05) {
+                            if (dueAmt > CUSTOMER_MONEY_THRESHOLD) {
                                 viewModel.createRemittance(
                                     customerId = customer.id,
                                     walletBatchId = 0,
-                                    amountSar = 0.0,
-                                    customerRate = 0.0,
+                                    amountSar = MoneyMath.ZERO_AMOUNT,
+                                    customerRate = MoneyMath.ZERO_RATE,
                                     receiverName = if (isAdvanceReturn) "Advance Return" else "Due Payment",
                                     receiverPhone = "N/A",
                                     receiverAccountType = "N/A",
                                     receiverAccountNo = "N/A",
                                     notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
                                     sarCollected = dueAmtEffect,
-                                    bdtDisbursed = 0.0,
+                                    bdtDisbursed = MoneyMath.ZERO_AMOUNT,
                                     status = "Delivered",
                                     timestamp = inputTimestamp
                                 ) {
@@ -1039,19 +1065,19 @@ fun CustomerProfileView(
                                 showConfirmationPage = true
                             }
                         }
-                    } else if (amt <= 0.05 && dueAmt > 0.05) {
+                    } else if (amt <= CUSTOMER_MONEY_THRESHOLD && dueAmt > CUSTOMER_MONEY_THRESHOLD) {
                         viewModel.createRemittance(
                             customerId = customer.id,
                             walletBatchId = 0,
-                            amountSar = 0.0,
-                            customerRate = 0.0,
+                            amountSar = MoneyMath.ZERO_AMOUNT,
+                            customerRate = MoneyMath.ZERO_RATE,
                             receiverName = if (isAdvanceReturn) "Advance Return" else "Due Payment",
                             receiverPhone = "N/A",
                             receiverAccountType = "N/A",
                             receiverAccountNo = "N/A",
                             notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
                             sarCollected = dueAmtEffect,
-                            bdtDisbursed = 0.0,
+                            bdtDisbursed = MoneyMath.ZERO_AMOUNT,
                             status = "Delivered",
                             timestamp = inputTimestamp
                         ) {
@@ -1083,7 +1109,10 @@ fun CustomerProfileView(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         val totalUncollectedSar = remember(transactions) {
-                            (transactions.sumOf { it.amountSar } - transactions.sumOf { it.sarCollected })
+                            MoneyMath.subtract(
+                                transactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) },
+                                transactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.sarCollected) }
+                            )
                         }
 
                         // Option 1: New Sale (নতুন বিক্রয়)
@@ -1144,7 +1173,7 @@ fun CustomerProfileView(
                             }
                         }
 
-                        if (totalUncollectedSar > 0.05) {
+                        if (totalUncollectedSar > CUSTOMER_MONEY_THRESHOLD) {
                             // Option 2: Due Collection (বকেয়া আদায়)
                             Card(
                                 modifier = Modifier
@@ -1205,7 +1234,7 @@ fun CustomerProfileView(
                             }
                         }
 
-                        if (totalUncollectedSar <= -0.05) {
+                        if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) {
                             // Option 3: Advance Return (পাওনা ফেরত)
                             Card(
                                 modifier = Modifier
@@ -1257,7 +1286,7 @@ fun CustomerProfileView(
                                             color = Color(0xFF1565C0)
                                         )
                                         Text(
-                                            text = if (lang == "BN") "কাস্টমারকে পাওনা ফেরত দিন (পাবে: ${foreignCur}${DecimalFormat("#.##").format(Math.abs(totalUncollectedSar))})।" else "Return customer's advanced balance (Owed: ${DecimalFormat("#.##").format(Math.abs(totalUncollectedSar))} ${foreignCur}).",
+                                            text = if (lang == "BN") "কাস্টমারকে পাওনা ফেরত দিন (পাবে: ${foreignCur}${DecimalFormat("#.##").format(totalUncollectedSar.abs())})।" else "Return customer's advanced balance (Owed: ${DecimalFormat("#.##").format(totalUncollectedSar.abs())} ${foreignCur}).",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.outline
                                         )
@@ -1408,7 +1437,7 @@ fun CustomerProfileView(
                             if (!isEditing) {
                                 Button(
                                     onClick = { 
-                                        if (Math.abs(totalUncollectedSar) > 0.05) {
+                                        if (totalUncollectedSar.abs() > CUSTOMER_MONEY_THRESHOLD) {
                                             showAddTxChoiceDialog = true
                                         } else {
                                             showAddTxChoiceDialog = false
@@ -1490,7 +1519,10 @@ fun CustomerProfileView(
                         }
 
                         val totalUncollectedSar = remember(transactions) {
-                            (transactions.sumOf { it.amountSar } - transactions.sumOf { it.sarCollected })
+                            MoneyMath.subtract(
+                                transactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) },
+                                transactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.sarCollected) }
+                            )
                         }
 
                         Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -1499,7 +1531,7 @@ fun CustomerProfileView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(
-                                    if (totalUncollectedSar > 0.05) Color(0xFFFFECEB) else if (totalUncollectedSar <= -0.05) Color(0xFFE3F2FD) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                                    if (totalUncollectedSar > CUSTOMER_MONEY_THRESHOLD) Color(0xFFFFECEB) else if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) Color(0xFFE3F2FD) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
                                     shape = RoundedCornerShape(10.dp)
                                 )
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1511,25 +1543,25 @@ fun CustomerProfileView(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
-                                    imageVector = if (totalUncollectedSar <= -0.05) Icons.Default.Info else Icons.Default.Warning,
+                                    imageVector = if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) Icons.Default.Info else Icons.Default.Warning,
                                     contentDescription = "",
-                                    tint = if (totalUncollectedSar > 0.05) Color(0xFFC62828) else if (totalUncollectedSar <= -0.05) Color(0xFF1565C0) else MaterialTheme.colorScheme.outline,
+                                    tint = if (totalUncollectedSar > CUSTOMER_MONEY_THRESHOLD) Color(0xFFC62828) else if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) Color(0xFF1565C0) else MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = if (totalUncollectedSar <= -0.05) {
+                                    text = if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) {
                                         if (lang == "BN") "কাস্টমার পাবে ${foreignCur}" else "Customer Owed ${foreignCur}"
                                     } else {
                                         if (lang == "BN") "মোট বকেয়া ${foreignCur}" else "Total Due ${foreignCur}"
                                     },
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (totalUncollectedSar > 0.05) Color(0xFFC62828) else if (totalUncollectedSar <= -0.05) Color(0xFF1565C0) else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = if (totalUncollectedSar > CUSTOMER_MONEY_THRESHOLD) Color(0xFFC62828) else if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) Color(0xFF1565C0) else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
-                                text = "${DecimalFormat("#,##0.00").format(Math.abs(totalUncollectedSar))} ${foreignCur}",
+                                text = "${DecimalFormat("#,##0.00").format(totalUncollectedSar.abs())} ${foreignCur}",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
-                                color = if (totalUncollectedSar > 0.05) Color(0xFFC62828) else if (totalUncollectedSar <= -0.05) Color(0xFF1565C0) else Color(0xFF2E7D32)
+                                color = if (totalUncollectedSar > CUSTOMER_MONEY_THRESHOLD) Color(0xFFC62828) else if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) Color(0xFF1565C0) else Color(0xFF2E7D32)
                             )
                         }
                     }
@@ -1678,7 +1710,7 @@ fun CustomerProfileView(
                                         val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.phone.trim()}"))
                                         mContext.startActivity(dialIntent)
                                     } catch (e: Exception) {
-                                        e.printStackTrace()
+                                        com.safa.account.utils.SafaLogger.error("PHONE_DIAL", "Unable to open dialer", e)
                                     }
                                 }
                             )
@@ -1787,7 +1819,7 @@ fun CustomerProfileView(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(text = dateText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                                    val dailyBdt = txList.sumOf { it.amountBdt }
+                                    val dailyBdt = txList.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountBdt) }
                                     Text(text = "৳${DecimalFormat("#,##0").format(dailyBdt)}", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E7D32))
                                 }
 
@@ -1823,12 +1855,12 @@ fun CustomerProfileView(
                                                 }
                                                 Text(text = "Rcv No: ${tx.receiverAccountNo} (${tx.receiverAccountType})", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                 
-                                                val sarDue = tx.amountSar - tx.sarCollected
+                                                val sarDue = MoneyMath.subtract(tx.amountSar, tx.sarCollected)
                                                 val isDuePaymentTx = tx.receiverName == "Due Payment"
                                                 val isAdvanceReturnTx = tx.receiverName == "Advance Return"
                                                 
                                                 if (!isDuePaymentTx && !isAdvanceReturnTx) {
-                                                    if (sarDue > 0.05) {
+                                                    if (sarDue > CUSTOMER_MONEY_THRESHOLD) {
                                                         Row(
                                                             modifier = Modifier.padding(top = 2.dp),
                                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1845,7 +1877,7 @@ fun CustomerProfileView(
                                                                 )
                                                             }
                                                         }
-                                                    } else if (sarDue <= -0.05) {
+                                                    } else if (sarDue <= CUSTOMER_MONEY_THRESHOLD.negate()) {
                                                         Row(
                                                             modifier = Modifier.padding(top = 2.dp),
                                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1856,7 +1888,7 @@ fun CustomerProfileView(
                                                                 contentColor = Color(0xFF1565C0)
                                                             ) {
                                                                 Text(
-                                                                    text = if (lang == "BN") "কাস্টমার পাবে: ${foreignCur}${DecimalFormat("#.##").format(Math.abs(sarDue))}" else "Overpaid: ${DecimalFormat("#.##").format(Math.abs(sarDue))} ${foreignCur}",
+                                                                    text = if (lang == "BN") "কাস্টমার পাবে: ${foreignCur}${DecimalFormat("#.##").format(sarDue.abs())}" else "Overpaid: ${DecimalFormat("#.##").format(sarDue.abs())} ${foreignCur}",
                                                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                                                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                                                 )
@@ -1871,11 +1903,11 @@ fun CustomerProfileView(
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
                                                 Column(horizontalAlignment = Alignment.End) {
-                                                    if (tx.amountSar <= 0.05 && tx.sarCollected > 0.05) {
+                                                    if (tx.amountSar <= CUSTOMER_MONEY_THRESHOLD && tx.sarCollected > CUSTOMER_MONEY_THRESHOLD) {
                                                         Text(text = "SAR ${tx.sarCollected}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E7D32))
                                                         Text(text = if (lang == "BN") "বকেয়া আদায়" else "Due Paid", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E7D32))
-                                                    } else if (tx.amountSar <= 0.05 && tx.sarCollected <= -0.05) {
-                                                        Text(text = "SAR ${Math.abs(tx.sarCollected)}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1565C0))
+                                                    } else if (tx.amountSar <= CUSTOMER_MONEY_THRESHOLD && tx.sarCollected <= CUSTOMER_MONEY_THRESHOLD.negate()) {
+                                                        Text(text = "SAR ${tx.sarCollected.abs()}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1565C0))
                                                         Text(text = if (lang == "BN") "রিয়াল ফেরত" else "Refunded", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1565C0))
                                                     } else {
                                                         Text(text = "SAR ${tx.amountSar}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
@@ -1898,7 +1930,7 @@ fun CustomerProfileView(
                                                 val batch = walletBatches.find { it.id == tx.walletBatchId }
                                                 val ledger = walletLedgers.find { it.id == batch?.ledgerId }
                                                 
-                                                val walletName = if (tx.amountSar <= 0.05) {
+                                                val walletName = if (tx.amountSar <= CUSTOMER_MONEY_THRESHOLD) {
                                                     if (lang == "BN") "প্রযোজ্য নয় (বকেয়া আদায়)" else "N/A (Due Collected)"
                                                 } else {
                                                     ledger?.name ?: "Unknown Wallet"
@@ -1915,16 +1947,16 @@ fun CustomerProfileView(
                                                 
                                                 Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 2.dp))
                                                 
-                                                val sarDue = tx.amountSar - tx.sarCollected
-                                                val bdtDue = tx.amountBdt - tx.bdtDisbursed
+                                                val sarDue = MoneyMath.subtract(tx.amountSar, tx.sarCollected)
+                                                val bdtDue = MoneyMath.subtract(tx.amountBdt, tx.bdtDisbursed)
                                                 
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                     Column {
                                                         Text(text = if (lang == "BN") "রিয়াল গ্রহণ ${foreignCur}:" else "Riyal Collected ${foreignCur}:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
-                                                        if (tx.amountSar <= 0.05 && tx.sarCollected > 0.05) {
+                                                        if (tx.amountSar <= CUSTOMER_MONEY_THRESHOLD && tx.sarCollected > CUSTOMER_MONEY_THRESHOLD) {
                                                             Text(text = "${tx.sarCollected} ${foreignCur}(${if (lang == "BN") "বকেয়া আদায় পরিশোধ" else "Outstanding Due Collected"})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                                         } else {
-                                                            Text(text = "${tx.sarCollected} / ${tx.amountSar} ${foreignCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= 0.05) Color(0xFF2E7D32) else Color(0xFFE65100))
+                                                            Text(text = "${tx.sarCollected} / ${tx.amountSar} ${foreignCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= CUSTOMER_MONEY_THRESHOLD) Color(0xFF2E7D32) else Color(0xFFE65100))
                                                         }
                                                     }
                                                 }
@@ -1961,8 +1993,8 @@ fun CustomerProfileView(
                                                                 confirmAmountSar = tx.amountSar
                                                                 confirmCustomerRate = tx.customerRate
                                                                 confirmCollectedSar = tx.sarCollected
-                                                                confirmDueCollectedSar = if (tx.amountSar == 0.0) tx.sarCollected else 0.0
-                                                                confirmNewDueSar = tx.amountSar - tx.sarCollected
+                                                                confirmDueCollectedSar = if (tx.amountSar.signum() == 0) tx.sarCollected.abs() else MoneyMath.ZERO_AMOUNT
+                                                                confirmNewDueSar = MoneyMath.subtract(tx.amountSar, tx.sarCollected)
                                                                 confirmTotalRemainingDueSar = totalUncollectedSar // approximate snapshot
                                                                 confirmPaymentMethod = tx.receiverAccountType
                                                                 confirmRecipientNo = tx.receiverAccountNo
@@ -1993,7 +2025,7 @@ fun CustomerProfileView(
                                                                 editStatus = tx.status
                                                                 editSupplierId = tx.supplierId
                                                                 editSarCollected = tx.sarCollected.toString()
-                                                                editBdtDisbursed = Math.round(tx.bdtDisbursed).toString()
+                                                                editBdtDisbursed = tx.bdtDisbursed.toPlainString()
                                                             },
                                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                             modifier = Modifier.height(28.dp),
@@ -2086,9 +2118,9 @@ fun CustomerProfileView(
             onConfirm = { result ->
                 inputAmountSar = result
                 inputSarCollected = result
-                val cr = inputCustomerRate.toDoubleOrNull() ?: 0.0
-                val amt = result.toDoubleOrNull() ?: 0.0
-                inputBdtDisbursed = Math.round(amt * cr).toString()
+                val cr = inputCustomerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                val amt = result.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                inputBdtDisbursed = MoneyMath.multiply(amt, cr).toPlainString()
                 isAmountCalCOpen = false
             }
         )
@@ -2102,9 +2134,9 @@ fun CustomerProfileView(
             onDismiss = { isEditAmountCalCOpen = false },
             onConfirm = { result ->
                 editAmountSar = result
-                val s = result.toDoubleOrNull() ?: 0.0
-                val r = editCustomerRate.toDoubleOrNull() ?: 0.0
-                editBdtDisbursed = Math.round(s * r).toString()
+                val s = result.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                val r = editCustomerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                editBdtDisbursed = MoneyMath.multiply(s, r).toPlainString()
             }
         )
     }
@@ -2206,7 +2238,7 @@ fun AddTransactionStepPage(
     onSarCollectedChange: (String) -> Unit,
     bdtDisbursed: String,
     onBdtDisbursedChange: (String) -> Unit,
-    previousDueSar: Double,
+    previousDueSar: BigDecimal,
     dueSarCollected: String,
     onDueSarCollectedChange: (String) -> Unit,
     isCalcOpen: Boolean,
@@ -2632,10 +2664,14 @@ fun AddTransactionStepPage(
                             )
                             
                             val groupedActiveBatches = walletBatches
-                                .filter { it.remainingBdt > 0.05 }
+                                .filter { it.remainingBdt > CUSTOMER_MONEY_THRESHOLD }
                                 .groupBy { Pair(it.ledgerId, it.rate) }
                             val activeBatches = groupedActiveBatches.map { (_, list) -> 
-                                list.first().copy(remainingBdt = list.sumOf { it.remainingBdt }) 
+                                list.first().copy(
+                                    remainingBdt = list.fold(MoneyMath.ZERO_AMOUNT) { total, batch ->
+                                        MoneyMath.add(total, batch.remainingBdt)
+                                    }
+                                )
                             }
                             if (activeBatches.isEmpty()) {
                                 Text(
@@ -2812,7 +2848,7 @@ fun AddTransactionStepPage(
                 }
 
                 // Previous Due Payment Card (only shown if there are previous dues and not returning advance)
-                if (previousDueSar > 0.05 && !isAdvanceReturn) {
+                if (previousDueSar > CUSTOMER_MONEY_THRESHOLD && !isAdvanceReturn) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -2885,7 +2921,7 @@ fun AddTransactionStepPage(
                 }
 
                 // Advance Return Card (shown if there is advance balance, whether explicitly Advance Return or along with a new sale)
-                if (previousDueSar <= -0.05 && (!isDueOnly || isAdvanceReturn)) {
+                if (previousDueSar <= CUSTOMER_MONEY_THRESHOLD.negate() && (!isDueOnly || isAdvanceReturn)) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -2913,7 +2949,7 @@ fun AddTransactionStepPage(
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ) {
                                         Text(
-                                            text = "${sarFormatter.format(Math.abs(previousDueSar))} ${foreignCur}Owed",
+                                            text = "${sarFormatter.format(previousDueSar.abs())} ${foreignCur}Owed",
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                                         )
@@ -2960,8 +2996,8 @@ fun AddTransactionStepPage(
                 // A. BIKROY RATE (CUSTOMER RATE) + RIYAL (DISABLE) Group Card
                 if (!isDueOnly) {
                     item {
-                        val amtSarVal = amountSar.toDoubleOrNull() ?: 0.0
-                        val isAmtPresent = amtSarVal > 0.05
+                        val amtSarVal = amountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                        val isAmtPresent = amtSarVal > CUSTOMER_MONEY_THRESHOLD
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = if (isAmtPresent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)),
@@ -3055,16 +3091,16 @@ fun AddTransactionStepPage(
 
                 // B. ${localCur}Total & SUMMARY cards
                 item {
-                    val sarVal = amountSar.toDoubleOrNull() ?: 0.0
-                    val custRateVal = customerRate.toDoubleOrNull() ?: 0.0
-                    val bdtTotal = Math.round(sarVal * custRateVal) // Whole ${localCur}amount
+                    val sarVal = amountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                    val custRateVal = customerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                    val bdtTotal = MoneyMath.multiply(sarVal, custRateVal)
                     
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         // Total Payout ${localCur}Card
-                        if (sarVal > 0.05) {
+                        if (sarVal > CUSTOMER_MONEY_THRESHOLD) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
@@ -3110,24 +3146,24 @@ fun AddTransactionStepPage(
                                     Text(text = if (lang == "BN") "রিয়াল পরিমাণ:" else "SAR Amount:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                     Text(text = "$amountSar ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
-                                val amtVal = amountSar.toDoubleOrNull() ?: 0.0
-                                val collectedVal = sarCollected.toDoubleOrNull() ?: 0.0
-                                val newDueSar = amtVal - collectedVal
-                                if (newDueSar > 0.01) {
+                                val amtVal = amountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                                val collectedVal = sarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                                val newDueSar = MoneyMath.subtract(amtVal, collectedVal)
+                                if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(text = if (lang == "BN") "নতুন বকেয়া ${foreignCur}:" else "New Outstanding Due ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                                         Text(text = "${String.format("%.2f", newDueSar)} ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
                                     }
                                 }
-                                if (previousDueSar > 0.05) {
-                                    val dueAmtVal = dueSarCollected.toDoubleOrNull() ?: 0.0
+                                if (previousDueSar > CUSTOMER_MONEY_THRESHOLD) {
+                                    val dueAmtVal = dueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(text = if (lang == "BN") "বকেয়া আদায় ${foreignCur}:" else "Due Collected ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                         Text(text = "$dueAmtVal ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                     }
-                                } else if (previousDueSar <= -0.05) {
-                                    val dueAmtVal = dueSarCollected.toDoubleOrNull() ?: 0.0
-                                    if (dueAmtVal > 0.0) {
+                                } else if (previousDueSar <= CUSTOMER_MONEY_THRESHOLD.negate()) {
+                                    val dueAmtVal = dueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                                    if (dueAmtVal.signum() > 0) {
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text(text = if (lang == "BN") "পাওনা ফেরত ${foreignCur}:" else "Advance Returned ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                             Text(text = "$dueAmtVal ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
@@ -3165,10 +3201,10 @@ fun AddTransactionStepPage(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             if (currentStep == 1) {
-                val amtDouble = amountSar.toDoubleOrNull() ?: 0.0
-                val isDueOnly = (amountSar == "0" || amountSar.trim() == "0.0" || amountSar.isBlank()) && previousDueSar > 0.05
-                val isAdvanceAct = (amountSar == "0" || amountSar.trim() == "0.0" || amountSar.isBlank()) && previousDueSar <= -0.05 && isAdvanceReturn
-                val isRegularEligible = amtDouble > 0.05
+                val amount = amountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                val isDueOnly = amount.signum() == 0 && previousDueSar > CUSTOMER_MONEY_THRESHOLD
+                val isAdvanceAct = amount.signum() == 0 && previousDueSar <= CUSTOMER_MONEY_THRESHOLD.negate() && isAdvanceReturn
+                val isRegularEligible = amount > CUSTOMER_MONEY_THRESHOLD
                 val isStep1NextEnabled = isDueOnly || isAdvanceAct || isRegularEligible
 
                 Button(
@@ -3188,14 +3224,14 @@ fun AddTransactionStepPage(
                     Icon(Icons.Default.ArrowForward, contentDescription = "", modifier = Modifier.size(16.dp))
                 }
             } else {
-                val amtDoubleVal = amountSar.toDoubleOrNull() ?: 0.0
-                val dueAmtDoubleVal = dueSarCollected.toDoubleOrNull() ?: 0.0
+                val amount = amountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                val dueAmount = dueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                 val isNumberValid = (paymentMethod == "Cash") || recipientNo.isNotBlank()
-                val isAdvanceAct = (amountSar == "0" || amountSar.trim() == "0.0" || amountSar.isBlank()) && previousDueSar <= -0.05 && isAdvanceReturn
+                val isAdvanceAct = amount.signum() == 0 && previousDueSar <= CUSTOMER_MONEY_THRESHOLD.negate() && isAdvanceReturn
                 val isSubmitEnabled = if (isDueOnly || isAdvanceAct) {
-                    dueAmtDoubleVal > 0.0 && isNumberValid
+                    dueAmount.signum() > 0 && isNumberValid
                 } else {
-                    selectedBatchId != null && amtDoubleVal > 0.0 && isNumberValid
+                    selectedBatchId != null && amount.signum() > 0 && isNumberValid
                 }
 
                 Button(
@@ -3394,8 +3430,11 @@ fun EditTransactionPage(
                         }
 
                         // Calculated Dynamic Summary Output (To help user understand)
-                        val totalBdtDoubleVal = (editAmountSar.toDoubleOrNull() ?: 0.0) * (editCustomerRate.toDoubleOrNull() ?: 0.0)
-                        if (totalBdtDoubleVal > 0.0) {
+                        val totalBdt = MoneyMath.multiply(
+                            editAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT,
+                            editCustomerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                        )
+                        if (totalBdt.signum() > 0) {
                             Surface(
                                 color = Color(0xFFE8F5E9),
                                 shape = RoundedCornerShape(8.dp),
@@ -3412,7 +3451,7 @@ fun EditTransactionPage(
                                         color = Color(0xFF1B5E20)
                                     )
                                     Text(
-                                        text = "৳ ${decimalFormatter.format(totalBdtDoubleVal)}",
+                                        text = "৳ ${decimalFormatter.format(totalBdt)}",
                                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Black),
                                         color = Color(0xFF1B5E20)
                                     )
@@ -3564,11 +3603,11 @@ fun EditTransactionPage(
 fun generatePdfReceipt(
     context: android.content.Context,
     customerName: String,
-    amountSar: Double,
-    customerRate: Double,
-    dueCollectedSar: Double,
-    newDueSar: Double,
-    totalRemainingDueSar: Double,
+    amountSar: BigDecimal,
+    customerRate: BigDecimal,
+    dueCollectedSar: BigDecimal,
+    newDueSar: BigDecimal,
+    totalRemainingDueSar: BigDecimal,
     paymentMethod: String,
     recipientNo: String,
     timestamp: Long,
@@ -3626,8 +3665,8 @@ fun generatePdfReceipt(
         drawRow(if (lang == "BN") "তারিখ ও সময়:" else "Date & Time:", sdf.format(Date(timestamp)))
         drawRow(if (lang == "BN") "গ্রাহকের নাম:" else "Customer Name:", customerName)
         
-        val calculatedTotalBdt = Math.round(amountSar * customerRate)
-        if (amountSar > 0.05) {
+        val calculatedTotalBdt = MoneyMath.multiply(amountSar, customerRate)
+        if (amountSar > CUSTOMER_MONEY_THRESHOLD) {
             drawRow(if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", "$amountSar ${foreignCur}")
             drawRow(if (lang == "BN") "বিনিময় হার:" else "Conversion Rate:", "$customerRate BDT/SAR")
             drawRow(if (lang == "BN") "মোট প্রদান মূল্য ${localCur}:" else "Total Amount ${localCur}:", "BDT $calculatedTotalBdt")
@@ -3638,7 +3677,7 @@ fun generatePdfReceipt(
             drawRow(if (lang == "BN") "হিসাব নম্বর:" else "Account Number:", recipientNo)
         }
         
-        if (dueCollectedSar > 0.05) {
+        if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
             drawRow(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), "$dueCollectedSar ${foreignCur}")
         }
         
@@ -3647,15 +3686,15 @@ fun generatePdfReceipt(
         canvas.drawLine(40f, currentY, 555f, currentY, paint)
         currentY += 30f
         
-        if (newDueSar > 0.01) {
+        if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
             drawRow(if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", "$newDueSar ${foreignCur}")
-        } else if (newDueSar < -0.01) {
+        } else if (newDueSar < CUSTOMER_DETAIL_THRESHOLD.negate()) {
             drawRow(if (lang == "BN") "আপনার জমা ব্যালেন্স:" else "Customer Surplus Credit:", "${-newDueSar} ${foreignCur}")
         }
         
-        if (totalRemainingDueSar > 0.05) {
+        if (totalRemainingDueSar > CUSTOMER_MONEY_THRESHOLD) {
             drawRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Outstanding Due:", "$totalRemainingDueSar ${foreignCur}")
-        } else if (totalRemainingDueSar < -0.05) {
+        } else if (totalRemainingDueSar < CUSTOMER_MONEY_THRESHOLD.negate()) {
             drawRow(if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer refund credit:", "${-totalRemainingDueSar} ${foreignCur}")
         } else {
             drawRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Remaining Dues:", if (lang == "BN") "কোনো বকেয়া নেই" else "Zero Outstanding Dues")
@@ -3687,7 +3726,7 @@ fun generatePdfReceipt(
             cacheFile
         )
     } catch (e: Exception) {
-        e.printStackTrace()
+        com.safa.account.utils.SafaLogger.error("RECEIPT_PDF", "Receipt PDF generation failed", e)
         return null
     }
 }
@@ -3696,11 +3735,11 @@ fun generatePdfReceipt(
 fun generateImageReceipt(
     context: android.content.Context,
     customerName: String,
-    amountSar: Double,
-    customerRate: Double,
-    dueCollectedSar: Double,
-    newDueSar: Double,
-    totalRemainingDueSar: Double,
+    amountSar: BigDecimal,
+    customerRate: BigDecimal,
+    dueCollectedSar: BigDecimal,
+    newDueSar: BigDecimal,
+    totalRemainingDueSar: BigDecimal,
     paymentMethod: String,
     recipientNo: String,
     timestamp: Long,
@@ -3768,8 +3807,8 @@ fun generateImageReceipt(
         drawVisualRow(if (lang == "BN") "তারিখ ও সময়:" else "Date & Time:", sdf.format(Date(timestamp)))
         drawVisualRow(if (lang == "BN") "গ্রাহকের নাম:" else "Customer Name:", customerName)
         
-        val calculatedTotalBdt = Math.round(amountSar * customerRate)
-        if (amountSar > 0.05) {
+        val calculatedTotalBdt = MoneyMath.multiply(amountSar, customerRate)
+        if (amountSar > CUSTOMER_MONEY_THRESHOLD) {
             drawVisualRow(if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", "$amountSar ${foreignCur}")
             drawVisualRow(if (lang == "BN") "রেট:" else "Ex. Rate:", "$customerRate BDT/SAR")
             drawVisualRow(if (lang == "BN") "জমা মূল্য ${localCur}:" else "Total Amount ${localCur}:", "BDT $calculatedTotalBdt", highlight = true)
@@ -3780,7 +3819,7 @@ fun generateImageReceipt(
             drawVisualRow(if (lang == "BN") "হিসাব নম্বর:" else "Account No:", recipientNo)
         }
         
-        if (dueCollectedSar > 0.05) {
+        if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
             drawVisualRow(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), "$dueCollectedSar ${foreignCur}")
         }
         
@@ -3790,15 +3829,15 @@ fun generateImageReceipt(
         canvas.drawLine(55f, currentY + 10f, width - 55f, currentY + 10f, paint)
         currentY += 45f
         
-        if (newDueSar > 0.01) {
+        if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
             drawVisualRow(if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", "$newDueSar ${foreignCur}")
-        } else if (newDueSar < -0.01) {
+        } else if (newDueSar < CUSTOMER_DETAIL_THRESHOLD.negate()) {
             drawVisualRow(if (lang == "BN") "আপনার জমা ব্যালেন্স:" else "Surplus Balance:", "${-newDueSar} ${foreignCur}")
         }
         
-        if (totalRemainingDueSar > 0.05) {
+        if (totalRemainingDueSar > CUSTOMER_MONEY_THRESHOLD) {
             drawVisualRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Outstanding Due:", "$totalRemainingDueSar ${foreignCur}")
-        } else if (totalRemainingDueSar < -0.05) {
+        } else if (totalRemainingDueSar < CUSTOMER_MONEY_THRESHOLD.negate()) {
             drawVisualRow(if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer due refund:", "${-totalRemainingDueSar} ${foreignCur}")
         } else {
             drawVisualRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Remaining Dues:", if (lang == "BN") "কোনো বকেয়া নেই" else "Zero Outstanding Dues")
@@ -3830,7 +3869,7 @@ fun generateImageReceipt(
             cacheFile
         )
     } catch (e: Exception) {
-        e.printStackTrace()
+        com.safa.account.utils.SafaLogger.error("RECEIPT_IMAGE", "Receipt image generation failed", e)
         return null
     }
 }
@@ -3849,12 +3888,12 @@ fun shareNativeFile(context: android.content.Context, fileUri: Uri, mimeType: St
 fun TransactionConfirmationPage(
     lang: String,
     customerName: String,
-    amountSar: Double,
-    customerRate: Double,
-    collectedSar: Double,
-    dueCollectedSar: Double,
-    newDueSar: Double,
-    totalRemainingDueSar: Double,
+    amountSar: BigDecimal,
+    customerRate: BigDecimal,
+    collectedSar: BigDecimal,
+    dueCollectedSar: BigDecimal,
+    newDueSar: BigDecimal,
+    totalRemainingDueSar: BigDecimal,
     paymentMethod: String,
     recipientNo: String,
     timestamp: Long,
@@ -3864,7 +3903,7 @@ fun TransactionConfirmationPage(
     onDismiss: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val calculatedTotalBdt = Math.round(amountSar * customerRate)
+    val calculatedTotalBdt = MoneyMath.multiply(amountSar, customerRate)
     
     val shareTextStr = remember(customerName, amountSar, newDueSar, dueCollectedSar, totalRemainingDueSar, lang, paymentMethod, recipientNo, timestamp) {
         val sb = java.lang.StringBuilder()
@@ -3875,7 +3914,7 @@ fun TransactionConfirmationPage(
             sb.append("=== লেনদেনের রসিদ ===\n\n")
             sb.append("তারিখ: $formattedDate\n")
             sb.append("গ্রাহক: $customerName\n")
-            if (amountSar > 0.05) {
+            if (amountSar > CUSTOMER_MONEY_THRESHOLD) {
                 sb.append("নতুন যুক্ত লেনদেন: $amountSar SAR\n")
                 sb.append("বিনিময় হার: ৳ $customerRate\n")
                 sb.append("বাংলাদেশ প্রদান মূল্য: ৳ $calculatedTotalBdt BDT\n")
@@ -3884,18 +3923,18 @@ fun TransactionConfirmationPage(
             if (paymentMethod != "Cash" && recipientNo.isNotBlank() && recipientNo != "N/A") {
                 sb.append("হিসাব নম্বর: $recipientNo\n")
             }
-            if (dueCollectedSar > 0.05) {
+            if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
                 sb.append(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত: " else "Advance Return Paid: ") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ: " else "Previous Due Paid: ")).append("$dueCollectedSar SAR\n")
             }
             sb.append("---------------------\n")
-            if (newDueSar > 0.01) {
+            if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
                 sb.append("নতুন বকেয়া: $newDueSar SAR\n")
-            } else if (newDueSar < -0.01) {
+            } else if (newDueSar < CUSTOMER_DETAIL_THRESHOLD.negate()) {
                 sb.append("কাস্টমার অতিরিক্ত পাবেন: ${-newDueSar} SAR\n")
             }
-            if (totalRemainingDueSar > 0.05) {
+            if (totalRemainingDueSar > CUSTOMER_MONEY_THRESHOLD) {
                 sb.append("সর্বমোট বকেয়া: $totalRemainingDueSar SAR\n")
-            } else if (totalRemainingDueSar < -0.05) {
+            } else if (totalRemainingDueSar < CUSTOMER_MONEY_THRESHOLD.negate()) {
                 sb.append("কাস্টমার অতিরিক্ত পাবেন (সর্বমোট): ${-totalRemainingDueSar} SAR\n")
             } else {
                 sb.append("গ্রাহকের আর কোনো বকেয়া নেই।\n")
@@ -3905,7 +3944,7 @@ fun TransactionConfirmationPage(
             sb.append("=== Transaction Receipt ===\n\n")
             sb.append("Date: $formattedDate\n")
             sb.append("Customer: $customerName\n")
-            if (amountSar > 0.05) {
+            if (amountSar > CUSTOMER_MONEY_THRESHOLD) {
                 sb.append("New Remittance: $amountSar SAR\n")
                 sb.append("Rate: ৳ $customerRate\n")
                 sb.append("Disbursed Total: ${localCur}$calculatedTotalBdt\n")
@@ -3914,18 +3953,18 @@ fun TransactionConfirmationPage(
             if (paymentMethod != "Cash" && recipientNo.isNotBlank() && recipientNo != "N/A") {
                 sb.append("Account No: $recipientNo\n")
             }
-            if (dueCollectedSar > 0.05) {
+            if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
                 sb.append(if (isAdvanceReturn) "Advance Return Paid: " else "Previous Due Paid: ").append("$dueCollectedSar SAR\n")
             }
             sb.append("---------------------\n")
-            if (newDueSar > 0.01) {
+            if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
                 sb.append("New Outstanding Due: $newDueSar SAR\n")
-            } else if (newDueSar < -0.01) {
+            } else if (newDueSar < CUSTOMER_DETAIL_THRESHOLD.negate()) {
                 sb.append("Customer Surplus Credit: ${-newDueSar} SAR\n")
             }
-            if (totalRemainingDueSar > 0.05) {
+            if (totalRemainingDueSar > CUSTOMER_MONEY_THRESHOLD) {
                 sb.append("Total Outstandings: $totalRemainingDueSar SAR\n")
-            } else if (totalRemainingDueSar < -0.05) {
+            } else if (totalRemainingDueSar < CUSTOMER_MONEY_THRESHOLD.negate()) {
                 sb.append("Customer Credit: ${-totalRemainingDueSar} SAR\n")
             } else {
                 sb.append("Zero Outstanding Dues.\n")
@@ -4021,7 +4060,7 @@ fun TransactionConfirmationPage(
                         Text(text = if (lang == "BN") "গ্রাহকের নাম:" else "Customer Name:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                         Text(text = customerName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                     }
-                    if (amountSar > 0.05) {
+                    if (amountSar > CUSTOMER_MONEY_THRESHOLD) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "$amountSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
@@ -4041,7 +4080,7 @@ fun TransactionConfirmationPage(
                             }
                         }
                     }
-                    if (dueCollectedSar > 0.05) {
+                    if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "$dueCollectedSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
@@ -4049,24 +4088,24 @@ fun TransactionConfirmationPage(
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     
-                    if (newDueSar > 0.01) {
+                    if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "$newDueSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error))
                         }
-                    } else if (newDueSar < -0.01) {
+                    } else if (newDueSar < CUSTOMER_DETAIL_THRESHOLD.negate()) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "আপনার জমা ব্যালেন্স (সারপ্লাস):" else "Your Surplus Balance:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "${-newDueSar} ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
                         }
                     }
                     
-                    if (totalRemainingDueSar > 0.05) {
+                    if (totalRemainingDueSar > CUSTOMER_MONEY_THRESHOLD) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "গ্রাহকের মোট বকেয়া:" else "Customer Total Due:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "$totalRemainingDueSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error))
                         }
-                    } else if (totalRemainingDueSar < -0.05) {
+                    } else if (totalRemainingDueSar < CUSTOMER_MONEY_THRESHOLD.negate()) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer Credit Due:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "${-totalRemainingDueSar} ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black, color = Color(0xFF2E7D32)))

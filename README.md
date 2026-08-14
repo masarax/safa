@@ -144,7 +144,9 @@ Production-readiness CI runs automatically for relevant pull requests and pushes
 - Emulator-backed Android instrumentation tests, including local-first recovery/conflict coverage.
 - Test/build reports uploaded for failure diagnosis.
 
-Production deployment itself remains manual. Deployment first runs the mandatory backend gate, then synchronizes the Laravel backend and performs read-only HTTPS smoke verification of the live health endpoint, private installer/root surface and protected critical routes. A deployment is not considered successful if any smoke check fails.
+Production deployment itself remains manual. Deployment first runs the mandatory backend gate, then synchronizes the Laravel backend and performs read-only HTTPS smoke verification of the live health endpoint, private installer/root surface and protected critical routes. The health response verifies the PHP runtime, database connection, required migration columns, configured database-backed cache/session tables, writable Laravel runtime directories and exact deployed commit. A deployment is not considered successful if any smoke check fails.
+
+The FTP workflow intentionally cannot execute migrations or cache commands. For a schema-changing release, use the authenticated cPanel terminal to review pending migrations and run `php artisan migrate --force`, then `php artisan optimize:clear` and `php artisan optimize`. Never use `migrate:fresh` in production. If those explicit operator steps have not been completed, the live readiness response stays degraded and the deployment workflow fails; rerun it only after the safe maintenance step is complete.
 
 Third-party GitHub Actions are pinned to immutable commit SHAs. Production signing credentials and deployment credentials remain GitHub secrets and are not exposed to pull-request code.
 

@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.safa.account.data.model.RemittanceTransaction
+import com.safa.account.data.model.DailyRate
+import com.safa.account.data.money.MoneyMath
 import com.safa.account.data.repository.AppRepository
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -114,10 +116,12 @@ class LocalFirstStoreRecoveryTest {
         val repository = AppRepository(context)
         val localId = repository.insertTransaction(
             RemittanceTransaction(
-                amountSar = 0.1 + 0.2,
-                customerRate = 32.12345,
-                supplierRate = 32.0,
-                amountBdt = 9.637
+                amountSar = MoneyMath.amount("0.30"),
+                customerRate = MoneyMath.rate("32.12345"),
+                supplierRate = MoneyMath.rate("32"),
+                amountBdt = MoneyMath.amount("9.637"),
+                sarCollected = MoneyMath.amount("-0.105"),
+                bdtDisbursed = MoneyMath.amount("9.637")
             )
         )
 
@@ -127,6 +131,27 @@ class LocalFirstStoreRecoveryTest {
         assertEquals("32.1235", payload.getString("customer_rate"))
         assertEquals("32.0000", payload.getString("supplier_rate"))
         assertEquals("9.64", payload.getString("amount_bdt"))
+        assertEquals("-0.11", payload.getString("sar_collected"))
+        assertEquals("9.64", payload.getString("bdt_disbursed"))
+    }
+
+    @Test
+    fun dailyRatesSurviveRepositoryRecreationAsExactDecimals() = runBlocking {
+        LocalAccountBoundary.bind(context, 1)
+        val repository = AppRepository(context)
+        repository.insertDailyRate(
+            DailyRate(
+                date = "2026-08-14",
+                customerRate = MoneyMath.rate("32.12345"),
+                supplierRate = MoneyMath.rate("32")
+            )
+        )
+
+        val restored = AppRepository(context).getDailyRateByDate("2026-08-14")
+        assertNotNull(restored)
+        assertEquals("32.1235", restored!!.customerRate.toPlainString())
+        assertEquals("32.0000", restored.supplierRate.toPlainString())
+        assertTrue(store.getRecordPayloads("daily_rates").single().payload.contains("32.1235"))
     }
 
     @Test

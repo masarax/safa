@@ -119,8 +119,8 @@ interface ApiService {
     @POST("auth/login") suspend fun login(@Body request: MobilePinLoginRequest): Response<Map<String, Any>>
     @POST("auth/logout") suspend fun logout(): Response<Map<String, Any>>
     @POST("auth/logout-all") suspend fun logoutAll(): Response<Map<String, Any>>
+    @POST("auth/change-pin") suspend fun changePin(@Body request: ChangePinRequest): Response<Map<String, Any>>
     @GET("auth/session") suspend fun getCurrentSession(): Response<Map<String, Any>>
-    @POST("auth/activate-superadmin") suspend fun activateSuperAdmin(@Body request: ActivateSuperAdminRequest): Response<Map<String, Any>>
     @GET("auth/operators") suspend fun getOperators(): Response<Map<String, Any>>
     @POST("auth/operators") suspend fun createOperator(@Body request: OperatorApiRequest): Response<Map<String, Any>>
     @PUT("auth/operators/{id}") suspend fun updateOperator(@Path("id") id: Int, @Body request: OperatorApiRequest): Response<Map<String, Any>>
