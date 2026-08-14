@@ -49,6 +49,8 @@ import android.widget.Toast
 
 private val CUSTOMER_MONEY_THRESHOLD: BigDecimal = MoneyMath.amount("0.05")
 private val CUSTOMER_DETAIL_THRESHOLD: BigDecimal = MoneyMath.amount("0.01")
+private fun isDueOnlyAmount(value: String): Boolean =
+    runCatching { MoneyMath.isZeroAmount(value) }.getOrDefault(false)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -978,7 +980,7 @@ fun CustomerProfileView(
                 onDueSarCollectedChange = { inputDueSarCollected = it },
                 isCalcOpen = isAmountCalCOpen,
                 onCalcOpenChange = { isAmountCalCOpen = it },
-                isDueOnly = (inputAmountSar == "0" || inputAmountSar.trim() == "0.0"),
+                isDueOnly = isDueOnlyAmount(inputAmountSar),
                 isAdvanceReturn = isAdvanceReturn,
                 selectedTimestamp = inputTimestamp,
                 onSelectedTimestampChange = { inputTimestamp = it },
@@ -2510,7 +2512,7 @@ fun AddTransactionStepPage(
                 }
             } else {
                 // STEP 2: Unified list where payment methods, supplier, and due collections are at the top, and sales rate/reviews are on the bottom
-                val isDueOnly = (amountSar == "0" || amountSar.trim() == "0.0" || amountSar.isBlank())
+                val isDueOnly = isDueOnlyAmount(amountSar)
 
                 // 1. PAYMENT METHOD
                 item {

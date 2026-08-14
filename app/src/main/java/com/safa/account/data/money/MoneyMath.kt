@@ -87,6 +87,7 @@ object MoneyMath {
 
     fun sameAmount(left: Any?, right: Any?): Boolean = amount(left).compareTo(amount(right)) == 0
     fun sameRate(left: Any?, right: Any?): Boolean = rate(left).compareTo(rate(right)) == 0
+    fun isZeroAmount(value: Any?): Boolean = amount(value).signum() == 0
 
     fun isPositiveAmount(value: Any?): Boolean = amount(value).signum() > 0
     fun isPositiveRate(value: Any?): Boolean = rate(value).signum() > 0

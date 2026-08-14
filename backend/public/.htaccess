@@ -20,9 +20,9 @@ Options -Indexes -MultiViews
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # Never serve internal files/directories or browser-facing branding assets.
+    # Never serve internal files/directories. Branding assets remain public
+    # because the authenticated mobile configuration returns their URLs.
     RewriteRule ^(?:\.env|\.git|app|bootstrap|config|database|resources|routes|storage|tests|vendor|composer\.(?:json|lock)|package\.(?:json|lock)|artisan|phpunit\.xml)(?:/|$) - [F,L]
-    RewriteRule ^(?:safa-logo\.png|favicon\.svg)$ - [F,L]
 
     # Every request goes through Laravel so non-API requests receive JSON 404.
     RewriteRule ^ index.php [L]
