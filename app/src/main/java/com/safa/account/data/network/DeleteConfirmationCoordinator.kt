@@ -1,15 +1,19 @@
 package com.safa.account.data.network
 
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import java.util.UUID
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * UI-owned confirmation channel for destructive network operations.
- * The HTTP interceptor can safely pause a background request while Compose
- * renders the actual confirmation modal from an Activity context.
+ * UI-owned, coroutine-safe confirmation channel for destructive foreground actions.
+ *
+ * This coordinator is deliberately never called from an OkHttp interceptor or a
+ * WorkManager worker. Callers request confirmation before scheduling/sending a
+ * destructive operation; waiting suspends the caller coroutine and consumes no
+ * network dispatcher thread.
  */
 data class DeleteConfirmationRequest(
     val id: String,
@@ -18,25 +22,26 @@ data class DeleteConfirmationRequest(
 )
 
 object DeleteConfirmationCoordinator {
-    private val pending = java.util.concurrent.ConcurrentHashMap<String, CompletableFuture<Boolean>>()
+    private const val CONFIRMATION_TIMEOUT_MS = 60_000L
+    private val pending = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
     private val _requests = MutableSharedFlow<DeleteConfirmationRequest>(extraBufferCapacity = 16)
     val requests = _requests.asSharedFlow()
 
-    fun awaitConfirmation(title: String, message: String): Boolean {
+    suspend fun requestConfirmation(title: String, message: String): Boolean {
         val id = UUID.randomUUID().toString()
-        val future = CompletableFuture<Boolean>()
-        pending[id] = future
-        _requests.tryEmit(DeleteConfirmationRequest(id, title, message))
+        val deferred = CompletableDeferred<Boolean>()
+        pending[id] = deferred
+        _requests.emit(DeleteConfirmationRequest(id, title, message))
         return try {
-            future.get(60, TimeUnit.SECONDS)
-        } catch (_: Exception) {
-            false
+            withTimeoutOrNull(CONFIRMATION_TIMEOUT_MS) { deferred.await() } ?: false
         } finally {
-            pending.remove(id)
+            pending.remove(id, deferred)
         }
     }
 
     fun resolve(id: String, confirmed: Boolean) {
         pending.remove(id)?.complete(confirmed)
     }
+
+    internal fun pendingCountForTest(): Int = pending.size
 }
