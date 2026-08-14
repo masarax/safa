@@ -5,9 +5,20 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class SyncSnapshotGuardTest {
-    @Test fun olderSnapshotIsIgnoredWhenLocalRevisionIsNewer() = assertEquals(SyncSnapshotGuard.Decision.IGNORE, SyncSnapshotGuard.decide(4, 5, false))
-    @Test fun equalRevisionReplayIsIdempotentlyApplicable() = assertEquals(SyncSnapshotGuard.Decision.APPLY, SyncSnapshotGuard.decide(5, 5, false))
-    @Test fun pendingMutationAlwaysWinsOverIncomingSnapshot() = assertEquals(SyncSnapshotGuard.Decision.IGNORE, SyncSnapshotGuard.decide(99, 5, true))
+    @Test fun newerLocalRevisionSurvivesDelayedOlderServerSnapshot() =
+        assertEquals(SyncSnapshotGuard.Decision.IGNORE, SyncSnapshotGuard.decide(4, 5, false))
+
+    @Test fun equalRevisionReplayIsIdempotentlyApplicable() =
+        assertEquals(SyncSnapshotGuard.Decision.APPLY, SyncSnapshotGuard.decide(5, 5, false))
+
+    @Test fun newerServerRevisionIsAllowedWhenNoLocalMutationExists() =
+        assertEquals(SyncSnapshotGuard.Decision.APPLY, SyncSnapshotGuard.decide(6, 5, false))
+
+    @Test fun localPendingMutationAlwaysWinsOverEvenNewerServerSnapshot() =
+        assertEquals(SyncSnapshotGuard.Decision.IGNORE, SyncSnapshotGuard.decide(99, 5, true))
+
+    @Test fun localTombstoneBlocksStaleServerResurrection() =
+        assertEquals(SyncSnapshotGuard.Decision.IGNORE, SyncSnapshotGuard.decide(4, 5, true))
 
     @Test fun isoTimestampPreservesInstant() {
         val expected = 1_700_000_000_000L
