@@ -9,6 +9,7 @@ import com.safa.account.data.api.dto.SyncUpPayload
 import com.safa.account.data.local.LocalAccountBoundary
 import com.safa.account.data.local.LocalFirstStore
 import com.safa.account.data.model.*
+import com.safa.account.data.money.MoneyPayloadNormalizer
 import com.safa.account.data.network.DeleteConfirmationCoordinator
 import com.safa.account.data.sync.SyncSnapshotGuard
 import kotlinx.coroutines.Dispatchers
@@ -83,7 +84,10 @@ class AppRepository private constructor(
     private fun Any?.b(): Boolean = this == true || this?.toString()?.lowercase() in setOf("1", "true", "yes", "on")
     private fun Any?.time(): Long? = SyncSnapshotGuard.parseTimestamp(this)
     private fun Map<String, Any?>.v(vararg keys: String): Any? = keys.firstNotNullOfOrNull { this[it] }
-    private fun mapToJson(map: Map<String, Any?>): String = JSONObject(map).toString()
+    private fun mapToJson(map: Map<String, Any?>): String {
+        val raw = JSONObject(map).toString()
+        return MoneyPayloadNormalizer.normalizeJson(raw) ?: raw
+    }
     private fun jsonToMap(json: String): Map<String, Any?> = jsonObjectToMap(JSONObject(json))
     private fun jsonObjectToMap(obj: JSONObject): Map<String, Any?> = buildMap { obj.keys().forEach { key -> put(key, jsonValue(obj.get(key))) } }
     private fun jsonValue(value: Any?): Any? = when (value) {
