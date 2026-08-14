@@ -90,9 +90,21 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
                 )
             }.distinctBy { it.accountId }
 
-            val serverActive = (body["active_account_id"] as? Number)?.toInt()
-                ?: body["active_account_id"]?.toString()?.toIntOrNull()
-            bootstrapAccount(serverActive?.takeIf { it > 0 } ?: accounts.singleOrNull()?.accountId)
+            val authorizedIds = accounts.mapTo(HashSet()) { it.accountId }
+            val savedActive = tokenManager.getActiveAccountId()
+            if (savedActive != null && savedActive !in authorizedIds) {
+                // Access may have been revoked while the app was offline. Never
+                // continue showing or replaying the revoked account's cache.
+                // Security wins over preserving now-unauthorized pending data.
+                LocalAccountBoundary.destroyAccountState(tokenManager.getContext().applicationContext)
+                repository.clearLocalPresentation()
+                tokenManager.saveActiveAccountId(null)
+            }
+
+            val serverActive = ((body["active_account_id"] as? Number)?.toInt()
+                ?: body["active_account_id"]?.toString()?.toIntOrNull())
+                ?.takeIf { it > 0 && it in authorizedIds }
+            bootstrapAccount(serverActive ?: accounts.singleOrNull()?.accountId)
             accounts
         }
     }
