@@ -106,6 +106,34 @@ class LocalFirstStoreRecoveryTest {
     }
 
     @Test
+    fun confirmed_delete_outbox_survives_close_and_reopen_without_ui() {
+        store.upsertRecord(
+            "customers",
+            7001,
+            9001,
+            "{\"local_id\":7001,\"server_id\":9001,\"sync_version\":3,\"name\":\"Delete Me\",\"deleted_at\":1700000000000}",
+            LocalFirstStore.PENDING
+        )
+        store.enqueue(
+            "customers",
+            7001,
+            9001,
+            "DELETE",
+            "{\"local_id\":7001,\"server_id\":9001,\"sync_version\":3,\"deleted_at\":1700000000000}"
+        )
+
+        store.close()
+        store = LocalFirstStore(context)
+        val replay = store.getReadyOutbox().single()
+
+        assertEquals("customers", replay.entity)
+        assertEquals(7001, replay.localId)
+        assertEquals(9001, replay.serverId)
+        assertEquals("DELETE", replay.operation)
+        assertTrue(JSONObject(replay.payload).getJSONObject("_sync").getString("mutation_id").isNotBlank())
+    }
+
+    @Test
     fun account_switch_is_blocked_while_account_a_has_unresolved_mutation() {
         assertEquals(LocalAccountBoundary.Result.BOUND, LocalAccountBoundary.bind(context, 11))
         store.upsertRecord("customers", 8101, 0, "{\"local_id\":8101,\"name\":\"Account A Offline\"}", LocalFirstStore.PENDING)
