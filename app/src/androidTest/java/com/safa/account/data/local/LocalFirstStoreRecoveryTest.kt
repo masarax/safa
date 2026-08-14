@@ -3,6 +3,9 @@ package com.safa.account.data.local
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.safa.account.data.model.RemittanceTransaction
+import com.safa.account.data.repository.AppRepository
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -103,6 +106,27 @@ class LocalFirstStoreRecoveryTest {
         store.enqueue("wallet_batches", 5003, 0, "CREATE", "{\"local_id\":5003,\"ledger_id\":5004,\"supplier_id\":5001,\"supplier_deposit_id\":5002}")
         store.enqueue("transactions", 5005, 0, "CREATE", "{\"local_id\":5005,\"customer_id\":0,\"supplier_id\":5001,\"wallet_batch_id\":5003}")
         assertEquals(0, store.getReadyOutbox(10).size)
+    }
+
+    @Test
+    fun financial_payload_is_canonical_before_encrypted_local_persistence() = runBlocking {
+        LocalAccountBoundary.bind(context, 1)
+        val repository = AppRepository(context)
+        val localId = repository.insertTransaction(
+            RemittanceTransaction(
+                amountSar = 0.1 + 0.2,
+                customerRate = 32.12345,
+                supplierRate = 32.0,
+                amountBdt = 9.637
+            )
+        )
+
+        val row = store.getRecordPayloads("transactions").single { it.localId == localId }
+        val payload = JSONObject(row.payload)
+        assertEquals("0.30", payload.getString("amount_sar"))
+        assertEquals("32.1235", payload.getString("customer_rate"))
+        assertEquals("32.0000", payload.getString("supplier_rate"))
+        assertEquals("9.64", payload.getString("amount_bdt"))
     }
 
     @Test
