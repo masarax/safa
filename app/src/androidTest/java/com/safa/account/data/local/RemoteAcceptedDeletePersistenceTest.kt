@@ -12,7 +12,8 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,9 +61,9 @@ class RemoteAcceptedDeletePersistenceTest {
         val payload = JSONObject(raw.payload)
         assertEquals(9801, raw.serverId)
         assertEquals(LocalFirstStore.SYNCED, raw.syncStatus)
-        assertNotNull(payload.opt("deleted_at"))
+        assertTrue(payload.optLong("deleted_at", 0L) > 0L)
         assertFalse(store.hasPending("customers", localId))
         assertEquals(0, store.outboxCount())
-        assertEquals(null, repository.getCustomerById(localId))
+        assertNull(repository.getCustomerById(localId))
     }
 }
