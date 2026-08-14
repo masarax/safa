@@ -95,21 +95,24 @@ fun AccountSharingDialog(
                         error = if (lang == "BN") "মোবাইল নম্বর দিন" else "Enter a mobile number"
                         return@Button
                     }
+                    val accountId = viewModel.tokenManager?.getActiveAccountId()
+                    if (accountId == null) {
+                        error = if (lang == "BN") "আগে একটি সক্রিয় অ্যাকাউন্ট নির্বাচন করুন" else "Select an active account first"
+                        return@Button
+                    }
                     saving = true
                     scope.launch {
                         try {
                             val api = viewModel.syncManager?.getApiService()
                             if (api == null) {
                                 error = if (lang == "BN") "সার্ভার সংযোগ নেই" else "Server connection unavailable"
-                                saving = false
                                 return@launch
                             }
-                            val accountId = viewModel.tokenManager?.getActiveAccountId() ?: 1
                             val response = api.shareAccount(
                                 mapOf(
                                     "mobile" to normalized,
                                     "account_id" to accountId,
-                                    "permissions" to mapOf(
+                                    "permissions_override" to mapOf(
                                         "can_view_customers" to canViewCustomers,
                                         "can_view_suppliers" to canViewSuppliers,
                                         "can_view_transactions" to canViewTransactions,
@@ -121,10 +124,10 @@ fun AccountSharingDialog(
                             if (response.isSuccessful) {
                                 success = if (lang == "BN") "অ্যাকাউন্ট শেয়ার হয়েছে" else "Account shared successfully"
                             } else {
-                                error = "HTTP ${response.code()}"
+                                error = if (lang == "BN") "অ্যাকাউন্ট শেয়ার করা যায়নি" else "Account sharing failed"
                             }
-                        } catch (t: Throwable) {
-                            error = t.localizedMessage ?: if (lang == "BN") "শেয়ার ব্যর্থ" else "Share failed"
+                        } catch (_: Throwable) {
+                            error = if (lang == "BN") "অ্যাকাউন্ট শেয়ার করা যায়নি" else "Account sharing failed"
                         } finally {
                             saving = false
                         }
