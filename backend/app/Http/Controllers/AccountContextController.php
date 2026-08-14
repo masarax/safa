@@ -14,16 +14,31 @@ class AccountContextController extends Controller
 
     public function index(Request $request)
     {
-        $context = $this->resolveAuthorizedAccountContext($request);
-        if (isset($context['error'])) return $context['error'];
-
-        $user = $context['user'];
-        if (!$user) return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
+        // Listing accounts is the chooser/bootstrap operation itself, so it must
+        // not require an active account first. The protected route middleware has
+        // already authenticated the user; this method only enumerates account IDs
+        // that user is allowed to select.
+        $user = $request->user() ?? $request->attributes->get('user');
+        if (!$user || !(bool) $user->is_activated) {
+            return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
+        }
 
         $owned = Account::where('owner_user_id', $user->id)->orderBy('id')->get();
         $shares = UserAccountShare::with('owner')
             ->where('shared_with_user_id', $user->id)
             ->get();
+
+        // Preserve the existing single-account bootstrap behavior without making
+        // an ambiguous selection when the user already has multiple choices.
+        if ($owned->isEmpty() && $shares->isEmpty()) {
+            $owned = collect([
+                Account::create([
+                    'name' => trim(($user->name ?: 'SAFA') . ' Account'),
+                    'balance' => 0,
+                    'owner_user_id' => $user->id,
+                ]),
+            ]);
+        }
 
         $accounts = $owned->map(fn ($account) => [
             'account_id' => (int) $account->id,
@@ -48,10 +63,38 @@ class AccountContextController extends Controller
             ]);
         }
 
+        $accounts = $accounts->unique('account_id')->values();
+        $authorizedIds = $accounts->pluck('account_id')->map(fn ($id) => (int) $id)->all();
+        $activeAccountId = null;
+
+        $headerAccountId = $request->header('X-SAFA-ACCOUNT-ID');
+        if ($headerAccountId !== null && ctype_digit((string) $headerAccountId)) {
+            $candidate = (int) $headerAccountId;
+            if (in_array($candidate, $authorizedIds, true)) $activeAccountId = $candidate;
+        }
+
+        if ($activeAccountId === null && $request->hasSession()) {
+            $sessionAccountId = $request->session()->get('safa_active_account_id');
+            if ($sessionAccountId !== null && ctype_digit((string) $sessionAccountId)) {
+                $candidate = (int) $sessionAccountId;
+                if (in_array($candidate, $authorizedIds, true)) $activeAccountId = $candidate;
+            }
+        }
+
+        if ($activeAccountId === null && $request->bearerToken()) {
+            $payload = AuthJWTController::verifyJwt($request->bearerToken());
+            $candidate = (int) ($payload['account_id'] ?? 0);
+            if ($candidate > 0 && in_array($candidate, $authorizedIds, true)) $activeAccountId = $candidate;
+        }
+
+        if ($activeAccountId === null && count($authorizedIds) === 1) {
+            $activeAccountId = $authorizedIds[0];
+        }
+
         return response()->json([
             'status' => 'success',
-            'active_account_id' => (int) $context['account_id'],
-            'accounts' => $accounts->unique('account_id')->values(),
+            'active_account_id' => $activeAccountId,
+            'accounts' => $accounts,
         ]);
     }
 
@@ -70,7 +113,7 @@ class AccountContextController extends Controller
         $targetContextRequest = Request::create($request->getRequestUri(), 'GET', [
             'account_id' => $requestedAccountId,
         ]);
-        $targetContextRequest->setUserResolver(fn () => $request->user());
+        $targetContextRequest->setUserResolver(fn () => $request->user() ?? $request->attributes->get('user'));
 
         $context = $this->resolveAuthorizedAccountContext($targetContextRequest);
         if (isset($context['error'])) return $context['error'];
@@ -82,13 +125,19 @@ class AccountContextController extends Controller
             ], 409);
         }
 
-        $request->session()->put('safa_active_account_id', $requestedAccountId);
+        // API routes are stateless in production. Persist to a Laravel session
+        // only when one actually exists; Android persists the returned ID and
+        // sends it on subsequent calls as X-SAFA-ACCOUNT-ID.
+        if ($request->hasSession()) {
+            $request->session()->put('safa_active_account_id', $requestedAccountId);
+        }
         $request->attributes->set('active_account_id', $requestedAccountId);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Active account changed successfully.',
             'active_account_id' => $requestedAccountId,
+            'context_header' => 'X-SAFA-ACCOUNT-ID',
         ]);
     }
 
