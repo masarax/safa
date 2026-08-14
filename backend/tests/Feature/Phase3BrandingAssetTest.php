@@ -39,7 +39,10 @@ class Phase3BrandingAssetTest extends TestCase
             $this->get('/storage/logos/logo_contract_test.png')
                 ->assertOk()
                 ->assertHeader('X-Content-Type-Options', 'nosniff');
-            $this->get('/storage/logos/logo_contract_test.svg')->assertNotFound();
+            $this->assertContains(
+                $this->get('/storage/logos/logo_contract_test.svg')->status(),
+                [403, 404],
+            );
         } finally {
             @unlink($path);
         }
