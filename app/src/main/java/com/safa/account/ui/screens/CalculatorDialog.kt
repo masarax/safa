@@ -27,10 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import java.text.DecimalFormat
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 // Robust Recursive Descent Mathematical Parser
-fun evaluateExpression(str: String): Double {
+fun evaluateExpression(str: String): BigDecimal {
     return object : Any() {
         var pos = -1
         var ch = 0
@@ -48,14 +49,14 @@ fun evaluateExpression(str: String): Double {
             return false
         }
 
-        fun parse(): Double {
+        fun parse(): BigDecimal {
             nextChar()
             val x = parseExpression()
             if (pos < str.length) throw RuntimeException("Unexpected: " + ch.toChar())
             return x
         }
 
-        fun parseExpression(): Double {
+        fun parseExpression(): BigDecimal {
             var x = parseTerm()
             while (true) {
                 if (eat('+'.code)) x += parseTerm()
@@ -64,31 +65,31 @@ fun evaluateExpression(str: String): Double {
             }
         }
 
-        fun parseTerm(): Double {
+        fun parseTerm(): BigDecimal {
             var x = parseFactor()
             while (true) {
                 if (eat('*'.code)) x *= parseFactor()
                 else if (eat('/'.code)) {
                     val divisor = parseFactor()
-                    if (divisor == 0.0) throw ArithmeticException("Division by zero")
-                    x /= divisor
+                    if (divisor.signum() == 0) throw ArithmeticException("Division by zero")
+                    x = x.divide(divisor, 16, RoundingMode.HALF_UP)
                 }
                 else return x
             }
         }
 
-        fun parseFactor(): Double {
+        fun parseFactor(): BigDecimal {
             if (eat('+'.code)) return parseFactor()
             if (eat('-'.code)) return -parseFactor()
 
-            var x: Double
+            val x: BigDecimal
             val startPos = this.pos
             if (eat('('.code)) {
                 x = parseExpression()
-                eat(')'.code)
+                if (!eat(')'.code)) throw IllegalArgumentException("Missing closing parenthesis")
             } else if ((ch >= '0'.code && ch <= '9'.code) || ch == '.'.code) {
                 while ((ch >= '0'.code && ch <= '9'.code) || ch == '.'.code) nextChar()
-                x = str.substring(startPos, this.pos).toDouble()
+                x = str.substring(startPos, this.pos).toBigDecimal()
             } else {
                 throw RuntimeException("Unexpected operator")
             }
@@ -98,10 +99,10 @@ fun evaluateExpression(str: String): Double {
     }.parse()
 }
 
-fun tryEvaluate(expr: String): Double? {
+fun tryEvaluate(expr: String): BigDecimal? {
     return try {
         val raw = expr.replace("×", "*").replace("÷", "/").replace(" ", "")
-        if (raw.isEmpty()) return 0.0
+        if (raw.isEmpty()) return BigDecimal.ZERO
         evaluateExpression(raw)
     } catch (e: Exception) {
         null
@@ -122,11 +123,7 @@ fun CalculatorDialog(
     val liveResult = remember(rawInput) {
         val result = tryEvaluate(rawInput)
         if (result != null) {
-            if (result % 1.0 == 0.0) {
-                result.toLong().toString()
-            } else {
-                DecimalFormat("#,##0.##").format(result)
-            }
+            result.stripTrailingZeros().toPlainString()
         } else {
             ""
         }
@@ -299,11 +296,7 @@ fun CalculatorDialog(
                                                 "=" -> {
                                                     val finalResult = tryEvaluate(rawInput)
                                                     val cleanVal = if (finalResult != null) {
-                                                        if (finalResult % 1.0 == 0.0) {
-                                                            finalResult.toLong().toString()
-                                                        } else {
-                                                            finalResult.toString()
-                                                        }
+                                                        finalResult.stripTrailingZeros().toPlainString()
                                                     } else if (rawInput.isNotEmpty()) {
                                                         rawInput
                                                     } else {

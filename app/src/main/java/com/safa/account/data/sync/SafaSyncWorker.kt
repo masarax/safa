@@ -41,16 +41,16 @@ class SafaSyncWorker(
             if (result != null) {
                 Result.success()
             } else {
-                retryOrFail("sync coordinator lock timeout")
+                retryOrFail()
             }
         } catch (t: CancellationException) {
             throw t
         } catch (t: Throwable) {
-            if (isTransient(t)) retryOrFail(t.message ?: "transient sync failure") else Result.failure()
+            if (isTransient(t)) retryOrFail() else Result.failure()
         }
     }
 
-    private fun retryOrFail(reason: String): Result =
+    private fun retryOrFail(): Result =
         if (runAttemptCount >= MAX_TRANSIENT_ATTEMPTS) {
             Result.failure()
         } else {

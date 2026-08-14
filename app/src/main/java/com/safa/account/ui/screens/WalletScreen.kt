@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.safa.account.data.model.WalletBatch
 import com.safa.account.data.model.WalletLedger
 import com.safa.account.ui.viewmodel.SafaViewModel
+import com.safa.account.data.money.MoneyMath
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -83,11 +84,11 @@ fun WalletScreen(
 
     // Computations
     val activeTxs = transactions.filter { it.status != "Cancelled" }
-    val totalSarFromCustomers = activeTxs.sumOf { it.amountSar }
-    val totalBdtEquivFromCustomers = activeTxs.sumOf { it.amountBdt }
+    val totalSarFromCustomers = activeTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) }
+    val totalBdtEquivFromCustomers = activeTxs.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountBdt) }
 
     // Aggregate overall Wallet cash pool balance from state
-    val totalWalletBdtBalance = walletBatches.sumOf { it.remainingBdt }
+    val totalWalletBdtBalance = walletBatches.fold(MoneyMath.ZERO_AMOUNT) { total, batch -> MoneyMath.add(total, batch.remainingBdt) }
 
     Box(
         modifier = modifier
@@ -174,18 +175,13 @@ fun WalletScreen(
             // Draw Wallet Ledgers list in-between
             items(walletLedgers, key = { it.id }) { ledger ->
                 val batches = walletBatches.filter { it.ledgerId == ledger.id }
-                val ledgerBalance = batches.sumOf { it.remainingBdt }
+                val ledgerBalance = batches.fold(MoneyMath.ZERO_AMOUNT) { total, batch -> MoneyMath.add(total, batch.remainingBdt) }
                 val isExpanded = expandedLedgerId == ledger.id
 
-                val totalInitial = batches.sumOf { it.initialBdt }
+                val totalInitial = batches.fold(MoneyMath.ZERO_AMOUNT) { total, batch -> MoneyMath.add(total, batch.initialBdt) }
                 val totalSpent = totalInitial - ledgerBalance
-                val activeBatches = batches.filter { it.remainingBdt > 0.01 }
-                val weightedRate = if (ledgerBalance > 0.01) {
-                    val totalSARValueCalculated = activeBatches.sumOf { it.remainingBdt / it.rate }
-                    if (totalSARValueCalculated > 0) ledgerBalance / totalSARValueCalculated else 0.0
-                } else {
-                    0.0
-                }
+                val activeBatches = batches.filter { it.remainingBdt.signum() > 0 }
+                val weightedRate = MoneyMath.weightedRate(activeBatches.map { it.remainingBdt to it.rate })
 
                 Card(
                     modifier = Modifier
@@ -240,7 +236,7 @@ fun WalletScreen(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Text(
-                                        text = if (lang == "BN") "সক্রিয় উপ-হিসাব: ${batches.count { it.remainingBdt > 0.01 }}টি" else "Sub-accounts: ${batches.count { it.remainingBdt > 0.01 }}",
+                                        text = if (lang == "BN") "সক্রিয় উপ-হিসাব: ${batches.count { it.remainingBdt.signum() > 0 }}টি" else "Sub-accounts: ${batches.count { it.remainingBdt.signum() > 0 }}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.outline,
                                         maxLines = 1,
@@ -315,7 +311,7 @@ fun WalletScreen(
 
                             OutlinedButton(
                                 onClick = { 
-                                    if (ledgerBalance > 0.01) {
+                                    if (ledgerBalance.signum() > 0) {
                                         showDeletionBlockedDialog = ledger
                                     } else {
                                         showDeleteConfirmDialog = ledger
@@ -360,7 +356,7 @@ fun WalletScreen(
                                     val groupedBatches = activeBatches.groupBy { it.rate }
 
                                     groupedBatches.forEach { (rate, items) ->
-                                        val combinedRemaining = items.sumOf { it.remainingBdt }
+                                        val combinedRemaining = MoneyMath.sumAmounts(items.map { it.remainingBdt })
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -429,7 +425,7 @@ fun WalletScreen(
                                                         Text(
                                                             text = "Bal: ৳${currencyFormatter.format(batch.remainingBdt)}",
                                                             fontSize = 10.sp,
-                                                            color = if (batch.remainingBdt > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                                                            color = if (batch.remainingBdt.signum() > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
                                                         )
@@ -747,8 +743,8 @@ fun WalletScreen(
 
                             Button(
                                 onClick = {
-                                    val amount = addFundBdtAmount.toDoubleOrNull() ?: 0.0
-                                    val rate = addFundRate.toDoubleOrNull() ?: 0.0
+                                    val amount = addFundBdtAmount.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                                    val rate = addFundRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
                                     viewModel.addMoneyToWallet(ledger.id, amount, rate, addFundNotes) {
                                         addFundBdtAmount = ""
                                         addFundNotes = ""
@@ -773,8 +769,9 @@ fun WalletScreen(
     // --- Dialog: Deduct Fund manually from Wallet (Withdraw Stock) ---
     if (showDeductFundDialog != null) {
         val ledger = showDeductFundDialog!!
-        val maxAvailable = walletBatches.filter { it.ledgerId == ledger.id }.sumOf { it.remainingBdt }
-        val enteredAmount = deductFundBdtAmount.toDoubleOrNull() ?: 0.0
+        val maxAvailable = walletBatches.filter { it.ledgerId == ledger.id }
+            .fold(MoneyMath.ZERO_AMOUNT) { total, batch -> MoneyMath.add(total, batch.remainingBdt) }
+        val enteredAmount = deductFundBdtAmount.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
         val isOverLimit = enteredAmount > maxAvailable
 
         AlertDialog(
@@ -894,13 +891,13 @@ fun WalletScreen(
 
                             Button(
                                 onClick = {
-                                    val amount = deductFundBdtAmount.toDoubleOrNull() ?: 0.0
+                                    val amount = deductFundBdtAmount.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                                     viewModel.deductMoneyFromWalletLedger(ledger.id, amount) {
                                         deductFundBdtAmount = ""
                                         showDeductFundDialog = null
                                     }
                                 },
-                                enabled = deductFundBdtAmount.isNotBlank() && !isOverLimit && enteredAmount > 0.0,
+                                enabled = deductFundBdtAmount.isNotBlank() && !isOverLimit && enteredAmount.signum() > 0,
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.weight(1f).height(40.dp),

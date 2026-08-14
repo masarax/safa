@@ -33,21 +33,25 @@ import com.safa.account.data.model.Supplier
 import com.safa.account.data.model.SupplierDeposit
 import com.safa.account.data.model.RemittanceTransaction
 import com.safa.account.data.model.WalletLedger
+import com.safa.account.data.money.MoneyMath
 import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.BiometricTriggerButton
 import com.safa.account.ui.screens.CalculatorDialog
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
+import java.math.BigDecimal
 import java.util.*
+
+private val MONEY_VISIBILITY_THRESHOLD: BigDecimal = MoneyMath.amount("0.05")
 
 sealed class SupplierLedgerItem {
     abstract val timestamp: Long
     data class DepositItem(
         val id: Int,
-        val amountSar: Double,
-        val rate: Double,
-        val amountBdt: Double,
-        val paidBdt: Double,
+        val amountSar: BigDecimal,
+        val rate: BigDecimal,
+        val amountBdt: BigDecimal,
+        val paidBdt: BigDecimal,
         val notes: String,
         val transactionType: String,
         override val timestamp: Long
@@ -56,8 +60,8 @@ sealed class SupplierLedgerItem {
     data class DisbursedItem(
         val txId: Int,
         val receiverName: String,
-        val amountSar: Double,
-        val amountBdt: Double,
+        val amountSar: BigDecimal,
+        val amountBdt: BigDecimal,
         val status: String,
         override val timestamp: Long
     ) : SupplierLedgerItem()
@@ -134,11 +138,12 @@ fun SupplierScreen(
         }
 
         // Helper to calculate ${localCur}due (Payable is positive, Receivable/prepaid is negative)
-        fun getSupplierBdtDue(sId: Int): Double {
+        fun getSupplierBdtDue(sId: Int): BigDecimal {
             val deposits = supplierDeposits.filter { it.supplierId == sId }
-            val totalAcquiredBdt = deposits.filter { it.transactionType == "SAR_GIVEN" || it.transactionType == "SAR_DEPOSIT" }.sumOf { it.amountBdt }
-            val totalPaidBdt = deposits.sumOf { it.paidBdt }
-            return totalAcquiredBdt - totalPaidBdt
+            val totalAcquiredBdt = deposits.filter { it.transactionType == "SAR_GIVEN" || it.transactionType == "SAR_DEPOSIT" }
+                .fold(MoneyMath.ZERO_AMOUNT) { total, deposit -> MoneyMath.add(total, deposit.amountBdt) }
+            val totalPaidBdt = deposits.fold(MoneyMath.ZERO_AMOUNT) { total, deposit -> MoneyMath.add(total, deposit.paidBdt) }
+            return MoneyMath.subtract(totalAcquiredBdt, totalPaidBdt)
         }
 
         // Apply filters based on balance
@@ -146,9 +151,9 @@ fun SupplierScreen(
             list = list.filter { supplier ->
                 val bdtDue = getSupplierBdtDue(supplier.id)
                 if (selectedFilterStatus == "Has Balance") {
-                    bdtDue > 0.05 // Has advance balance/prepaid/receivable back to us (Paid Less)
+                    bdtDue > MONEY_VISIBILITY_THRESHOLD // Has advance balance/prepaid/receivable back to us (Paid Less)
                 } else {
-                    bdtDue < -0.05 // Owing / Payable (Paid More)
+                    bdtDue < MONEY_VISIBILITY_THRESHOLD.negate() // Owing / Payable (Paid More)
                 }
             }
         }
@@ -157,7 +162,7 @@ fun SupplierScreen(
         list = when (selectedSortOption) {
             "Oldest" -> list.sortedBy { it.timestamp }
             "A-Z" -> list.sortedBy { it.name.lowercase(java.util.Locale.ROOT) }
-            "Balance" -> list.sortedByDescending { Math.abs(getSupplierBdtDue(it.id)) }
+            "Balance" -> list.sortedByDescending { getSupplierBdtDue(it.id).abs() }
             else -> list.sortedByDescending { it.timestamp } // Newest
         }
 
@@ -507,9 +512,9 @@ fun SupplierScreen(
                             val supplierDepositsList = remember(supplierDeposits) {
                                 supplierDeposits.filter { it.supplierId == supplier.id }
                              }
-                             val totalDepositedSar = supplierDepositsList.sumOf { it.amountSar }
-                             val totalAcquiredBdt = supplierDepositsList.sumOf { it.amountBdt }
-                             val totalPaidBdt = supplierDepositsList.sumOf { it.paidBdt }
+                             val totalDepositedSar = MoneyMath.sumAmounts(supplierDepositsList.map { it.amountSar })
+                             val totalAcquiredBdt = MoneyMath.sumAmounts(supplierDepositsList.map { it.amountBdt })
+                             val totalPaidBdt = MoneyMath.sumAmounts(supplierDepositsList.map { it.paidBdt })
                              val currentSupplierBdtDue = totalAcquiredBdt - totalPaidBdt
 
                             // Render highly clean, compact Supplier Item Card
@@ -580,8 +585,8 @@ fun SupplierScreen(
                                         }
 
                                         Column(horizontalAlignment = Alignment.End) {
-                                            val isDue = currentSupplierBdtDue < -0.05
-                                            val isReceivable = currentSupplierBdtDue > 0.05
+                                            val isDue = currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()
+                                            val isReceivable = currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD
                                             Text(
                                                 text = if (isDue) {
                                                     if (lang == "BN") "বকেয়া" else "Due"
@@ -597,7 +602,7 @@ fun SupplierScreen(
                                             )
                                             Spacer(modifier = Modifier.height(1.dp))
                                             Text(
-                                                text = "৳ ${currencyFormatter.format(Math.abs(currentSupplierBdtDue))}",
+                                                text = "৳ ${currencyFormatter.format(currentSupplierBdtDue.abs())}",
                                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
                                                 color = if (isDue) Color(0xFFD32F2F) else if (isReceivable) Color(0xFF1565C0) else Color(0xFF2E7D32),
                                                 maxLines = 1,
@@ -760,13 +765,16 @@ fun SupplierProfileView(
     )
 
     // Financial calculations
-    val totalSarGiven = deposits.filter { it.transactionType == "SAR_GIVEN" || it.transactionType == "SAR_DEPOSIT" }.sumOf { it.amountSar }
-    val totalSarReceived = deposits.filter { it.transactionType == "SAR_RECEIVED" || it.transactionType == "SAR_SETTLEMENT" }.sumOf { it.amountSar }
+    val totalSarGiven = deposits.filter { it.transactionType == "SAR_GIVEN" || it.transactionType == "SAR_DEPOSIT" }
+        .fold(MoneyMath.ZERO_AMOUNT) { total, deposit -> MoneyMath.add(total, deposit.amountSar) }
+    val totalSarReceived = deposits.filter { it.transactionType == "SAR_RECEIVED" || it.transactionType == "SAR_SETTLEMENT" }
+        .fold(MoneyMath.ZERO_AMOUNT) { total, deposit -> MoneyMath.add(total, deposit.amountSar) }
     val netSarOwedToUs = totalSarGiven - totalSarReceived
 
     val totalDepositedSar = totalSarGiven
-    val totalAcquiredBdt = deposits.filter { it.transactionType == "SAR_GIVEN" || it.transactionType == "SAR_DEPOSIT" }.sumOf { it.amountBdt }
-    val totalPaidBdt = deposits.sumOf { it.paidBdt }
+    val totalAcquiredBdt = deposits.filter { it.transactionType == "SAR_GIVEN" || it.transactionType == "SAR_DEPOSIT" }
+        .fold(MoneyMath.ZERO_AMOUNT) { total, deposit -> MoneyMath.add(total, deposit.amountBdt) }
+    val totalPaidBdt = deposits.fold(MoneyMath.ZERO_AMOUNT) { total, deposit -> MoneyMath.add(total, deposit.paidBdt) }
     val currentSupplierBdtDue = totalAcquiredBdt - totalPaidBdt
 
     // Optimize and move compose computations to function scope (resolving previous compiler failures!)
@@ -811,9 +819,9 @@ fun SupplierProfileView(
             isSupplierRateEnabled = isSupplierRateEnabled,
             onCancel = { isAddingFund = false },
             onSave = { date, doc ->
-                val amount = buyAmountSarInput.toDoubleOrNull() ?: 0.0
-                val rate = buyRateInput.toDoubleOrNull() ?: 0.0
-                val paidBdt = buyPaidBdtInput.toDoubleOrNull() ?: 0.0
+                val amount = buyAmountSarInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                val rate = buyRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                val paidBdt = buyPaidBdtInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                 
                 // Incorporate doc nicely in notes
                 val notesWithDoc = if (!doc.isNullOrBlank()) "$buyNotesInput \n[Attachment: $doc]".trim() else buyNotesInput
@@ -1010,7 +1018,7 @@ fun SupplierProfileView(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .background(
-                                        if (currentSupplierBdtDue < -0.05) Color(0xFFFFECEB) else if (currentSupplierBdtDue > 0.05) Color(0xFFE3F2FD) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                                        if (currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFFFECEB) else if (currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD) Color(0xFFE3F2FD) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
                                         shape = RoundedCornerShape(10.dp)
                                     )
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1022,27 +1030,27 @@ fun SupplierProfileView(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Icon(
-                                        imageVector = if (currentSupplierBdtDue > 0.05) Icons.Default.Info else Icons.Default.Warning,
+                                        imageVector = if (currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD) Icons.Default.Info else Icons.Default.Warning,
                                         contentDescription = "",
-                                        tint = if (currentSupplierBdtDue < -0.05) Color(0xFFC62828) else if (currentSupplierBdtDue > 0.05) Color(0xFF1565C0) else MaterialTheme.colorScheme.outline,
+                                        tint = if (currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFC62828) else if (currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD) Color(0xFF1565C0) else MaterialTheme.colorScheme.outline,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = if (currentSupplierBdtDue > 0.05) {
+                                        text = if (currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD) {
                                             if (lang == "BN") "আমি পাবো / পাওনা (BDT)" else "Receivable (BDT)"
-                                        } else if (currentSupplierBdtDue < -0.05) {
+                                        } else if (currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()) {
                                             if (lang == "BN") "আমি দেবো / বকেয়া (BDT)" else "Payable (BDT)"
                                         } else {
                                             if (lang == "BN") "কোনো বকেয়া নেই" else "No Due"
                                         },
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                        color = if (currentSupplierBdtDue < -0.05) Color(0xFFC62828) else if (currentSupplierBdtDue > 0.05) Color(0xFF1565C0) else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFC62828) else if (currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD) Color(0xFF1565C0) else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 Text(
-                                    text = "৳ ${currencyFormatter.format(Math.abs(currentSupplierBdtDue))}",
+                                    text = "৳ ${currencyFormatter.format(currentSupplierBdtDue.abs())}",
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
-                                    color = if (currentSupplierBdtDue < -0.05) Color(0xFFC62828) else if (currentSupplierBdtDue > 0.05) Color(0xFF1565C0) else Color(0xFF2E7D32)
+                                    color = if (currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFC62828) else if (currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD) Color(0xFF1565C0) else Color(0xFF2E7D32)
                                 )
                             }
                         }
@@ -1282,12 +1290,15 @@ fun SupplierProfileView(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(text = dateStr, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                                val netChange = itemsList.filterIsInstance<SupplierLedgerItem.DepositItem>().sumOf { it.amountBdt } - 
-                                            itemsList.filterIsInstance<SupplierLedgerItem.DisbursedItem>().sumOf { it.amountBdt }
+                                val depositChange = itemsList.filterIsInstance<SupplierLedgerItem.DepositItem>()
+                                    .fold(MoneyMath.ZERO_AMOUNT) { total, item -> MoneyMath.add(total, item.amountBdt) }
+                                val disbursedChange = itemsList.filterIsInstance<SupplierLedgerItem.DisbursedItem>()
+                                    .fold(MoneyMath.ZERO_AMOUNT) { total, item -> MoneyMath.add(total, item.amountBdt) }
+                                val netChange = MoneyMath.subtract(depositChange, disbursedChange)
                                 Text(
                                     text = "Net: ৳${currencyFormatter.format(netChange)}",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
-                                    color = if (netChange >= 0.0) Color(0xFF1B5E20) else Color(0xFFC62828)
+                                    color = if (netChange.signum() >= 0) Color(0xFF1B5E20) else Color(0xFFC62828)
                                 )
                             }
                             Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -1361,7 +1372,7 @@ fun SupplierProfileView(
                                             if (isDepExpanded) {
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 if (!isSettlement) {
-                                                    val dueBdt = ledgerItem.amountBdt - ledgerItem.paidBdt
+                                                    val dueBdt = MoneyMath.subtract(ledgerItem.amountBdt, ledgerItem.paidBdt)
                                                     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                                             Text(text = if (lang == "BN") "সর্বমোট (BDT):" else "Total (BDT):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
@@ -1374,15 +1385,15 @@ fun SupplierProfileView(
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                                             Text(
                                                                 text = if (lang == "BN") {
-                                                                    if (dueBdt < -0.05) "বকেয়া (BDT):" else "পাওনা (BDT):"
+                                                                    if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) "বকেয়া (BDT):" else "পাওনা (BDT):"
                                                                 } else {
-                                                                    if (dueBdt < -0.05) "Due / Payable (BDT):" else "Overpaid / Receivable (BDT):"
+                                                                    if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) "Due / Payable (BDT):" else "Overpaid / Receivable (BDT):"
                                                                 },
                                                                 fontSize = 11.sp,
                                                                 fontWeight = FontWeight.Black,
                                                                 color = MaterialTheme.colorScheme.outline
                                                             )
-                                                            Text(text = "৳${currencyFormatter.format(Math.abs(dueBdt))}", fontSize = 11.sp, fontWeight = FontWeight.Black, color = if (dueBdt < -0.05) Color(0xFFC62828) else if (dueBdt > 0.05) Color(0xFF1565C0) else Color(0xFF2E7D32))
+                                                            Text(text = "৳${currencyFormatter.format(dueBdt.abs())}", fontSize = 11.sp, fontWeight = FontWeight.Black, color = if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFC62828) else if (dueBdt > MONEY_VISIBILITY_THRESHOLD) Color(0xFF1565C0) else Color(0xFF2E7D32))
                                                         }
                                                     }
                                                     Spacer(modifier = Modifier.height(6.dp))
@@ -1448,14 +1459,14 @@ fun SupplierProfileView(
                                                         Text(text = "Rcv: ${ledgerItem.receiverName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                         Text(text = "Status: ${ledgerItem.status} | Time: ${SimpleDateFormat("hh:mm a", Locale.US).format(Date(ledgerItem.timestamp))}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                         
-                                                        val sarDue = tx.amountSar - tx.sarCollected
-                                                        val bdtDue = tx.amountBdt - tx.bdtDisbursed
-                                                        if (sarDue > 0.05 || bdtDue > 0.05) {
+                                                        val sarDue = MoneyMath.subtract(tx.amountSar, tx.sarCollected)
+                                                        val bdtDue = MoneyMath.subtract(tx.amountBdt, tx.bdtDisbursed)
+                                                        if (sarDue > MONEY_VISIBILITY_THRESHOLD || bdtDue > MONEY_VISIBILITY_THRESHOLD) {
                                                             Row(
                                                                 modifier = Modifier.padding(top = 2.dp),
                                                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                             ) {
-                                                                if (sarDue > 0.05) {
+                                                                if (sarDue > MONEY_VISIBILITY_THRESHOLD) {
                                                                     Surface(
                                                                         shape = RoundedCornerShape(4.dp),
                                                                         color = Color(0xFFFFF3E0),
@@ -1468,7 +1479,7 @@ fun SupplierProfileView(
                                                                         )
                                                                     }
                                                                 }
-                                                                if (bdtDue > 0.05) {
+                                                                if (bdtDue > MONEY_VISIBILITY_THRESHOLD) {
                                                                     Surface(
                                                                         shape = RoundedCornerShape(4.dp),
                                                                         color = Color(0xFFEBEFFB),
@@ -1522,15 +1533,15 @@ fun SupplierProfileView(
                                                         Spacer(modifier = Modifier.height(4.dp))
                                                         Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 2.dp))
                                                         
-                                                        val sarDue = tx.amountSar - tx.sarCollected
-                                                        val bdtDue = tx.amountBdt - tx.bdtDisbursed
+                                                        val sarDue = MoneyMath.subtract(tx.amountSar, tx.sarCollected)
+                                                        val bdtDue = MoneyMath.subtract(tx.amountBdt, tx.bdtDisbursed)
                                                         
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                             Column {
                                                                 Text(text = if (lang == "BN") "রিয়াল গ্রহণ (SAR):" else "Riyal Collected (SAR):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
-                                                                Text(text = "${tx.sarCollected} / ${tx.amountSar} ${foreignCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= 0.05) Color(0xFF2E7D32) else Color(0xFFE65100))
+                                                                Text(text = "${tx.sarCollected} / ${tx.amountSar} ${foreignCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= MONEY_VISIBILITY_THRESHOLD) Color(0xFF2E7D32) else Color(0xFFE65100))
                                                             }
-                                                            if (sarDue > 0.05) {
+                                                            if (sarDue > MONEY_VISIBILITY_THRESHOLD) {
                                                                 Button(
                                                                     onClick = {
                                                                         viewModel.updateTransactionStatus(tx.copy(sarCollected = tx.amountSar), tx.status)
@@ -1547,9 +1558,9 @@ fun SupplierProfileView(
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                             Column {
                                                                 Text(text = if (lang == "BN") "বিতরণ (BDT):" else "Disbursed BDT:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
-                                                                Text(text = "৳ ${DecimalFormat("#,##0").format(tx.bdtDisbursed)} / ৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} ${localCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (bdtDue <= 0.05) Color(0xFF2E7D32) else Color(0xFF254B8C))
+                                                                Text(text = "৳ ${DecimalFormat("#,##0").format(tx.bdtDisbursed)} / ৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} ${localCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (bdtDue <= MONEY_VISIBILITY_THRESHOLD) Color(0xFF2E7D32) else Color(0xFF254B8C))
                                                             }
-                                                            if (bdtDue > 0.05) {
+                                                            if (bdtDue > MONEY_VISIBILITY_THRESHOLD) {
                                                                 Button(
                                                                     onClick = {
                                                                         viewModel.updateTransactionStatus(tx.copy(bdtDisbursed = tx.amountBdt), tx.status)
@@ -1848,16 +1859,17 @@ fun SupplierProfileView(
                 Button(
                     onClick = {
                         if (txToEdit != null) {
-                            val amt = editAmountSar.toDoubleOrNull() ?: 0.0
-                            val cRate = editCustomerRate.toDoubleOrNull() ?: 0.0
-                            val sRate = editSupplierRate.toDoubleOrNull() ?: 0.0
-                            val col = editSarCollected.toDoubleOrNull() ?: amt
-                            val dis = editBdtDisbursed.toDoubleOrNull() ?: (amt * cRate)
+                            val amt = editAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                            val cRate = editCustomerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                            val sRate = editSupplierRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                            val col = editSarCollected.toBigDecimalOrNull() ?: amt
+                            val amountBdt = MoneyMath.multiply(amt, cRate)
+                            val dis = editBdtDisbursed.toBigDecimalOrNull() ?: amountBdt
                             val updatedTx = txToEdit!!.copy(
                                 amountSar = amt,
                                 customerRate = cRate,
                                 supplierRate = sRate,
-                                amountBdt = amt * cRate,
+                                amountBdt = amountBdt,
                                 receiverName = editReceiverName,
                                 receiverPhone = editPhoneNum,
                                 receiverAccountType = editReceiverAccountType,
@@ -1959,19 +1971,19 @@ fun SupplierProfileView(
                 Button(
                     onClick = {
                         if (depositToEdit != null) {
-                            val amt = editDepAmountSar.toDoubleOrNull() ?: 0.0
-                            val rateValue = editDepRate.toDoubleOrNull() ?: 0.0
-                            val updatedDep = SupplierDeposit(
-                                id = depositToEdit!!.id,
-                                supplierId = supplier.id,
-                                amountSar = amt,
-                                rate = rateValue,
-                                amountBdt = amt * rateValue,
-                                transactionType = editDepTxType,
-                                notes = editDepNotes,
-                                timestamp = depositToEdit!!.timestamp
-                            )
-                            viewModel.updateSupplierDeposit(updatedDep)
+                            val amt = editDepAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+                            val rateValue = editDepRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+                            deposits.firstOrNull { it.id == depositToEdit!!.id }?.let { existing ->
+                                viewModel.updateSupplierDeposit(
+                                    existing.copy(
+                                        amountSar = amt,
+                                        rate = rateValue,
+                                        amountBdt = MoneyMath.multiply(amt, rateValue),
+                                        transactionType = editDepTxType,
+                                        notes = editDepNotes
+                                    )
+                                )
+                            }
                         }
                         depositToEdit = null
                     }
@@ -2057,8 +2069,8 @@ fun SupplierProfileView(
                         }
                     }
 
-                    val isDue = currentSupplierBdtDue < -0.05
-                    val isReceivable = currentSupplierBdtDue > 0.05
+                    val isDue = currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()
+                    val isReceivable = currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD
 
                     if (isDue || isReceivable) {
                         // Option 2: Due Paid or Receivable Settle (বকেয়া পরিশোধ / পাওনা আদায়)
@@ -2149,20 +2161,20 @@ fun AddFundPage(
     onCancel: () -> Unit,
     onSave: (Long, String?) -> Unit
 ) {
-    val sarVal = buyAmountSarInput.toDoubleOrNull() ?: 0.0
-    val rateVal = buyRateInput.toDoubleOrNull() ?: 0.0
-    val bdtCalculated = sarVal * rateVal
+    val sarVal = buyAmountSarInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+    val rateVal = buyRateInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
+    val bdtCalculated = MoneyMath.multiply(sarVal, rateVal)
     
     LaunchedEffect(sarVal, rateVal) {
-        if (bdtCalculated > 0) {
-            onPaidBdtChange(bdtCalculated.toString())
+        if (bdtCalculated.signum() > 0) {
+            onPaidBdtChange(bdtCalculated.toPlainString())
         } else {
             onPaidBdtChange("")
         }
     }
     
-    val paidVal = buyPaidBdtInput.toDoubleOrNull() ?: 0.0
-    val dueBdt = bdtCalculated - paidVal
+    val paidVal = buyPaidBdtInput.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
+    val dueBdt = MoneyMath.subtract(bdtCalculated, paidVal)
     val currencyFormatter = remember { DecimalFormat("#,##0.00") }
     var currentStep by remember { mutableStateOf(1) }
 
@@ -2439,28 +2451,28 @@ fun AddFundPage(
                                 )
                             }
                             
-                            if (Math.abs(dueBdt) > 0.05) {
+                            if (dueBdt.abs() > MONEY_VISIBILITY_THRESHOLD) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(if (dueBdt < -0.05) MaterialTheme.colorScheme.errorContainer.copy(alpha=0.3f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.3f))
+                                        .background(if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) MaterialTheme.colorScheme.errorContainer.copy(alpha=0.3f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.3f))
                                         .padding(12.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        text = if (dueBdt < -0.05) {
+                                        text = if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) {
                                             if (lang == "BN") "বকেয়া (BDT):" else "Payable (BDT):"
                                         } else {
                                             if (lang == "BN") "পাওনা (BDT):" else "Receivable (BDT):"
                                         },
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = if (dueBdt < -0.05) Color(0xFFC62828) else Color(0xFF1565C0)
+                                        color = if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFC62828) else Color(0xFF1565C0)
                                     )
                                     Text(
-                                        text = "৳${currencyFormatter.format(Math.abs(dueBdt))}",
+                                        text = "৳${currencyFormatter.format(dueBdt.abs())}",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black),
-                                        color = if (dueBdt < -0.05) Color(0xFFC62828) else Color(0xFF1565C0)
+                                        color = if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFC62828) else Color(0xFF1565C0)
                                     )
                                 }
                             }
@@ -2521,14 +2533,14 @@ fun AddFundPage(
                 item {
                     Button(
                         onClick = {
-                            if (sarVal > 0 && rateVal > 0 && selectedLedgerId != 0) {
+                            if (sarVal.signum() > 0 && rateVal.signum() > 0 && selectedLedgerId != 0) {
                                 onTransactionTypeChange("SAR_GIVEN")
                                 onSave(selectedTimestamp, selectedDocumentName)
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(36.dp),
                         shape = RoundedCornerShape(12.dp),
-                        enabled = sarVal > 0 && rateVal > 0 && selectedLedgerId != 0
+                        enabled = sarVal.signum() > 0 && rateVal.signum() > 0 && selectedLedgerId != 0
                     ) {
                         Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Record", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }

@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.safa.account.data.model.Customer
 import com.safa.account.data.model.RemittanceTransaction
 import com.safa.account.data.model.SyncStatus
+import com.safa.account.data.money.MoneyMath
 import com.safa.account.data.repository.AppRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -49,10 +50,10 @@ class ServerAcceptedCreatePersistenceTest {
         val transactionLocalId = repository.insertTransaction(
             RemittanceTransaction(
                 serverId = 9702,
-                amountSar = 10.0,
-                customerRate = 32.0,
-                supplierRate = 31.5,
-                amountBdt = 320.0,
+                amountSar = MoneyMath.amount("10"),
+                customerRate = MoneyMath.rate("32"),
+                supplierRate = MoneyMath.rate("31.5"),
+                amountBdt = MoneyMath.amount("320"),
                 syncStatus = SyncStatus.SYNCED,
             )
         )

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safa.account.ui.viewmodel.SafaViewModel
 import com.safa.account.ui.viewmodel.AppScreen
+import com.safa.account.data.money.MoneyMath
 import java.io.File
 import java.io.FileWriter
 import java.text.DecimalFormat
@@ -97,10 +98,20 @@ fun ReportsScreen(
     }
 
     // Calculations
-    val totalVolumeSar = remember(periodTransactions) { periodTransactions.sumOf { it.amountSar } }
-    val totalProfitBdt = remember(periodTransactions) { periodTransactions.sumOf { it.getProfitBdt() } }
-    val totalExpenseBdt = remember(periodExpenses) { periodExpenses.sumOf { if (it.currency == localCur) it.amount else 0.0 } }
-    val totalExpenseSar = remember(periodExpenses) { periodExpenses.sumOf { if (it.currency == foreignCur) it.amount else 0.0 } }
+    val totalVolumeSar = remember(periodTransactions) {
+        periodTransactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.amountSar) }
+    }
+    val totalProfitBdt = remember(periodTransactions) {
+        periodTransactions.fold(MoneyMath.ZERO_AMOUNT) { total, tx -> MoneyMath.add(total, tx.getProfitBdt()) }
+    }
+    val totalExpenseBdt = remember(periodExpenses, localCur) {
+        periodExpenses.filter { it.currency == localCur }
+            .fold(MoneyMath.ZERO_AMOUNT) { total, item -> MoneyMath.add(total, item.amount) }
+    }
+    val totalExpenseSar = remember(periodExpenses, foreignCur) {
+        periodExpenses.filter { it.currency == foreignCur }
+            .fold(MoneyMath.ZERO_AMOUNT) { total, item -> MoneyMath.add(total, item.amount) }
+    }
     val netRevenueBdt = remember(totalProfitBdt, totalExpenseBdt) { totalProfitBdt - totalExpenseBdt }
 
     // Function to generate report file
@@ -144,10 +155,10 @@ fun ReportsScreen(
         if (isRateBasedMode) {
             report.append("3. NET RETAINED BOTTOM-LINE:\n")
             report.append("-----------------------------------------\n")
-            if (netRevenueBdt >= 0) {
+            if (netRevenueBdt.signum() >= 0) {
                 report.append("NET INCOME (SURPLUS):  $localCur  ${currencyFormatter.format(netRevenueBdt)} (PROFITABLE)\n")
             } else {
-                report.append("NET INCOME (DEFICIT):  TK  ${currencyFormatter.format(Math.abs(netRevenueBdt))} (UNPROFITABLE)\n")
+                report.append("NET INCOME (DEFICIT):  TK  ${currencyFormatter.format(netRevenueBdt.abs())} (UNPROFITABLE)\n")
             }
         }
         report.append("=========================================\n")
@@ -374,7 +385,7 @@ fun ReportsScreen(
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                             )
 
-                            val maxVal = Math.max(totalProfitBdt, totalExpenseBdt).toFloat().coerceAtLeast(1.0f)
+                            val maxVal = maxOf(totalProfitBdt, totalExpenseBdt).toFloat().coerceAtLeast(1.0f)
                             val profitRatio = (totalProfitBdt.toFloat() / maxVal).coerceIn(0f, 1f)
 
                             Row(

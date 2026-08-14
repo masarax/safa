@@ -42,7 +42,7 @@ class LoginNetworkException(
 ) : IOException(error.message) {
     override fun printStackTrace() {
         if (com.safa.account.BuildConfig.DEBUG) {
-            Log.d("SafaLogin", "login network failure: code=${error.code}", this)
+            Log.d("SafaLogin", "login network failure: code=${error.code}")
         }
     }
 }
@@ -61,14 +61,14 @@ object ApiLoginErrorParser {
             }
             422 -> ApiLoginError.Validation(
                 parsed.code ?: "VALIDATION_FAILED",
-                parsed.message ?: "Please check the mobile number and PIN format."
+                "Please check the mobile number and PIN format."
             )
             429 -> ApiLoginError.Throttled(
-                parsed.message ?: "Too many login attempts. Please wait and try again.",
+                "Too many login attempts. Please wait and try again.",
                 parseRetryAfter(retryAfter)
             )
             in 500..599 -> ApiLoginError.Server("The authentication server is unavailable. Please try again later.")
-            else -> ApiLoginError.Unexpected(parsed.message ?: "The server returned an unexpected login response.")
+            else -> ApiLoginError.Unexpected("The server returned an unexpected login response.")
         }
         debug(status, error.code)
         return error

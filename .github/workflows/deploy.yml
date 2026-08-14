@@ -17,12 +17,12 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: main
           fetch-depth: 1
       - name: Setup PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
@@ -49,6 +49,12 @@ jobs:
       - name: Install production Composer dependencies
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+      - name: Stamp immutable deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          printf '{"commit":"%s"}\n' "$GITHUB_SHA" > backend/bootstrap/safa-build.json
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
         with:
@@ -82,14 +88,22 @@ jobs:
           esac
 
           health_json="$(curl --fail --silent --show-error --max-time 20 "$base/api/auth/health")"
-          HEALTH_JSON="$health_json" php -r '$d=json_decode(getenv("HEALTH_JSON"), true); if (!is_array($d) || ($d["status"] ?? null) !== "ok" || ($d["service"] ?? null) !== "SAFA API") { fwrite(STDERR, "Unexpected health payload\n"); exit(1); }'
+          HEALTH_JSON="$health_json" EXPECTED_BUILD="$GITHUB_SHA" php -r '$d=json_decode(getenv("HEALTH_JSON"), true); $checks=$d["checks"]??null; if (!is_array($d) || ($d["status"] ?? null) !== "ok" || ($d["service"] ?? null) !== "SAFA API" || !hash_equals(getenv("EXPECTED_BUILD"), (string) ($d["build"] ?? "")) || !is_array($checks) || count($checks)!==6 || in_array(false, $checks, true)) { fwrite(STDERR, "Unexpected production readiness payload\n"); exit(1); }'
 
           for path in / /install /install/update /install/update-process /update-db; do
             body_file="$(mktemp)"
             code="$(curl --silent --show-error --max-time 20 --output "$body_file" --write-out '%{http_code}' "$base$path")"
-            test "$code" = "404" || { echo "Expected 404 for $path, received $code"; cat "$body_file"; rm -f "$body_file"; exit 1; }
+            test "$code" = "404" || { echo "Expected 404 for $path, received $code"; rm -f "$body_file"; exit 1; }
             BODY_FILE="$body_file" php -r '$d=json_decode(file_get_contents(getenv("BODY_FILE")), true); if (!is_array($d) || ($d["status"] ?? null) !== "not_found") { fwrite(STDERR, "Unexpected private-surface payload\n"); exit(1); }'
             rm -f "$body_file"
+          done
+
+          for path in /health.php /public/index.php; do
+            code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base$path")"
+            case "$code" in
+              403|404) ;;
+              *) echo "Expected a denied/not-found response for $path, received $code"; exit 1 ;;
+            esac
           done
 
           # Protected critical routes must exist, but smoke verification never sends

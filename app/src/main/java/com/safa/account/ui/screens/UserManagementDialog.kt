@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safa.account.data.api.dto.OperatorApiRequest
 import com.safa.account.ui.viewmodel.SafaViewModel
+import com.safa.account.utils.SafaLogger
 import kotlinx.coroutines.launch
 
 private data class ManagedUser(
@@ -60,6 +61,7 @@ fun UserManagementDialog(viewModel: SafaViewModel, onDismiss: () -> Unit) {
     var editing by remember { mutableStateOf<ManagedUser?>(null) }
     var showForm by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<ManagedUser?>(null) }
+    val operationError = if (lang == "BN") "অনুরোধটি সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।" else "The request could not be completed. Please try again."
 
     fun loadUsers() {
         loading = true
@@ -84,10 +86,12 @@ fun UserManagementDialog(viewModel: SafaViewModel, onDismiss: () -> Unit) {
                         )
                     }.filter { it.id != currentOperator?.id }
                 } else {
-                    error = "HTTP ${response?.code() ?: 0}"
+                    SafaLogger.warn("USER_MANAGEMENT", "Operator list rejected with HTTP ${response?.code() ?: 0}")
+                    error = operationError
                 }
             } catch (t: Throwable) {
-                error = t.localizedMessage
+                SafaLogger.error("USER_MANAGEMENT", "Operator list failed", t)
+                error = operationError
             } finally {
                 loading = false
             }
@@ -122,7 +126,8 @@ fun UserManagementDialog(viewModel: SafaViewModel, onDismiss: () -> Unit) {
                         showForm = false
                         loadUsers()
                     } catch (t: Throwable) {
-                        error = t.localizedMessage
+                        SafaLogger.error("USER_MANAGEMENT", "Operator save failed", t)
+                        error = operationError
                     } finally {
                         saving = false
                     }
@@ -144,10 +149,11 @@ fun UserManagementDialog(viewModel: SafaViewModel, onDismiss: () -> Unit) {
                     saving = true
                     scope.launch {
                         try {
-                            val response = viewModel.syncManager?.getApiService()?.deleteOperator(target.id)
+                            val response = viewModel.syncManager?.getApiService()?.deleteOperator(target.id, confirmed = true)
                             if (response?.isSuccessful != true) error("HTTP ${response?.code() ?: 0}") else loadUsers()
                         } catch (t: Throwable) {
-                            error = t.localizedMessage
+                            SafaLogger.error("USER_MANAGEMENT", "Operator deletion failed", t)
+                            error = operationError
                         } finally { saving = false }
                     }
                 }) { Text(if (lang == "BN") "মুছুন" else "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) }
@@ -219,7 +225,10 @@ private fun UserEditDialog(
                 OutlinedTextField(name, { name = it }, label = { Text(if (lang == "BN") "নাম" else "Name") }, singleLine = true)
                 OutlinedTextField(mobile, { mobile = it }, label = { Text(if (lang == "BN") "মোবাইল" else "Mobile") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
                 OutlinedTextField(email, { email = it }, label = { Text(if (lang == "BN") "ইমেইল" else "Email") }, singleLine = true)
-                OutlinedTextField(pin, { if (it.length <= 6 && it.all(Char::isDigit)) pin = it }, label = { Text(if (lang == "BN") "৬-ডিজিট পিন${if (existing != null) " (পরিবর্তন করলে দিন)" else ""}" else "6-digit PIN${if (existing != null) " (optional)" else ""}") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
+                OutlinedTextField(pin, {
+                    val normalized = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(it)
+                    if (normalized.length <= 6) pin = normalized
+                }, label = { Text(if (lang == "BN") "৬-ডিজিট পিন${if (existing != null) " (পরিবর্তন করলে দিন)" else ""}" else "6-digit PIN${if (existing != null) " (optional)" else ""}") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(selected = role == "admin", onClick = { role = "admin" }, label = { Text(if (lang == "BN") "অ্যাডমিন" else "Admin") })
                     FilterChip(selected = role == "user", onClick = { role = "user" }, label = { Text(if (lang == "BN") "ইউজার" else "User") })

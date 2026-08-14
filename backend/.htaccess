@@ -8,7 +8,7 @@ Options -Indexes
     RewriteRule (^\/|\/|\.)\.(?!well-known) - [F,L]
 
     # 2. Block direct web access to sensitive system files & internal directories
-    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md|metadata\.json|\.env|\.git) - [F,L]
+    RewriteRule ^(app|bootstrap|config|database|public|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md|metadata\.json|\.env|\.git) - [F,L]
 
     # 3. Route all legitimate web traffic to index.php
     RewriteCond %{REQUEST_FILENAME} !-d

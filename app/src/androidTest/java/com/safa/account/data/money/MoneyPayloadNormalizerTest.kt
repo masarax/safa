@@ -3,6 +3,7 @@ package com.safa.account.data.money
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -35,5 +36,13 @@ class MoneyPayloadNormalizerTest {
         assertEquals(101, json.getInt("local_id"))
         assertEquals(7, json.getInt("customer_id"))
         assertEquals("10.00", json.getString("amount_sar"))
+    }
+
+    @Test fun signedSarAdjustmentIsKeptButNegativeBdtIsRejected() {
+        val signed = MoneyPayloadNormalizer.normalizeJson("""{"sar_collected":"-0.105","bdt_disbursed":"1"}""")!!
+        assertEquals("-0.11", JSONObject(signed).getString("sar_collected"))
+        assertThrows(IllegalArgumentException::class.java) {
+            MoneyPayloadNormalizer.normalizeJson("""{"bdt_disbursed":"-0.01"}""")
+        }
     }
 }

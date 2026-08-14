@@ -21,10 +21,10 @@ class LoginErrorResponseInterceptorTest {
         assertEquals("ACCOUNT_INACTIVE", error.code)
     }
 
-    @Test fun `422 preserves validation code and message`() {
-        val error = ApiLoginErrorParser.fromHttp(422, "{\"error\":{\"code\":\"MOBILE_INVALID\",\"message\":\"Invalid mobile\"}}")
+    @Test fun `422 preserves the code but never renders an untrusted server message`() {
+        val error = ApiLoginErrorParser.fromHttp(422, "{\"error\":{\"code\":\"MOBILE_INVALID\",\"message\":\"password=server-secret\"}}")
         assertEquals("MOBILE_INVALID", error.code)
-        assertEquals("Invalid mobile", error.message)
+        assertEquals("Please check the mobile number and PIN format.", error.message)
     }
 
     @Test fun `429 is rate limited`() {

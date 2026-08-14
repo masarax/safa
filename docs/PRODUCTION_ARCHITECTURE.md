@@ -20,14 +20,18 @@ This document is the canonical implementation contract for the production Androi
 
 SAFA financial persistence and network synchronization use an exact fixed-scale decimal contract aligned with MySQL schema precision:
 
-- SAR/BDT monetary amounts: `DECIMAL(15,2)` semantics, scale **2**.
-- Exchange rates: `DECIMAL(10,4)` semantics, scale **4**.
+- SAR monetary amounts: `DECIMAL(15,2)` semantics, **13 integer digits + scale 2**.
+- BDT monetary amounts: `DECIMAL(15,2)` semantics, **13 integer digits + scale 2**.
+- Exchange rates: `DECIMAL(10,4)` semantics, **6 integer digits + scale 4**.
 - Rounding at a required scale boundary: **HALF_UP**.
 - Android business calculations use `MoneyMath` (`BigDecimal`) and outgoing REST/sync JSON is canonicalized to fixed-scale decimal strings before transmission.
-- Kotlin `Double` fields that remain in domain models are a Compose/UI compatibility projection only. They are not the canonical persistence/wire representation and must not be used for business-critical equality or unscaled arithmetic.
+- Android domain models, ViewModel summaries, calculator results, wallet operations and report calculations use `BigDecimal`; no monetary or rate domain field is a `Float`/`Double` compatibility projection.
+- A legacy JSON numeric token is accepted only at the ingestion boundary and is immediately converted to a fixed-scale decimal. Canonical REST/sync output always uses strings such as `"10.00"` and `"32.1235"`.
 - Laravel sync input is canonicalized by `MoneyDecimal` without PHP float coercion. Eloquent decimal casts keep database values as fixed-scale decimal strings in API/sync output.
 - Mutation identity is computed after decimal canonicalization so numerically equivalent representations converge deterministically.
-- Database schema precision is the final storage boundary; values outside supported precision or negative values for non-negative business fields are rejected.
+- Principal amounts, BDT disbursements, balances and rates are non-negative. `sar_collected` alone may be signed to represent returning a customer's advance balance.
+- The encrypted Android local store persists canonical decimal strings, including daily operating rates; process restart, outbox replay and repeated sync cannot introduce a binary-float drift.
+- Database schema precision is the final storage boundary; values outside supported precision or negative values for non-negative business fields are rejected with validation errors.
 
 ## REST API versioning
 
@@ -95,6 +99,8 @@ Authentication-sensitive routes may use stricter endpoint-specific limits in add
 - Third-party GitHub Actions are pinned to immutable commit SHAs with human-readable version comments.
 - Production deployment is manual and must pass read-only HTTPS smoke verification after file synchronization.
 - A production deployment is not considered successful until the live health/private-surface/protected-route checks pass.
+- Live health is a readiness gate: it checks runtime extensions, database connectivity, required migration columns, configured database cache/session tables, writable Laravel runtime directories and the exact deployed commit without mutating business data.
+- FTP does not run migrations or cache commands. Schema-changing releases require an authorized cPanel operator to review and run `php artisan migrate --force`, `php artisan optimize:clear`, and `php artisan optimize`; readiness remains HTTP 503 until this explicit maintenance is complete.
 
 ## Dependency hygiene
 

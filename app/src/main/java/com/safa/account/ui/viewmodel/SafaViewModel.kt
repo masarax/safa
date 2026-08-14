@@ -11,12 +11,14 @@ import com.safa.account.data.api.TokenManager
 import com.safa.account.data.api.dto.LoginRequest
 import com.safa.account.data.api.toEntity
 import com.safa.account.data.model.*
+import com.safa.account.data.money.MoneyMath
 import com.safa.account.data.repository.AppRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -43,23 +45,96 @@ enum class NavDirection {
 }
 
 data class FinancialStats(
-    val totalSarReceived: Double = 0.0,
-    val totalBdtDelivered: Double = 0.0,
-    val totalBdtPending: Double = 0.0,
-    val totalProfitBdt: Double = 0.0,
-    val totalProfitSar: Double = 0.0,
-    val totalPaidToSuppliersSar: Double = 0.0,
-    val totalBoughtPoolBdt: Double = 0.0,
-    val totalExpensesBdt: Double = 0.0,
-    val totalOtherIncomeBdt: Double = 0.0,
-    val supplierUnsettledSar: Double = 0.0,
-    val supplierUnsettledBdt: Double = 0.0
+    val totalSarReceived: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val totalBdtDelivered: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val totalBdtPending: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val totalProfitBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val totalProfitSar: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val totalPaidToSuppliersSar: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val totalBoughtPoolBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val totalExpensesBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val totalOtherIncomeBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val supplierUnsettledSar: BigDecimal = MoneyMath.ZERO_AMOUNT,
+    val supplierUnsettledBdt: BigDecimal = MoneyMath.ZERO_AMOUNT
 )
 
 class SafaViewModel(
     val repository: AppRepository,
     val tokenManager: TokenManager? = null
 ) : ViewModel() {
+
+    private fun safeConnectionFailure(): String =
+        if (_currentLanguage.value == "BN") "সার্ভারের সাথে সংযোগ করা যায়নি। আবার চেষ্টা করুন।"
+        else "Could not connect to the server. Please try again."
+
+    private fun safeSyncFailure(): String =
+        if (_currentLanguage.value == "BN") "সিঙ্ক সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।"
+        else "Sync could not be completed. Please try again."
+
+    private fun safeServerFailure(action: String, status: Int): String =
+        if (_currentLanguage.value == "BN") "সার্ভার অনুরোধটি সম্পন্ন করা যায়নি (HTTP $status)।"
+        else "$action could not be completed (HTTP $status)."
+
+    private fun safeLoginFailure(status: Int): String = when (status) {
+        401 -> t("invalid_credentials")
+        403 -> if (_currentLanguage.value == "BN") "এই অ্যাকাউন্ট বা ডিভাইসে লগইনের অনুমতি নেই।" else "Login is not allowed for this account or device."
+        422 -> if (_currentLanguage.value == "BN") "মোবাইল নম্বর ও ৬ সংখ্যার পিন যাচাই করুন।" else "Check the mobile number and 6-digit PIN."
+        429 -> if (_currentLanguage.value == "BN") "অনেকবার চেষ্টা করা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।" else "Too many attempts. Please wait and try again."
+        in 500..599 -> if (_currentLanguage.value == "BN") "লগইন সার্ভার সাময়িকভাবে অনুপলব্ধ।" else "The login server is temporarily unavailable."
+        else -> if (_currentLanguage.value == "BN") "লগইন সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।" else "Login could not be completed. Please try again."
+    }
+
+    private fun localRole(serverRole: String?): String = when (serverRole?.trim()?.lowercase()) {
+        "superadmin" -> "SuperAdmin"
+        "manager" -> "Manager"
+        "admin" -> "Admin"
+        else -> "Staff"
+    }
+
+    private fun permissionValue(permissions: Map<String, Any?>, key: String): Boolean =
+        permissions[key].let { it == true || it?.toString() == "1" || it?.toString().equals("true", true) }
+
+    private fun authenticatedOperator(userMap: Map<String, Any?>): OperatorAccount? {
+        val userId = (userMap["id"] as? Number)?.toInt()
+            ?: userMap["id"]?.toString()?.toIntOrNull() ?: 0
+        val mobile = userMap["mobile"]?.toString()?.trim().orEmpty()
+        val rawRole = userMap["role"]?.toString()?.trim()?.lowercase().orEmpty()
+        val activated = userMap["is_activated"].let {
+            it == true || it?.toString() == "1" || it?.toString().equals("true", true)
+        }
+        if (userId <= 0 || mobile.isBlank() || !activated || rawRole !in setOf("superadmin", "manager", "admin", "staff", "user")) {
+            return null
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val permissions = userMap["permissions"] as? Map<String, Any?> ?: emptyMap()
+        return OperatorAccount(
+            id = userId,
+            username = userMap["name"]?.toString()?.trim().orEmpty().ifBlank { "Operator" },
+            role = localRole(rawRole),
+            pin = "",
+            mobile = mobile,
+            email = userMap["email"]?.toString().orEmpty(),
+            isActivated = true,
+            isActive = true,
+            isBiometricEnabled = tokenManager?.isBiometricQuickUnlockBoundTo(userId, mobile) == true,
+            canViewCustomers = permissionValue(permissions, "can_view_customers"),
+            canAddCustomers = permissionValue(permissions, "can_add_customers"),
+            canEditCustomers = permissionValue(permissions, "can_edit_customers"),
+            canDeleteCustomers = permissionValue(permissions, "can_delete_customers"),
+            canViewSuppliers = permissionValue(permissions, "can_view_suppliers"),
+            canAddSuppliers = permissionValue(permissions, "can_add_suppliers"),
+            canEditSuppliers = permissionValue(permissions, "can_edit_suppliers"),
+            canDeleteSuppliers = permissionValue(permissions, "can_delete_suppliers"),
+            canViewTransactions = permissionValue(permissions, "can_view_transactions"),
+            canAddTransactions = permissionValue(permissions, "can_add_transactions"),
+            canEditTransactions = permissionValue(permissions, "can_edit_transactions"),
+            canDeleteTransactions = permissionValue(permissions, "can_delete_transactions"),
+            canManageWallet = permissionValue(permissions, "can_manage_wallet"),
+            canManageExpenses = permissionValue(permissions, "can_manage_expenses"),
+            canViewReports = permissionValue(permissions, "can_view_reports")
+        )
+    }
 
     val syncManager: SyncManager? = tokenManager?.let { SyncManager(repository, it) }
     val syncState: StateFlow<SyncState> = syncManager?.syncState ?: MutableStateFlow(SyncState.Idle)
@@ -80,7 +155,8 @@ class SafaViewModel(
                 if (res.isSuccess) {
                     onResult(true, res.getOrDefault("Connected"))
                 } else {
-                    onResult(false, res.exceptionOrNull()?.localizedMessage ?: "Connection Failed")
+                    res.exceptionOrNull()?.let { com.safa.account.utils.SafaLogger.error("HEALTH", "Server health check failed", it) }
+                    onResult(false, safeConnectionFailure())
                 }
             } else {
                 onResult(false, "TokenManager not configured")
@@ -95,7 +171,8 @@ class SafaViewModel(
                 if (res.isSuccess) {
                     onResult(true, res.getOrDefault("Sync Completed"))
                 } else {
-                    onResult(false, res.exceptionOrNull()?.localizedMessage ?: "Sync Error")
+                    res.exceptionOrNull()?.let { com.safa.account.utils.SafaLogger.error("SYNC", "Manual sync failed", it) }
+                    onResult(false, safeSyncFailure())
                 }
             } else {
                 onResult(false, "TokenManager not configured")
@@ -211,7 +288,7 @@ class SafaViewModel(
                 val api = syncManager?.getApiService() ?: return@launch
                 api.updateConfig(config)
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("REMOTE_CONFIG", "Server configuration update failed", e)
             }
         }
     }
@@ -255,7 +332,7 @@ class SafaViewModel(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("LOGO_UPLOAD", "Logo upload failed", e)
             }
         }
     }
@@ -298,7 +375,7 @@ class SafaViewModel(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("REMOTE_CONFIG", "Remote configuration fetch failed", e)
             }
         }
     }
@@ -316,7 +393,7 @@ class SafaViewModel(
                 suppliers.value.forEach { repository.deleteSupplierById(it.id) }
                 onComplete()
             } catch (e: java.lang.Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("DATABASE_RESET", "Database reset failed", e)
             }
         }
     }
@@ -459,79 +536,74 @@ class SafaViewModel(
         transactions, supplierDeposits, expensesIncomes
     ) { txs, deposits, expenses ->
         
-        var totalSar = java.math.BigDecimal.ZERO
-        var totalDeliveredBdt = java.math.BigDecimal.ZERO
-        var totalPendingBdt = java.math.BigDecimal.ZERO
-        var profitBdt = java.math.BigDecimal.ZERO
-        var profitSar = java.math.BigDecimal.ZERO
-        var bdtFromSupplierPoolUsed = java.math.BigDecimal.ZERO
+        var totalSar = MoneyMath.ZERO_AMOUNT
+        var totalDeliveredBdt = MoneyMath.ZERO_AMOUNT
+        var totalPendingBdt = MoneyMath.ZERO_AMOUNT
+        var profitBdt = MoneyMath.ZERO_AMOUNT
+        var profitSar = MoneyMath.ZERO_AMOUNT
+        var bdtFromSupplierPoolUsed = MoneyMath.ZERO_AMOUNT
 
         for (tx in txs) {
-            val amtSar = java.math.BigDecimal(tx.amountSar.toString())
-            val amtBdt = java.math.BigDecimal(tx.amountBdt.toString())
-            totalSar = totalSar.add(amtSar)
+            val amtSar = tx.amountSar
+            val amtBdt = tx.amountBdt
+            totalSar = MoneyMath.add(totalSar, amtSar)
             if (tx.status == "Delivered") {
-                totalDeliveredBdt = totalDeliveredBdt.add(amtBdt)
+                totalDeliveredBdt = MoneyMath.add(totalDeliveredBdt, amtBdt)
             } else if (tx.status == "Pending") {
-                totalPendingBdt = totalPendingBdt.add(amtBdt)
+                totalPendingBdt = MoneyMath.add(totalPendingBdt, amtBdt)
             }
             if (tx.status != "Cancelled") {
-                profitBdt = profitBdt.add(java.math.BigDecimal(tx.getProfitBdt().toString()))
-                profitSar = profitSar.add(java.math.BigDecimal(tx.getProfitSar().toString()))
-                bdtFromSupplierPoolUsed = bdtFromSupplierPoolUsed.add(amtBdt)
+                profitBdt = MoneyMath.add(profitBdt, tx.getProfitBdt())
+                profitSar = MoneyMath.add(profitSar, tx.getProfitSar())
+                bdtFromSupplierPoolUsed = MoneyMath.add(bdtFromSupplierPoolUsed, amtBdt)
             }
         }
 
-        var totalPaidSupplierSar = java.math.BigDecimal.ZERO
-        var totalBoughtBdt = java.math.BigDecimal.ZERO
+        var totalPaidSupplierSar = MoneyMath.ZERO_AMOUNT
+        var totalBoughtBdt = MoneyMath.ZERO_AMOUNT
 
         for (dep in deposits) {
-            val depAmtSar = java.math.BigDecimal(dep.amountSar.toString())
-            val depAmtBdt = java.math.BigDecimal(dep.amountBdt.toString())
             if (dep.transactionType == "SAR_DEPOSIT" || dep.transactionType == "SAR_GIVEN") {
-                totalPaidSupplierSar = totalPaidSupplierSar.add(depAmtSar)
-                totalBoughtBdt = totalBoughtBdt.add(depAmtBdt)
+                totalPaidSupplierSar = MoneyMath.add(totalPaidSupplierSar, dep.amountSar)
+                totalBoughtBdt = MoneyMath.add(totalBoughtBdt, dep.amountBdt)
             } else if (dep.transactionType == "BDT_WITHDRAW") {
-                totalBoughtBdt = totalBoughtBdt.subtract(depAmtBdt)
+                totalBoughtBdt = MoneyMath.subtract(totalBoughtBdt, dep.amountBdt)
             }
         }
 
-        var totalExp = java.math.BigDecimal.ZERO
-        var totalInc = java.math.BigDecimal.ZERO
+        var totalExp = MoneyMath.ZERO_AMOUNT
+        var totalInc = MoneyMath.ZERO_AMOUNT
         
-        val currentRateVal = _currentRates.value?.supplierRate ?: 32.5
-        val currentRate = java.math.BigDecimal(currentRateVal.toString())
+        val currentRate = _currentRates.value?.supplierRate ?: MoneyMath.rate("32.5")
 
         for (item in expenses) {
-            val itemAmt = java.math.BigDecimal(item.amount.toString())
-            val amt = if (item.currency == "SAR") itemAmt.multiply(currentRate) else itemAmt
+            val amt = if (item.currency == "SAR") MoneyMath.multiply(item.amount, currentRate) else item.amount
             if (item.isExpense) {
-                totalExp = totalExp.add(amt)
+                totalExp = MoneyMath.add(totalExp, amt)
             } else {
-                totalInc = totalInc.add(amt)
+                totalInc = MoneyMath.add(totalInc, amt)
             }
         }
 
-        val outstandingBdt = totalBoughtBdt.subtract(bdtFromSupplierPoolUsed)
-        val outstandingSar = if (outstandingBdt.compareTo(java.math.BigDecimal.ZERO) != 0 && currentRate.compareTo(java.math.BigDecimal.ZERO) != 0) {
-            val usedSar = bdtFromSupplierPoolUsed.divide(currentRate, 4, java.math.RoundingMode.HALF_UP)
-            totalPaidSupplierSar.subtract(usedSar)
+        val outstandingBdt = MoneyMath.subtract(totalBoughtBdt, bdtFromSupplierPoolUsed)
+        val outstandingSar = if (outstandingBdt.signum() != 0 && currentRate.signum() != 0) {
+            MoneyMath.subtract(totalPaidSupplierSar, MoneyMath.divideAmountByRate(bdtFromSupplierPoolUsed, currentRate))
         } else {
-            java.math.BigDecimal.ZERO
+            MoneyMath.ZERO_AMOUNT
         }
 
         FinancialStats(
-            totalSarReceived = totalSar.toDouble(),
-            totalBdtDelivered = totalDeliveredBdt.toDouble(),
-            totalBdtPending = totalPendingBdt.toDouble(),
-            totalProfitBdt = profitBdt.toDouble(),
-            totalProfitSar = profitSar.toDouble(),
-            totalPaidToSuppliersSar = totalPaidSupplierSar.toDouble(),
-            totalBoughtPoolBdt = totalBoughtBdt.toDouble(),
-            totalExpensesBdt = totalExp.toDouble(),
-            totalOtherIncomeBdt = totalInc.toDouble(),
-            supplierUnsettledSar = outstandingSar.toDouble(),
-            supplierUnsettledBdt = outstandingBdt.toDouble()
+            totalSarReceived = totalSar,
+            totalBdtDelivered = totalDeliveredBdt,
+            totalBdtPending = totalPendingBdt,
+            totalProfitBdt = profitBdt,
+            totalProfitSar = profitSar,
+            totalPaidToSuppliersSar = totalPaidSupplierSar,
+            totalBoughtPoolBdt = totalBoughtBdt,
+            totalExpensesBdt = totalExp,
+            totalOtherIncomeBdt = totalInc,
+            supplierUnsettledSar = outstandingSar,
+            supplierUnsettledBdt = outstandingBdt
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialStats())
 
@@ -540,22 +612,22 @@ class SafaViewModel(
         try {
             refreshTodayRates()
         } catch (e: Throwable) {
-            android.util.Log.e("SafaApp", "refreshTodayRates init error: ${e.message}")
+            com.safa.account.utils.SafaLogger.error("STARTUP_RATES", "Rate initialization failed; using deterministic fallback", e)
         }
         try {
             fetchRemoteConfig()
         } catch (e: Throwable) {
-            android.util.Log.e("SafaApp", "fetchRemoteConfig init error: ${e.message}")
+            com.safa.account.utils.SafaLogger.error("STARTUP_CONFIG", "Remote configuration initialization failed", e)
         }
         try {
             fetchOperatorsFromServer()
         } catch (e: Throwable) {
-            android.util.Log.e("SafaApp", "fetchOperatorsFromServer init error: ${e.message}")
+            com.safa.account.utils.SafaLogger.error("STARTUP_OPERATORS", "Operator initialization failed", e)
         }
         try {
             triggerFullSync()
         } catch (e: Throwable) {
-            android.util.Log.e("SafaApp", "triggerFullSync init error: ${e.message}")
+            com.safa.account.utils.SafaLogger.error("STARTUP_SYNC", "Startup sync initialization failed", e)
         }
     }
 
@@ -569,10 +641,14 @@ class SafaViewModel(
                 // If not set yet, use latest rate set ever or default baseline
                 val allRates = dailyRatesList.value
                 if (allRates.isNotEmpty()) {
-                    val latest = allRates.first()
+                    val latest = allRates.maxByOrNull { it.date } ?: return@launch
                     _currentRates.value = DailyRate(dateStr, latest.customerRate, latest.supplierRate)
                 } else {
-                    _currentRates.value = DailyRate(dateStr, 32.0, 32.5) // Standard baseline
+                    _currentRates.value = DailyRate(
+                        dateStr,
+                        MoneyMath.rate("32.0"),
+                        MoneyMath.rate("32.5")
+                    ) // Standard baseline
                 }
             }
         }
@@ -904,22 +980,6 @@ class SafaViewModel(
     fun appendPinDigit(digit: Char) { /* Disabled: server-driven auth only */ }
     fun deletePinDigit() { /* Disabled: server-driven auth only */ }
 
-    fun loginWithBiometric(operator: OperatorAccount) {
-        if (operator.isActive) {
-            _currentOperator.value = operator
-            _pinError.value = null
-            _pinBuffer.value = ""
-            tokenManager?.saveLastMobile(operator.mobile)
-            fetchOperatorsFromServer()
-            fetchRemoteConfig()
-            triggerFullSync()
-            navigateTo(AppScreen.DASHBOARD)
-        } else {
-            _pinError.value = t("operator_blocked")
-            _pinBuffer.value = ""
-        }
-    }
-
     fun loginWithServer(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             if (mobile.isBlank() || pin.length < 6) {
@@ -934,73 +994,42 @@ class SafaViewModel(
                     if (response.isSuccessful && response.body() != null) {
                         val body = response.body()!!
                         @Suppress("UNCHECKED_CAST")
-                        val tokens = body["tokens"] as? Map<String, Any?>
-                        if (tokens != null) {
-                            tokenManager?.saveAllTokens(
-                                accessToken = tokens["access_token"]?.toString(),
-                                refreshToken = tokens["refresh_token"]?.toString(),
-                                deviceToken = tokens["device_token"]?.toString(),
-                                sessionToken = tokens["session_token"]?.toString(),
-                                fingerprintToken = tokens["fingerprint_token"]?.toString()
-                            )
-                        }
-
-                        @Suppress("UNCHECKED_CAST")
                         val userMap = body["user"] as? Map<String, Any?>
                         @Suppress("UNCHECKED_CAST")
-                        val permsMap = (userMap?.get("permissions") as? Map<String, Any?>)
-                            ?: (body["permissions"] as? Map<String, Any?>) ?: emptyMap()
-
-                        val isActivated = (userMap?.get("is_activated") as? Boolean) ?: true
-                        val role = userMap?.get("role")?.toString() ?: "SuperAdmin"
-                        val username = userMap?.get("name")?.toString() ?: "Operator"
-                        val email = userMap?.get("email")?.toString() ?: ""
-
-                        fun getPerm(key: String): Boolean {
-                            val v = permsMap[key]
-                            return if (v is Boolean) v else true
+                        val tokens = body["tokens"] as? Map<String, Any?>
+                        val requiredTokens = listOf("access_token", "refresh_token", "device_token", "session_token", "fingerprint_token")
+                        @Suppress("UNCHECKED_CAST")
+                        val topLevelPermissions = body["permissions"] as? Map<String, Any?>
+                        val authenticatedUser = userMap?.let { raw ->
+                            if (raw["permissions"] is Map<*, *> || topLevelPermissions == null) raw
+                            else raw + ("permissions" to topLevelPermissions)
+                        }
+                        val op = authenticatedUser?.let(::authenticatedOperator)
+                        if (op == null || tokens == null || requiredTokens.any { tokens[it]?.toString().isNullOrBlank() }) {
+                            com.safa.account.utils.SafaLogger.warn("LOGIN", "Login response failed the authenticated identity contract")
+                            tokenManager?.clearAllTokens()
+                            onResult(false, safeLoginFailure(502))
+                            return@launch
                         }
 
-                        val hashedPin = com.safa.account.utils.HashUtils.hashPin(pin)
-                        val op = OperatorAccount(
-                            username = username,
-                            role = if (role.equals("superadmin", true) || role.equals("manager", true) || role.equals("owner", true)) "SuperAdmin" else "Staff",
-                            pin = hashedPin,
-                            mobile = mobile.trim(),
-                            email = email,
-                            isActivated = isActivated,
-                            isActive = true,
-                            canViewCustomers = getPerm("can_view_customers"),
-                            canAddCustomers = getPerm("can_add_customers"),
-                            canEditCustomers = getPerm("can_edit_customers"),
-                            canDeleteCustomers = getPerm("can_delete_customers"),
-                            canViewSuppliers = getPerm("can_view_suppliers"),
-                            canAddSuppliers = getPerm("can_add_suppliers"),
-                            canEditSuppliers = getPerm("can_edit_suppliers"),
-                            canDeleteSuppliers = getPerm("can_delete_suppliers"),
-                            canViewTransactions = getPerm("can_view_transactions"),
-                            canAddTransactions = getPerm("can_add_transactions"),
-                            canEditTransactions = getPerm("can_edit_transactions"),
-                            canDeleteTransactions = getPerm("can_delete_transactions"),
-                            canManageWallet = getPerm("can_manage_wallet"),
-                            canManageExpenses = getPerm("can_manage_expenses"),
-                            canViewReports = getPerm("can_view_reports")
+                        val existing = operators.value.find { it.id == op.id }
+                            ?: repository.getOperatorByMobile(op.mobile)
+                        if (existing != null && existing.id != op.id) {
+                            repository.removeOperatorLocally(existing)
+                        }
+                        repository.insertOperator(op)
+                        tokenManager?.saveAllTokens(
+                            accessToken = tokens["access_token"]?.toString(),
+                            refreshToken = tokens["refresh_token"]?.toString(),
+                            deviceToken = tokens["device_token"]?.toString(),
+                            sessionToken = tokens["session_token"]?.toString(),
+                            fingerprintToken = tokens["fingerprint_token"]?.toString()
                         )
-
-                        val existing = repository.getOperatorByMobile(mobile.trim())
-                            ?: operators.value.find { it.mobile == mobile.trim() }
-                        val savedId = if (existing != null) {
-                            val updated = op.copy(id = existing.id)
-                            repository.updateOperator(updated)
-                            existing.id
-                        } else {
-                            repository.insertOperator(op).toInt()
-                        }
-                        val finalOp = op.copy(id = savedId)
-                        _currentOperator.value = finalOp
-                        _selectedLoginOperator.value = finalOp
+                        _isBiometricEnabled.value = op.isBiometricEnabled
+                        _currentOperator.value = op
+                        _selectedLoginOperator.value = op
                         _pinError.value = null
-                        tokenManager?.saveLastMobile(mobile.trim())
+                        tokenManager?.saveLastMobile(op.mobile)
                         fetchOperatorsFromServer()
                         fetchRemoteConfig()
                         triggerFullSync()
@@ -1008,20 +1037,17 @@ class SafaViewModel(
                         onResult(true, null)
                         return@launch
                     } else {
-                        val errorStr = response.errorBody()?.string()?.trim().orEmpty()
-                        val message = runCatching {
-                            org.json.JSONObject(errorStr).optString("message").trim()
-                        }.getOrDefault("")
-                        onResult(false, message.ifBlank { errorStr }.ifBlank { t("invalid_credentials") })
+                        com.safa.account.utils.SafaLogger.warn("LOGIN", "Login rejected with HTTP ${response.code()}")
+                        onResult(false, safeLoginFailure(response.code()))
                         return@launch
                     }
                 } else {
-                    onResult(false, "Server API not configured")
+                    onResult(false, safeConnectionFailure())
                     return@launch
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
-                onResult(false, e.localizedMessage ?: t("invalid_credentials"))
+                com.safa.account.utils.SafaLogger.error("LOGIN", "Login request failed", e)
+                onResult(false, com.safa.account.data.network.ApiLoginErrorParser.fromThrowable(e).message)
                 return@launch
             }
         }
@@ -1029,221 +1055,78 @@ class SafaViewModel(
 
     // loginWithMobileAndPin() REMOVED: All authentication is server-driven via loginWithServer()
 
-    fun activateSuperAdminServer(
-        name: String,
-        email: String,
-        mobile: String,
-        pin: String,
-        onComplete: () -> Unit
-    ) {
-        viewModelScope.launch {
-            if (pin.length != 6 || !pin.all { it.isDigit() }) return@launch
-            try {
-                val api = syncManager?.getApiService()
-                if (api != null) {
-                    val req = com.safa.account.data.api.dto.ActivateSuperAdminRequest(
-                        name = name.trim(),
-                        email = email.trim(),
-                        mobile = mobile.trim(),
-                        pin = pin,
-                        newPin = pin
-                    )
-                    val response = api.activateSuperAdmin(req)
-                    if (response.isSuccessful && response.body() != null) {
-                        val body = response.body()!!
-                        @Suppress("UNCHECKED_CAST")
-                        val tokens = body["tokens"] as? Map<String, Any?>
-                        if (tokens != null) {
-                            tokenManager?.saveAllTokens(
-                                accessToken = tokens["access_token"]?.toString(),
-                                refreshToken = tokens["refresh_token"]?.toString(),
-                                deviceToken = tokens["device_token"]?.toString(),
-                                sessionToken = tokens["session_token"]?.toString(),
-                                fingerprintToken = tokens["fingerprint_token"]?.toString()
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            activateSuperAdmin(name, email, mobile, pin, onComplete)
-        }
-    }
-
-    fun activateSuperAdmin(
-        name: String,
-        email: String,
-        mobile: String,
-        pin: String,
-        onComplete: () -> Unit
-    ) {
-        viewModelScope.launch {
-            if (pin.length == 6 && pin.all { it.isDigit() }) {
-                val hashedPin = com.safa.account.utils.HashUtils.hashPin(pin)
-                val superAdmin = OperatorAccount(
-                    username = name.ifBlank { "SuperAdmin" },
-                    role = "SuperAdmin",
-                    pin = hashedPin,
-                    mobile = mobile.trim(),
-                    email = email.trim(),
-                    isActivated = true,
-                    isActive = true,
-                    canViewCustomers = true,
-                    canAddCustomers = true,
-                    canEditCustomers = true,
-                    canDeleteCustomers = true,
-                    canViewSuppliers = true,
-                    canAddSuppliers = true,
-                    canEditSuppliers = true,
-                    canDeleteSuppliers = true,
-                    canViewTransactions = true,
-                    canAddTransactions = true,
-                    canEditTransactions = true,
-                    canDeleteTransactions = true,
-                    canManageWallet = true,
-                    canManageExpenses = true,
-                    canViewReports = true
-                )
-                val unactivated = operators.value.find { !it.isActivated || it.role == "SuperAdmin" }
-                val opId = if (unactivated != null) {
-                    val updated = unactivated.copy(
-                        username = name.ifBlank { "SuperAdmin" },
-                        role = "SuperAdmin",
-                        pin = hashedPin,
-                        mobile = mobile.trim(),
-                        email = email.trim(),
-                        isActivated = true,
-                        isActive = true,
-                        canViewCustomers = true,
-                        canAddCustomers = true,
-                        canEditCustomers = true,
-                        canDeleteCustomers = true,
-                        canViewSuppliers = true,
-                        canAddSuppliers = true,
-                        canEditSuppliers = true,
-                        canDeleteSuppliers = true,
-                        canViewTransactions = true,
-                        canAddTransactions = true,
-                        canEditTransactions = true,
-                        canDeleteTransactions = true,
-                        canManageWallet = true,
-                        canManageExpenses = true,
-                        canViewReports = true
-                    )
-                    repository.updateOperator(updated)
-                    updated.id
-                } else {
-                    repository.insertOperator(superAdmin).toInt()
-                }
-                val activeOp = superAdmin.copy(id = opId)
-                _currentOperator.value = activeOp
-                _selectedLoginOperator.value = activeOp
-                _pinError.value = null
-                navigateTo(AppScreen.DASHBOARD)
-                onComplete()
-            }
-        }
-    }
-
     fun fetchOperatorsFromServer() {
         viewModelScope.launch {
+            if (_currentOperator.value?.role != "SuperAdmin") return@launch
             try {
                 val api = syncManager?.getApiService() ?: return@launch
                 val res = api.getOperators()
                 if (res.isSuccessful && res.body() != null) {
                     val body = res.body()!!
                     @Suppress("UNCHECKED_CAST")
-                    val rawOps = body["operators"] as? List<Map<String, Any?>> ?: emptyList()
+                    val rawOps = (body["users"] as? List<Map<String, Any?>>)
+                        ?: (body["operators"] as? List<Map<String, Any?>>)
+                        ?: return@launch
                     val currentOps = operators.value
-                    val validMobiles = rawOps.mapNotNull { it["mobile"]?.toString()?.trim() }.filter { it.isNotBlank() }
                     val validIds = rawOps.mapNotNull { (it["id"] as? Number)?.toInt() }.filter { it > 0 }
 
                     rawOps.forEach { opMap ->
                         val serverId = (opMap["id"] as? Number)?.toInt() ?: 0
+                        if (serverId <= 0) return@forEach
                         val mobile = opMap["mobile"]?.toString()?.trim() ?: ""
                         val name = opMap["name"]?.toString() ?: "Operator"
                         val email = opMap["email"]?.toString() ?: ""
                         val roleStr = opMap["role"]?.toString() ?: "Staff"
-                        val isSuperAdmin = roleStr.equals("manager", true) || roleStr.equals("superadmin", true) || roleStr.equals("owner", true)
-                        val isActivated = (opMap["is_activated"] as? Boolean) ?: true
+                        val isActivated = opMap["is_activated"].let {
+                            it == true || it?.toString() == "1" || it?.toString().equals("true", true)
+                        }
                         @Suppress("UNCHECKED_CAST")
                         val permsMap = opMap["permissions"] as? Map<String, Any?> ?: emptyMap()
 
-                        fun getPerm(key: String): Boolean {
-                            val v = permsMap[key]
-                            return if (v is Boolean) v else true
-                        }
-
                         val existing = currentOps.find {
                             (serverId > 0 && it.id == serverId) ||
-                            (mobile.isNotBlank() && it.mobile.trim() == mobile) ||
-                            (isSuperAdmin && (it.role == "SuperAdmin" || it.role == "Owner" || it.role == "Admin"))
+                            (mobile.isNotBlank() && it.mobile.trim() == mobile)
                         }
-                        val hashedPin = existing?.pin ?: com.safa.account.utils.HashUtils.hashPin("1234")
                         val op = OperatorAccount(
-                            id = existing?.id ?: 0,
+                            id = serverId,
                             username = name,
-                            role = if (isSuperAdmin) "SuperAdmin" else "Staff",
-                            pin = hashedPin,
+                            role = localRole(roleStr),
+                            pin = "",
                             mobile = mobile,
                             email = email,
                             isActivated = isActivated,
-                            isActive = true,
-                            canViewCustomers = getPerm("can_view_customers"),
-                            canAddCustomers = getPerm("can_add_customers"),
-                            canEditCustomers = getPerm("can_edit_customers"),
-                            canDeleteCustomers = getPerm("can_delete_customers"),
-                            canViewSuppliers = getPerm("can_view_suppliers"),
-                            canAddSuppliers = getPerm("can_add_suppliers"),
-                            canEditSuppliers = getPerm("can_edit_suppliers"),
-                            canDeleteSuppliers = getPerm("can_delete_suppliers"),
-                            canViewTransactions = getPerm("can_view_transactions"),
-                            canAddTransactions = getPerm("can_add_transactions"),
-                            canEditTransactions = getPerm("can_edit_transactions"),
-                            canDeleteTransactions = getPerm("can_delete_transactions"),
-                            canManageWallet = getPerm("can_manage_wallet"),
-                            canManageExpenses = getPerm("can_manage_expenses"),
-                            canViewReports = getPerm("can_view_reports")
+                            isActive = isActivated,
+                            canViewCustomers = permissionValue(permsMap, "can_view_customers"),
+                            canAddCustomers = permissionValue(permsMap, "can_add_customers"),
+                            canEditCustomers = permissionValue(permsMap, "can_edit_customers"),
+                            canDeleteCustomers = permissionValue(permsMap, "can_delete_customers"),
+                            canViewSuppliers = permissionValue(permsMap, "can_view_suppliers"),
+                            canAddSuppliers = permissionValue(permsMap, "can_add_suppliers"),
+                            canEditSuppliers = permissionValue(permsMap, "can_edit_suppliers"),
+                            canDeleteSuppliers = permissionValue(permsMap, "can_delete_suppliers"),
+                            canViewTransactions = permissionValue(permsMap, "can_view_transactions"),
+                            canAddTransactions = permissionValue(permsMap, "can_add_transactions"),
+                            canEditTransactions = permissionValue(permsMap, "can_edit_transactions"),
+                            canDeleteTransactions = permissionValue(permsMap, "can_delete_transactions"),
+                            canManageWallet = permissionValue(permsMap, "can_manage_wallet"),
+                            canManageExpenses = permissionValue(permsMap, "can_manage_expenses"),
+                            canViewReports = permissionValue(permsMap, "can_view_reports")
                         )
-                        if (existing != null) {
-                            repository.updateOperator(op)
-                            if (_currentOperator.value?.id == existing.id || (_currentOperator.value?.role == "SuperAdmin" && isSuperAdmin)) {
-                                _currentOperator.value = op
-                                if (mobile.isNotBlank()) tokenManager?.saveLastMobile(mobile)
-                            }
-                        } else {
-                            repository.insertOperator(op)
-                        }
+                        if (existing != null && existing.id != serverId) repository.removeOperatorLocally(existing)
+                        repository.insertOperator(op)
                     }
 
-                    // Purge old orphan local operators or old duplicates
-                    val updatedOps = operators.value
-                    val superAdmins = updatedOps.filter { it.role == "SuperAdmin" }
-                    if (superAdmins.size > 1) {
-                        val mainSuperAdmin = superAdmins.find { it.id == _currentOperator.value?.id } ?: superAdmins.last()
-                        superAdmins.forEach { sa ->
-                            if (sa.id != mainSuperAdmin.id) {
-                                repository.deleteOperator(sa)
-                            }
-                        }
-                    }
-
+                    val authenticatedId = _currentOperator.value?.id
                     currentOps.forEach { localOp ->
-                        val isServerMobileMatch = validMobiles.contains(localOp.mobile.trim())
-                        val isServerIdMatch = validIds.contains(localOp.id)
-                        val isCurrentSuperAdmin = localOp.role == "SuperAdmin" && rawOps.any {
-                            val r = it["role"]?.toString() ?: ""
-                            r.equals("manager", true) || r.equals("superadmin", true) || r.equals("owner", true)
-                        }
-
-                        if (!isServerMobileMatch && !isServerIdMatch && !isCurrentSuperAdmin) {
-                            repository.deleteOperator(localOp)
+                        if (localOp.id != authenticatedId && localOp.id !in validIds) {
+                            repository.removeOperatorLocally(localOp)
                         }
                     }
+                } else {
+                    com.safa.account.utils.SafaLogger.warn("OPERATORS", "Operator refresh rejected with HTTP ${res.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("OPERATORS", "Operator refresh failed", e)
             }
         }
     }
@@ -1255,115 +1138,136 @@ class SafaViewModel(
         role: String,
         pin: String,
         permissionsMap: Map<String, Boolean>,
-        onComplete: () -> Unit
+        onResult: (Boolean, String?) -> Unit
     ) {
         viewModelScope.launch {
+            if (_currentOperator.value?.role != "SuperAdmin") {
+                onResult(false, t("access_denied"))
+                return@launch
+            }
             try {
                 val api = syncManager?.getApiService()
-                if (api != null) {
-                    val apiRole = if (role.equals("Owner", true) || role.equals("Admin", true) || role.equals("SuperAdmin", true)) "manager" else "staff"
-                    val req = com.safa.account.data.api.dto.OperatorApiRequest(
-                        name = name.trim(),
-                        mobile = mobile.trim(),
-                        email = email.ifBlank { null },
-                        role = apiRole,
-                        pin = pin,
-                        isActivated = true,
-                        permissions = permissionsMap
-                    )
-                    api.createOperator(req)
+                if (api == null) {
+                    onResult(false, safeConnectionFailure())
+                    return@launch
                 }
+                val apiRole = when (role.trim().lowercase()) {
+                    "manager", "owner" -> "manager"
+                    "admin" -> "admin"
+                    "user" -> "user"
+                    else -> "staff"
+                }
+                val req = com.safa.account.data.api.dto.OperatorApiRequest(
+                    name = name.trim(),
+                    mobile = mobile.trim(),
+                    email = email.ifBlank { null },
+                    role = apiRole,
+                    pin = pin,
+                    isActivated = true,
+                    permissions = permissionsMap
+                )
+                val response = api.createOperator(req)
+                if (!response.isSuccessful) {
+                    com.safa.account.utils.SafaLogger.warn("OPERATOR_CREATE", "Operator creation rejected with HTTP ${response.code()}")
+                    onResult(false, safeServerFailure("Create operator", response.code()))
+                    return@launch
+                }
+                fetchOperatorsFromServer()
+                onResult(true, null)
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("OPERATOR_CREATE", "Server operator creation failed", e)
+                onResult(false, safeConnectionFailure())
             }
-            val hashedPin = com.safa.account.utils.HashUtils.hashPin(pin)
-            val op = OperatorAccount(
-                username = name,
-                mobile = mobile.trim(),
-                email = email.trim(),
-                role = role,
-                pin = hashedPin,
-                isActivated = true,
-                isActive = true,
-                canViewCustomers = permissionsMap["can_view_customers"] ?: true,
-                canAddCustomers = permissionsMap["can_add_customers"] ?: true,
-                canEditCustomers = permissionsMap["can_edit_customers"] ?: true,
-                canDeleteCustomers = permissionsMap["can_delete_customers"] ?: true,
-                canViewSuppliers = permissionsMap["can_view_suppliers"] ?: true,
-                canAddSuppliers = permissionsMap["can_add_suppliers"] ?: true,
-                canEditSuppliers = permissionsMap["can_edit_suppliers"] ?: true,
-                canDeleteSuppliers = permissionsMap["can_delete_suppliers"] ?: true,
-                canViewTransactions = permissionsMap["can_view_transactions"] ?: true,
-                canAddTransactions = permissionsMap["can_add_transactions"] ?: true,
-                canEditTransactions = permissionsMap["can_edit_transactions"] ?: true,
-                canDeleteTransactions = permissionsMap["can_delete_transactions"] ?: true,
-                canManageWallet = permissionsMap["can_manage_wallet"] ?: true,
-                canManageExpenses = permissionsMap["can_manage_expenses"] ?: true,
-                canViewReports = permissionsMap["can_view_reports"] ?: true
-            )
-            repository.insertOperator(op)
-            onComplete()
         }
     }
 
     fun updateOperatorOnServer(
         op: OperatorAccount,
         newPin: String? = null,
-        onComplete: () -> Unit = {}
+        onResult: (Boolean, String?) -> Unit = { _, _ -> }
     ) {
         viewModelScope.launch {
+            if (_currentOperator.value?.role != "SuperAdmin") {
+                onResult(false, t("access_denied"))
+                return@launch
+            }
             try {
                 val api = syncManager?.getApiService()
-                if (api != null && op.id > 0) {
-                    val apiRole = if (op.role.equals("Owner", true) || op.role.equals("Admin", true) || op.role.equals("SuperAdmin", true)) "manager" else "staff"
-                    val permsMap = mapOf(
-                        "can_view_customers" to op.canViewCustomers,
-                        "can_add_customers" to op.canAddCustomers,
-                        "can_edit_customers" to op.canEditCustomers,
-                        "can_delete_customers" to op.canDeleteCustomers,
-                        "can_view_suppliers" to op.canViewSuppliers,
-                        "can_add_suppliers" to op.canAddSuppliers,
-                        "can_edit_suppliers" to op.canEditSuppliers,
-                        "can_delete_suppliers" to op.canDeleteSuppliers,
-                        "can_view_transactions" to op.canViewTransactions,
-                        "can_add_transactions" to op.canAddTransactions,
-                        "can_edit_transactions" to op.canEditTransactions,
-                        "can_delete_transactions" to op.canDeleteTransactions,
-                        "can_manage_wallet" to op.canManageWallet,
-                        "can_manage_expenses" to op.canManageExpenses,
-                        "can_view_reports" to op.canViewReports
-                    )
-                    val req = com.safa.account.data.api.dto.OperatorApiRequest(
-                        name = op.username,
-                        mobile = op.mobile,
-                        email = op.email.ifBlank { null },
-                        role = apiRole,
-                        pin = newPin.takeIf { !it.isNullOrBlank() && it.length == 6 },
-                        isActivated = op.isActivated,
-                        permissions = permsMap
-                    )
-                    api.updateOperator(op.id, req)
+                if (api == null || op.id <= 0) {
+                    onResult(false, safeConnectionFailure())
+                    return@launch
                 }
+                val apiRole = when (op.role.trim().lowercase()) {
+                    "manager", "owner" -> "manager"
+                    "admin" -> "admin"
+                    "user" -> "user"
+                    else -> "staff"
+                }
+                val permsMap = mapOf(
+                    "can_view_customers" to op.canViewCustomers,
+                    "can_add_customers" to op.canAddCustomers,
+                    "can_edit_customers" to op.canEditCustomers,
+                    "can_delete_customers" to op.canDeleteCustomers,
+                    "can_view_suppliers" to op.canViewSuppliers,
+                    "can_add_suppliers" to op.canAddSuppliers,
+                    "can_edit_suppliers" to op.canEditSuppliers,
+                    "can_delete_suppliers" to op.canDeleteSuppliers,
+                    "can_view_transactions" to op.canViewTransactions,
+                    "can_add_transactions" to op.canAddTransactions,
+                    "can_edit_transactions" to op.canEditTransactions,
+                    "can_delete_transactions" to op.canDeleteTransactions,
+                    "can_manage_wallet" to op.canManageWallet,
+                    "can_manage_expenses" to op.canManageExpenses,
+                    "can_view_reports" to op.canViewReports
+                )
+                val req = com.safa.account.data.api.dto.OperatorApiRequest(
+                    name = op.username,
+                    mobile = op.mobile,
+                    email = op.email.ifBlank { null },
+                    role = apiRole,
+                    pin = newPin.takeIf { !it.isNullOrBlank() && it.length == 6 },
+                    isActivated = op.isActivated,
+                    permissions = permsMap
+                )
+                val response = api.updateOperator(op.id, req)
+                if (!response.isSuccessful) {
+                    com.safa.account.utils.SafaLogger.warn("OPERATOR_UPDATE", "Operator update rejected with HTTP ${response.code()}")
+                    onResult(false, safeServerFailure("Update operator", response.code()))
+                    return@launch
+                }
+                repository.updateOperator(op.copy(role = localRole(apiRole), pin = ""))
+                onResult(true, null)
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("OPERATOR_UPDATE", "Server operator update failed", e)
+                onResult(false, safeConnectionFailure())
             }
-            repository.updateOperator(op)
-            onComplete()
         }
     }
 
-    fun deleteOperatorOnServer(op: OperatorAccount, onComplete: () -> Unit = {}) {
+    fun deleteOperatorOnServer(op: OperatorAccount, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
+            if (_currentOperator.value?.role != "SuperAdmin") {
+                onResult(false, t("access_denied"))
+                return@launch
+            }
             try {
                 val api = syncManager?.getApiService()
-                if (api != null && op.id > 0) {
-                    api.deleteOperator(op.id)
+                if (api == null || op.id <= 0) {
+                    onResult(false, safeConnectionFailure())
+                    return@launch
                 }
+                val response = api.deleteOperator(op.id, confirmed = true)
+                if (!response.isSuccessful) {
+                    com.safa.account.utils.SafaLogger.warn("OPERATOR_DELETE", "Operator deletion rejected with HTTP ${response.code()}")
+                    onResult(false, safeServerFailure("Delete operator", response.code()))
+                    return@launch
+                }
+                repository.removeOperatorLocally(op)
+                onResult(true, null)
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("OPERATOR_DELETE", "Server operator deletion failed", e)
+                onResult(false, safeConnectionFailure())
             }
-            repository.deleteOperator(op)
-            onComplete()
         }
     }
 
@@ -1375,13 +1279,31 @@ class SafaViewModel(
         navigateTo(AppScreen.LOCK_SCREEN)
     }
 
-    fun switchOperatorDirectly(operator: com.safa.account.data.model.OperatorAccount) {
-        if (operator.isActive) {
-            _currentOperator.value = operator
-            _selectedLoginOperator.value = operator
-            _pinError.value = null
-            navigateTo(AppScreen.DASHBOARD)
-        }
+    /** Persist and expose only identity returned by the live authenticated session endpoint. */
+    suspend fun restoreAuthenticatedSession(userMap: Map<String, Any?>): Boolean {
+        val operator = authenticatedOperator(userMap) ?: return false
+        val existing = operators.value.find { it.id == operator.id }
+            ?: repository.getOperatorByMobile(operator.mobile)
+        if (existing != null && existing.id != operator.id) repository.removeOperatorLocally(existing)
+        repository.insertOperator(operator)
+        _isBiometricEnabled.value = operator.isBiometricEnabled
+        _currentOperator.value = operator
+        _selectedLoginOperator.value = operator
+        _pinError.value = null
+        _pinBuffer.value = ""
+        tokenManager?.saveLastMobile(operator.mobile)
+        fetchOperatorsFromServer()
+        fetchRemoteConfig()
+        triggerFullSync()
+        navigateTo(AppScreen.DASHBOARD)
+        return true
+    }
+
+    /** Operator changes require a fresh server-authenticated session. */
+    fun requestOperatorSwitch(operator: OperatorAccount) {
+        if (operator.id == _currentOperator.value?.id) return
+        tokenManager?.saveLastMobile(operator.mobile)
+        logout()
     }
 
 
@@ -1395,7 +1317,7 @@ class SafaViewModel(
             val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
 
             if (isOnline && syncManager != null) {
-                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create customer: $name")
+                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create customer")
                 try {
                     val api = syncManager.getApiService()
                     val res = api.createCustomer(mapOf("name" to name, "phone" to phone, "address" to address))
@@ -1410,18 +1332,17 @@ class SafaViewModel(
                         onComplete()
                         return@launch
                     } else {
-                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
-                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Create customer failed: $err")
-                        setPinError(err)
+                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Create customer rejected with HTTP ${res.code()}")
+                        setPinError(safeServerFailure("Create customer", res.code()))
                         return@launch
                     }
                 } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Create customer network call failed; using outbox", e)
                 }
             }
 
             // Offline or fallback to outbox queue
-            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create customer: $name")
+            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create customer")
             val localId = repository.insertCustomer(
                 Customer(name = name, phone = phone, address = address, syncStatus = SyncStatus.PENDING_CREATE)
             ).toInt()
@@ -1463,13 +1384,12 @@ class SafaViewModel(
                         repository.deleteCustomerById(id)
                         return@launch
                     } else {
-                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
-                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Delete customer failed: $err")
-                        setPinError(err)
+                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Delete customer rejected with HTTP ${res.code()}")
+                        setPinError(safeServerFailure("Delete customer", res.code()))
                         return@launch
                     }
                 } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Delete customer network call failed; using outbox", e)
                 }
             }
 
@@ -1499,7 +1419,7 @@ class SafaViewModel(
             val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
 
             if (isOnline && syncManager != null) {
-                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create supplier: $name")
+                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create supplier")
                 try {
                     val api = syncManager.getApiService()
                     val res = api.createSupplier(mapOf("name" to name, "phone" to phone, "address" to address))
@@ -1514,17 +1434,16 @@ class SafaViewModel(
                         onComplete()
                         return@launch
                     } else {
-                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
-                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Create supplier failed: $err")
-                        setPinError(err)
+                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Create supplier rejected with HTTP ${res.code()}")
+                        setPinError(safeServerFailure("Create supplier", res.code()))
                         return@launch
                     }
                 } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Create supplier network call failed; using outbox", e)
                 }
             }
 
-            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create supplier: $name")
+            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create supplier")
             val localId = repository.insertSupplier(
                 Supplier(name = name, phone = phone, address = address, syncStatus = SyncStatus.PENDING_CREATE)
             ).toInt()
@@ -1561,13 +1480,12 @@ class SafaViewModel(
                         repository.deleteSupplierById(id)
                         return@launch
                     } else {
-                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
-                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Delete supplier failed: $err")
-                        setPinError(err)
+                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Delete supplier rejected with HTTP ${res.code()}")
+                        setPinError(safeServerFailure("Delete supplier", res.code()))
                         return@launch
                     }
                 } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Delete supplier network call failed; using outbox", e)
                 }
             }
 
@@ -1592,9 +1510,9 @@ class SafaViewModel(
     // 3. Purchase / Deposit SAR to Supplier to Acquire BDT
     fun depositToSupplier(
         supplierId: Int,
-        amountSar: Double,
-        rate: Double,
-        paidBdt: Double = 0.0,
+        amountSar: BigDecimal,
+        rate: BigDecimal,
+        paidBdt: BigDecimal = MoneyMath.ZERO_AMOUNT,
         notes: String,
         transactionType: String = "SAR_GIVEN",
         ledgerId: Int = 0,
@@ -1602,15 +1520,18 @@ class SafaViewModel(
         onComplete: () -> Unit
     ) {
         viewModelScope.launch {
-            if (supplierId > 0 && amountSar > 0 && rate > 0) {
-                val amtBdt = java.math.BigDecimal(amountSar.toString()).multiply(java.math.BigDecimal(rate.toString())).toDouble()
+            if (supplierId > 0 && amountSar.signum() > 0 && rate.signum() > 0) {
+                val exactAmountSar = MoneyMath.nonNegativeAmount(amountSar)
+                val exactRate = MoneyMath.nonNegativeRate(rate)
+                val exactPaidBdt = MoneyMath.nonNegativeAmount(paidBdt)
+                val amtBdt = MoneyMath.multiply(exactAmountSar, exactRate)
                 val depositId = repository.insertSupplierDeposit(
                     SupplierDeposit(
                         supplierId = supplierId,
-                        amountSar = amountSar,
-                        rate = rate,
+                        amountSar = exactAmountSar,
+                        rate = exactRate,
                         amountBdt = amtBdt,
-                        paidBdt = paidBdt,
+                        paidBdt = exactPaidBdt,
                         transactionType = transactionType,
                         notes = notes,
                         timestamp = timestamp
@@ -1622,7 +1543,7 @@ class SafaViewModel(
                     repository.insertWalletBatch(
                         WalletBatch(
                             ledgerId = ledgerId,
-                            rate = rate,
+                            rate = exactRate,
                             initialBdt = amtBdt,
                             remainingBdt = amtBdt,
                             supplierId = supplierId,
@@ -1651,9 +1572,9 @@ class SafaViewModel(
             val batches = repository.allWalletBatches.firstOrNull() ?: emptyList()
             val match = batches.find { it.supplierDepositId == deposit.id }
             if (match != null) {
-                val newAmountBdt = java.math.BigDecimal(deposit.amountSar.toString()).multiply(java.math.BigDecimal(deposit.rate.toString())).toDouble()
-                val diff = java.math.BigDecimal(newAmountBdt.toString()).subtract(java.math.BigDecimal(match.initialBdt.toString())).toDouble()
-                val updatedRemaining = java.math.BigDecimal(match.remainingBdt.toString()).add(java.math.BigDecimal(diff.toString())).toDouble().coerceAtLeast(0.0)
+                val newAmountBdt = MoneyMath.multiply(deposit.amountSar, deposit.rate)
+                val diff = MoneyMath.subtract(newAmountBdt, match.initialBdt)
+                val updatedRemaining = MoneyMath.clampNonNegativeAmount(MoneyMath.add(match.remainingBdt, diff))
                 repository.updateWalletBatch(
                     match.copy(
                         rate = deposit.rate,
@@ -1703,15 +1624,15 @@ class SafaViewModel(
         }
     }
 
-    fun addMoneyToWallet(ledgerId: Int, amountBdt: Double, rate: Double, notes: String, onComplete: () -> Unit = {}) {
-        if (ledgerId > 0 && amountBdt > 0 && rate > 0) {
+    fun addMoneyToWallet(ledgerId: Int, amountBdt: BigDecimal, rate: BigDecimal, notes: String, onComplete: () -> Unit = {}) {
+        if (ledgerId > 0 && amountBdt.signum() > 0 && rate.signum() > 0) {
             viewModelScope.launch {
                 repository.insertWalletBatch(
                     WalletBatch(
                         ledgerId = ledgerId,
-                        rate = rate,
-                        initialBdt = amountBdt,
-                        remainingBdt = amountBdt,
+                        rate = MoneyMath.nonNegativeRate(rate),
+                        initialBdt = MoneyMath.nonNegativeAmount(amountBdt),
+                        remainingBdt = MoneyMath.nonNegativeAmount(amountBdt),
                         notes = if (notes.isNotBlank()) notes else "Manual Capital Deposit"
                     )
                 )
@@ -1721,20 +1642,19 @@ class SafaViewModel(
         }
     }
 
-    fun deductMoneyFromWalletLedger(ledgerId: Int, amountBdtToDeduct: Double, onComplete: () -> Unit = {}) {
-        if (ledgerId > 0 && amountBdtToDeduct > 0) {
+    fun deductMoneyFromWalletLedger(ledgerId: Int, amountBdtToDeduct: BigDecimal, onComplete: () -> Unit = {}) {
+        if (ledgerId > 0 && amountBdtToDeduct.signum() > 0) {
             viewModelScope.launch {
                 val batches = repository.allWalletBatches.firstOrNull()
-                    ?.filter { it.ledgerId == ledgerId && it.remainingBdt > 0.01 }
+                    ?.filter { it.ledgerId == ledgerId && it.remainingBdt.signum() > 0 }
                     ?.sortedBy { it.timestamp } ?: emptyList()
-                var remainingToDeduct = java.math.BigDecimal(amountBdtToDeduct.toString())
+                var remainingToDeduct = MoneyMath.nonNegativeAmount(amountBdtToDeduct)
                 for (b in batches) {
-                    if (remainingToDeduct.compareTo(java.math.BigDecimal.ZERO) <= 0) break
-                    val bRemaining = java.math.BigDecimal(b.remainingBdt.toString())
+                    if (remainingToDeduct.signum() <= 0) break
+                    val bRemaining = b.remainingBdt
                     val deductFromThisBatch = if (bRemaining < remainingToDeduct) bRemaining else remainingToDeduct
-                    val newRemaining = bRemaining.subtract(deductFromThisBatch).toDouble()
-                    repository.updateWalletBatch(b.copy(remainingBdt = newRemaining))
-                    remainingToDeduct = remainingToDeduct.subtract(deductFromThisBatch)
+                    repository.updateWalletBatch(b.copy(remainingBdt = MoneyMath.subtract(bRemaining, deductFromThisBatch)))
+                    remainingToDeduct = MoneyMath.subtract(remainingToDeduct, deductFromThisBatch)
                 }
                 onComplete()
                 syncManager?.syncAll()
@@ -1742,13 +1662,14 @@ class SafaViewModel(
         }
     }
 
-    fun deductMoneyFromWalletBatch(batchId: Int, amountBdtToDeduct: Double, onComplete: () -> Unit = {}) {
-        if (batchId > 0 && amountBdtToDeduct > 0) {
+    fun deductMoneyFromWalletBatch(batchId: Int, amountBdtToDeduct: BigDecimal, onComplete: () -> Unit = {}) {
+        if (batchId > 0 && amountBdtToDeduct.signum() > 0) {
             viewModelScope.launch {
                 val batch = repository.getWalletBatchById(batchId)
                 if (batch != null) {
-                    val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(amountBdtToDeduct.toString())).toDouble()
-                    val updatedRemaining = rem.coerceAtLeast(0.0)
+                    val updatedRemaining = MoneyMath.clampNonNegativeAmount(
+                        MoneyMath.subtract(batch.remainingBdt, MoneyMath.nonNegativeAmount(amountBdtToDeduct))
+                    )
                     repository.updateWalletBatch(batch.copy(remainingBdt = updatedRemaining))
                     onComplete()
                     syncManager?.syncAll()
@@ -1761,45 +1682,49 @@ class SafaViewModel(
     fun createRemittance(
         customerId: Int,
         walletBatchId: Int,
-        amountSar: Double,
-        customerRate: Double,
+        amountSar: BigDecimal,
+        customerRate: BigDecimal,
         receiverName: String,
         receiverPhone: String,
         receiverAccountType: String,
         receiverAccountNo: String,
         notes: String,
-        sarCollected: Double? = null,
-        bdtDisbursed: Double? = null,
+        sarCollected: BigDecimal? = null,
+        bdtDisbursed: BigDecimal? = null,
         status: String = "Pending",
         timestamp: Long? = null,
         onComplete: () -> Unit
     ) {
         viewModelScope.launch {
             val batch = if (walletBatchId > 0) repository.getWalletBatchById(walletBatchId) else null
-            val resolvedSupplierRate = batch?.rate ?: customerRate
+            val exactAmountSar = MoneyMath.nonNegativeAmount(amountSar)
+            val exactCustomerRate = MoneyMath.nonNegativeRate(customerRate)
+            val resolvedSupplierRate = batch?.rate ?: exactCustomerRate
             val resolvedSupplierId = batch?.supplierId ?: 0
 
             val operatorId = _currentOperator.value?.id ?: 1
-            val amountBdt = java.math.BigDecimal(amountSar.toString()).multiply(java.math.BigDecimal(customerRate.toString())).toDouble()
-            val actualSarCollected = sarCollected ?: amountSar
-            val actualBdtDisbursed = bdtDisbursed ?: amountBdt
+            val amountBdt = MoneyMath.multiply(exactAmountSar, exactCustomerRate)
+            val actualSarCollected = MoneyMath.amount(sarCollected ?: exactAmountSar)
+            val actualBdtDisbursed = MoneyMath.nonNegativeAmount(bdtDisbursed ?: amountBdt)
             val actualTimestamp = timestamp ?: System.currentTimeMillis()
 
             val ctx = tokenManager?.getContext()
             val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
 
             if (isOnline && syncManager != null) {
-                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create transaction amountSar=$amountSar receiver=$receiverName")
+                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create transaction")
                 try {
                     val api = syncManager.getApiService()
                     val reqMap = mapOf(
                         "type" to status,
-                        "amount_sar" to amountSar,
+                        "amount_sar" to MoneyMath.amountString(exactAmountSar),
                         "customer_id" to customerId,
                         "supplier_id" to resolvedSupplierId,
-                        "customer_rate" to customerRate,
-                        "supplier_rate" to resolvedSupplierRate,
-                        "amount_bdt" to amountBdt,
+                        "customer_rate" to MoneyMath.rateString(exactCustomerRate),
+                        "supplier_rate" to MoneyMath.rateString(resolvedSupplierRate),
+                        "amount_bdt" to MoneyMath.amountString(amountBdt),
+                        "sar_collected" to MoneyMath.amountString(actualSarCollected),
+                        "bdt_disbursed" to MoneyMath.amountString(actualBdtDisbursed),
                         "receiver_name" to receiverName,
                         "receiver_phone" to receiverPhone,
                         "receiver_account_type" to receiverAccountType,
@@ -1818,8 +1743,8 @@ class SafaViewModel(
                                 serverId = serverId,
                                 customerId = customerId,
                                 supplierId = resolvedSupplierId,
-                                amountSar = amountSar,
-                                customerRate = customerRate,
+                                amountSar = exactAmountSar,
+                                customerRate = exactCustomerRate,
                                 supplierRate = resolvedSupplierRate,
                                 amountBdt = amountBdt,
                                 receiverName = receiverName,
@@ -1837,29 +1762,29 @@ class SafaViewModel(
                             )
                         )
                         if (batch != null) {
-                            val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(amountBdt.toString())).toDouble()
-                            repository.updateWalletBatch(batch.copy(remainingBdt = rem.coerceAtLeast(0.0)))
+                            repository.updateWalletBatch(
+                                batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, amountBdt)))
+                            )
                         }
                         onComplete()
                         return@launch
                     } else {
-                        val err = res.errorBody()?.string() ?: "Server error HTTP ${res.code()}"
-                        com.safa.account.utils.SafaLogger.error("SERVER_RESPONSE", "Create transaction failed: $err")
-                        setPinError(err)
+                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Create transaction rejected with HTTP ${res.code()}")
+                        setPinError(safeServerFailure("Create transaction", res.code()))
                         return@launch
                     }
                 } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.warn("OFFLINE_QUEUE", "Network call failed, falling back to outbox queue: ${e.message}")
+                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Create transaction network call failed; using outbox", e)
                 }
             }
 
             // Offline or fallback to outbox queue
-            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create transaction amountSar=$amountSar")
+            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create transaction")
             val localTx = RemittanceTransaction(
                 customerId = customerId,
                 supplierId = resolvedSupplierId,
-                amountSar = amountSar,
-                customerRate = customerRate,
+                amountSar = exactAmountSar,
+                customerRate = exactCustomerRate,
                 supplierRate = resolvedSupplierRate,
                 amountBdt = amountBdt,
                 receiverName = receiverName,
@@ -1878,19 +1803,22 @@ class SafaViewModel(
             val localId = repository.insertTransaction(localTx).toInt()
 
             if (batch != null) {
-                val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(amountBdt.toString())).toDouble()
-                repository.updateWalletBatch(batch.copy(remainingBdt = rem.coerceAtLeast(0.0)))
+                repository.updateWalletBatch(
+                    batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, amountBdt)))
+                )
             }
 
             val payloadMap = mapOf(
                 "local_id" to localId,
                 "type" to status,
-                "amount_sar" to amountSar,
+                "amount_sar" to MoneyMath.amountString(exactAmountSar),
                 "customer_id" to customerId,
                 "supplier_id" to resolvedSupplierId,
-                "customer_rate" to customerRate,
-                "supplier_rate" to resolvedSupplierRate,
-                "amount_bdt" to amountBdt,
+                "customer_rate" to MoneyMath.rateString(exactCustomerRate),
+                "supplier_rate" to MoneyMath.rateString(resolvedSupplierRate),
+                "amount_bdt" to MoneyMath.amountString(amountBdt),
+                "sar_collected" to MoneyMath.amountString(actualSarCollected),
+                "bdt_disbursed" to MoneyMath.amountString(actualBdtDisbursed),
                 "receiver_name" to receiverName,
                 "receiver_phone" to receiverPhone,
                 "receiver_account_type" to receiverAccountType,
@@ -1920,8 +1848,7 @@ class SafaViewModel(
                 if (transaction.walletBatchId > 0) {
                     val batch = repository.getWalletBatchById(transaction.walletBatchId)
                     if (batch != null) {
-                        val newRemaining = java.math.BigDecimal(batch.remainingBdt.toString()).add(java.math.BigDecimal(transaction.amountBdt.toString())).toDouble()
-                        repository.updateWalletBatch(batch.copy(remainingBdt = newRemaining))
+                        repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.add(batch.remainingBdt, transaction.amountBdt)))
                     }
                 }
             } else if (newStatus != "Cancelled" && transaction.status == "Cancelled") {
@@ -1929,8 +1856,9 @@ class SafaViewModel(
                 if (transaction.walletBatchId > 0) {
                     val batch = repository.getWalletBatchById(transaction.walletBatchId)
                     if (batch != null) {
-                        val rem = java.math.BigDecimal(batch.remainingBdt.toString()).subtract(java.math.BigDecimal(transaction.amountBdt.toString())).toDouble()
-                        repository.updateWalletBatch(batch.copy(remainingBdt = rem.coerceAtLeast(0.0)))
+                        repository.updateWalletBatch(
+                            batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, transaction.amountBdt)))
+                        )
                     }
                 }
             }
@@ -1949,8 +1877,7 @@ class SafaViewModel(
                 if (tx.status != "Cancelled" && tx.walletBatchId > 0) {
                     val batch = repository.getWalletBatchById(tx.walletBatchId)
                     if (batch != null) {
-                        val newRemaining = java.math.BigDecimal(batch.remainingBdt.toString()).add(java.math.BigDecimal(tx.amountBdt.toString())).toDouble()
-                        repository.updateWalletBatch(batch.copy(remainingBdt = newRemaining))
+                        repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.add(batch.remainingBdt, tx.amountBdt)))
                     }
                 }
                 repository.softDeleteTransactionById(id)
@@ -1963,18 +1890,18 @@ class SafaViewModel(
     // 5. Save Operational Expense / Income
     fun addExpenseIncome(
         title: String,
-        amount: Double,
+        amount: BigDecimal,
         currency: String,
         isExpense: Boolean,
         category: String,
         onComplete: () -> Unit
     ) {
         viewModelScope.launch {
-            if (title.isNotBlank() && amount > 0) {
+            if (title.isNotBlank() && amount.signum() > 0) {
                 repository.insertExpenseIncome(
                     ExpenseIncome(
                         title = title,
-                        amount = amount,
+                        amount = MoneyMath.nonNegativeAmount(amount),
                         currency = currency,
                         isExpense = isExpense,
                         category = category
@@ -1998,19 +1925,19 @@ class SafaViewModel(
             try {
                 syncManager?.syncAll()
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.safa.account.utils.SafaLogger.error("SYNC", "Background sync trigger failed", e)
             }
         }
     }
 
     // 6. Update Daily Standard Market Rates
-    fun publishDailyRates(customerRate: Double, supplierRate: Double, onComplete: () -> Unit) {
+    fun publishDailyRates(customerRate: BigDecimal, supplierRate: BigDecimal, onComplete: () -> Unit) {
         viewModelScope.launch {
             val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             val updated = DailyRate(
                 date = dateStr,
-                customerRate = customerRate,
-                supplierRate = supplierRate
+                customerRate = MoneyMath.nonNegativeRate(customerRate),
+                supplierRate = MoneyMath.nonNegativeRate(supplierRate)
             )
             repository.insertDailyRate(updated)
             _currentRates.value = updated
@@ -2020,23 +1947,6 @@ class SafaViewModel(
     }
 
     // 7. Add Staff Operator
-    fun addOperator(username: String, pin: String, role: String, permissions: String = "edit,create,delete,update", onComplete: () -> Unit) {
-        viewModelScope.launch {
-            if (username.isNotBlank() && pin.length >= 4) {
-                repository.insertOperator(
-                    OperatorAccount(
-                        username = username,
-                        pin = com.safa.account.utils.HashUtils.hashPin(pin),
-                        role = role,
-                        isActive = true
-                    )
-                )
-                onComplete()
-                syncManager?.syncAll()
-            }
-        }
-    }
-
     fun updateOperator(operator: OperatorAccount, onComplete: () -> Unit = {}) {
         _currentOperator.value = operator
         viewModelScope.launch {
@@ -2046,29 +1956,44 @@ class SafaViewModel(
         }
     }
 
-    // Change PIN of currently active operator
-    fun updateOperatorPin(newPin: String, onComplete: () -> Unit) {
+    /** Change the current PIN through the authenticated server authority. */
+    fun updateOperatorPin(currentPin: String, newPin: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             val op = _currentOperator.value
-            if (op != null && newPin.length == 6 && newPin.all { it.isDigit() }) {
-                val hashedPin = com.safa.account.utils.HashUtils.hashPin(newPin)
-                val updatedOp = op.copy(pin = hashedPin)
+            if (op == null || currentPin.length != 6 || newPin.length != 6 ||
+                !currentPin.all { it.isDigit() } || !newPin.all { it.isDigit() } || currentPin == newPin
+            ) {
+                onResult(false, if (_currentLanguage.value == "BN") "দুটি আলাদা ৬ সংখ্যার পিন দিন।" else "Enter two different six-digit PINs.")
+                return@launch
+            }
+
+            try {
+                val api = syncManager?.getApiService()
+                if (api == null) {
+                    onResult(false, safeConnectionFailure())
+                    return@launch
+                }
+                val response = api.changePin(com.safa.account.data.api.dto.ChangePinRequest(currentPin, newPin))
+                if (!response.isSuccessful) {
+                    com.safa.account.utils.SafaLogger.warn("PIN_CHANGE", "PIN change rejected with HTTP ${response.code()}")
+                    val message = when (response.code()) {
+                        401 -> if (_currentLanguage.value == "BN") "বর্তমান পিন সঠিক নয়।" else "Current PIN is incorrect."
+                        422 -> if (_currentLanguage.value == "BN") "নতুন পিনটি আলাদা ৬ সংখ্যার হতে হবে।" else "The new PIN must be a different six-digit PIN."
+                        else -> safeServerFailure("PIN change", response.code())
+                    }
+                    onResult(false, message)
+                    return@launch
+                }
+
+                // PIN verifiers remain server-only; no reusable PIN material is
+                // persisted in the Android operator cache.
+                val updatedOp = op.copy(pin = "")
                 repository.updateOperator(updatedOp)
                 _currentOperator.value = updatedOp
-                onComplete()
-                syncManager?.syncAll()
-            }
-        }
-    }
-
-    // Delete registration of a staff or owner account
-    fun deleteOperatorAccount(operator: OperatorAccount, onComplete: () -> Unit) {
-        viewModelScope.launch {
-            // Cannot delete current logged-in user
-            if (operator.id != _currentOperator.value?.id) {
-                repository.deleteOperator(operator)
-                onComplete()
-                syncManager?.syncAll()
+                onResult(true, null)
+            } catch (e: Exception) {
+                com.safa.account.utils.SafaLogger.error("PIN_CHANGE", "PIN change request failed", e)
+                onResult(false, safeConnectionFailure())
             }
         }
     }

@@ -7,6 +7,7 @@ use App\Models\Transaction;
 use App\Models\Customer;
 use App\Models\Supplier;
 use App\Models\WalletBatch;
+use App\Support\MoneyDecimal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -23,13 +24,22 @@ class TransactionController extends Controller
 
     private function decimal(mixed $value, int $scale, int $integerDigits): string
     {
-        if ($value === null || $value === '') return '0.' . str_repeat('0', $scale);
-        $raw = trim((string) $value);
-        if (!preg_match('/^(?:0|[0-9]+)(?:\.[0-9]+)?$/', $raw)) throw new \InvalidArgumentException('Invalid decimal value.');
-        [$whole, $fraction] = array_pad(explode('.', $raw, 2), 2, '');
-        $whole = ltrim($whole, '0') ?: '0';
-        if (strlen($whole) > $integerDigits || strlen($fraction) > $scale) throw new \InvalidArgumentException('Decimal value is out of range or has excessive precision.');
-        return $whole . '.' . str_pad($fraction, $scale, '0');
+        if ($value === null || $value === '') $value = 0;
+        return MoneyDecimal::unsigned($value, $scale, $integerDigits);
+    }
+
+    private function exactDecimalRule(int $scale, int $integerDigits, bool $signed = false): \Closure
+    {
+        return static function (string $attribute, mixed $value, \Closure $fail) use ($scale, $integerDigits, $signed): void {
+            if ($value === null || $value === '') return;
+            try {
+                $signed
+                    ? MoneyDecimal::signed($value, $scale, $integerDigits)
+                    : MoneyDecimal::unsigned($value, $scale, $integerDigits);
+            } catch (\InvalidArgumentException) {
+                $fail("The {$attribute} field must be a supported fixed-point decimal.");
+            }
+        };
     }
 
     private function validateAccountRelationships(array $input, int $accountId)
@@ -63,8 +73,9 @@ class TransactionController extends Controller
         if (isset($context['error'])) return $context['error'];
 
         $validator = Validator::make($request->all(), [
-            'amount_sar' => 'nullable', 'amount' => 'nullable', 'customer_id' => 'nullable|integer|min:0', 'supplier_id' => 'nullable|integer|min:0',
-            'customer_rate' => 'nullable', 'supplier_rate' => 'nullable', 'amount_bdt' => 'nullable', 'receiver_name' => 'nullable|string|max:255',
+            'amount_sar' => ['nullable', $this->exactDecimalRule(2, 13)], 'amount' => ['nullable', $this->exactDecimalRule(2, 13)], 'customer_id' => 'nullable|integer|min:0', 'supplier_id' => 'nullable|integer|min:0',
+            'customer_rate' => ['nullable', $this->exactDecimalRule(4, 6)], 'supplier_rate' => ['nullable', $this->exactDecimalRule(4, 6)], 'amount_bdt' => ['nullable', $this->exactDecimalRule(2, 13)],
+            'sar_collected' => ['nullable', $this->exactDecimalRule(2, 13, true)], 'bdt_disbursed' => ['nullable', $this->exactDecimalRule(2, 13)], 'receiver_name' => 'nullable|string|max:255',
             'receiver_phone' => 'nullable|string|max:50', 'receiver_account_type' => 'nullable|string|max:50', 'receiver_account_no' => 'nullable|string|max:100',
             'wallet_batch_id' => 'nullable|integer|min:0', 'notes' => 'nullable|string|max:5000', 'local_id' => 'nullable|integer|min:1',
             'timestamp' => 'nullable|integer|min:1', 'type' => 'nullable|string|max:20', 'hash' => 'nullable|string|max:255',
@@ -76,6 +87,7 @@ class TransactionController extends Controller
             $transaction = DB::transaction(function () use ($request, $context) {
                 $amountSar = $this->decimal($request->input('amount_sar') ?? $request->input('amount') ?? 0, 2, 13);
                 $localId = (int) ($request->input('local_id') ?: floor(microtime(true) * 1000));
+                $amountBdt = $this->decimal($request->input('amount_bdt') ?: 0, 2, 13);
                 return Transaction::withTrashed()->updateOrCreate(
                     ['account_id' => (int) $context['account_id'], 'local_id' => $localId],
                     [
@@ -85,7 +97,9 @@ class TransactionController extends Controller
                         'supplier_id' => $this->nullableForeignKey($request, 'supplier_id'),
                         'customer_rate' => $this->decimal($request->input('customer_rate') ?: 0, 4, 6),
                         'supplier_rate' => $this->decimal($request->input('supplier_rate') ?: 0, 4, 6),
-                        'amount_bdt' => $this->decimal($request->input('amount_bdt') ?: 0, 2, 13),
+                        'amount_bdt' => $amountBdt,
+                        'sar_collected' => MoneyDecimal::signed($request->input('sar_collected', $amountSar), 2, 13),
+                        'bdt_disbursed' => MoneyDecimal::unsigned($request->input('bdt_disbursed', $amountBdt), 2, 13),
                         'receiver_name' => substr((string) $request->input('receiver_name', ''), 0, 255),
                         'receiver_phone' => substr((string) $request->input('receiver_phone', ''), 0, 50),
                         'receiver_account_type' => substr((string) $request->input('receiver_account_type', ''), 0, 50),
@@ -112,7 +126,8 @@ class TransactionController extends Controller
 
         $validator = Validator::make($request->all(), [
             'type' => 'nullable|string|max:20', 'customer_id' => 'nullable|integer|min:0', 'supplier_id' => 'nullable|integer|min:0',
-            'amount_sar' => 'nullable', 'amount' => 'nullable', 'customer_rate' => 'nullable', 'supplier_rate' => 'nullable', 'amount_bdt' => 'nullable',
+            'amount_sar' => ['nullable', $this->exactDecimalRule(2, 13)], 'amount' => ['nullable', $this->exactDecimalRule(2, 13)], 'customer_rate' => ['nullable', $this->exactDecimalRule(4, 6)], 'supplier_rate' => ['nullable', $this->exactDecimalRule(4, 6)], 'amount_bdt' => ['nullable', $this->exactDecimalRule(2, 13)],
+            'sar_collected' => ['nullable', $this->exactDecimalRule(2, 13, true)], 'bdt_disbursed' => ['nullable', $this->exactDecimalRule(2, 13)],
             'receiver_name' => 'nullable|string|max:255', 'receiver_phone' => 'nullable|string|max:50', 'receiver_account_type' => 'nullable|string|max:50',
             'receiver_account_no' => 'nullable|string|max:100', 'wallet_batch_id' => 'nullable|integer|min:0', 'notes' => 'nullable|string|max:5000',
             'timestamp' => 'nullable|integer|min:1', 'hash' => 'nullable|string|max:255',
@@ -131,6 +146,8 @@ class TransactionController extends Controller
                 foreach (['amount_sar','customer_rate','supplier_rate','amount_bdt'] as $field) {
                     if ($request->has($field)) $transaction->{$field} = $this->decimal($request->input($field) ?: 0, in_array($field, ['amount_sar','amount_bdt'], true) ? 2 : 4, in_array($field, ['amount_sar','amount_bdt'], true) ? 13 : 6);
                 }
+                if ($request->has('sar_collected')) $transaction->sar_collected = MoneyDecimal::signed($request->input('sar_collected'), 2, 13);
+                if ($request->has('bdt_disbursed')) $transaction->bdt_disbursed = MoneyDecimal::unsigned($request->input('bdt_disbursed'), 2, 13);
                 if ($request->has('amount') && !$request->has('amount_sar')) $transaction->amount_sar = $this->decimal($request->input('amount') ?: 0, 2, 13);
                 $transaction->amount = $transaction->amount_sar;
                 if ($request->has('timestamp')) $transaction->timestamp = $this->timestamp($request->input('timestamp'));

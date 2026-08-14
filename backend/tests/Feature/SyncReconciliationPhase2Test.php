@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Customer;
+use App\Models\Transaction;
 use App\Models\SafaApiKey;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -180,5 +181,46 @@ class SyncReconciliationPhase2Test extends TestCase
         $this->assertSame(1, Customer::where('account_id', $accountB->id)->where('local_id', 9201)->count());
         $this->assertSame('Account A Customer', Customer::findOrFail($serverIdA)->name);
         $this->assertSame('Account B Customer', Customer::findOrFail($serverIdB)->name);
+    }
+
+    public function test_transaction_money_round_trip_is_exact_idempotent_and_keeps_settlements(): void
+    {
+        $account = $this->account('Exact Money Account');
+        $payload = [
+            'transactions' => [[
+                'local_id' => 9301,
+                'type' => 'Pending',
+                'amount_sar' => '0.30000000000000004',
+                'customer_rate' => '32.12345',
+                'supplier_rate' => '32',
+                'amount_bdt' => '9.637',
+                'sar_collected' => '-0.105',
+                'bdt_disbursed' => '9.637',
+                'timestamp' => 1700000600,
+            ]],
+        ];
+
+        $first = $this->sync($payload)->assertOk();
+        $second = $this->sync($payload)->assertOk();
+        $this->assertTrue((bool) $second->json('accepted.transactions.0.idempotent'));
+
+        $transaction = Transaction::where('account_id', $account->id)
+            ->where('local_id', 9301)
+            ->firstOrFail();
+        $this->assertSame('0.30', $transaction->amount_sar);
+        $this->assertSame('32.1235', $transaction->customer_rate);
+        $this->assertSame('32.0000', $transaction->supplier_rate);
+        $this->assertSame('9.64', $transaction->amount_bdt);
+        $this->assertSame('-0.11', $transaction->sar_collected);
+        $this->assertSame('9.64', $transaction->bdt_disbursed);
+
+        $download = $this->withHeaders(['X-SAFA-API-KEY' => $this->apiKey])
+            ->getJson('/api/sync/down')
+            ->assertOk();
+        $row = collect($download->json('transactions'))->firstWhere('local_id', 9301);
+        $this->assertSame('0.30', $row['amount_sar']);
+        $this->assertSame('-0.11', $row['sar_collected']);
+        $this->assertSame('9.64', $row['bdt_disbursed']);
+        $this->assertSame(1, Transaction::where('account_id', $account->id)->where('local_id', 9301)->count());
     }
 }

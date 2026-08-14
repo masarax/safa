@@ -74,7 +74,9 @@ class UserManagementApiTest extends TestCase
         $resUpdate = $this->withHeaders($this->getAuthHeaders($superAdmin, 'PATCH', "api/auth/operators/{$opId}", json_encode($updateData)))->patchJson("/api/auth/operators/{$opId}", $updateData);
         $resUpdate->assertStatus(200);
         $this->assertDatabaseHas('users', ['id' => $opId, 'name' => 'Updated Operator', 'is_activated' => 0]);
-        $this->withHeaders($this->getAuthHeaders($superAdmin, 'DELETE', "api/auth/operators/{$opId}"))->deleteJson("/api/auth/operators/{$opId}")->assertStatus(200);
+        $this->withHeaders($this->getAuthHeaders($superAdmin, 'DELETE', "api/auth/operators/{$opId}"))->deleteJson("/api/auth/operators/{$opId}")->assertStatus(409);
+        $this->assertDatabaseHas('users', ['id' => $opId]);
+        $this->withHeaders($this->getAuthHeaders($superAdmin, 'DELETE', "api/auth/operators/{$opId}"))->deleteJson("/api/auth/operators/{$opId}?confirmed=true")->assertStatus(200);
         $this->assertDatabaseMissing('users', ['id' => $opId]);
     }
 
@@ -89,7 +91,7 @@ class UserManagementApiTest extends TestCase
     public function test_superadmin_cannot_delete_themselves()
     {
         $superAdmin = $this->createSuperAdmin();
-        $this->withHeaders($this->getAuthHeaders($superAdmin, 'DELETE', "api/auth/operators/{$superAdmin->id}"))->deleteJson("/api/auth/operators/{$superAdmin->id}")->assertStatus(400);
+        $this->withHeaders($this->getAuthHeaders($superAdmin, 'DELETE', "api/auth/operators/{$superAdmin->id}"))->deleteJson("/api/auth/operators/{$superAdmin->id}?confirmed=true")->assertStatus(400);
         $this->assertDatabaseHas('users', ['id' => $superAdmin->id]);
     }
 

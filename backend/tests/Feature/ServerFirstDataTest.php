@@ -158,13 +158,48 @@ class ServerFirstDataTest extends TestCase
             'amount_sar' => 500.00,
             'customer_rate' => 32.50,
             'amount_bdt' => 16250.00,
+            'sar_collected' => 125.25,
+            'bdt_disbursed' => 4000.75,
             'receiver_name' => 'Rahim',
             'local_id' => 303,
         ]);
         $headers = $this->getHeaders($context, 'POST', 'api/transactions', $createBody);
         $res = $this->withHeaders($headers)->postJson('/api/transactions', json_decode($createBody, true));
         $res->assertStatus(201);
-        $this->assertDatabaseHas('transactions', ['amount_sar' => 500.00, 'amount_bdt' => 16250.00]);
+        $this->assertDatabaseHas('transactions', [
+            'amount_sar' => 500.00,
+            'amount_bdt' => 16250.00,
+            'sar_collected' => 125.25,
+            'bdt_disbursed' => 4000.75,
+        ]);
+    }
+
+    public function test_invalid_or_negative_money_is_a_validation_error_not_a_server_error(): void
+    {
+        $context = $this->createAuthenticatedContext();
+        $transactionBody = json_encode([
+            'type' => 'Pending',
+            'amount_sar' => '10.00',
+            'amount_bdt' => '321.00',
+            'bdt_disbursed' => '-0.01',
+            'local_id' => 304,
+        ]);
+        $this->withHeaders($this->getHeaders($context, 'POST', 'api/transactions', $transactionBody))
+            ->postJson('/api/transactions', json_decode($transactionBody, true))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('bdt_disbursed');
+
+        $depositBody = json_encode([
+            'amount_sar' => '10.00',
+            'rate' => '32.0000',
+            'amount_bdt' => 'not-a-decimal',
+            'paid_bdt' => '0.00',
+            'local_id' => 305,
+        ]);
+        $this->withHeaders($this->getHeaders($context, 'POST', 'api/supplier-deposits', $depositBody))
+            ->postJson('/api/supplier-deposits', json_decode($depositBody, true))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount_bdt');
     }
 
     public function test_protected_business_route_uses_named_api_rate_limiter(): void
