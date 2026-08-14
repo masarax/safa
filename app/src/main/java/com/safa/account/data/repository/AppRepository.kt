@@ -268,14 +268,18 @@ class AppRepository private constructor(
     private fun localId(modelId: Int): Int = if (modelId > 0) modelId else localStore?.nextLocalId() ?: (System.currentTimeMillis() and 0x7fffffff).toInt()
     private fun isServerAcceptedCreate(serverId: Int, syncStatus: Int): Boolean = serverId > 0 && syncStatus == SyncStatus.SYNCED
 
-    private suspend fun confirmDelete(entity: String): Boolean {
-        if (DeleteConfirmationCoordinator.consume("$entity:*")) return true
-        return DeleteConfirmationCoordinator.requestConfirmation("Delete data?", "This action cannot be undone.")
+    private enum class DeleteDisposition { LOCAL_CONFIRMED, REMOTE_ACCEPTED }
+
+    private suspend fun confirmDelete(entity: String, serverId: Int): DeleteDisposition? {
+        if (serverId > 0 && DeleteConfirmationCoordinator.consume("$entity:$serverId")) return DeleteDisposition.REMOTE_ACCEPTED
+        return if (DeleteConfirmationCoordinator.requestConfirmation("Delete data?", "This action cannot be undone.")) {
+            DeleteDisposition.LOCAL_CONFIRMED
+        } else null
     }
 
     suspend fun insertCustomer(c: Customer): Int { val id = localId(c.id); val accepted = isServerAcceptedCreate(c.serverId, c.syncStatus); val x = if (accepted) c.copy(id = id, syncStatus = SyncStatus.SYNCED, syncError = null, retryCount = 0) else c.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("customers", id, x.serverId, cp(x), OutboxOperation.CREATE, if (accepted) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish(); return id }
     suspend fun updateCustomer(c: Customer) { val x = c.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("customers", x.id, x.serverId, cp(x), OutboxOperation.UPDATE); publish() }
-    suspend fun deleteCustomerById(id: Int) { if (!confirmDelete("customers")) return; getCustomerById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("customers", x.id, x.serverId, cp(x), OutboxOperation.DELETE); publish() } }
+    suspend fun deleteCustomerById(id: Int) { val current = getCustomerById(id) ?: return; val disposition = confirmDelete("customers", current.serverId) ?: return; val synced = disposition == DeleteDisposition.REMOTE_ACCEPTED; val x = current.copy(deletedAt = System.currentTimeMillis(), syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING_DELETE); persist("customers", x.id, x.serverId, cp(x), OutboxOperation.DELETE, if (synced) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish() }
     suspend fun softDeleteCustomerById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteCustomerById(id)
     suspend fun getCustomerById(id: Int) = _customers.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingCustomers() = pending("customers", ::customer)
@@ -287,7 +291,7 @@ class AppRepository private constructor(
 
     suspend fun insertSupplier(s: Supplier): Int { val id = localId(s.id); val accepted = isServerAcceptedCreate(s.serverId, s.syncStatus); val x = if (accepted) s.copy(id = id, syncStatus = SyncStatus.SYNCED, syncError = null, retryCount = 0) else s.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("suppliers", id, x.serverId, sp(x), OutboxOperation.CREATE, if (accepted) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish(); return id }
     suspend fun updateSupplier(s: Supplier) { val x = s.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("suppliers", x.id, x.serverId, sp(x), OutboxOperation.UPDATE); publish() }
-    suspend fun deleteSupplierById(id: Int) { if (!confirmDelete("suppliers")) return; getSupplierById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("suppliers", x.id, x.serverId, sp(x), OutboxOperation.DELETE); publish() } }
+    suspend fun deleteSupplierById(id: Int) { val current = getSupplierById(id) ?: return; val disposition = confirmDelete("suppliers", current.serverId) ?: return; val synced = disposition == DeleteDisposition.REMOTE_ACCEPTED; val x = current.copy(deletedAt = System.currentTimeMillis(), syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING_DELETE); persist("suppliers", x.id, x.serverId, sp(x), OutboxOperation.DELETE, if (synced) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish() }
     suspend fun softDeleteSupplierById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteSupplierById(id)
     suspend fun getSupplierById(id: Int) = _suppliers.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingSuppliers() = pending("suppliers", ::supplier)
@@ -299,7 +303,7 @@ class AppRepository private constructor(
 
     suspend fun insertTransaction(t: RemittanceTransaction): Int { val id = localId(t.id); val accepted = isServerAcceptedCreate(t.serverId, t.syncStatus); val x = if (accepted) t.copy(id = id, syncStatus = SyncStatus.SYNCED, syncError = null, retryCount = 0) else t.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("transactions", id, x.serverId, tp(x), OutboxOperation.CREATE, if (accepted) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish(); return id }
     suspend fun updateTransaction(t: RemittanceTransaction) { val x = t.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("transactions", x.id, x.serverId, tp(x), OutboxOperation.UPDATE); publish() }
-    suspend fun deleteTransactionById(id: Int) { if (!confirmDelete("transactions")) return; getTransactionById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("transactions", x.id, x.serverId, tp(x), OutboxOperation.DELETE); publish() } }
+    suspend fun deleteTransactionById(id: Int) { val current = getTransactionById(id) ?: return; val disposition = confirmDelete("transactions", current.serverId) ?: return; val synced = disposition == DeleteDisposition.REMOTE_ACCEPTED; val x = current.copy(deletedAt = System.currentTimeMillis(), syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING_DELETE); persist("transactions", x.id, x.serverId, tp(x), OutboxOperation.DELETE, if (synced) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish() }
     suspend fun softDeleteTransactionById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteTransactionById(id)
     suspend fun getTransactionById(id: Int) = _transactions.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingTransactions() = pending("transactions", ::transaction)
@@ -311,7 +315,7 @@ class AppRepository private constructor(
 
     suspend fun insertSupplierDeposit(d: SupplierDeposit): Int { val id = localId(d.id); val accepted = isServerAcceptedCreate(d.serverId, d.syncStatus); val x = if (accepted) d.copy(id = id, syncStatus = SyncStatus.SYNCED, syncError = null, retryCount = 0) else d.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("supplier_deposits", id, x.serverId, dp(x), OutboxOperation.CREATE, if (accepted) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish(); return id }
     suspend fun updateSupplierDeposit(d: SupplierDeposit) { val x = d.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("supplier_deposits", x.id, x.serverId, dp(x), OutboxOperation.UPDATE); publish() }
-    suspend fun deleteSupplierDepositById(id: Int) { if (!confirmDelete("supplier_deposits")) return; getSupplierDepositById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("supplier_deposits", x.id, x.serverId, dp(x), OutboxOperation.DELETE); publish() } }
+    suspend fun deleteSupplierDepositById(id: Int) { val current = getSupplierDepositById(id) ?: return; val disposition = confirmDelete("supplier_deposits", current.serverId) ?: return; val synced = disposition == DeleteDisposition.REMOTE_ACCEPTED; val x = current.copy(deletedAt = System.currentTimeMillis(), syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING_DELETE); persist("supplier_deposits", x.id, x.serverId, dp(x), OutboxOperation.DELETE, if (synced) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish() }
     suspend fun softDeleteSupplierDepositById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteSupplierDepositById(id)
     suspend fun getSupplierDepositById(id: Int) = _deposits.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingSupplierDeposits() = pending("supplier_deposits", ::deposit)
@@ -323,7 +327,7 @@ class AppRepository private constructor(
 
     suspend fun insertExpenseIncome(e: ExpenseIncome): Int { val id = localId(e.id); val accepted = isServerAcceptedCreate(e.serverId, e.syncStatus); val x = if (accepted) e.copy(id = id, syncStatus = SyncStatus.SYNCED, syncError = null, retryCount = 0) else e.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("expenses_incomes", id, x.serverId, ep(x), OutboxOperation.CREATE, if (accepted) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish(); return id }
     suspend fun updateExpenseIncome(e: ExpenseIncome) { val x = e.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("expenses_incomes", x.id, x.serverId, ep(x), OutboxOperation.UPDATE); publish() }
-    suspend fun deleteExpenseIncomeById(id: Int) { if (!confirmDelete("expenses_incomes")) return; getExpenseIncomeById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("expenses_incomes", x.id, x.serverId, ep(x), OutboxOperation.DELETE); publish() } }
+    suspend fun deleteExpenseIncomeById(id: Int) { val current = getExpenseIncomeById(id) ?: return; val disposition = confirmDelete("expenses_incomes", current.serverId) ?: return; val synced = disposition == DeleteDisposition.REMOTE_ACCEPTED; val x = current.copy(deletedAt = System.currentTimeMillis(), syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING_DELETE); persist("expenses_incomes", x.id, x.serverId, ep(x), OutboxOperation.DELETE, if (synced) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish() }
     suspend fun softDeleteExpenseIncomeById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteExpenseIncomeById(id)
     suspend fun getExpenseIncomeById(id: Int) = _expenses.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingExpensesIncomes() = pending("expenses_incomes", ::expense)
@@ -338,7 +342,7 @@ class AppRepository private constructor(
 
     suspend fun insertWalletLedger(l: WalletLedger): Int { val id = localId(l.id); val accepted = isServerAcceptedCreate(l.serverId, l.syncStatus); val x = if (accepted) l.copy(id = id, syncStatus = SyncStatus.SYNCED, syncError = null, retryCount = 0) else l.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("wallet_ledgers", id, x.serverId, lp(x), OutboxOperation.CREATE, if (accepted) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish(); return id }
     suspend fun updateWalletLedger(l: WalletLedger) { val x = l.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("wallet_ledgers", x.id, x.serverId, lp(x), OutboxOperation.UPDATE); publish() }
-    suspend fun deleteWalletLedgerById(id: Int) { if (!confirmDelete("wallet_ledgers")) return; getWalletLedgerById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("wallet_ledgers", x.id, x.serverId, lp(x), OutboxOperation.DELETE); publish() } }
+    suspend fun deleteWalletLedgerById(id: Int) { val current = getWalletLedgerById(id) ?: return; val disposition = confirmDelete("wallet_ledgers", current.serverId) ?: return; val synced = disposition == DeleteDisposition.REMOTE_ACCEPTED; val x = current.copy(deletedAt = System.currentTimeMillis(), syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING_DELETE); persist("wallet_ledgers", x.id, x.serverId, lp(x), OutboxOperation.DELETE, if (synced) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish() }
     suspend fun softDeleteWalletLedgerById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteWalletLedgerById(id)
     suspend fun getWalletLedgerById(id: Int) = _ledgers.value.firstOrNull { it.id == id || it.serverId == id }
     suspend fun getPendingWalletLedgers() = pending("wallet_ledgers", ::ledger)
@@ -350,7 +354,7 @@ class AppRepository private constructor(
 
     suspend fun insertWalletBatch(b: WalletBatch): Int { val id = localId(b.id); val accepted = isServerAcceptedCreate(b.serverId, b.syncStatus); val x = if (accepted) b.copy(id = id, syncStatus = SyncStatus.SYNCED, syncError = null, retryCount = 0) else b.copy(id = id, serverId = 0, syncStatus = SyncStatus.PENDING_CREATE, syncError = null); persist("wallet_batches", id, x.serverId, bp(x), OutboxOperation.CREATE, if (accepted) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish(); return id }
     suspend fun updateWalletBatch(b: WalletBatch) { val x = b.copy(syncStatus = SyncStatus.PENDING_UPDATE, syncError = null, retryCount = 0, timestamp = System.currentTimeMillis()); persist("wallet_batches", x.id, x.serverId, bp(x), OutboxOperation.UPDATE); publish() }
-    suspend fun deleteWalletBatchById(id: Int) { if (!confirmDelete("wallet_batches")) return; getWalletBatchById(id)?.let { val x = it.copy(deletedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING_DELETE); persist("wallet_batches", x.id, x.serverId, bp(x), OutboxOperation.DELETE); publish() } }
+    suspend fun deleteWalletBatchById(id: Int) { val current = getWalletBatchById(id) ?: return; val disposition = confirmDelete("wallet_batches", current.serverId) ?: return; val synced = disposition == DeleteDisposition.REMOTE_ACCEPTED; val x = current.copy(deletedAt = System.currentTimeMillis(), syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING_DELETE); persist("wallet_batches", x.id, x.serverId, bp(x), OutboxOperation.DELETE, if (synced) LocalFirstStore.SYNCED else LocalFirstStore.PENDING); publish() }
     suspend fun softDeleteWalletBatchById(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteWalletBatchById(id)
     suspend fun deleteWalletBatchBySupplierDepositId(id: Int) { _batches.value.firstOrNull { it.supplierDepositId == id }?.let { deleteWalletBatchById(it.id) } }
     suspend fun softDeleteWalletBatchBySupplierDepositId(id: Int, deletedAt: Long = System.currentTimeMillis()) = deleteWalletBatchBySupplierDepositId(id)
