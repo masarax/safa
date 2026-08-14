@@ -133,11 +133,11 @@ interface ApiService {
 
     private suspend fun confirmedDelete(
         entity: String,
-        @Suppress("UNUSED_PARAMETER") id: Int,
+        id: Int,
         alreadyConfirmed: Boolean,
         call: suspend () -> Response<Map<String, Any>>
     ): Response<Map<String, Any>> {
-        val targetKey = "$entity:*"
+        val targetKey = "$entity:$id"
         if (!alreadyConfirmed) {
             val ok = DeleteConfirmationCoordinator.requestAndGrant(
                 targetKey = targetKey,
