@@ -62,3 +62,34 @@ object UiCopy {
         return table[normalized] ?: normalized
     }
 }
+
+/** Stable release-safe copy for failures that occur before the normal UI starts. */
+data class StartupFailurePresentation(
+    val title: String,
+    val message: String,
+    val supportLabel: String,
+    val retryLabel: String
+)
+
+object StartupFailurePolicy {
+    fun presentation(language: String, diagnosticId: String, @Suppress("UNUSED_PARAMETER") cause: Throwable): StartupFailurePresentation {
+        val isBangla = language.equals("bn", ignoreCase = true) || language.equals("BN", ignoreCase = true)
+        return if (isBangla) {
+            StartupFailurePresentation(
+                title = "SAFA চালু করা যায়নি",
+                message = "অ্যাপটি চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+                supportLabel = "সহায়তা আইডি: $diagnosticId",
+                retryLabel = "আবার চেষ্টা করুন"
+            )
+        } else {
+            StartupFailurePresentation(
+                title = "SAFA could not start",
+                message = "The app could not be initialized. Please try again.",
+                supportLabel = "Support ID: $diagnosticId",
+                retryLabel = "Retry"
+            )
+        }
+    }
+
+    fun diagnosticThrowable(debug: Boolean, cause: Throwable): Throwable? = if (debug) cause else null
+}
