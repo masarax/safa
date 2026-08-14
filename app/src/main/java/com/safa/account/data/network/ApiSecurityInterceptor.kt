@@ -15,9 +15,9 @@ import java.util.concurrent.TimeUnit
  * Adds public SAFA client identity and authenticated session headers.
  * Server secrets never ship in the Android APK.
  *
- * Destructive DELETE operations require explicit UI confirmation before the
- * request is sent. Biometric quick-unlock sessions also cannot be queried or
- * used until the current process has passed the device biometric gate.
+ * The interceptor is intentionally non-interactive. A destructive request must
+ * already be confirmed by the application/domain layer; otherwise it is
+ * rejected immediately without calling the network or waiting for Activity UI.
  */
 class ApiSecurityInterceptor(
     private val apiKey: String,
@@ -31,44 +31,29 @@ class ApiSecurityInterceptor(
         val isRefreshRequest = path.endsWith("/auth/refresh")
         val isSessionCheck = path.endsWith("/auth/session")
         val isDeleteRequest = originalRequest.method.equals("DELETE", ignoreCase = true)
-        val alreadyConfirmed = originalRequest.header("X-SAFA-DELETE-CONFIRM") == "true"
+        val deleteConfirmed = originalRequest.header("X-SAFA-DELETE-CONFIRM") == "true" ||
+            originalRequest.url.queryParameter("confirmed").equals("true", ignoreCase = true)
 
         if (isSessionCheck && tokenManager?.isBiometricQuickUnlockEnabled() == true && !tokenManager.isBiometricUnlockApproved()) {
-            return Response.Builder()
-                .request(originalRequest)
-                .protocol(okhttp3.Protocol.HTTP_1_1)
-                .code(401)
-                .message("Biometric unlock required")
-                .body("{\"status\":\"biometric_required\",\"message\":\"Biometric unlock required.\"}".toResponseBody("application/json".toMediaTypeOrNull()))
-                .build()
-        }
-
-        if (isDeleteRequest && !alreadyConfirmed) {
-            val confirmed = DeleteConfirmationCoordinator.awaitConfirmation(
-                title = "Delete data?",
-                message = "This action cannot be undone."
+            return localJsonResponse(
+                originalRequest,
+                401,
+                "Biometric unlock required",
+                "{\"status\":\"biometric_required\",\"message\":\"Biometric unlock required.\"}"
             )
-            if (!confirmed) {
-                return Response.Builder()
-                    .request(originalRequest)
-                    .protocol(okhttp3.Protocol.HTTP_1_1)
-                    .code(499)
-                    .message("Delete cancelled by user")
-                    .body("{\"status\":\"cancelled\",\"message\":\"Delete cancelled by user.\"}".toResponseBody("application/json".toMediaTypeOrNull()))
-                    .build()
-            }
         }
 
-        val securedRequest = if (isDeleteRequest && !alreadyConfirmed) {
-            val confirmedUrl = originalRequest.url.newBuilder().setQueryParameter("confirmed", "true").build()
-            originalRequest.newBuilder()
-                .url(confirmedUrl)
-                .header("X-SAFA-DELETE-CONFIRM", "true")
-                .build()
-        } else originalRequest
+        if (isDeleteRequest && !deleteConfirmed) {
+            return localJsonResponse(
+                originalRequest,
+                428,
+                "Delete confirmation required",
+                "{\"status\":\"confirmation_required\",\"message\":\"Confirm the delete before sending it.\"}"
+            )
+        }
 
         var response = chain.proceed(
-            buildSecuredRequest(securedRequest, includeAuthTokens = !isLoginRequest && !isRefreshRequest)
+            buildSecuredRequest(originalRequest, includeAuthTokens = !isLoginRequest && !isRefreshRequest)
         )
 
         if (
@@ -77,10 +62,10 @@ class ApiSecurityInterceptor(
             response.code == 401 &&
             tokenManager != null &&
             !isSessionCheck &&
-            securedRequest.header("X-SAFA-RETRY") != "true"
+            originalRequest.header("X-SAFA-RETRY") != "true"
         ) {
             synchronized(tokenManager) {
-                val requestAccessToken = securedRequest.header("Authorization")?.removePrefix("Bearer ")
+                val requestAccessToken = originalRequest.header("Authorization")?.removePrefix("Bearer ")
                 val currentAccessToken = tokenManager.getAccessToken()
                 val newToken = if (!currentAccessToken.isNullOrBlank() && currentAccessToken != requestAccessToken) {
                     currentAccessToken
@@ -92,7 +77,7 @@ class ApiSecurityInterceptor(
                     response.close()
                     response = chain.proceed(
                         buildSecuredRequest(
-                            securedRequest.newBuilder().header("X-SAFA-RETRY", "true").build(),
+                            originalRequest.newBuilder().header("X-SAFA-RETRY", "true").build(),
                             includeAuthTokens = true
                         )
                     )
@@ -104,6 +89,15 @@ class ApiSecurityInterceptor(
 
         return response
     }
+
+    private fun localJsonResponse(request: Request, code: Int, message: String, body: String): Response =
+        Response.Builder()
+            .request(request)
+            .protocol(okhttp3.Protocol.HTTP_1_1)
+            .code(code)
+            .message(message)
+            .body(body.toResponseBody("application/json".toMediaTypeOrNull()))
+            .build()
 
     private fun buildSecuredRequest(request: Request, includeAuthTokens: Boolean): Request {
         val builder = request.newBuilder()

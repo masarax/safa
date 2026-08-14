@@ -1,6 +1,7 @@
 package com.safa.account.data.api
 
 import com.safa.account.BuildConfig
+import com.safa.account.data.money.MoneyPayloadNormalizer
 import com.safa.account.data.network.ApiSecurityInterceptor
 import com.safa.account.data.network.LocalFirstSyncInterceptor
 import com.safa.account.data.network.LoginErrorResponseInterceptor
@@ -31,7 +32,14 @@ object RetrofitClient {
                 }
                 val clientBuilder = OkHttpClient.Builder()
                 tokenManager?.getContext()?.let { clientBuilder.addInterceptor(LocalFirstSyncInterceptor(it)) }
-                val client = clientBuilder.addInterceptor(ApiSecurityInterceptor(apiKey, apiSecret, tokenManager)).addInterceptor(LoginErrorResponseInterceptor()).addInterceptor(logging).connectTimeout(30, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
+                val client = clientBuilder
+                    .addInterceptor(MoneyPayloadNormalizer())
+                    .addInterceptor(ApiSecurityInterceptor(apiKey, apiSecret, tokenManager))
+                    .addInterceptor(LoginErrorResponseInterceptor())
+                    .addInterceptor(logging)
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .build()
                 Retrofit.Builder().baseUrl(normalizedUrl).client(client).addConverterFactory(MoshiConverterFactory.create()).build().also { instance = it; instanceConfig = configKey }
             }
         }
@@ -70,9 +78,7 @@ object RetrofitClient {
         val authority = uri.rawAuthority?.takeIf { it.isNotBlank() }
             ?: throw IllegalArgumentException("API base URL must include a host.")
         if (uri.userInfo != null) throw IllegalArgumentException("API base URL must not contain user credentials.")
-        if (scheme != "https" && !(BuildConfig.DEBUG && scheme == "http")) {
-            throw IllegalArgumentException("HTTPS is required for the API base URL.")
-        }
+        if (scheme != "https" && !(BuildConfig.DEBUG && scheme == "http")) throw IllegalArgumentException("HTTPS is required for the API base URL.")
         if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Unsupported API URL scheme.")
 
         val path = uri.rawPath.orEmpty().trimEnd('/')

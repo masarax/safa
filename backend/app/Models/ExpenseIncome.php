@@ -12,15 +12,12 @@ class ExpenseIncome extends Model
     protected $table = 'expenses_incomes';
 
     protected $fillable = [
-        'account_id',
-        'local_id',
-        'title',
-        'amount',
-        'currency',
-        'is_expense',
-        'category',
-        'timestamp',
-        'deleted_at',
+        'account_id', 'local_id', 'title', 'amount', 'currency', 'is_expense',
+        'category', 'timestamp', 'deleted_at',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'is_expense' => 'boolean',
     ];
 }
-
