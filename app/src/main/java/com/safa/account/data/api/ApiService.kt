@@ -125,7 +125,7 @@ interface ApiService {
     @POST("auth/operators") suspend fun createOperator(@Body request: OperatorApiRequest): Response<Map<String, Any>>
     @PUT("auth/operators/{id}") suspend fun updateOperator(@Path("id") id: Int, @Body request: OperatorApiRequest): Response<Map<String, Any>>
     @DELETE("auth/operators/{id}") suspend fun deleteOperatorConfirmed(@Path("id") id: Int, @Query("confirmed") confirmed: Boolean = true, @Header("X-SAFA-DELETE-CONFIRM") confirmation: String = "true"): Response<Map<String, Any>>
-    suspend fun deleteOperator(id: Int): Response<Map<String, Any>> = confirmedDelete("operators", id, false) { deleteOperatorConfirmed(id) }
+    suspend fun deleteOperator(id: Int, confirmed: Boolean = false): Response<Map<String, Any>> = confirmedDelete("operators", id, confirmed) { deleteOperatorConfirmed(id) }
 
     @GET("accounts") suspend fun getAccounts(): Response<Map<String, Any?>>
     @POST("accounts/switch") suspend fun switchAccount(@Body request: Map<String, Any?>): Response<Map<String, Any?>>
@@ -133,13 +133,14 @@ interface ApiService {
 
     private suspend fun confirmedDelete(
         entity: String,
-        id: Int,
+        @Suppress("UNUSED_PARAMETER") id: Int,
         alreadyConfirmed: Boolean,
         call: suspend () -> Response<Map<String, Any>>
     ): Response<Map<String, Any>> {
+        val targetKey = "$entity:*"
         if (!alreadyConfirmed) {
             val ok = DeleteConfirmationCoordinator.requestAndGrant(
-                targetKey = "$entity:*",
+                targetKey = targetKey,
                 title = "Delete data?",
                 message = "This action cannot be undone."
             )
@@ -151,8 +152,16 @@ interface ApiService {
                 )
             }
         } else {
-            DeleteConfirmationCoordinator.grant("$entity:*")
+            DeleteConfirmationCoordinator.grant(targetKey)
         }
-        return call()
+
+        return try {
+            val response = call()
+            if (!response.isSuccessful) DeleteConfirmationCoordinator.consume(targetKey)
+            response
+        } catch (t: Throwable) {
+            DeleteConfirmationCoordinator.consume(targetKey)
+            throw t
+        }
     }
 }
