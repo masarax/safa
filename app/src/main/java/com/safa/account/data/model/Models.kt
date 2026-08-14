@@ -1,5 +1,7 @@
 package com.safa.account.data.model
 
+import com.safa.account.data.money.MoneyMath
+
 /**
  * Application/domain compatibility models.
  *
@@ -8,6 +10,10 @@ package com.safa.account.data.model
  * in LocalFirstStore. The local store survives process/device restarts and is
  * cleared at the authenticated account boundary. These models are serialized
  * into that canonical store by AppRepository rather than being Room entities.
+ *
+ * Money/rate Double properties remain as a Compose compatibility projection;
+ * business calculations and persistence/wire formatting use MoneyMath's exact
+ * BigDecimal contract (amount scale 2, rate scale 4).
  */
 
 data class OperatorAccount(
@@ -107,8 +113,8 @@ data class RemittanceTransaction(
     val retryCount: Int = 0,
     val lastSyncAttemptAt: Long? = null
 ) {
-    fun getProfitBdt(): Double = (customerRate - supplierRate) * amountSar
-    fun getProfitSar(): Double = if (customerRate > 0.0) amountSar - (amountBdt / customerRate) else 0.0
+    fun getProfitBdt(): Double = MoneyMath.profitBdt(amountSar, customerRate, supplierRate).toDouble()
+    fun getProfitSar(): Double = MoneyMath.profitSar(amountSar, amountBdt, customerRate).toDouble()
 }
 
 data class SupplierDeposit(
