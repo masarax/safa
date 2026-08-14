@@ -39,6 +39,9 @@ class MoneyMathTest {
     @Test fun negativeAndZeroRemainDeterministic() {
         assertEquals("0.00", MoneyMath.amountString(0))
         assertEquals("-1.25", MoneyMath.amountString("-1.25"))
+        assertTrue(MoneyMath.isZeroAmount("0.00"))
+        assertTrue(MoneyMath.isZeroAmount("00.004"))
+        assertTrue(!MoneyMath.isZeroAmount("0.005"))
     }
 
     @Test fun weightedWalletRateUsesExactBaseUnits() {
