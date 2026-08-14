@@ -10,17 +10,13 @@ class WalletBatch extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'account_id',
-        'local_id',
-        'ledger_id',
-        'rate',
-        'initial_bdt',
-        'remaining_bdt',
-        'supplier_id',
-        'supplier_deposit_id',
-        'notes',
-        'timestamp',
-        'deleted_at',
+        'account_id', 'local_id', 'ledger_id', 'rate', 'initial_bdt', 'remaining_bdt',
+        'supplier_id', 'supplier_deposit_id', 'notes', 'timestamp', 'deleted_at',
+    ];
+
+    protected $casts = [
+        'rate' => 'decimal:4',
+        'initial_bdt' => 'decimal:2',
+        'remaining_bdt' => 'decimal:2',
     ];
 }
-
