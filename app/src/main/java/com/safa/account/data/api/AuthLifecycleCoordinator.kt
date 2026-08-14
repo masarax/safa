@@ -1,6 +1,7 @@
 package com.safa.account.data.api
 
 import android.content.Context
+import com.safa.account.data.local.LocalAccountBoundary
 import com.safa.account.data.sync.SyncWorkScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,18 +34,18 @@ class AuthLifecycleCoordinator(private val tokenManager: TokenManager) {
             serverResult = Result.failure(t)
         } finally {
             // Stop both immediate and periodic reconciliation before destroying
-            // the local database so queued work cannot carry account A state
-            // into a subsequent account B session.
+            // local account state so no worker can carry account A data into B.
             val context: Context = tokenManager.getContext().applicationContext
             SyncWorkScheduler.cancelAll(context)
+
+            // Do not rely on filesystem deletion alone: an AppRepository may
+            // still own an open SQLite connection. The transactional wipe is the
+            // zero-leakage guarantee; file deletion below is extra cleanup.
+            runCatching { LocalAccountBoundary.destroyAccountState(context) }
+
             tokenManager.clearAllTokens()
             RetrofitClient.clearCache()
-
-            // The local-first database contains cached records, revisions and
-            // durable outbox mutations. It is intentionally device-local, not
-            // a cross-account store. Deleting it at the auth boundary gives a
-            // deterministic zero-leakage guarantee when switching accounts.
-            context.deleteDatabase("safa_local.db")
+            runCatching { context.deleteDatabase("safa_local.db") }
         }
         serverResult ?: Result.failure(IllegalStateException("Logout did not complete"))
     }
