@@ -8,8 +8,26 @@ This document is the canonical implementation contract for the production Androi
 - Android is local-first and keeps an encrypted durable cache plus mutation outbox in `LocalFirstStore` (`safa_local.db`).
 - `AppRepository` reads/writes business records through `LocalFirstStore`; WorkManager replays the durable outbox.
 - Pending mutations survive process restart and network loss. A sync item is claimed atomically before upload and stale claimed items are recoverable.
+- The local database is intentionally bound to **one active business account namespace at a time**. The binding is stored in durable metadata.
+- Switching from account A to account B is blocked while A has pending/processing/failed mutations. A clean switch atomically clears A's business cache, outbox and server-revision state before B is bound.
+- Background/foreground sync requires a server-authorized active account; no accountless outbox upload is allowed.
 - Authentication/account changes are lifecycle boundaries: account-scoped local data and queued mutations must not cross to another authenticated account.
 - Normal UI collection reads exclude soft-deleted records. Sync/reconciliation endpoints may carry tombstones/revision metadata explicitly.
+- Server snapshots are revision-checked again at the repository persistence boundary. Older snapshots, equal-version incompatible replays and all snapshots that conflict with a pending local mutation/tombstone are ignored.
+- Server timestamps use one canonical parser. Zone-less Laravel timestamps are interpreted as UTC; invalid timestamps never fall back to a fabricated local `now` value.
+
+## Monetary precision contract
+
+SAFA financial persistence and network synchronization use an exact fixed-scale decimal contract aligned with MySQL schema precision:
+
+- SAR/BDT monetary amounts: `DECIMAL(15,2)` semantics, scale **2**.
+- Exchange rates: `DECIMAL(10,4)` semantics, scale **4**.
+- Rounding at a required scale boundary: **HALF_UP**.
+- Android business calculations use `MoneyMath` (`BigDecimal`) and outgoing REST/sync JSON is canonicalized to fixed-scale decimal strings before transmission.
+- Kotlin `Double` fields that remain in domain models are a Compose/UI compatibility projection only. They are not the canonical persistence/wire representation and must not be used for business-critical equality or unscaled arithmetic.
+- Laravel sync input is canonicalized by `MoneyDecimal` without PHP float coercion. Eloquent decimal casts keep database values as fixed-scale decimal strings in API/sync output.
+- Mutation identity is computed after decimal canonicalization so numerically equivalent representations converge deterministically.
+- Database schema precision is the final storage boundary; values outside supported precision or negative values for non-negative business fields are rejected.
 
 ## REST API versioning
 
@@ -45,14 +63,23 @@ Android REST JSON uses **Moshi** only:
 - Unknown server fields must be tolerated for forward compatibility.
 - DTO defaults are explicit; nullable wire fields stay nullable.
 - Do not introduce a second Retrofit JSON converter such as kotlinx.serialization alongside Moshi.
-- Financial decimal values must be represented by the canonical money contract rather than relying on binary floating-point equality.
+- Financial decimal values are normalized by the canonical money contract before transmission; binary floating-point equality is never a financial data contract.
 
 ## Account context and authorization
 
 - The active account must always be explicit and server-authorized.
-- `X-SAFA-ACCOUNT-ID`, authenticated session/token context and controller/domain authorization must identify the same account.
+- Authenticated users with multiple authorized accounts must explicitly choose one before business sync/data presentation proceeds.
+- `X-SAFA-ACCOUNT-ID`, encrypted Android active-account state, authenticated session/token context and controller/domain authorization must identify the same account.
 - Foreign business IDs must be validated against that account before mutation.
 - No API resolver may fall back to `Account::first()` or database ordering for an ambiguous user.
+
+## Destructive operation confirmation
+
+- User confirmation occurs at the application/domain layer before a destructive request is sent or queued.
+- OkHttp interceptors are non-interactive and never block a dispatcher thread waiting for UI.
+- An unconfirmed direct `DELETE` is rejected locally before network execution.
+- A confirmed offline delete is represented by the durable outbox operation itself and can be replayed by WorkManager after process death without Activity/UI context.
+- Server-side confirmation/authorization remains mandatory; client confirmation never weakens account authorization.
 
 ## API rate limiting
 
@@ -65,9 +92,9 @@ Authentication-sensitive routes may use stricter endpoint-specific limits in add
 - `backend-ci.yml` runs PHP syntax checks and the complete Laravel test suite on backend changes.
 - `android-ci.yml` runs Android unit tests, lint, a minified release build, emulator-backed instrumentation tests and a minified release runtime launch smoke test.
 - Android CI rejects a release `versionCode` that is not greater than the tracked last-published version code.
-- Third-party GitHub Actions are pinned to immutable commit SHAs.
+- Third-party GitHub Actions are pinned to immutable commit SHAs with human-readable version comments.
 - Production deployment is manual and must pass read-only HTTPS smoke verification after file synchronization.
-- A production deployment is not considered successful until the live health/private-surface checks pass.
+- A production deployment is not considered successful until the live health/private-surface/protected-route checks pass.
 
 ## Dependency hygiene
 
