@@ -1,5 +1,6 @@
 package com.safa.account.data.api
 
+import com.safa.account.data.local.LocalAccountBoundary
 import com.safa.account.data.network.ApiSecurityInterceptor
 import com.safa.account.data.network.DeleteConfirmationCoordinator
 import com.safa.account.data.repository.AppRepository
@@ -24,6 +25,11 @@ import org.mockito.kotlin.whenever
 
 class SyncRetryHardeningTest {
 
+    private fun bindCanonicalAccount(repository: AppRepository, tokenManager: TokenManager) {
+        whenever(tokenManager.getActiveAccountId()).thenReturn(1)
+        whenever(repository.bindAccount(1)).thenReturn(LocalAccountBoundary.Result.UNCHANGED)
+    }
+
     @Test
     fun testManualSyncProcessesOutboxThenRefreshesLocalSnapshot() {
         runBlocking {
@@ -36,6 +42,7 @@ class SyncRetryHardeningTest {
             whenever(tokenManager.getApiSecret()).thenReturn("sec")
             whenever(tokenManager.getContext()).thenReturn(null)
             whenever(repository.allCustomersRaw).thenReturn(flowOf(emptyList()))
+            bindCanonicalAccount(repository, tokenManager)
 
             val manager = SyncManager(repository, tokenManager)
             val result = manager.syncAll()
@@ -59,6 +66,7 @@ class SyncRetryHardeningTest {
             whenever(tokenManager.getApiKey()).thenReturn("key")
             whenever(tokenManager.getApiSecret()).thenReturn("sec")
             whenever(tokenManager.getContext()).thenReturn(null)
+            bindCanonicalAccount(repository, tokenManager)
 
             val manager = SyncManager(repository, tokenManager)
             val result = manager.syncAll()
@@ -85,6 +93,7 @@ class SyncRetryHardeningTest {
             whenever(tokenManager.getApiKey()).thenReturn("key")
             whenever(tokenManager.getApiSecret()).thenReturn("sec")
             whenever(tokenManager.getContext()).thenReturn(null)
+            bindCanonicalAccount(repository, tokenManager)
 
             val manager = SyncManager(repository, tokenManager)
             val result = manager.syncAll()
