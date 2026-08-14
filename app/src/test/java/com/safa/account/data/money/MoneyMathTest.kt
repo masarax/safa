@@ -18,6 +18,13 @@ class MoneyMathTest {
         assertEquals("1.01", MoneyMath.profitBdt("10.00", "32.1010", "32.0000").toPlainString())
     }
 
+    @Test fun repeatedWalletDeductionsDoNotAccumulateBinaryDrift() {
+        var remaining = MoneyMath.amount("100.00")
+        repeat(3) { remaining = MoneyMath.subtract(remaining, "0.10") }
+        repeat(2) { remaining = MoneyMath.subtract(remaining, "0.20") }
+        assertEquals("99.30", remaining.toPlainString())
+    }
+
     @Test fun canonicalWireStringsMatchDatabaseScale() {
         assertEquals("12.35", MoneyMath.amountString("12.345"))
         assertEquals("32.1235", MoneyMath.rateString("32.12345"))
