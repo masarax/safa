@@ -3,7 +3,10 @@ package com.safa.account.data.money
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class MoneyPayloadNormalizerTest {
     @Test fun nestedSyncPayloadUsesExactDecimalStrings() {
         val raw = """{"transactions":[{"amount_sar":0.30000000000000004,"customer_rate":32.12345,"supplier_rate":"32","amount_bdt":9.637}]}"""
