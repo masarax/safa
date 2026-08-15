@@ -51,7 +51,7 @@ class WebApplicationSecurityTest extends TestCase
             $source = (string) file_get_contents($path);
 
             $this->assertStringContainsString("#^/app(?:/?|/api(?:/.*)?)$#i", $source);
-            $this->assertStringContainsString("preg_match('/(^|\\/)app(\\/|$)/i', $parsedPath)", $source);
+            $this->assertStringContainsString("preg_match('/(^|\\/)app(\\/|$)/i', \$parsedPath)", $source);
             $this->assertStringNotContainsString("(app|bootstrap|config|database", $source);
             $this->assertStringContainsString("(bootstrap|config|database", $source);
         }
