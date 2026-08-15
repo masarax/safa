@@ -33,17 +33,22 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString('CPANEL_USERNAME', $workflow);
         $this->assertStringContainsString('CPANEL_API_TOKEN', $workflow);
         $this->assertStringContainsString('Authorization: cpanel', $workflow);
-        $this->assertStringContainsString('VersionControl create', str_replace('/', ' ', $workflow));
-        $this->assertStringContainsString('VersionControl update', str_replace('/', ' ', $workflow));
-        $this->assertStringContainsString('VersionControlDeployment create', str_replace('/', ' ', $workflow));
-        $this->assertStringContainsString('Fileman save_file_content', str_replace('/', ' ', $workflow));
+        $normalized = str_replace('/', ' ', $workflow);
+        $this->assertStringContainsString('VersionControl create', $normalized);
+        $this->assertStringContainsString('VersionControl update', $normalized);
+        $this->assertStringContainsString('VersionControlDeployment create', $normalized);
+        $this->assertStringContainsString('VersionControlDeployment retrieve', $normalized);
+        $this->assertStringContainsString('Fileman save_file_content', $normalized);
         $this->assertStringContainsString('/home/$CPANEL_USERNAME/repositories/safa', $workflow);
+        $this->assertStringContainsString('CPANEL_DEPLOY_ID', $workflow);
+        $this->assertStringContainsString('cPanel deployment log:', $workflow);
         $this->assertStringContainsString('Run mandatory full test suite', $workflow);
         $this->assertStringContainsString('bash -n deploy/cpanel-deploy.sh', $workflow);
 
-        // The workflow always deploys the checked-out main commit and waits for
-        // the live health endpoint to report that exact immutable build.
+        // The workflow always deploys the checked-out main commit, requires the
+        // cPanel task to succeed for that SHA, then verifies the live exact build.
         $this->assertStringContainsString('deploy_sha="$(git rev-parse HEAD)"', $workflow);
+        $this->assertStringContainsString('$task_identifier" != "$DEPLOY_SHA', $workflow);
         $this->assertStringContainsString('EXPECTED_BUILD="$DEPLOY_SHA"', $workflow);
         $this->assertStringNotContainsString('EXPECTED_BUILD="$GITHUB_SHA"', $workflow);
 
@@ -66,6 +71,7 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString('.safa-deployed-files', $script);
         $this->assertStringContainsString('--exclude=\'./.env\'', $script);
         $this->assertStringContainsString('--exclude=\'./storage\'', $script);
+        $this->assertStringContainsString('storage/framework/cache/data', $script);
         $this->assertStringContainsString('migrate --force --no-interaction', $script);
         $this->assertStringContainsString('db:seed --force --no-interaction', $script);
         $this->assertStringContainsString('optimize:clear', $script);
@@ -73,6 +79,8 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString('view:cache', $script);
         $this->assertStringContainsString('$PROJECT_ROOT/run-once.php', $script);
         $this->assertStringContainsString('$PROJECT_ROOT/public/run-once.php', $script);
+        $this->assertStringContainsString('RUNNER_LOCK="$PROJECT_ROOT/storage/run-once.lock"', $script);
+        $this->assertStringContainsString('! -f "$RUNNER_LOCK"', $script);
         $this->assertStringContainsString('[[ -f "$PROJECT_ROOT/.env" ]]', $script);
         $this->assertStringNotContainsString('migrate:fresh', $script);
         $this->assertStringNotContainsString('rm -rf "$PROJECT_ROOT"', $script);
