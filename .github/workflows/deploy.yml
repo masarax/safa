@@ -36,6 +36,14 @@ jobs:
           ref: main
           fetch-depth: 1
 
+      - name: Resolve checked-out deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_sha="$(git rev-parse HEAD)"
+          [[ "$deploy_sha" =~ ^[a-f0-9]{40}$ ]]
+          printf 'DEPLOY_SHA=%s\n' "$deploy_sha" >> "$GITHUB_ENV"
+
       - name: Validate deployment inputs
         shell: bash
         run: |
@@ -84,8 +92,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
-          printf '{"commit":"%s"}\n' "$GITHUB_SHA" > backend/bootstrap/safa-build.json
+          [[ "$DEPLOY_SHA" =~ ^[a-f0-9]{40}$ ]]
+          printf '{"commit":"%s"}\n' "$DEPLOY_SHA" > backend/bootstrap/safa-build.json
 
       - name: Prepare optional one-time setup page
         shell: bash
@@ -160,7 +168,7 @@ jobs:
           esac
 
           health_json="$(curl --fail --silent --show-error --max-time 20 "$base/api/auth/health")"
-          HEALTH_JSON="$health_json" EXPECTED_BUILD="$GITHUB_SHA" php -r '$d=json_decode(getenv("HEALTH_JSON"), true); $checks=$d["checks"]??null; if (!is_array($d) || ($d["status"] ?? null) !== "ok" || ($d["service"] ?? null) !== "SAFA API" || !hash_equals(getenv("EXPECTED_BUILD"), (string) ($d["build"] ?? "")) || !is_array($checks) || count($checks)!==6 || in_array(false, $checks, true)) { fwrite(STDERR, "Unexpected production readiness payload\n"); exit(1); }'
+          HEALTH_JSON="$health_json" EXPECTED_BUILD="$DEPLOY_SHA" php -r '$d=json_decode(getenv("HEALTH_JSON"), true); $checks=$d["checks"]??null; if (!is_array($d) || ($d["status"] ?? null) !== "ok" || ($d["service"] ?? null) !== "SAFA API" || !hash_equals(getenv("EXPECTED_BUILD"), (string) ($d["build"] ?? "")) || !is_array($checks) || count($checks)!==6 || in_array(false, $checks, true)) { fwrite(STDERR, "Unexpected production readiness payload\n"); exit(1); }'
 
           root_code="$(curl --location --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base/")"
           test "$root_code" = "200" || { echo "Expected browser root/login to resolve to HTTP 200, received $root_code"; exit 1; }
