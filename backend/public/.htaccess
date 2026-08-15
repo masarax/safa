@@ -24,6 +24,10 @@ Options -Indexes -MultiViews
     RewriteRule ^app/?$ index.php [L]
     RewriteRule ^app/api(?:/.*)?$ index.php [L]
 
+    # Generated raster branding is intentionally public. This exact filename
+    # contract is the only allowed URL surface inside storage/.
+    RewriteRule ^storage/logos/logo_[A-Za-z0-9_-]+\.(?:png|jpe?g|gif|webp)$ - [L,NC]
+
     # Never serve internal files/directories. Requests such as /app/Http/...
     # remain forbidden while the legitimate browser application routes above
     # are handled by Laravel.
