@@ -191,28 +191,90 @@ jobs:
 
           deployment_json="$(uapi_call VersionControlDeployment create "repository_root=$repository_root")"
           uapi_ok "$deployment_json" || { echo 'cPanel rejected the deployment task'; exit 1; }
-          echo "cPanel deployment task accepted for $DEPLOY_SHA."
+          deploy_id="$(DEPLOYMENT_JSON="$deployment_json" php -r '$d=json_decode((string)getenv("DEPLOYMENT_JSON"), true); $id=$d["result"]["data"]["deploy_id"] ?? null; if (!is_scalar($id) || (string)$id === "") exit(1); echo (string)$id;')"
+          [[ "$deploy_id" =~ ^[0-9]+$ ]] || { echo 'cPanel returned an invalid deployment task ID'; exit 1; }
+          printf 'CPANEL_DEPLOY_ID=%s\n' "$deploy_id" >> "$GITHUB_ENV"
+          echo "cPanel deployment task $deploy_id accepted for $DEPLOY_SHA."
 
-      - name: Wait for exact production build
+      - name: Wait for successful exact cPanel deployment
         shell: bash
         env:
+          CPANEL_API_URL: ${{ secrets.CPANEL_API_URL }}
+          CPANEL_USERNAME: ${{ secrets.CPANEL_USERNAME }}
+          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
         run: |
           set -euo pipefail
+          CPANEL_API_URL="${CPANEL_API_URL%/}"
           base="${PRODUCTION_BASE_URL%/}"
+
+          uapi_call() {
+            local module="$1"
+            local function="$2"
+            shift 2
+            local endpoint="$CPANEL_API_URL/execute/$module/$function"
+            local -a args=(
+              --silent --show-error --fail-with-body --get
+              -H "Authorization: cpanel $CPANEL_USERNAME:$CPANEL_API_TOKEN"
+              "$endpoint"
+            )
+            local parameter
+            for parameter in "$@"; do args+=(--data-urlencode "$parameter"); done
+            curl "${args[@]}"
+          }
+
+          task_summary() {
+            UAPI_JSON="$1" DEPLOY_ID="$CPANEL_DEPLOY_ID" php -r '
+              $d=json_decode((string)getenv("UAPI_JSON"), true);
+              if (!is_array($d) || (int)($d["result"]["status"] ?? 0) !== 1) { echo "api_error\t\t"; exit; }
+              foreach (($d["result"]["data"] ?? []) as $task) {
+                  if (!is_array($task) || (string)($task["deploy_id"] ?? "") !== (string)getenv("DEPLOY_ID")) continue;
+                  $timestamps=is_array($task["timestamps"] ?? null) ? $task["timestamps"] : [];
+                  $state="queued";
+                  if (!empty($timestamps["active"])) $state="active";
+                  if (!empty($timestamps["succeeded"])) $state="succeeded";
+                  if (!empty($timestamps["failed"])) $state="failed";
+                  if (!empty($timestamps["canceled"])) $state="canceled";
+                  $identifier=(string)($task["repository_state"]["identifier"] ?? "");
+                  $log=(string)($task["log_path"] ?? "");
+                  echo $state."\t".$identifier."\t".$log;
+                  exit;
+              }
+              echo "missing\t\t";
+            '
+          }
+
           ready=0
           for attempt in $(seq 1 72); do
-            health_json="$(curl --silent --show-error --max-time 15 "$base/api/auth/health" 2>/dev/null || true)"
-            if HEALTH_JSON="$health_json" EXPECTED_BUILD="$DEPLOY_SHA" php -r '
-              $d=json_decode((string)getenv("HEALTH_JSON"), true);
-              exit(is_array($d) && hash_equals((string)getenv("EXPECTED_BUILD"), (string)($d["build"] ?? "")) ? 0 : 1);
-            '; then
-              ready=1
-              break
-            fi
+            status_json="$(uapi_call VersionControlDeployment retrieve 2>/dev/null || true)"
+            IFS=$'\t' read -r task_state task_identifier task_log <<< "$(task_summary "$status_json")"
+
+            case "$task_state" in
+              failed|canceled)
+                echo "cPanel deployment task $CPANEL_DEPLOY_ID ended as $task_state."
+                if [[ -n "$task_log" ]]; then echo "cPanel deployment log: $task_log"; fi
+                exit 1
+                ;;
+              succeeded)
+                if [[ "$task_identifier" != "$DEPLOY_SHA" ]]; then
+                  echo "cPanel deployed unexpected repository commit $task_identifier; expected $DEPLOY_SHA"
+                  exit 1
+                fi
+                health_json="$(curl --silent --show-error --max-time 15 "$base/api/auth/health" 2>/dev/null || true)"
+                if HEALTH_JSON="$health_json" EXPECTED_BUILD="$DEPLOY_SHA" php -r '$d=json_decode((string)getenv("HEALTH_JSON"), true); exit(is_array($d) && hash_equals((string)getenv("EXPECTED_BUILD"), (string)($d["build"] ?? "")) ? 0 : 1);'; then
+                  ready=1
+                  break
+                fi
+                ;;
+            esac
             sleep 5
           done
-          test "$ready" = '1' || { echo "Production did not reach expected build $DEPLOY_SHA"; exit 1; }
+
+          test "$ready" = '1' || {
+            echo "Production did not complete cPanel deployment for expected build $DEPLOY_SHA"
+            if [[ -n "${task_log:-}" ]]; then echo "Latest cPanel deployment log: $task_log"; fi
+            exit 1
+          }
 
       - name: Setup-page verification
         if: ${{ inputs.upload_run_once }}
