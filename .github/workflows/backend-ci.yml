@@ -54,6 +54,10 @@ jobs:
         working-directory: backend
         run: find app config database deploy routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Browser JavaScript syntax check
+        working-directory: backend
+        run: node --check public/safa-web.js
+
       - name: Run full test suite
         working-directory: backend
         run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
