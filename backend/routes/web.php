@@ -29,7 +29,11 @@ Route::any('/update-db', $closedInstallerResponse);
 Route::get('/safa-logo.png', fn () => response()->file(public_path('safa-logo.png')));
 Route::get('/favicon.svg', fn () => response()->file(public_path('favicon.svg')));
 Route::get('/safa-web.css', fn () => response()->file(public_path('safa-web.css'), ['Content-Type' => 'text/css; charset=utf-8']));
-Route::get('/safa-web.js', fn () => response()->file(public_path('safa-web.js'), ['Content-Type' => 'application/javascript; charset=utf-8']));
+Route::get('/safa-web.js', function () {
+    $guard = (string) @file_get_contents(public_path('safa-web-events.js'));
+    $runtime = (string) file_get_contents(public_path('safa-web.js'));
+    return response($guard . "\n" . $runtime, 200, ['Content-Type' => 'application/javascript; charset=utf-8']);
+});
 Route::get('/safa-web-events.js', fn () => response()->file(public_path('safa-web-events.js'), ['Content-Type' => 'application/javascript; charset=utf-8']));
 Route::get('/storage/logos/{file}', function (string $file) {
     $path = public_path('storage/logos/' . $file);
