@@ -41,7 +41,7 @@ class DeploymentRunOnceContractTest extends TestCase
         // though deployment explicitly checks out main. Production identity must
         // therefore come from the checked-out commit, never the event SHA.
         $this->assertStringContainsString('deploy_sha="$(git rev-parse HEAD)"', $workflow);
-        $this->assertStringContainsString("printf 'DEPLOY_SHA=%s\\n' \"$deploy_sha\" >> \"$GITHUB_ENV\"", $workflow);
+        $this->assertStringContainsString('printf \'DEPLOY_SHA=%s\\n\' "$deploy_sha" >> "$GITHUB_ENV"', $workflow);
         $this->assertStringContainsString('EXPECTED_BUILD="$DEPLOY_SHA"', $workflow);
         $this->assertStringNotContainsString('EXPECTED_BUILD="$GITHUB_SHA"', $workflow);
     }
