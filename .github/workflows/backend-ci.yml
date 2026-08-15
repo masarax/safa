@@ -56,16 +56,4 @@ jobs:
 
       - name: Run full test suite
         working-directory: backend
-        shell: bash
-        run: |
-          set -o pipefail
-          php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result 2>&1 | tee ../backend-test-output.txt
-
-      - name: Upload backend test output
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: backend-test-output-${{ github.run_id }}
-          if-no-files-found: error
-          retention-days: 14
-          path: backend-test-output.txt
+        run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
