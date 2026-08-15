@@ -25,10 +25,10 @@ class LegacyOperatorMigrationTest extends TestCase
 
         $user = User::where('mobile', '01912345678')->firstOrFail();
         $this->assertSame($user->id, $operator->fresh()->user_id);
-        $this->assertSame('staff', $user->role);
+        $this->assertSame(User::ROLE_USER, $user->role);
         $this->assertTrue($user->is_activated);
         $this->assertTrue(Hash::check('123456', $user->pin_hash));
-        $this->assertSame(['users.view' => true], $user->permissions);
+        $this->assertSame(User::permissionsForRole(User::ROLE_USER), $user->permissions);
 
         $this->postJson('/api/auth/login', [
             'mobile' => '01912345678', 'pin' => '123456',
@@ -49,6 +49,7 @@ class LegacyOperatorMigrationTest extends TestCase
 
         $this->assertSame($userId, $operator->fresh()->user_id);
         $this->assertSame(1, User::where('mobile', '01987654321')->count());
+        $this->assertSame(User::ROLE_BUSINESS_USER, User::where('mobile', '01987654321')->value('role'));
     }
 
     public function test_canonical_mobile_uniqueness_prevents_ambiguous_live_identity(): void

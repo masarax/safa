@@ -11,14 +11,19 @@ class Phase3BrandingAssetTest extends TestCase
 
     public function test_branding_assets_exist_and_are_non_empty(): void
     {
-        foreach (['safa-logo.png', 'favicon.svg'] as $asset) {
-            $path = public_path($asset); $this->assertFileExists($path); $this->assertGreaterThan(0, filesize($path));
+        foreach (['safa-logo.png', 'favicon.svg', 'safa-web.css', 'safa-web.js'] as $asset) {
+            $path = public_path($asset);
+            $this->assertFileExists($path);
+            $this->assertGreaterThan(0, filesize($path));
         }
     }
 
-    public function test_public_branding_assets_are_served(): void
+    public function test_public_branding_and_web_assets_are_served(): void
     {
-        $this->get('/safa-logo.png')->assertOk(); $this->get('/favicon.svg')->assertOk();
+        $this->get('/safa-logo.png')->assertOk();
+        $this->get('/favicon.svg')->assertOk();
+        $this->get('/safa-web.css')->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->get('/safa-web.js')->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
     }
 
     public function test_public_web_server_rules_do_not_deny_branding_assets(): void
@@ -48,9 +53,10 @@ class Phase3BrandingAssetTest extends TestCase
         }
     }
 
-    public function test_private_root_does_not_render_a_public_welcome_page(): void
+    public function test_root_is_the_authenticated_browser_application_entrypoint(): void
     {
-        $this->get('/')->assertNotFound();
+        $this->get('/')->assertRedirect(route('safa.login'));
+        $this->get('/login')->assertOk()->assertSee('SAFA');
     }
 
     public function test_public_installer_update_page_is_closed(): void

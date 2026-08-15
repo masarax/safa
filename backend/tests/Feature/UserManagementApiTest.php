@@ -19,19 +19,17 @@ class UserManagementApiTest extends TestCase
     {
         return User::create([
             'name' => 'Super Admin', 'email' => 'superadmin@safa.local', 'mobile' => '01700000000',
-            'role' => 'superadmin', 'pin_hash' => Hash::make('123456'), 'password' => Hash::make('123456'),
-            'is_activated' => true, 'permissions' => User::defaultPermissions(true),
+            'role' => User::ROLE_SUPERADMIN, 'pin_hash' => Hash::make('123456'), 'password' => Hash::make('123456'),
+            'is_activated' => true,
         ]);
     }
 
-    private function createStaff(): User
+    private function createNormalUser(): User
     {
-        $permissions = User::defaultPermissions(false);
-        $permissions['can_view_customers'] = true;
         return User::create([
-            'name' => 'Staff User', 'email' => 'staff@safa.local', 'mobile' => '01711111111',
-            'role' => 'staff', 'pin_hash' => Hash::make('123456'), 'password' => Hash::make('123456'),
-            'is_activated' => true, 'permissions' => $permissions,
+            'name' => 'Normal User', 'email' => 'normal@safa.local', 'mobile' => '01711111111',
+            'role' => User::ROLE_USER, 'pin_hash' => Hash::make('123456'), 'password' => Hash::make('123456'),
+            'is_activated' => true,
         ]);
     }
 
@@ -60,32 +58,50 @@ class UserManagementApiTest extends TestCase
         return ['Authorization' => 'Bearer ' . $token, 'X-SAFA-API-KEY' => $apiKey, 'X-SAFA-SIGNATURE' => $signature, 'X-SAFA-TIMESTAMP' => $timestamp, 'X-SAFA-NONCE' => $nonce, 'X-SAFA-REFRESH-TOKEN' => $refreshToken, 'X-SAFA-DEVICE-TOKEN' => $deviceUuid, 'X-SAFA-SESSION-TOKEN' => $sessionToken, 'X-SAFA-FINGERPRINT-TOKEN' => $fingerprint, 'Accept' => 'application/json'];
     }
 
-    public function test_superadmin_can_list_create_update_delete_operator()
+    public function test_superadmin_can_list_create_update_delete_lower_tier_user()
     {
         $superAdmin = $this->createSuperAdmin();
-        $createData = ['name' => 'New Operator', 'mobile' => '01722222222', 'email' => 'op@safa.local', 'role' => 'staff', 'pin' => '654321', 'permissions' => ['can_view_customers' => true, 'can_delete_customers' => false]];
+        $createData = ['name' => 'New Normal User', 'mobile' => '01722222222', 'email' => 'op@safa.local', 'role' => User::ROLE_USER, 'pin' => '654321'];
         $resCreate = $this->withHeaders($this->getAuthHeaders($superAdmin, 'POST', 'api/auth/operators', json_encode($createData)))->postJson('/api/auth/operators', $createData);
-        $resCreate->assertStatus(201);
+        $resCreate->assertStatus(201)->assertJsonPath('operator.role_label', 'Normal User');
         $opId = $resCreate->json('operator.id');
-        $this->assertDatabaseHas('users', ['mobile' => '01722222222', 'role' => 'staff']);
+        $this->assertDatabaseHas('users', ['mobile' => '01722222222', 'role' => User::ROLE_USER]);
         $this->withHeaders($this->getAuthHeaders($superAdmin))->getJson('/api/auth/operators')->assertStatus(200);
 
-        $updateData = ['name' => 'Updated Operator', 'is_activated' => false];
+        $updateData = ['name' => 'Updated Normal User', 'is_activated' => false, 'role' => User::ROLE_BUSINESS_USER];
         $resUpdate = $this->withHeaders($this->getAuthHeaders($superAdmin, 'PATCH', "api/auth/operators/{$opId}", json_encode($updateData)))->patchJson("/api/auth/operators/{$opId}", $updateData);
-        $resUpdate->assertStatus(200);
-        $this->assertDatabaseHas('users', ['id' => $opId, 'name' => 'Updated Operator', 'is_activated' => 0]);
+        $resUpdate->assertStatus(200)->assertJsonPath('user.role_label', 'Business User');
+        $this->assertDatabaseHas('users', ['id' => $opId, 'name' => 'Updated Normal User', 'role' => User::ROLE_BUSINESS_USER, 'is_activated' => 0]);
         $this->withHeaders($this->getAuthHeaders($superAdmin, 'DELETE', "api/auth/operators/{$opId}"))->deleteJson("/api/auth/operators/{$opId}")->assertStatus(409);
         $this->assertDatabaseHas('users', ['id' => $opId]);
         $this->withHeaders($this->getAuthHeaders($superAdmin, 'DELETE', "api/auth/operators/{$opId}"))->deleteJson("/api/auth/operators/{$opId}?confirmed=true")->assertStatus(200);
         $this->assertDatabaseMissing('users', ['id' => $opId]);
     }
 
-    public function test_unauthorized_staff_cannot_manage_operators()
+    public function test_normal_user_cannot_manage_users()
     {
-        $staff = $this->createStaff();
-        $this->withHeaders($this->getAuthHeaders($staff))->getJson('/api/auth/operators')->assertStatus(403);
-        $data = ['name' => 'Hacker', 'mobile' => '01799999999', 'role' => 'staff', 'pin' => '123456'];
-        $this->withHeaders($this->getAuthHeaders($staff, 'POST', 'api/auth/operators', json_encode($data)))->postJson('/api/auth/operators', $data)->assertStatus(403);
+        $normal = $this->createNormalUser();
+        $this->withHeaders($this->getAuthHeaders($normal))->getJson('/api/auth/operators')->assertStatus(403);
+        $data = ['name' => 'Hacker', 'mobile' => '01799999999', 'role' => User::ROLE_USER, 'pin' => '123456'];
+        $this->withHeaders($this->getAuthHeaders($normal, 'POST', 'api/auth/operators', json_encode($data)))->postJson('/api/auth/operators', $data)->assertStatus(403);
+    }
+
+    public function test_admin_can_manage_only_business_and_normal_users()
+    {
+        $admin = User::create([
+            'name' => 'Admin', 'email' => 'admin@safa.local', 'mobile' => '01733333333',
+            'role' => User::ROLE_ADMIN, 'pin_hash' => Hash::make('123456'), 'password' => Hash::make('123456'), 'is_activated' => true,
+        ]);
+
+        $normalData = ['name' => 'Normal', 'mobile' => '01744444444', 'role' => User::ROLE_USER, 'pin' => '123456'];
+        $this->withHeaders($this->getAuthHeaders($admin, 'POST', 'api/auth/operators', json_encode($normalData)))
+            ->postJson('/api/auth/operators', $normalData)
+            ->assertCreated();
+
+        $adminData = ['name' => 'Peer Admin', 'mobile' => '01755555555', 'role' => User::ROLE_ADMIN, 'pin' => '123456'];
+        $this->withHeaders($this->getAuthHeaders($admin, 'POST', 'api/auth/operators', json_encode($adminData)))
+            ->postJson('/api/auth/operators', $adminData)
+            ->assertUnprocessable();
     }
 
     public function test_superadmin_cannot_delete_themselves()
@@ -97,15 +113,15 @@ class UserManagementApiTest extends TestCase
 
     public function test_deleted_or_deactivated_user_cannot_access_apis()
     {
-        $staff = $this->createStaff();
-        $activeHeaders = $this->getAuthHeaders($staff, 'GET', 'api/customers');
+        $normal = $this->createNormalUser();
+        $activeHeaders = $this->getAuthHeaders($normal, 'GET', 'api/customers');
         $this->withHeaders($activeHeaders)->get('/api/customers')->assertStatus(200);
 
-        $staff->is_activated = false;
-        $staff->save();
+        $normal->is_activated = false;
+        $normal->save();
         $this->withHeaders($activeHeaders)->get('/api/customers')->assertStatus(401);
 
-        $staff->delete();
+        $normal->delete();
         $this->withHeaders($activeHeaders)->get('/api/customers')->assertStatus(401);
     }
 }

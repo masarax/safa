@@ -3,8 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
-// SAFA is a private API-only service. Every request that reaches this front
-// controller must receive a machine-readable response; never render HTML.
+// SAFA serves both the authenticated browser application and the JSON API.
+// Sensitive repository/runtime paths are rejected before Laravel boots.
 $requestUri = rawurldecode($_SERVER['REQUEST_URI'] ?? '');
 $parsedPath = parse_url($requestUri, PHP_URL_PATH) ?? '';
 
@@ -26,8 +26,7 @@ foreach ($blockedPatterns as $pattern) {
 }
 
 header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('Referrer-Policy: no-referrer');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 
 if (version_compare(PHP_VERSION, '8.2.0', '<')) {
     http_response_code(500);
@@ -50,10 +49,10 @@ try {
 
     $app->handleRequest(Request::capture());
 } catch (Throwable $e) {
+    $supportId = strtoupper(substr(hash('sha256', random_bytes(32)), 0, 10));
+    error_log('SAFA_FRONT_CONTROLLER_FAILURE support_id=' . $supportId . ' type=' . get_class($e));
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
-
-    // Never expose exception details from the public/private API entry point.
-    echo json_encode(['status' => 'error', 'message' => 'Internal server error'], JSON_UNESCAPED_SLASHES);
+    echo json_encode(['status' => 'error', 'message' => 'Internal server error', 'support_id' => $supportId], JSON_UNESCAPED_SLASHES);
     exit;
 }

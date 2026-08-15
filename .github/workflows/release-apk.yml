@@ -1,0 +1,101 @@
+name: Build Signed Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safa-android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  signed-apk:
+    name: Test and build signed release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Validate signing secrets
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo 'ANDROID_KEYSTORE_BASE64 is required'; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo 'ANDROID_STORE_PASSWORD is required'; exit 1; }
+          test -n "$KEY_ALIAS" || { echo 'ANDROID_KEY_ALIAS is required'; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo 'ANDROID_KEY_PASSWORD is required'; exit 1; }
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/safa-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/safa-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+
+      - name: Validate release version identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(sed -n 's/^SAFA_VERSION_CODE=//p' gradle.properties | tail -n 1 | tr -d '[:space:]')"
+          published="$(tr -d '[:space:]' < release/android-last-published-version-code.txt)"
+          [[ "$current" =~ ^[0-9]+$ ]] || { echo 'SAFA_VERSION_CODE must be an integer'; exit 1; }
+          [[ "$published" =~ ^[0-9]+$ ]] || { echo 'Published version baseline must be an integer'; exit 1; }
+          test "$current" -gt "$published" || { echo "Release versionCode $current must be greater than last published code $published"; exit 1; }
+
+      - name: Run unit tests and lint
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug
+
+      - name: Build minified signed release APK
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/safa-release.jks
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Verify APK signature and create checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "$apk" || { echo 'Release APK was not produced'; exit 1; }
+          apksigner verify --verbose "$apk"
+          mkdir -p app/build/release-publication
+          sha256sum "$apk" | sed "s#${apk}#$(basename "$apk")#" > app/build/release-publication/SHA256SUMS.txt
+          printf 'commit=%s\nref=%s\n' "$GITHUB_SHA" "$GITHUB_REF" > app/build/release-publication/build-identity.txt
+
+      - name: Upload signed APK, mapping and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: safa-signed-apk-${{ github.run_id }}
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/mapping/release/mapping.txt
+            app/build/release-publication/SHA256SUMS.txt
+            app/build/release-publication/build-identity.txt
+
+      - name: Remove decoded signing material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/safa-release.jks"
