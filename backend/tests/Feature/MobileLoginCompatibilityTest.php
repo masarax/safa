@@ -7,6 +7,7 @@ use App\Models\AuthSession;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -61,14 +62,17 @@ class MobileLoginCompatibilityTest extends TestCase
 
         $this->assertNotEmpty($response->json('tokens.access_token'));
         $this->assertSame($response->json('access_token'), $response->json('tokens.access_token'));
+        $this->assertSame(31, strlen((string) $response->json('tokens.refresh_token')));
+        $this->assertSame(31, strlen((string) $response->json('tokens.session_token')));
     }
 
-    public function test_mobile_login_remains_available_while_token_hash_migration_is_pending(): void
+    public function test_mobile_login_remains_available_while_token_hash_and_width_migrations_are_pending(): void
     {
         $user = $this->seedUser();
 
         // Reproduce the production rollout window where application files have
-        // been deployed but the token-hash hardening migration has not yet run.
+        // been deployed but the auth-session hardening migrations have not yet
+        // run: no hash columns and both opaque token fields are VARCHAR(255).
         Schema::drop('auth_sessions');
         Schema::create('auth_sessions', function (Blueprint $table): void {
             $table->id();
@@ -91,7 +95,14 @@ class MobileLoginCompatibilityTest extends TestCase
             ->assertJsonPath('user.id', $user->id);
 
         $accessToken = (string) $response->json('tokens.access_token');
+        $rawSession = DB::table('auth_sessions')->where('user_id', $user->id)->first();
+
         $this->assertNotSame('', $accessToken);
+        $this->assertNotNull($rawSession);
+        // This is the MySQL strict-mode compatibility guarantee: the new
+        // high-entropy token size still encrypts below the legacy 255-byte cap.
+        $this->assertLessThanOrEqual(255, strlen((string) $rawSession->refresh_token));
+        $this->assertLessThanOrEqual(255, strlen((string) $rawSession->session_token));
         $this->assertNotNull(AuthSession::findActiveByAccessToken($accessToken, $user->id));
         $this->assertFalse(AuthSession::supportsTokenHashes());
     }
