@@ -56,7 +56,7 @@ jobs:
 
       - name: Browser JavaScript syntax check
         working-directory: backend
-        run: node --check public/safa-web.js
+        run: find public -maxdepth 1 -type f -name 'safa-web*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Run full test suite
         working-directory: backend

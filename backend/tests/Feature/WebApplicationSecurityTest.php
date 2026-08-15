@@ -123,7 +123,7 @@ class WebApplicationSecurityTest extends TestCase
         $this->postJson('/app/api/config', ['app_name' => 'Nope'])->assertForbidden();
     }
 
-    public function test_admin_web_page_exposes_management_but_normal_user_does_not(): void
+    public function test_admin_web_page_exposes_settings_management_but_normal_user_does_not(): void
     {
         $admin = $this->user(User::ROLE_ADMIN, '0536308967', 'admin@example.test');
         $normal = $this->user(User::ROLE_USER, '0536308968', 'normal2@example.test');
@@ -132,7 +132,7 @@ class WebApplicationSecurityTest extends TestCase
             ->get('/app')
             ->assertOk()
             ->assertSee('User Management')
-            ->assertSee('Admin Settings');
+            ->assertSee('Brand & Business Configuration');
 
         auth()->logout();
 
@@ -140,7 +140,7 @@ class WebApplicationSecurityTest extends TestCase
             ->get('/app')
             ->assertOk()
             ->assertDontSee('User Management')
-            ->assertDontSee('Supplier Rate')
-            ->assertDontSee('Wallet');
+            ->assertDontSee('Supplier rate')
+            ->assertDontSee('data-nav="wallet"', false);
     }
 }
