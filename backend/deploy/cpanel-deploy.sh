@@ -65,6 +65,7 @@ case "$PROJECT_ROOT" in
 esac
 [[ "$PROJECT_ROOT" != "$HOME_DIR" && "$PROJECT_ROOT" != '/' && "$PROJECT_ROOT" != "$REPOSITORY_ROOT" ]] || fail 'The resolved project root is unsafe for deployment.'
 mkdir -p "$PROJECT_ROOT"
+[[ -f "$PROJECT_ROOT/.env" ]] || fail 'Production .env is missing. Deployment will not create credentials automatically.'
 
 COMPOSER_BIN="$(command -v composer 2>/dev/null || true)"
 if [[ -z "$COMPOSER_BIN" && -x /opt/cpanel/composer/bin/composer ]]; then
@@ -102,12 +103,16 @@ tar -C "$REPOSITORY_ROOT/backend" \
 
 [[ -f "$STAGING_ROOT/composer.json" && -f "$STAGING_ROOT/composer.lock" ]] || fail 'The staged Laravel release is incomplete.'
 
-# Composer package discovery may need the production application settings, but
-# the credentials file remains outside the release manifest and is never
-# published from staging.
-if [[ -f "$PROJECT_ROOT/.env" ]]; then
-  cp -p "$PROJECT_ROOT/.env" "$STAGING_ROOT/.env"
-fi
+# Composer package discovery boots Laravel. Give the isolated staging build its
+# own writable runtime skeleton and a private copy of the existing production
+# environment; none of these runtime files are included in the release manifest.
+mkdir -p \
+  "$STAGING_ROOT/storage/framework/cache/data" \
+  "$STAGING_ROOT/storage/framework/sessions" \
+  "$STAGING_ROOT/storage/framework/views" \
+  "$STAGING_ROOT/storage/logs" \
+  "$STAGING_ROOT/bootstrap/cache"
+cp -p "$PROJECT_ROOT/.env" "$STAGING_ROOT/.env"
 
 (
   cd "$STAGING_ROOT"
@@ -165,7 +170,6 @@ for directory in \
 done
 chmod -R u+rwX "$PROJECT_ROOT/storage" "$PROJECT_ROOT/bootstrap/cache" 2>/dev/null || true
 
-[[ -f "$PROJECT_ROOT/.env" ]] || fail 'Production .env is missing. Deployment will not create credentials automatically.'
 [[ -f "$PROJECT_ROOT/artisan" && -f "$PROJECT_ROOT/vendor/autoload.php" ]] || fail 'The published Laravel runtime is incomplete.'
 
 ARTISAN=("$PHP_BIN" "$PROJECT_ROOT/artisan")
