@@ -39,6 +39,13 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
     }
 });
 
+// Compatibility for already-installed Android builds whose Retrofit base URL
+// resolves auth/login beneath /api/v1. Authentication must never depend on the
+// generic nested-request proxy: dispatch it directly to the same canonical
+// controller and middleware used by /api/auth/login below.
+Route::post('/v1/auth/login', [MobileLoginController::class, 'login'])
+    ->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, 'throttle:5,1']);
+
 // All other v1 requests are transparently dispatched to the existing routes,
 // preserving their established authentication and business middleware.
 Route::any('/v1/{path?}', VersionedApiProxyController::class)->where('path', '.*');
