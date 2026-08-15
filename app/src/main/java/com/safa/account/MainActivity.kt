@@ -1,5 +1,6 @@
 package com.safa.account
 
+import android.animation.ValueAnimator
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -129,6 +130,7 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val animationsEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
     var showExitDialog by remember { mutableStateOf(false) }
     var previousOperatorId by remember { mutableStateOf<Int?>(currentOperator?.id) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -163,8 +165,6 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
         val tm = viewModel.tokenManager ?: return@LaunchedEffect
         activeAccountId = tm.getActiveAccountId()
         if (activeAccountId == null) {
-            // Never expose a previously cached account while this authenticated
-            // session has not selected its canonical business account yet.
             viewModel.repository.clearLocalPresentation()
         }
         val manager = viewModel.syncManager ?: return@LaunchedEffect
@@ -182,9 +182,6 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
         }
     }
 
-    // Persist the account's quick-unlock preference only after an authenticated
-    // operator is present. This keeps the setting available across app restarts
-    // without writing a biometric secret or PIN to the server/local database.
     LaunchedEffect(currentOperator?.id) {
         viewModel.isBiometricEnabled.collect { enabled ->
             val operator = viewModel.currentOperator.value ?: return@collect
@@ -197,9 +194,6 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
         DeleteConfirmationCoordinator.requests.collect { request -> deleteConfirmation = request }
     }
 
-    // Resume a valid server session after process restart/app relaunch. When
-    // biometric quick-unlock is enabled, the interceptor blocks this request
-    // until the fingerprint gate has approved the existing session.
     LaunchedEffect(currentOperator?.id, currentScreen) {
         if (currentOperator != null || currentScreen != AppScreen.LOCK_SCREEN) return@LaunchedEffect
         val tm = viewModel.tokenManager ?: return@LaunchedEffect
@@ -386,30 +380,35 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
                         AnimatedContent(
                             targetState = currentScreen,
                             transitionSpec = {
-                                val isBackward = navDirection == NavDirection.BACKWARD
-                                if (isBackward) {
-                                    slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                                if (!animationsEnabled) {
+                                    fadeIn(animationSpec = tween(0)) togetherWith fadeOut(animationSpec = tween(0))
                                 } else {
-                                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                                    val isBackward = navDirection == NavDirection.BACKWARD
+                                    if (isBackward) {
+                                        slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                                    } else {
+                                        slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(110)) togetherWith slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(160, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(110))
+                                    }
                                 }
                             },
-                            label = "SqueezeTransition",
+                            label = "SafaTransition",
                             modifier = Modifier.fillMaxSize()
                         ) { targetScreen ->
+                            val operator = currentOperator
                             when (targetScreen) {
                                 AppScreen.DASHBOARD -> DashboardScreen(viewModel = viewModel)
-                                AppScreen.CUSTOMERS -> CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = false)
-                                AppScreen.CUSTOMER_PROFILE -> CustomerScreen(viewModel = viewModel, isProfileView = true, isAddView = false)
-                                AppScreen.CUSTOMER_ADD -> CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = true)
-                                AppScreen.SUPPLIERS -> SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = false)
-                                AppScreen.SUPPLIER_PROFILE -> SupplierScreen(viewModel = viewModel, isProfileView = true, isAddView = false)
-                                AppScreen.SUPPLIER_ADD -> SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = true)
-                                AppScreen.TRANSACTIONS -> TransactionScreen(viewModel = viewModel)
-                                AppScreen.WALLET -> WalletScreen(viewModel = viewModel)
-                                AppScreen.EXPENSES -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = false)
-                                AppScreen.EXPENSE_ADD -> ExpenseScreen(viewModel = viewModel, isAddingEntryView = true)
-                                AppScreen.SETTINGS -> SettingsScreen(viewModel = viewModel)
-                                AppScreen.REPORTS -> ReportsScreen(viewModel = viewModel)
+                                AppScreen.CUSTOMERS -> if (operator?.canViewCustomers == true) CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = false) else DashboardScreen(viewModel)
+                                AppScreen.CUSTOMER_PROFILE -> if (operator?.canViewCustomers == true) CustomerScreen(viewModel = viewModel, isProfileView = true, isAddView = false) else DashboardScreen(viewModel)
+                                AppScreen.CUSTOMER_ADD -> if (operator?.canAddCustomers == true) CustomerScreen(viewModel = viewModel, isProfileView = false, isAddView = true) else DashboardScreen(viewModel)
+                                AppScreen.SUPPLIERS -> if (operator?.canViewSuppliers == true) SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = false) else DashboardScreen(viewModel)
+                                AppScreen.SUPPLIER_PROFILE -> if (operator?.canViewSuppliers == true) SupplierScreen(viewModel = viewModel, isProfileView = true, isAddView = false) else DashboardScreen(viewModel)
+                                AppScreen.SUPPLIER_ADD -> if (operator?.canAddSuppliers == true) SupplierScreen(viewModel = viewModel, isProfileView = false, isAddView = true) else DashboardScreen(viewModel)
+                                AppScreen.TRANSACTIONS -> if (operator?.canViewTransactions == true) TransactionScreen(viewModel = viewModel) else DashboardScreen(viewModel)
+                                AppScreen.WALLET -> if (operator?.canManageWallet == true) WalletScreen(viewModel = viewModel) else DashboardScreen(viewModel)
+                                AppScreen.EXPENSES -> if (operator?.canManageExpenses == true) ExpenseScreen(viewModel = viewModel, isAddingEntryView = false) else DashboardScreen(viewModel)
+                                AppScreen.EXPENSE_ADD -> if (operator?.canManageExpenses == true) ExpenseScreen(viewModel = viewModel, isAddingEntryView = true) else DashboardScreen(viewModel)
+                                AppScreen.SETTINGS -> RoleAwareSettingsScreen(viewModel = viewModel)
+                                AppScreen.REPORTS -> if (operator?.canViewReports == true) ReportsScreen(viewModel = viewModel) else DashboardScreen(viewModel)
                                 AppScreen.LOCK_SCREEN -> LoginScreen(viewModel = viewModel)
                             }
                         }
@@ -446,16 +445,16 @@ fun SafaTopAppBar(
                 }
                 Column {
                     Text(text = customAppName, style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, color = contentOnGoldColor), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(text = if (currentLang == "BN") "অপারেটর: $operatorName" else "Operator: $operatorName", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp, color = contentOnGoldColor.copy(alpha = 0.8f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = if (currentLang == "BN") "ইউজার: $operatorName" else "User: $operatorName", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp, color = contentOnGoldColor.copy(alpha = 0.8f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         },
         actions = {
             Spacer(Modifier.width(4.dp))
-            IconButton(onClick = onAccountClick, modifier = Modifier.testTag("appbar_account_switch").size(36.dp)) { Icon(imageVector = Icons.Default.SwitchAccount, contentDescription = "Switch Account", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
-            IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Switch Theme", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
-            IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
-            IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = onAccountClick, modifier = Modifier.testTag("appbar_account_switch").size(36.dp)) { Icon(imageVector = Icons.Default.SwitchAccount, contentDescription = if (currentLang == "BN") "অ্যাকাউন্ট পরিবর্তন" else "Switch Account", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = if (currentLang == "BN") "থিম পরিবর্তন" else "Switch Theme", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = if (currentLang == "BN") "ভাষা পরিবর্তন" else "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = if (currentLang == "BN") "লগআউট" else "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = goldBgColor), modifier = Modifier.fillMaxWidth()
     )
@@ -464,9 +463,16 @@ fun SafaTopAppBar(
 @Composable
 fun SafaBottomNavigationBar(viewModel: SafaViewModel, currentScreen: AppScreen) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+    val operator by viewModel.currentOperator.collectAsStateWithLifecycle()
     androidx.compose.material3.Surface(modifier = Modifier.fillMaxWidth(), color = if (isDarkMode) Color(0xFF1E2638) else Color(0xFFFAF8F5), tonalElevation = 0.dp, shadowElevation = 0.dp) {
         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).size(height = 64.dp, width = androidx.compose.ui.unit.Dp.Infinity)) {
-            val navItems = listOf(Triple(AppScreen.DASHBOARD, Icons.Default.Home, "dashboard"), Triple(AppScreen.CUSTOMERS, Icons.Default.People, "customers"), Triple(AppScreen.SUPPLIERS, Icons.Default.AccountBalance, "suppliers"), Triple(AppScreen.WALLET, Icons.Default.AccountBalanceWallet, "wallet"), Triple(AppScreen.EXPENSES, Icons.Default.Payments, "expenses"))
+            val navItems = buildList {
+                add(Triple(AppScreen.DASHBOARD, Icons.Default.Home, "dashboard"))
+                if (operator?.canViewCustomers == true) add(Triple(AppScreen.CUSTOMERS, Icons.Default.People, "customers"))
+                if (operator?.canViewSuppliers == true) add(Triple(AppScreen.SUPPLIERS, Icons.Default.AccountBalance, "suppliers"))
+                if (operator?.canManageWallet == true) add(Triple(AppScreen.WALLET, Icons.Default.AccountBalanceWallet, "wallet"))
+                if (operator?.canManageExpenses == true) add(Triple(AppScreen.EXPENSES, Icons.Default.Payments, "expenses"))
+            }
             navItems.forEach { item ->
                 val screen = item.first; val icon = item.second; val key = item.third; val isSelected = currentScreen == screen
                 NavigationBarItem(
