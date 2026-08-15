@@ -61,6 +61,17 @@ jobs:
       - name: Run debug unit tests and lint
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
 
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: safa-debug-apk-${{ github.run_id }}
+          retention-days: 30
+          if-no-files-found: error
+          path: app/build/outputs/apk/debug/*.apk
+
       - name: Run plain local-equivalent assembleRelease
         env:
           KEYSTORE_PATH: ''
