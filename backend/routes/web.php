@@ -11,6 +11,7 @@ use App\Http\Controllers\WebAppController;
 use App\Http\Controllers\WebAuthController;
 use App\Http\Controllers\WebMobileFlowController;
 use App\Http\Controllers\WebSettingsController;
+use App\Http\Controllers\WebWorkspaceController;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireBusinessPermission;
 use App\Http\Middleware\ValidateLogoUpload;
@@ -51,9 +52,7 @@ Route::middleware(['auth', 'throttle:120,1'])->group(function () {
     Route::post('/app/api/settings/profile', [WebSettingsController::class, 'updateProfile'])->name('safa.web.settings.profile');
     Route::post('/app/api/settings/pin', [WebSettingsController::class, 'changePin'])->name('safa.web.settings.pin');
 
-    // Mobile-parity browser contract. These endpoints implement the coupled
-    // operations performed by SafaViewModel atomically on the server.
-    Route::get('/app/api/mobile/workspace', [WebMobileFlowController::class, 'workspace'])->name('safa.web.mobile.workspace');
+    Route::get('/app/api/mobile/workspace', [WebWorkspaceController::class, 'index'])->name('safa.web.mobile.workspace');
     Route::post('/app/api/mobile/customer-sale', [WebMobileFlowController::class, 'customerSale'])->name('safa.web.mobile.customer-sale');
     Route::post('/app/api/mobile/customer-adjustment', [WebMobileFlowController::class, 'customerAdjustment'])->name('safa.web.mobile.customer-adjustment');
     Route::patch('/app/api/mobile/transactions/{id}', [WebMobileFlowController::class, 'updateTransaction'])->name('safa.web.mobile.transaction.update');
@@ -68,8 +67,6 @@ Route::middleware(['auth', 'throttle:120,1'])->group(function () {
     Route::post('/app/api/mobile/wallet-deposit', [WebMobileFlowController::class, 'walletDeposit'])->name('safa.web.mobile.wallet-deposit');
     Route::post('/app/api/mobile/wallet-withdraw', [WebMobileFlowController::class, 'walletWithdraw'])->name('safa.web.mobile.wallet-withdraw');
 
-    // Canonical entity CRUD remains available for Android sync and profile/
-    // expense maintenance. The rebuilt web UI uses it only for non-coupled data.
     Route::middleware(RequireBusinessPermission::class)->group(function () {
         Route::get('/app/api/customers', [CustomerController::class, 'index'])->name('safa.web.customers');
         Route::post('/app/api/customers', [CustomerController::class, 'store']);
