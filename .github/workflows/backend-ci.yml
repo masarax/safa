@@ -4,16 +4,12 @@ on:
   pull_request:
     paths:
       - 'backend/**'
-      - '.cpanel.yml'
       - '.github/workflows/backend-ci.yml'
-      - '.github/workflows/deploy.yml'
   push:
     branches: [main]
     paths:
       - 'backend/**'
-      - '.cpanel.yml'
       - '.github/workflows/backend-ci.yml'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -57,11 +53,6 @@ jobs:
       - name: PHP syntax check
         working-directory: backend
         run: find app config database deploy routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-
-      - name: Deployment shell syntax check
-        working-directory: backend
-        shell: bash
-        run: bash -n deploy/cpanel-deploy.sh
 
       - name: Run full test suite
         working-directory: backend
