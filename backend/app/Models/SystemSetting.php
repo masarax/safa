@@ -11,7 +11,6 @@ class SystemSetting extends Model
     protected $fillable = [
         'account_id',
         'app_name',
-        'captain_name',
         'app_logo_url',
         'app_version',
         'local_currency',
