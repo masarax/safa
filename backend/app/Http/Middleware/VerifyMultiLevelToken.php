@@ -52,35 +52,13 @@ class VerifyMultiLevelToken
             return response()->json(['status' => 'error', 'message' => 'Forbidden: token/device mismatch.'], 403);
         }
 
-        $session = AuthSession::query()
-            ->where('user_id', $userId)
-            ->where('device_uuid', $deviceUuid)
-            ->where('refresh_token_hash', AuthSession::tokenHash($refreshToken))
-            ->where('session_token_hash', AuthSession::tokenHash($sessionToken))
-            ->where('access_token_hash', AuthSession::tokenHash($accessToken))
-            ->where('is_revoked', false)
-            ->first();
-
-        // Compatibility path for sessions created before token-hash columns
-        // existed, or for legacy rows whose hash could not be backfilled.
-        // Token values are encrypted at rest and are compared only after the
-        // narrow user/device scope has been applied.
-        if (!$session) {
-            $session = AuthSession::query()
-                ->where('user_id', $userId)
-                ->where('device_uuid', $deviceUuid)
-                ->where('is_revoked', false)
-                ->get()
-                ->first(function (AuthSession $candidate) use ($accessToken, $refreshToken, $sessionToken): bool {
-                    return hash_equals((string) $candidate->access_token, (string) $accessToken)
-                        && hash_equals((string) $candidate->refresh_token, (string) $refreshToken)
-                        && hash_equals((string) $candidate->session_token, (string) $sessionToken);
-                });
-
-            if ($session) {
-                $session->save();
-            }
-        }
+        $session = AuthSession::findActiveByTokenStack(
+            $userId,
+            (string) $deviceUuid,
+            (string) $accessToken,
+            (string) $refreshToken,
+            (string) $sessionToken
+        );
 
         if (!$session) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized: auth session invalid or revoked.'], 401);
