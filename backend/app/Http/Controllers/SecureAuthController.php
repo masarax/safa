@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 class SecureAuthController extends Controller
 {
@@ -60,7 +59,7 @@ class SecureAuthController extends Controller
             $binding = DeviceBinding::query()->where('user_id', $user->id)->where('device_uuid', $deviceUuid)->where('is_active', true)->first();
             if (!$binding || !hash_equals((string) $binding->fingerprint_hash, $fingerprint)) return null;
 
-            $newRefreshToken = Str::random(64);
+            $newRefreshToken = AuthSession::newOpaqueToken();
             $newAccessToken = AuthJWTController::generateJwt([
                 'iss' => config('app.url', 'safa-backend'),
                 'sub' => $user->id,
