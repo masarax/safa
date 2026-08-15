@@ -28,7 +28,7 @@ class WebAuthController extends Controller
         return view('safa.login', [
             'language' => $language,
             'appName' => $setting?->app_name ?: 'SAFA',
-            'captainName' => $setting?->captain_name,
+            'captainName' => null,
             'logoSource' => $setting?->webLogoSource() ?: '/safa-logo.png',
         ]);
     }
