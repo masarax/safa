@@ -33,7 +33,7 @@ jobs:
   quality-and-release:
     name: Unit, lint and release build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -61,6 +61,17 @@ jobs:
       - name: Run debug unit tests and lint
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
 
+      - name: Run plain local-equivalent assembleRelease
+        env:
+          KEYSTORE_PATH: ''
+          STORE_PASSWORD: ''
+          KEY_ALIAS: ''
+          KEY_PASSWORD: ''
+        run: |
+          rm -rf app/build/outputs/apk/release
+          ./gradlew --no-daemon assembleRelease
+          test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+
       - name: Create ephemeral CI release signing key
         shell: bash
         run: |
@@ -72,13 +83,16 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=SAFA CI,OU=CI,O=MASARA X,L=Riyadh,C=SA"
 
-      - name: Build minified release APK
+      - name: Build minified signed release APK
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/safa-ci-release.jks
           STORE_PASSWORD: ci-only-password
           KEY_ALIAS: safa-ci
           KEY_PASSWORD: ci-only-password
-        run: ./gradlew --no-daemon assembleRelease
+        run: |
+          rm -rf app/build/outputs/apk/release
+          ./gradlew --no-daemon assembleRelease
+          test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
 
       - name: Upload release build and reports
         if: always()
