@@ -1,6 +1,7 @@
 package com.safa.account
 
 import android.animation.ValueAnimator
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -130,7 +131,13 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
     val isSubPageActive by viewModel.isSubPageActive.collectAsStateWithLifecycle()
     val navDirection by viewModel.navDirection.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val animationsEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
+    val animationsEnabled = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ValueAnimator.areAnimatorsEnabled()
+        } else {
+            true
+        }
+    }
     var showExitDialog by remember { mutableStateOf(false) }
     var previousOperatorId by remember { mutableStateOf<Int?>(currentOperator?.id) }
     var isRefreshing by remember { mutableStateOf(false) }
