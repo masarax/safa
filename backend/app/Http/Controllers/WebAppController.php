@@ -37,6 +37,7 @@ class WebAppController extends Controller
             'activeAccountId' => $activeAccountId,
             'setting' => $setting,
             'logoSource' => $setting?->webLogoSource() ?: '/safa-logo.png',
+            'captainName' => $user->name,
             'language' => $language,
             'canManageUsers' => $user->canManageUsers(),
             'canManageSystemSettings' => $user->canManageBranding(),
