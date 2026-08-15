@@ -10,7 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 /**
  * Canonical first-factor mobile authentication endpoint.
@@ -65,8 +64,8 @@ class MobileLoginController extends Controller
             }
 
             AuthSession::query()->where('user_id', $user->id)->where('device_uuid', $deviceUuid)->where('is_revoked', false)->update(['is_revoked' => true]);
-            $sessionToken = Str::random(64);
-            $refreshToken = Str::random(64);
+            $sessionToken = AuthSession::newOpaqueToken();
+            $refreshToken = AuthSession::newOpaqueToken();
             $accessToken = AuthJWTController::generateJwt(['iss' => config('app.url', 'safa-backend'), 'sub' => $user->id, 'user_id' => $user->id, 'device_uuid' => $deviceUuid, 'session_token' => $sessionToken, 'iat' => time(), 'exp' => time() + (24 * 3600)]);
             AuthSession::create(['user_id' => $user->id, 'device_uuid' => $deviceUuid, 'access_token' => $accessToken, 'refresh_token' => $refreshToken, 'session_token' => $sessionToken, 'expires_at' => now()->addDays(30), 'is_revoked' => false]);
             return ['user' => $user, 'access_token' => $accessToken, 'refresh_token' => $refreshToken, 'device_token' => $deviceUuid, 'session_token' => $sessionToken, 'fingerprint_token' => $fingerprintHash];
