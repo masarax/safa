@@ -19,11 +19,7 @@ class SecureAuthController extends Controller
         $accessToken = $request->bearerToken();
         if (!$user || !$accessToken) return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
 
-        $session = AuthSession::query()
-            ->where('access_token_hash', AuthSession::tokenHash($accessToken))
-            ->where('user_id', $user->id)
-            ->where('is_revoked', false)
-            ->first();
+        $session = AuthSession::findActiveByAccessToken($accessToken, (int) $user->id);
 
         if (!$session || ($session->expires_at && $session->expires_at->isPast())) return response()->json(['status' => 'error', 'message' => 'Session expired.'], 401);
 
@@ -55,12 +51,7 @@ class SecureAuthController extends Controller
         if ($refreshToken === '' || $deviceUuid === '' || $fingerprint === '') return response()->json(['status' => 'error', 'message' => 'Missing refresh security credentials.'], 400);
 
         $result = DB::transaction(function () use ($refreshToken, $deviceUuid, $fingerprint) {
-            $session = AuthSession::query()
-                ->where('refresh_token_hash', AuthSession::tokenHash($refreshToken))
-                ->where('device_uuid', $deviceUuid)
-                ->where('is_revoked', false)
-                ->lockForUpdate()
-                ->first();
+            $session = AuthSession::findActiveByRefreshToken($refreshToken, $deviceUuid, true);
 
             if (!$session || ($session->expires_at && $session->expires_at->isPast())) return null;
             $user = User::find($session->user_id);
@@ -112,7 +103,8 @@ class SecureAuthController extends Controller
     {
         $accessToken = $request->bearerToken();
         if (!$accessToken) return response()->json(['status' => 'error', 'message' => 'Authenticated session required.'], 401);
-        $session = AuthSession::query()->where('access_token_hash', AuthSession::tokenHash($accessToken))->where('is_revoked', false)->first();
+        $user = $request->user() ?? $request->attributes->get('user');
+        $session = AuthSession::findActiveByAccessToken($accessToken, $user ? (int) $user->id : null);
         if (!$session) return response()->json(['status' => 'success', 'message' => 'Session already ended.']);
         $session->update(['is_revoked' => true]);
         return response()->json(['status' => 'success', 'message' => 'Logged out successfully.']);
