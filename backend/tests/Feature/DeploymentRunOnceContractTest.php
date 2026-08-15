@@ -73,7 +73,7 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString('view:cache', $script);
         $this->assertStringContainsString('$PROJECT_ROOT/run-once.php', $script);
         $this->assertStringContainsString('$PROJECT_ROOT/public/run-once.php', $script);
-        $this->assertStringContainsString("[[ -f \"$PROJECT_ROOT/.env\" ]]", $script);
+        $this->assertStringContainsString('[[ -f "$PROJECT_ROOT/.env" ]]', $script);
         $this->assertStringNotContainsString('migrate:fresh', $script);
         $this->assertStringNotContainsString('rm -rf "$PROJECT_ROOT"', $script);
         $this->assertStringNotContainsString('ftp', strtolower($script));
