@@ -415,7 +415,6 @@
         }
     });
 
-    const originalFillForm = fillForm;
     document.addEventListener('click', (event) => {
         const edit = event.target.closest('[data-edit-resource="users"]');
         if (!edit || !userForm) return;
@@ -429,7 +428,7 @@
         userForm.elements.pin.value = '';
         userForm.elements.pin.required = false;
         userForm.elements.is_activated.checked = Boolean(record.is_activated);
-        userForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        userForm.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
         event.stopPropagation();
     }, true);
 
@@ -475,20 +474,48 @@
 
     document.querySelector('[data-action="refresh-all"]')?.addEventListener('click', () => loadAll());
 
-    const decimal = (value) => {
-        const number = Number.parseFloat(String(value ?? 0));
-        return Number.isFinite(number) ? number : 0;
+    const toMinorUnits = (value, scale = 2) => {
+        const raw = String(value ?? '0').trim();
+        const match = raw.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+        if (!match) return 0n;
+
+        const negative = match[1] === '-';
+        const whole = BigInt(match[2]);
+        const fraction = match[3] || '';
+        const factor = 10n ** BigInt(scale);
+        const padded = (fraction + '0'.repeat(scale + 1)).slice(0, scale + 1);
+        const kept = padded.slice(0, scale) || '0';
+        let units = (whole * factor) + BigInt(kept);
+
+        // SAFA monetary amounts use deterministic half-up rounding at their
+        // fixed display/report scale when an upstream value has extra digits.
+        if (padded.length > scale && padded.charCodeAt(scale) >= 53) units += 1n;
+        return negative ? -units : units;
+    };
+
+    const formatMinorUnits = (units, scale = 2) => {
+        const negative = units < 0n;
+        const absolute = negative ? -units : units;
+        const factor = 10n ** BigInt(scale);
+        const whole = absolute / factor;
+        const fraction = (absolute % factor).toString().padStart(scale, '0');
+        return `${negative ? '-' : ''}${whole.toString()}.${fraction}`;
     };
 
     const updateReports = () => {
-        const sar = state.transactions.reduce((sum, item) => sum + decimal(item.amount_sar ?? item.amount), 0);
-        const bdt = state.transactions.reduce((sum, item) => sum + decimal(item.amount_bdt), 0);
-        const expenses = state.expenses.filter((item) => Boolean(item.is_expense)).reduce((sum, item) => sum + decimal(item.amount), 0);
-        const income = state.expenses.filter((item) => !Boolean(item.is_expense)).reduce((sum, item) => sum + decimal(item.amount), 0);
-        setStat('report-sar', sar.toFixed(2));
-        setStat('report-bdt', bdt.toFixed(2));
-        setStat('report-expense', expenses.toFixed(2));
-        setStat('report-income', income.toFixed(2));
+        const sar = state.transactions.reduce((sum, item) => sum + toMinorUnits(item.amount_sar ?? item.amount), 0n);
+        const bdt = state.transactions.reduce((sum, item) => sum + toMinorUnits(item.amount_bdt), 0n);
+        const expenses = state.expenses
+            .filter((item) => Boolean(item.is_expense))
+            .reduce((sum, item) => sum + toMinorUnits(item.amount), 0n);
+        const income = state.expenses
+            .filter((item) => !Boolean(item.is_expense))
+            .reduce((sum, item) => sum + toMinorUnits(item.amount), 0n);
+
+        setStat('report-sar', formatMinorUnits(sar));
+        setStat('report-bdt', formatMinorUnits(bdt));
+        setStat('report-expense', formatMinorUnits(expenses));
+        setStat('report-income', formatMinorUnits(income));
     };
 
     if (app.dataset.activeAccount) {
