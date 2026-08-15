@@ -86,7 +86,13 @@ class UserManagementController extends Controller
         if (!$actor) return $this->forbidden();
 
         $user = User::find($id);
-        if (!$user || !$actor->canManageRole((string) $user->role)) {
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User not found.'], 404);
+        }
+        if ((int) $user->id === (int) $actor->id) {
+            return response()->json(['status' => 'error', 'message' => 'Administrators cannot modify their own managed account through this endpoint.'], 400);
+        }
+        if (!$actor->canManageRole((string) $user->role)) {
             return response()->json(['status' => 'error', 'message' => 'User not found.'], 404);
         }
 
@@ -150,7 +156,13 @@ class UserManagementController extends Controller
         }
 
         $user = User::find($id);
-        if (!$user || !$actor->canManageRole((string) $user->role)) {
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User not found.'], 404);
+        }
+        if ((int) $user->id === (int) $actor->id) {
+            return response()->json(['status' => 'error', 'message' => 'Administrators cannot delete their own account.'], 400);
+        }
+        if (!$actor->canManageRole((string) $user->role)) {
             return response()->json(['status' => 'error', 'message' => 'User not found.'], 404);
         }
 
