@@ -48,7 +48,7 @@ class DeploymentRunOnceContractTest extends TestCase
         // The workflow always deploys the checked-out main commit, requires the
         // cPanel task to succeed for that SHA, then verifies the live exact build.
         $this->assertStringContainsString('deploy_sha="$(git rev-parse HEAD)"', $workflow);
-        $this->assertStringContainsString('$task_identifier" != "$DEPLOY_SHA', $workflow);
+        $this->assertStringContainsString('[[ "$task_identifier" != "$DEPLOY_SHA" ]]', $workflow);
         $this->assertStringContainsString('EXPECTED_BUILD="$DEPLOY_SHA"', $workflow);
         $this->assertStringNotContainsString('EXPECTED_BUILD="$GITHUB_SHA"', $workflow);
 
