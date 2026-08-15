@@ -50,6 +50,7 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString('password: ${{ secrets.FTP_PASSWORD }}', $workflow);
         $this->assertStringContainsString('local-dir: backend/', $workflow);
         $this->assertStringContainsString('server-dir: /', $workflow);
+        $this->assertStringContainsString('public/storage/logos/**', $workflow);
         $this->assertStringContainsString('Run mandatory full test suite', $workflow);
     }
 
