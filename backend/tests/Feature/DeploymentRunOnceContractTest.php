@@ -36,6 +36,14 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString('storage/run-once.lock', $workflow);
         $this->assertStringContainsString('run-once.php must be unavailable', $workflow);
         $this->assertStringContainsString('Run mandatory full test suite', $workflow);
+
+        // workflow_dispatch can be launched while another ref is selected even
+        // though deployment explicitly checks out main. Production identity must
+        // therefore come from the checked-out commit, never the event SHA.
+        $this->assertStringContainsString('deploy_sha="$(git rev-parse HEAD)"', $workflow);
+        $this->assertStringContainsString("printf 'DEPLOY_SHA=%s\\n' \"$deploy_sha\" >> \"$GITHUB_ENV\"", $workflow);
+        $this->assertStringContainsString('EXPECTED_BUILD="$DEPLOY_SHA"', $workflow);
+        $this->assertStringNotContainsString('EXPECTED_BUILD="$GITHUB_SHA"', $workflow);
     }
 
     public function test_signed_apk_workflow_is_secret_backed_and_publishes_checksum(): void
