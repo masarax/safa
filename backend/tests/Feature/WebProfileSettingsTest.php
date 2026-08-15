@@ -152,11 +152,11 @@ class WebProfileSettingsTest extends TestCase
 
         $this->assertDatabaseHas('system_settings', [
             'app_name' => 'SAFA Business',
-            'captain_name' => 'Captain One',
             'local_currency' => 'BDT',
             'foreign_currency' => 'SAR',
             'supplier_rate_enabled' => 0,
         ]);
+        $this->assertDatabaseHas('users', ['id' => $admin->id, 'name' => 'Captain One']);
 
         $this->actingAs($admin)
             ->postJson('/app/api/config', ['app_version' => '9.9.9'])
