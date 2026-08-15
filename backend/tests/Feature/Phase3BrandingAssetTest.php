@@ -33,6 +33,24 @@ class Phase3BrandingAssetTest extends TestCase
         $this->assertStringNotContainsString('favicon', $rules);
     }
 
+    public function test_web_server_rules_allow_app_routes_before_protecting_source_directory(): void
+    {
+        foreach ([base_path('.htaccess'), public_path('.htaccess')] as $path) {
+            $rules = (string) file_get_contents($path);
+            $appRoute = strpos($rules, 'RewriteRule ^app/?$ index.php [L]');
+            $appApiRoute = strpos($rules, 'RewriteRule ^app/api(?:/.*)?$ index.php [L]');
+
+            $this->assertNotFalse($appRoute, "Missing /app rewrite in {$path}");
+            $this->assertNotFalse($appApiRoute, "Missing /app/api rewrite in {$path}");
+            $this->assertLessThan($appApiRoute, $appRoute, "The /app rewrite must precede /app/api in {$path}");
+
+            $denyAfterRoutes = strpos($rules, '- [F,L]', $appApiRoute);
+            $this->assertNotFalse($denyAfterRoutes, "Missing internal-source deny after app routes in {$path}");
+            $this->assertLessThan($denyAfterRoutes, $appApiRoute, "App routes must be rewritten before the source-directory deny in {$path}");
+            $this->assertStringContainsString('app|bootstrap', $rules);
+        }
+    }
+
     public function test_generated_raster_logo_route_is_public_but_svg_is_not(): void
     {
         $directory = public_path('storage/logos');
