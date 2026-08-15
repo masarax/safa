@@ -45,6 +45,18 @@ class WebApplicationSecurityTest extends TestCase
         $this->getJson('/app/api/customers')->assertUnauthorized();
     }
 
+    public function test_front_controllers_allow_browser_app_routes_without_exposing_app_source(): void
+    {
+        foreach ([base_path('index.php'), public_path('index.php')] as $path) {
+            $source = (string) file_get_contents($path);
+
+            $this->assertStringContainsString("#^/app(?:/?|/api(?:/.*)?)$#i", $source);
+            $this->assertStringContainsString("preg_match('/(^|\\/)app(\\/|$)/i', \$parsedPath)", $source);
+            $this->assertStringNotContainsString("(app|bootstrap|config|database", $source);
+            $this->assertStringContainsString("(bootstrap|config|database", $source);
+        }
+    }
+
     public function test_user_can_login_by_email_and_session_is_regenerated(): void
     {
         $user = $this->user(User::ROLE_USER, '0536308965', 'normal@example.test');
