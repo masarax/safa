@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       upload_run_once:
-        description: 'Expose the self-deleting /run-once.php recovery page after deployment'
+        description: 'Request the self-deleting /run-once.php page if it has never completed before'
         required: true
         default: false
         type: boolean
@@ -224,8 +224,19 @@ jobs:
           base="${PRODUCTION_BASE_URL%/}"
           runner_file="$(mktemp)"
           runner_code="$(curl --silent --show-error --max-time 20 --output "$runner_file" --write-out '%{http_code}' "$base/run-once.php")"
-          test "$runner_code" = '200' || { echo "Expected run-once.php HTTP 200, received $runner_code"; rm -f "$runner_file"; exit 1; }
-          grep -q 'SAFA one-time production setup' "$runner_file" || { echo 'Unexpected run-once page'; rm -f "$runner_file"; exit 1; }
+          case "$runner_code" in
+            200)
+              grep -q 'SAFA one-time production setup' "$runner_file" || { echo 'Unexpected run-once page'; rm -f "$runner_file"; exit 1; }
+              ;;
+            404)
+              echo 'The one-time setup was already permanently completed; the runner remains unavailable.'
+              ;;
+            *)
+              echo "Unexpected run-once.php status $runner_code"
+              rm -f "$runner_file"
+              exit 1
+              ;;
+          esac
           rm -f "$runner_file"
 
       - name: Production readiness smoke verification
