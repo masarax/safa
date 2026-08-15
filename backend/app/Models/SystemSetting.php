@@ -27,6 +27,16 @@ class SystemSetting extends Model
     ];
 
     /**
+     * Captain/display name is the authenticated administrator's existing user
+     * name. It deliberately does not add a new production database column.
+     */
+    public function getCaptainNameAttribute(): ?string
+    {
+        $user = auth()->user();
+        return $user?->name;
+    }
+
+    /**
      * Return the canonical same-origin path for a generated SAFA logo.
      *
      * Older deployments stored an absolute URL in app_logo_url. Keeping only
