@@ -199,13 +199,16 @@ rm -f "$RUN_ONCE_REQUEST_FILE"
 RUNNER_SOURCE="$REPOSITORY_ROOT/backend/deploy/run-once.php"
 RUNNER_ROOT_COPY="$PROJECT_ROOT/run-once.php"
 RUNNER_PUBLIC_COPY="$PROJECT_ROOT/public/run-once.php"
-if [[ "$RUN_ONCE_REQUEST" == '1' ]]; then
+RUNNER_LOCK="$PROJECT_ROOT/storage/run-once.lock"
+if [[ "$RUN_ONCE_REQUEST" == '1' && ! -f "$RUNNER_LOCK" ]]; then
   [[ -f "$RUNNER_SOURCE" ]] || fail 'The one-time setup runner source is missing.'
   cp "$RUNNER_SOURCE" "$RUNNER_ROOT_COPY"
   mkdir -p "$PROJECT_ROOT/public"
   cp "$RUNNER_SOURCE" "$RUNNER_PUBLIC_COPY"
   chmod 0644 "$RUNNER_ROOT_COPY" "$RUNNER_PUBLIC_COPY"
 else
+  # A successful historical run permanently wins over any future request.
+  # This preserves the one-time runner's self-deletion guarantee.
   rm -f "$RUNNER_ROOT_COPY" "$RUNNER_PUBLIC_COPY"
 fi
 
