@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\AppVersion;
 use App\Models\SystemSetting;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class RemoteConfigController extends Controller
@@ -13,29 +13,41 @@ class RemoteConfigController extends Controller
     private const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
     private const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
+    private function setting(): SystemSetting
+    {
+        return SystemSetting::first() ?: SystemSetting::create([
+            'account_id' => null,
+            'app_name' => 'SAFA',
+            'app_logo_url' => '/safa-logo.png',
+            'app_version' => '1.0.0',
+            'local_currency' => 'BDT',
+            'foreign_currency' => 'SAR',
+            'rate_based_mode' => true,
+            'supplier_rate_enabled' => true,
+            'wallet_rate_enabled' => true,
+        ]);
+    }
+
+    private function publicSettings(SystemSetting $setting, ?string $captainName = null): array
+    {
+        $settings = $setting->toArray();
+        $settings['app_logo_url'] = $setting->publicLogoUrl();
+        $settings['captain_name'] = $captainName;
+        return $settings;
+    }
+
     public function getRemoteConfig(Request $request)
     {
-        $setting = SystemSetting::first();
-        if (!$setting) {
-            $setting = SystemSetting::create([
-                'account_id' => null,
-                'app_name' => 'SAFA',
-                'app_logo_url' => url('safa-logo.png'),
-                'app_version' => '1.0.0',
-                'local_currency' => 'BDT',
-                'foreign_currency' => 'SAR',
-                'rate_based_mode' => true,
-                'supplier_rate_enabled' => true,
-                'wallet_rate_enabled' => true,
-            ]);
-        }
+        $setting = $this->setting();
+        $captainName = $request->user()?->name;
 
         return response()->json([
             'status' => 'success',
             'config' => [
                 'account_id' => $setting->account_id,
                 'app_name' => $setting->app_name,
-                'app_logo_url' => $setting->app_logo_url ?: url('safa-logo.png'),
+                'captain_name' => $captainName,
+                'app_logo_url' => $setting->publicLogoUrl(),
                 'app_version' => $setting->app_version,
                 'local_currency' => $setting->local_currency,
                 'foreign_currency' => $setting->foreign_currency,
@@ -45,7 +57,11 @@ class RemoteConfigController extends Controller
                 'maintenance_mode' => false,
                 'default_currency' => $setting->local_currency ?? 'BDT',
                 'secondary_currency' => $setting->foreign_currency ?? 'SAR',
-                'features' => ['biometric_auth' => true, 'rate_based_transactions' => (bool) $setting->rate_based_mode, 'customer_supplier_ledgers' => true],
+                'features' => [
+                    'biometric_auth' => true,
+                    'rate_based_transactions' => (bool) $setting->rate_based_mode,
+                    'customer_supplier_ledgers' => true,
+                ],
                 'navigation' => [
                     ['id' => 'dashboard', 'label' => 'Dashboard', 'enabled' => true],
                     ['id' => 'transactions', 'label' => 'Transactions', 'enabled' => true],
@@ -53,25 +69,77 @@ class RemoteConfigController extends Controller
                     ['id' => 'settings', 'label' => 'Settings', 'enabled' => true],
                 ],
             ],
-            'settings' => $setting,
+            'settings' => $this->publicSettings($setting, $captainName),
         ]);
     }
 
     public function updateConfig(Request $request)
     {
         $validated = $request->validate([
-            'account_id' => 'nullable|integer', 'app_name' => 'nullable|string|max:255', 'app_logo_url' => 'nullable|url|max:2048',
-            'app_version' => 'nullable|string|max:50', 'local_currency' => 'nullable|string|max:10', 'foreign_currency' => 'nullable|string|max:10',
-            'rate_based_mode' => 'nullable|boolean', 'supplier_rate_enabled' => 'nullable|boolean', 'wallet_rate_enabled' => 'nullable|boolean',
+            'account_id' => 'nullable|integer',
+            'app_name' => 'nullable|string|max:255',
+            'captain_name' => 'nullable|string|max:255',
+            'app_logo_url' => 'nullable|url|max:2048',
+            'app_version' => 'nullable|string|max:50',
+            'local_currency' => 'nullable|string|max:10',
+            'foreign_currency' => 'nullable|string|max:10',
+            'rate_based_mode' => 'nullable|boolean',
+            'supplier_rate_enabled' => 'nullable|boolean',
+            'wallet_rate_enabled' => 'nullable|boolean',
         ]);
-        $setting = SystemSetting::first() ?: new SystemSetting();
-        foreach (array_keys($validated) as $field) if ($request->input($field) !== null) $setting->{$field} = $validated[$field];
+
+        $user = $request->user();
+        if (array_key_exists('app_version', $validated) && !$user?->isSuperAdmin()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Only Super Admin can change application version metadata.',
+            ], 403);
+        }
+
+        if (array_key_exists('captain_name', $validated)) {
+            if (!$user) {
+                return response()->json(['status' => 'error', 'message' => 'Authenticated administrator required.'], 401);
+            }
+            $captainName = trim((string) $validated['captain_name']);
+            if ($captainName !== '') {
+                $user->forceFill(['name' => $captainName])->save();
+            }
+            unset($validated['captain_name']);
+        }
+
+        $setting = $this->setting();
+        foreach ($validated as $field => $value) {
+            if ($value === null) continue;
+
+            if ($field === 'app_logo_url') {
+                $setting->app_logo_url = SystemSetting::uploadedLogoPath((string) $value) ?: (string) $value;
+                continue;
+            }
+
+            if (in_array($field, ['local_currency', 'foreign_currency'], true)) {
+                $setting->{$field} = strtoupper(trim((string) $value));
+                continue;
+            }
+
+            if (in_array($field, ['app_name', 'app_version'], true)) {
+                $setting->{$field} = trim((string) $value);
+                continue;
+            }
+
+            $setting->{$field} = $value;
+        }
+
         $setting->app_name = $setting->app_name ?: 'SAFA';
         $setting->app_version = $setting->app_version ?: '1.0.0';
         $setting->local_currency = $setting->local_currency ?: 'BDT';
         $setting->foreign_currency = $setting->foreign_currency ?: 'SAR';
         $setting->save();
-        return response()->json(['status' => 'success', 'message' => 'System settings updated successfully', 'settings' => $setting]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'System settings updated successfully',
+            'settings' => $this->publicSettings($setting, $user?->fresh()?->name),
+        ]);
     }
 
     /** Store only raster images. SVG is deliberately rejected to prevent active-content XSS. */
@@ -98,7 +166,10 @@ class RemoteConfigController extends Controller
             $file->move($destinationPath, $fileName);
         } else {
             $base64String = $request->input('logo') ?? $request->input('image') ?? $request->input('base64') ?? $request->input('logo_base64');
-            if (!is_string($base64String) || $base64String === '') return response()->json(['status' => 'error', 'message' => 'No logo file or base64 image data provided'], 422);
+            if (!is_string($base64String) || $base64String === '') {
+                return response()->json(['status' => 'error', 'message' => 'No logo file or base64 image data provided'], 422);
+            }
+
             $ext = 'png';
             if (preg_match('/^data:image\/(png|jpe?g|gif|webp);base64,/i', $base64String, $type)) {
                 $base64String = substr($base64String, strpos($base64String, ',') + 1);
@@ -107,27 +178,41 @@ class RemoteConfigController extends Controller
             } elseif (str_contains($base64String, 'data:image/')) {
                 return response()->json(['status' => 'error', 'message' => 'Unsupported image format.'], 422);
             }
+
             $base64String = preg_replace('/\s+/', '', $base64String) ?? '';
-            if (strlen($base64String) > (int) ceil(self::MAX_LOGO_BYTES * 1.4)) return response()->json(['status' => 'error', 'message' => 'Logo payload is too large.'], 422);
+            if (strlen($base64String) > (int) ceil(self::MAX_LOGO_BYTES * 1.4)) {
+                return response()->json(['status' => 'error', 'message' => 'Logo payload is too large.'], 422);
+            }
+
             $imageData = base64_decode($base64String, true);
-            if ($imageData === false || strlen($imageData) > self::MAX_LOGO_BYTES) return response()->json(['status' => 'error', 'message' => 'Invalid or oversized image data.'], 422);
+            if ($imageData === false || strlen($imageData) > self::MAX_LOGO_BYTES) {
+                return response()->json(['status' => 'error', 'message' => 'Invalid or oversized image data.'], 422);
+            }
+
             $imageInfo = @getimagesizefromstring($imageData);
-            if (!$imageInfo || !in_array(strtolower((string) ($imageInfo['mime'] ?? '')), self::ALLOWED_MIME_TYPES, true)) return response()->json(['status' => 'error', 'message' => 'Invalid raster image data.'], 422);
+            if (!$imageInfo || !in_array(strtolower((string) ($imageInfo['mime'] ?? '')), self::ALLOWED_MIME_TYPES, true)) {
+                return response()->json(['status' => 'error', 'message' => 'Invalid raster image data.'], 422);
+            }
+
             $fileName = 'logo_' . time() . '_' . Str::random(16) . '.' . $ext;
-            file_put_contents($destinationPath . '/' . $fileName, $imageData, LOCK_EX);
+            if (file_put_contents($destinationPath . '/' . $fileName, $imageData, LOCK_EX) === false) {
+                return response()->json(['status' => 'error', 'message' => 'Unable to store logo image.'], 500);
+            }
         }
 
-        $logoUrl = url('storage/logos/' . $fileName);
-        $targetFile = $destinationPath . '/' . $fileName;
-        @copy($targetFile, public_path('safa-logo.png'));
+        $logoPath = '/storage/logos/' . $fileName;
+        $setting = $this->setting();
+        $setting->app_logo_url = $logoPath;
+        $setting->save();
 
-        $setting = SystemSetting::first() ?: SystemSetting::create([
-            'account_id' => null, 'app_name' => 'SAFA', 'app_logo_url' => $logoUrl, 'app_version' => '1.0.0',
-            'local_currency' => 'BDT', 'foreign_currency' => 'SAR', 'rate_based_mode' => true, 'supplier_rate_enabled' => true, 'wallet_rate_enabled' => true,
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Logo uploaded successfully',
+            'app_logo_path' => $logoPath,
+            'app_logo_url' => $setting->publicLogoUrl(),
+            'url' => $setting->publicLogoUrl(),
+            'settings' => $this->publicSettings($setting, $request->user()?->name),
         ]);
-        if ($setting->app_logo_url !== $logoUrl) { $setting->app_logo_url = $logoUrl; $setting->save(); }
-
-        return response()->json(['status' => 'success', 'message' => 'Logo uploaded successfully', 'app_logo_url' => $logoUrl, 'url' => $logoUrl, 'settings' => $setting]);
     }
 
     public function checkVersion(Request $request)

@@ -9,6 +9,7 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\WebAppController;
 use App\Http\Controllers\WebAuthController;
+use App\Http\Controllers\WebSettingsController;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireBusinessPermission;
 use App\Http\Middleware\ValidateLogoUpload;
@@ -62,6 +63,11 @@ Route::middleware(['auth', 'throttle:120,1'])->group(function () {
 
     Route::get('/app/api/accounts', [AccountContextController::class, 'index'])->name('safa.web.accounts');
     Route::post('/app/api/accounts/switch', [AccountContextController::class, 'switch'])->name('safa.web.account.switch');
+
+    Route::post('/app/api/settings/personal', [WebSettingsController::class, 'updatePersonal'])
+        ->name('safa.web.settings.personal');
+    Route::post('/app/api/settings/pin', [WebSettingsController::class, 'changePin'])
+        ->name('safa.web.settings.pin');
 
     Route::middleware(RequireBusinessPermission::class)->group(function () {
         Route::get('/app/api/customers', [CustomerController::class, 'index'])->name('safa.web.customers');

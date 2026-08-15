@@ -13,6 +13,13 @@ Options -Indexes
     RewriteRule ^app/?$ index.php [L]
     RewriteRule ^app/api(?:/.*)?$ index.php [L]
 
+    # Generated branding is the only public surface under storage/. In the
+    # project-root cPanel layout the actual raster files live under public/.
+    # The second rule handles the internal rewrite pass before the public/
+    # source-directory deny below.
+    RewriteRule ^storage/logos/(logo_[A-Za-z0-9_-]+\.(?:png|jpe?g|gif|webp))$ public/storage/logos/$1 [L,NC]
+    RewriteRule ^public/storage/logos/logo_[A-Za-z0-9_-]+\.(?:png|jpe?g|gif|webp)$ - [L,NC]
+
     # 3. Block direct web access to sensitive system files & internal directories.
     # Requests such as /app/Http/... remain forbidden.
     RewriteRule ^(app|bootstrap|config|database|public|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md|metadata\.json|\.env|\.git) - [F,L]

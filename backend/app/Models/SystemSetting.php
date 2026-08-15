@@ -25,4 +25,63 @@ class SystemSetting extends Model
         'supplier_rate_enabled' => 'boolean',
         'wallet_rate_enabled' => 'boolean',
     ];
+
+    /**
+     * Captain/display name is the authenticated administrator's existing user
+     * name. It deliberately does not add a new production database column.
+     */
+    public function getCaptainNameAttribute(): ?string
+    {
+        $user = auth()->user();
+        return $user?->name;
+    }
+
+    /**
+     * Return the canonical same-origin path for a generated SAFA logo.
+     *
+     * Older deployments stored an absolute URL in app_logo_url. Keeping only
+     * the generated path at render time prevents a stale APP_URL/domain/scheme
+     * from breaking branding after a production move or proxy change.
+     */
+    public static function uploadedLogoPath(?string $value): ?string
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') return null;
+
+        $path = parse_url($raw, PHP_URL_PATH);
+        if (!is_string($path) || $path === '') $path = $raw;
+        $path = '/' . ltrim($path, '/');
+
+        return preg_match('#^/storage/logos/logo_[A-Za-z0-9_-]+\.(?:png|jpe?g|gif|webp)$#i', $path)
+            ? $path
+            : null;
+    }
+
+    /**
+     * Browser-safe logo source. Generated uploads are deliberately returned as
+     * a same-origin relative path; legacy HTTPS custom logos remain supported.
+     */
+    public function webLogoSource(): string
+    {
+        if ($path = static::uploadedLogoPath($this->app_logo_url)) return $path;
+
+        $raw = trim((string) $this->app_logo_url);
+        if ($raw !== '' && preg_match('#^https://#i', $raw)) return $raw;
+
+        return '/safa-logo.png';
+    }
+
+    /** Absolute URL used by Android remote config and other API clients. */
+    public function publicLogoUrl(): string
+    {
+        $source = $this->webLogoSource();
+        if (!str_starts_with($source, '/')) return $source;
+
+        if (app()->bound('request')) {
+            $request = request();
+            return rtrim($request->getSchemeAndHttpHost(), '/') . $source;
+        }
+
+        return url($source);
+    }
 }

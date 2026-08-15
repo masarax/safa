@@ -4,16 +4,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <title>SAFA — {{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</title>
+    <title>{{ $appName }} — {{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</title>
     <link rel="icon" href="{{ url('/favicon.svg') }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ url('/safa-web.css') }}">
 </head>
 <body class="auth-body">
 <main class="auth-layout">
     <section class="auth-brand" aria-labelledby="brand-title">
-        <img class="auth-logo" src="{{ url('/safa-logo.png') }}" alt="SAFA">
-        <p class="eyebrow">SAFA Financial Operations</p>
+        <img class="auth-logo brand-logo" src="{{ $logoSource }}" alt="{{ $appName }}">
+        <p class="eyebrow">{{ $appName }} Financial Operations</p>
         <h1 id="brand-title">{{ $language === 'bn' ? 'নিরাপদ ব্যবসা ব্যবস্থাপনা, মোবাইল ও ওয়েবে' : 'Secure business management on mobile and web' }}</h1>
+        @if($captainName)
+            <p class="brand-caption">{{ $language === 'bn' ? 'ক্যাপ্টেন' : 'Captain' }}: <strong>{{ $captainName }}</strong></p>
+        @endif
         <p>{{ $language === 'bn' ? 'একই অনুমতি, অ্যাকাউন্ট আইসোলেশন এবং সার্ভার-নিয়ন্ত্রিত ডেটা নীতির মাধ্যমে আপনার অনুমোদিত কাজ পরিচালনা করুন।' : 'Use the same server-enforced permissions, account isolation, and business data rules as the Android application.' }}</p>
     </section>
 
@@ -23,7 +26,7 @@
             <a class="{{ $language === 'bn' ? 'active' : '' }}" href="{{ route('safa.login', ['lang' => 'bn']) }}">বাংলা</a>
         </div>
 
-        <p class="eyebrow">{{ $language === 'bn' ? 'SAFA অ্যাকাউন্ট' : 'SAFA account' }}</p>
+        <p class="eyebrow">{{ $language === 'bn' ? $appName . ' অ্যাকাউন্ট' : $appName . ' account' }}</p>
         <h2 id="login-title">{{ $language === 'bn' ? 'লগইন করুন' : 'Sign in' }}</h2>
         <p class="muted">{{ $language === 'bn' ? 'মোবাইল নম্বর অথবা ইমেইল এবং আপনার বিদ্যমান পিন/পাসওয়ার্ড ব্যবহার করুন।' : 'Use your mobile number or email with your existing PIN/password.' }}</p>
 

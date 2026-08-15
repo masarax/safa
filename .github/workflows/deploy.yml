@@ -89,6 +89,7 @@ jobs:
             .env
             .env.*
             database/testing.sqlite
+            public/storage/logos/**
             storage/installed
             storage/framework/cache/*
             storage/framework/sessions/*

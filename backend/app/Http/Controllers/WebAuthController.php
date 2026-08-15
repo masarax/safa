@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserAccountShare;
 use App\Support\MobileNumber;
@@ -22,7 +23,14 @@ class WebAuthController extends Controller
         if (!in_array($language, ['en', 'bn'], true)) $language = 'en';
         $request->session()->put('safa_web_language', $language);
 
-        return view('safa.login', ['language' => $language]);
+        $setting = SystemSetting::first();
+
+        return view('safa.login', [
+            'language' => $language,
+            'appName' => $setting?->app_name ?: 'SAFA',
+            'captainName' => null,
+            'logoSource' => $setting?->webLogoSource() ?: '/safa-logo.png',
+        ]);
     }
 
     public function login(Request $request): RedirectResponse
