@@ -1,0 +1,134 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class WebApplicationSecurityTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function user(string $role, string $mobile, string $email): User
+    {
+        $hash = Hash::make('123456');
+
+        return User::factory()->create([
+            'name' => ucfirst(str_replace('_', ' ', $role)) . ' Tester',
+            'email' => $email,
+            'mobile' => $mobile,
+            'pin_hash' => $hash,
+            'password' => $hash,
+            'role' => $role,
+            'is_activated' => true,
+        ]);
+    }
+
+    public function test_login_page_has_strict_security_headers_and_csrf_form(): void
+    {
+        $response = $this->get('/login');
+        $response->assertOk()->assertSee('SAFA')->assertSee('name="_token"', false);
+
+        $csp = (string) $response->headers->get('Content-Security-Policy');
+        $this->assertStringContainsString("script-src 'self'", $csp);
+        $this->assertStringNotContainsString("'unsafe-eval'", $csp);
+        $this->assertStringNotContainsString("script-src 'self' 'unsafe-inline'", $csp);
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
+    }
+
+    public function test_unauthenticated_browser_cannot_access_application_data(): void
+    {
+        $this->get('/app')->assertRedirect('/login');
+        $this->getJson('/app/api/customers')->assertUnauthorized();
+    }
+
+    public function test_user_can_login_by_email_and_session_is_regenerated(): void
+    {
+        $user = $this->user(User::ROLE_USER, '0536308965', 'normal@example.test');
+
+        $this->post('/login', [
+            'identity' => strtoupper($user->email),
+            'credential' => '123456',
+            'language' => 'en',
+        ])->assertRedirect(route('safa.app'));
+
+        $this->assertAuthenticatedAs($user);
+        $this->get('/app')->assertOk()->assertSee('Normal User');
+    }
+
+    public function test_user_can_login_by_formatted_mobile_and_localized_pin(): void
+    {
+        $user = $this->user(User::ROLE_BUSINESS_USER, '0536308965', 'business@example.test');
+
+        $this->post('/login', [
+            'identity' => '০৫৩৬ ৩০৮ ৯৬৫',
+            'credential' => '১২৩৪৫৬',
+            'language' => 'bn',
+        ])->assertRedirect(route('safa.app'));
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_invalid_or_inactive_login_uses_generic_failure(): void
+    {
+        $user = $this->user(User::ROLE_USER, '0536308965', 'inactive@example.test');
+        $user->forceFill(['is_activated' => false])->saveQuietly();
+
+        $response = $this->from('/login')->post('/login', [
+            'identity' => $user->email,
+            'credential' => '123456',
+        ]);
+
+        $response->assertRedirect('/login')->assertSessionHasErrors('identity');
+        $this->assertGuest();
+    }
+
+    public function test_normal_user_cannot_access_supplier_transaction_or_wallet_web_routes(): void
+    {
+        $user = $this->user(User::ROLE_USER, '0536308965', 'normal@example.test');
+        $this->actingAs($user);
+
+        $this->getJson('/app/api/suppliers')->assertForbidden();
+        $this->getJson('/app/api/transactions')->assertForbidden();
+        $this->getJson('/app/api/wallet-ledgers')->assertForbidden();
+        $this->getJson('/app/api/customers')->assertOk();
+        $this->getJson('/app/api/expenses')->assertOk();
+    }
+
+    public function test_business_user_has_supplier_and_transaction_access_but_not_wallet_or_admin_settings(): void
+    {
+        $user = $this->user(User::ROLE_BUSINESS_USER, '0536308966', 'business@example.test');
+        $this->actingAs($user);
+
+        $this->getJson('/app/api/customers')->assertOk();
+        $this->getJson('/app/api/suppliers')->assertOk();
+        $this->getJson('/app/api/transactions')->assertOk();
+        $this->getJson('/app/api/expenses')->assertOk();
+        $this->getJson('/app/api/wallet-ledgers')->assertForbidden();
+        $this->postJson('/app/api/config', ['app_name' => 'Nope'])->assertForbidden();
+    }
+
+    public function test_admin_web_page_exposes_management_but_normal_user_does_not(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, '0536308967', 'admin@example.test');
+        $normal = $this->user(User::ROLE_USER, '0536308968', 'normal2@example.test');
+
+        $this->actingAs($admin)
+            ->get('/app')
+            ->assertOk()
+            ->assertSee('User Management')
+            ->assertSee('Admin Settings');
+
+        auth()->logout();
+
+        $this->actingAs($normal)
+            ->get('/app')
+            ->assertOk()
+            ->assertDontSee('User Management')
+            ->assertDontSee('Supplier Rate')
+            ->assertDontSee('Wallet');
+    }
+}
