@@ -6,9 +6,18 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class AuthSession extends Model
 {
+    /**
+     * 31 base-62 characters provide well over 128 bits of entropy while their
+     * Laravel-encrypted ciphertext remains within the legacy VARCHAR(255)
+     * production schema during a rolling deployment. The forward migration
+     * still widens those columns to TEXT for long-term storage headroom.
+     */
+    private const OPAQUE_TOKEN_LENGTH = 31;
+
     protected $table = 'auth_sessions';
 
     protected $fillable = [
@@ -59,6 +68,11 @@ class AuthSession extends Model
                 }
             }
         });
+    }
+
+    public static function newOpaqueToken(): string
+    {
+        return Str::random(self::OPAQUE_TOKEN_LENGTH);
     }
 
     public static function tokenHash(?string $token): ?string
