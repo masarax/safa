@@ -7,10 +7,17 @@ Options -Indexes
     # 1. Block access to all hidden dotfiles (e.g. .env, .git, .gitignore, .htaccess)
     RewriteRule (^\/|\/|\.)\.(?!well-known) - [F,L]
 
-    # 2. Block direct web access to sensitive system files & internal directories
+    # 2. The authenticated browser application uses /app and /app/api/* as
+    # Laravel routes. Route those exact URL surfaces before denying direct
+    # filesystem access to the real app/ source directory below.
+    RewriteRule ^app/?$ index.php [L]
+    RewriteRule ^app/api(?:/.*)?$ index.php [L]
+
+    # 3. Block direct web access to sensitive system files & internal directories.
+    # Requests such as /app/Http/... remain forbidden.
     RewriteRule ^(app|bootstrap|config|database|public|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md|metadata\.json|\.env|\.git) - [F,L]
 
-    # 3. Route all legitimate web traffic to index.php
+    # 4. Route all legitimate web traffic to index.php
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
