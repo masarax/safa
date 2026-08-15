@@ -66,6 +66,13 @@ class SystemSetting extends Model
     public function publicLogoUrl(): string
     {
         $source = $this->webLogoSource();
-        return str_starts_with($source, '/') ? url($source) : $source;
+        if (!str_starts_with($source, '/')) return $source;
+
+        if (app()->bound('request')) {
+            $request = request();
+            return rtrim($request->getSchemeAndHttpHost(), '/') . $source;
+        }
+
+        return url($source);
     }
 }
