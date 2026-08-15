@@ -16,6 +16,17 @@ if (safaVersionCode <= 1) {
   throw GradleException("SAFA_VERSION_CODE must be greater than the legacy release code 1")
 }
 
+val releaseKeystorePath = System.getenv("KEYSTORE_PATH")?.trim().orEmpty()
+val releaseStorePassword = System.getenv("STORE_PASSWORD")?.trim().orEmpty()
+val releaseKeyAlias = System.getenv("KEY_ALIAS")?.trim().orEmpty()
+val releaseKeyPassword = System.getenv("KEY_PASSWORD")?.trim().orEmpty()
+val releaseSigningConfigured = listOf(
+  releaseKeystorePath,
+  releaseStorePassword,
+  releaseKeyAlias,
+  releaseKeyPassword
+).all { it.isNotBlank() }
+
 android {
   namespace = "com.safa.account"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -30,20 +41,28 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
   signingConfigs {
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH")
-      val storePassword = System.getenv("STORE_PASSWORD")
-      val keyAlias = System.getenv("KEY_ALIAS")
-      val keyPassword = System.getenv("KEY_PASSWORD")
-      if (!keystorePath.isNullOrBlank() && !storePassword.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()) {
-        val keystoreFile = file(keystorePath)
-        if (!keystoreFile.exists()) throw GradleException("Release keystore not found: $keystorePath")
-        storeFile = keystoreFile; this.storePassword = storePassword; this.keyAlias = keyAlias; this.keyPassword = keyPassword
+    if (releaseSigningConfigured) {
+      create("release") {
+        val keystoreFile = file(releaseKeystorePath)
+        if (!keystoreFile.exists()) throw GradleException("Release keystore not found: $releaseKeystorePath")
+        storeFile = keystoreFile
+        storePassword = releaseStorePassword
+        keyAlias = releaseKeyAlias
+        keyPassword = releaseKeyPassword
       }
     }
   }
   buildTypes {
-    release { isCrunchPngs = false; isMinifyEnabled = true; isShrinkResources = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"); signingConfig = signingConfigs.getByName("release") }
+    release {
+      isCrunchPngs = false
+      isMinifyEnabled = true
+      isShrinkResources = true
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      // A plain local `./gradlew assembleRelease` must be able to produce an
+      // unsigned release artifact. CI/production remains signed whenever the
+      // complete secret-backed signing environment is provided.
+      if (releaseSigningConfigured) signingConfig = signingConfigs.getByName("release")
+    }
     debug { }
   }
   compileOptions {
