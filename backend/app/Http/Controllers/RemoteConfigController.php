@@ -32,6 +32,9 @@ class RemoteConfigController extends Controller
     {
         $settings = $setting->toArray();
         $settings['app_logo_url'] = $setting->publicLogoUrl();
+        // Read-only compatibility field for installed Android clients. Identity
+        // changes are handled by WebSettingsController / user management, never
+        // by the system-brand configuration endpoint.
         $settings['captain_name'] = $captainName;
         return $settings;
     }
@@ -78,7 +81,6 @@ class RemoteConfigController extends Controller
         $validated = $request->validate([
             'account_id' => 'nullable|integer',
             'app_name' => 'nullable|string|max:255',
-            'captain_name' => 'nullable|string|max:255',
             'app_logo_url' => 'nullable|url|max:2048',
             'app_version' => 'nullable|string|max:50',
             'local_currency' => 'nullable|string|max:10',
@@ -94,17 +96,6 @@ class RemoteConfigController extends Controller
                 'status' => 'error',
                 'message' => 'Only Super Admin can change application version metadata.',
             ], 403);
-        }
-
-        if (array_key_exists('captain_name', $validated)) {
-            if (!$user) {
-                return response()->json(['status' => 'error', 'message' => 'Authenticated administrator required.'], 401);
-            }
-            $captainName = trim((string) $validated['captain_name']);
-            if ($captainName !== '') {
-                $user->forceFill(['name' => $captainName])->save();
-            }
-            unset($validated['captain_name']);
         }
 
         $setting = $this->setting();
