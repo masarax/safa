@@ -2,6 +2,17 @@ name: Deploy Laravel Backend to cPanel
 
 on:
   workflow_dispatch:
+    inputs:
+      cpanel_server_dir:
+        description: 'FTP directory containing the Laravel project (must end with /)'
+        required: true
+        default: '/'
+        type: string
+      upload_run_once:
+        description: 'Temporarily upload the self-deleting /run-once.php production setup page'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -14,13 +25,27 @@ jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+    env:
+      CPANEL_SERVER_DIR: ${{ inputs.cpanel_server_dir }}
+      UPLOAD_RUN_ONCE: ${{ inputs.upload_run_once }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: main
           fetch-depth: 1
+
+      - name: Validate deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CPANEL_SERVER_DIR" || { echo 'cpanel_server_dir is required'; exit 1; }
+          case "$CPANEL_SERVER_DIR" in
+            /*/) ;;
+            *) echo 'cpanel_server_dir must be an absolute FTP path ending with /'; exit 1 ;;
+          esac
+
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
@@ -28,6 +53,7 @@ jobs:
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
           ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
+
       - name: Prepare CI environment
         working-directory: backend
         shell: bash
@@ -37,24 +63,42 @@ jobs:
           touch database/testing.sqlite
           cp .env.example .env
           php -r '$env=file_get_contents(".env"); $key="base64:".base64_encode(random_bytes(32)); $env=preg_replace("/^APP_KEY=.*$/m", "APP_KEY=$key", $env); $env=preg_replace("/^DB_CONNECTION=.*$/m", "DB_CONNECTION=sqlite", $env); $env=preg_replace("/^DB_DATABASE=.*$/m", "DB_DATABASE=".getcwd()."/database/testing.sqlite", $env); file_put_contents(".env", $env);'
+
       - name: Install Composer test dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
       - name: PHP syntax check
         working-directory: backend
-        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find app config database deploy routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
       - name: Run mandatory full test suite
         working-directory: backend
         run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
+
       - name: Install production Composer dependencies
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
       - name: Stamp immutable deployment identity
         shell: bash
         run: |
           set -euo pipefail
           [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
           printf '{"commit":"%s"}\n' "$GITHUB_SHA" > backend/bootstrap/safa-build.json
+
+      - name: Prepare optional one-time setup page
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f backend/run-once.php backend/public/run-once.php
+          if [ "$UPLOAD_RUN_ONCE" = "true" ]; then
+            cp backend/deploy/run-once.php backend/run-once.php
+            cp backend/deploy/run-once.php backend/public/run-once.php
+            php -l backend/run-once.php
+            php -l backend/public/run-once.php
+          fi
+
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
         with:
@@ -62,19 +106,47 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: backend/
-          server-dir: /
+          server-dir: ${{ inputs.cpanel_server_dir }}
           exclude: |
             .git*
             .env
             .env.*
             database/testing.sqlite
+            deploy/
             storage/installed
+            storage/run-once.lock
             storage/framework/cache/*
             storage/framework/sessions/*
             storage/framework/views/*
             tests/
             node_modules/
-      - name: Production smoke verification
+
+      - name: Setup-pending smoke verification
+        if: ${{ inputs.upload_run_once }}
+        shell: bash
+        env:
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$PRODUCTION_BASE_URL" || { echo 'PRODUCTION_BASE_URL is required'; exit 1; }
+          base="${PRODUCTION_BASE_URL%/}"
+          case "$base" in https://*) ;; *) echo 'Production checks require HTTPS'; exit 1 ;; esac
+
+          runner_file="$(mktemp)"
+          runner_code="$(curl --silent --show-error --max-time 20 --output "$runner_file" --write-out '%{http_code}' "$base/run-once.php")"
+          test "$runner_code" = "200" || { echo "Expected run-once.php to be available, received $runner_code"; rm -f "$runner_file"; exit 1; }
+          grep -q 'SAFA one-time production setup' "$runner_file" || { echo 'Unexpected run-once page'; rm -f "$runner_file"; exit 1; }
+          rm -f "$runner_file"
+
+          for path in /install /install/update /install/update-process /update-db; do
+            code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base$path")"
+            test "$code" = "404" || { echo "Expected 404 for $path, received $code"; exit 1; }
+          done
+
+          echo 'Files are deployed and the one-time setup page is available. Complete /run-once.php before the final readiness verification.'
+
+      - name: Production readiness smoke verification
+        if: ${{ !inputs.upload_run_once }}
         shell: bash
         env:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
@@ -90,7 +162,22 @@ jobs:
           health_json="$(curl --fail --silent --show-error --max-time 20 "$base/api/auth/health")"
           HEALTH_JSON="$health_json" EXPECTED_BUILD="$GITHUB_SHA" php -r '$d=json_decode(getenv("HEALTH_JSON"), true); $checks=$d["checks"]??null; if (!is_array($d) || ($d["status"] ?? null) !== "ok" || ($d["service"] ?? null) !== "SAFA API" || !hash_equals(getenv("EXPECTED_BUILD"), (string) ($d["build"] ?? "")) || !is_array($checks) || count($checks)!==6 || in_array(false, $checks, true)) { fwrite(STDERR, "Unexpected production readiness payload\n"); exit(1); }'
 
-          for path in / /install /install/update /install/update-process /update-db; do
+          root_code="$(curl --location --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base/")"
+          test "$root_code" = "200" || { echo "Expected browser root/login to resolve to HTTP 200, received $root_code"; exit 1; }
+
+          login_file="$(mktemp)"
+          login_code="$(curl --silent --show-error --max-time 20 --output "$login_file" --write-out '%{http_code}' "$base/login")"
+          test "$login_code" = "200" || { echo "Expected /login HTTP 200, received $login_code"; rm -f "$login_file"; exit 1; }
+          grep -q 'SAFA' "$login_file" || { echo 'Unexpected login page'; rm -f "$login_file"; exit 1; }
+          rm -f "$login_file"
+
+          app_code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base/app")"
+          case "$app_code" in 302|303) ;; *) echo "Expected unauthenticated /app redirect, received $app_code"; exit 1 ;; esac
+
+          runner_code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base/run-once.php")"
+          case "$runner_code" in 403|404) ;; *) echo "run-once.php must be unavailable after normal/final deployment; received $runner_code"; exit 1 ;; esac
+
+          for path in /install /install/update /install/update-process /update-db; do
             body_file="$(mktemp)"
             code="$(curl --silent --show-error --max-time 20 --output "$body_file" --write-out '%{http_code}' "$base$path")"
             test "$code" = "404" || { echo "Expected 404 for $path, received $code"; rm -f "$body_file"; exit 1; }
@@ -100,19 +187,10 @@ jobs:
 
           for path in /health.php /public/index.php; do
             code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base$path")"
-            case "$code" in
-              403|404) ;;
-              *) echo "Expected a denied/not-found response for $path, received $code"; exit 1 ;;
-            esac
+            case "$code" in 403|404) ;; *) echo "Expected a denied/not-found response for $path, received $code"; exit 1 ;; esac
           done
 
-          # Protected critical routes must exist, but smoke verification never sends
-          # production credentials or mutates business data. Authentication denial
-          # proves the route is deployed without weakening its security boundary.
           for path in /api/version/check /api/v1/customers /api/v1/sync/down; do
             code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base$path")"
-            case "$code" in
-              401|403|429) ;;
-              *) echo "Unexpected status $code for protected route $path"; exit 1 ;;
-            esac
+            case "$code" in 401|403|429) ;; *) echo "Unexpected status $code for protected route $path"; exit 1 ;; esac
           done
