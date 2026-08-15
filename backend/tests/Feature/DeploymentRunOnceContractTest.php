@@ -12,7 +12,7 @@ class DeploymentRunOnceContractTest extends TestCase
 
         $this->assertStringContainsString("env('SAFA_RUN_ONCE_TOKEN'", $runner);
         $this->assertStringContainsString('hash_equals($expectedToken, $providedToken)', $runner);
-        $this->assertStringContainsString("storage/run-once.lock", $runner);
+        $this->assertStringContainsString('storage/run-once.lock', $runner);
         $this->assertStringContainsString("['migrate', ['--force' => true]]", $runner);
         $this->assertStringContainsString("['db:seed', ['--force' => true]]", $runner);
         $this->assertStringContainsString("['optimize:clear', []]", $runner);
@@ -23,27 +23,60 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringNotContainsString('getMessage()', $runner);
     }
 
-    public function test_deploy_workflow_uploads_runner_only_when_explicitly_requested(): void
+    public function test_deploy_workflow_uses_direct_cpanel_git_api_without_transfer_path_inputs(): void
     {
         $workflow = (string) file_get_contents(base_path('../.github/workflows/deploy.yml'));
 
         $this->assertStringContainsString('upload_run_once:', $workflow);
         $this->assertStringContainsString('default: false', $workflow);
-        $this->assertStringContainsString('cpanel_server_dir:', $workflow);
-        $this->assertStringContainsString('cp backend/deploy/run-once.php backend/run-once.php', $workflow);
-        $this->assertStringContainsString('cp backend/deploy/run-once.php backend/public/run-once.php', $workflow);
-        $this->assertStringContainsString('deploy/', $workflow);
-        $this->assertStringContainsString('storage/run-once.lock', $workflow);
-        $this->assertStringContainsString('run-once.php must be unavailable', $workflow);
+        $this->assertStringContainsString('CPANEL_API_URL', $workflow);
+        $this->assertStringContainsString('CPANEL_USERNAME', $workflow);
+        $this->assertStringContainsString('CPANEL_API_TOKEN', $workflow);
+        $this->assertStringContainsString('Authorization: cpanel', $workflow);
+        $this->assertStringContainsString('VersionControl create', str_replace('/', ' ', $workflow));
+        $this->assertStringContainsString('VersionControl update', str_replace('/', ' ', $workflow));
+        $this->assertStringContainsString('VersionControlDeployment create', str_replace('/', ' ', $workflow));
+        $this->assertStringContainsString('Fileman save_file_content', str_replace('/', ' ', $workflow));
+        $this->assertStringContainsString('/home/$CPANEL_USERNAME/repositories/safa', $workflow);
         $this->assertStringContainsString('Run mandatory full test suite', $workflow);
+        $this->assertStringContainsString('bash -n deploy/cpanel-deploy.sh', $workflow);
 
-        // workflow_dispatch can be launched while another ref is selected even
-        // though deployment explicitly checks out main. Production identity must
-        // therefore come from the checked-out commit, never the event SHA.
+        // The workflow always deploys the checked-out main commit and waits for
+        // the live health endpoint to report that exact immutable build.
         $this->assertStringContainsString('deploy_sha="$(git rev-parse HEAD)"', $workflow);
-        $this->assertStringContainsString('printf \'DEPLOY_SHA=%s\\n\' "$deploy_sha" >> "$GITHUB_ENV"', $workflow);
         $this->assertStringContainsString('EXPECTED_BUILD="$DEPLOY_SHA"', $workflow);
         $this->assertStringNotContainsString('EXPECTED_BUILD="$GITHUB_SHA"', $workflow);
+
+        // Deployment configuration must not expose or depend on a file-transfer
+        // server/path mechanism. cPanel Git/UAPI owns the deployment transport.
+        $this->assertStringNotContainsString('cpanel_server_dir', $workflow);
+        $this->assertStringNotContainsString('SamKirkland', $workflow);
+        $this->assertStringNotContainsString('FTP_', $workflow);
+        $this->assertStringNotContainsString('ftp', strtolower($workflow));
+    }
+
+    public function test_cpanel_deployment_script_is_safe_idempotent_and_runs_required_setup(): void
+    {
+        $cpanel = (string) file_get_contents(base_path('../.cpanel.yml'));
+        $script = (string) file_get_contents(base_path('deploy/cpanel-deploy.sh'));
+
+        $this->assertStringContainsString('/bin/bash backend/deploy/cpanel-deploy.sh', $cpanel);
+        $this->assertStringContainsString('DomainInfo single_domain_data', $script);
+        $this->assertStringContainsString('bootstrap/safa-build.json', $script);
+        $this->assertStringContainsString('.safa-deployed-files', $script);
+        $this->assertStringContainsString('--exclude=\'./.env\'', $script);
+        $this->assertStringContainsString('--exclude=\'./storage\'', $script);
+        $this->assertStringContainsString('migrate --force --no-interaction', $script);
+        $this->assertStringContainsString('db:seed --force --no-interaction', $script);
+        $this->assertStringContainsString('optimize:clear', $script);
+        $this->assertStringContainsString('config:cache', $script);
+        $this->assertStringContainsString('view:cache', $script);
+        $this->assertStringContainsString('$PROJECT_ROOT/run-once.php', $script);
+        $this->assertStringContainsString('$PROJECT_ROOT/public/run-once.php', $script);
+        $this->assertStringContainsString("[[ -f \"$PROJECT_ROOT/.env\" ]]", $script);
+        $this->assertStringNotContainsString('migrate:fresh', $script);
+        $this->assertStringNotContainsString('rm -rf "$PROJECT_ROOT"', $script);
+        $this->assertStringNotContainsString('ftp', strtolower($script));
     }
 
     public function test_signed_apk_workflow_is_secret_backed_and_publishes_checksum(): void
