@@ -3,6 +3,7 @@ package com.safa.account.data.api
 import com.safa.account.BuildConfig
 import com.safa.account.data.money.MoneyPayloadNormalizer
 import com.safa.account.data.network.ApiSecurityInterceptor
+import com.safa.account.data.network.CanonicalAuthEndpointInterceptor
 import com.safa.account.data.network.LocalFirstSyncInterceptor
 import com.safa.account.data.network.LoginErrorResponseInterceptor
 import okhttp3.OkHttpClient
@@ -34,6 +35,7 @@ object RetrofitClient {
                 tokenManager?.getContext()?.let { clientBuilder.addInterceptor(LocalFirstSyncInterceptor(it)) }
                 val client = clientBuilder
                     .addInterceptor(MoneyPayloadNormalizer())
+                    .addInterceptor(CanonicalAuthEndpointInterceptor())
                     .addInterceptor(ApiSecurityInterceptor(apiKey, apiSecret, tokenManager))
                     .addInterceptor(LoginErrorResponseInterceptor())
                     .addInterceptor(logging)

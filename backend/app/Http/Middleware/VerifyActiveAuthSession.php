@@ -24,26 +24,7 @@ class VerifyActiveAuthSession
             return response()->json(['status' => 'error', 'message' => 'Unauthorized: authenticated session required.'], 401);
         }
 
-        $session = AuthSession::query()
-            ->where('user_id', $user->id)
-            ->where('access_token_hash', AuthSession::tokenHash($accessToken))
-            ->where('is_revoked', false)
-            ->first();
-
-        // Support active legacy sessions that predate the hash columns. The
-        // query is restricted to the authenticated user before decrypting the
-        // stored token for comparison.
-        if (!$session) {
-            $session = AuthSession::query()
-                ->where('user_id', $user->id)
-                ->where('is_revoked', false)
-                ->get()
-                ->first(fn (AuthSession $candidate): bool => hash_equals((string) $candidate->access_token, (string) $accessToken));
-
-            if ($session) {
-                $session->save();
-            }
-        }
+        $session = AuthSession::findActiveByAccessToken($accessToken, (int) $user->id);
 
         if (!$session) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized: session is no longer valid.'], 401);

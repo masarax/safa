@@ -28,8 +28,10 @@ return new class extends Migration {
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->string('device_uuid')->index();
             $table->text('access_token');
-            $table->string('refresh_token')->index();
-            $table->string('session_token')->index();
+            // These values are encrypted by AuthSession. Ciphertext is larger
+            // than the original token and must not be constrained to VARCHAR(255).
+            $table->text('refresh_token');
+            $table->text('session_token');
             $table->timestamp('expires_at')->nullable();
             $table->boolean('is_revoked')->default(false);
             $table->timestamps();
