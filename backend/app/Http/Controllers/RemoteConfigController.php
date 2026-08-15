@@ -18,7 +18,6 @@ class RemoteConfigController extends Controller
         return SystemSetting::first() ?: SystemSetting::create([
             'account_id' => null,
             'app_name' => 'SAFA',
-            'captain_name' => null,
             'app_logo_url' => '/safa-logo.png',
             'app_version' => '1.0.0',
             'local_currency' => 'BDT',
@@ -29,23 +28,25 @@ class RemoteConfigController extends Controller
         ]);
     }
 
-    private function publicSettings(SystemSetting $setting): array
+    private function publicSettings(SystemSetting $setting, ?string $captainName = null): array
     {
         $settings = $setting->toArray();
         $settings['app_logo_url'] = $setting->publicLogoUrl();
+        $settings['captain_name'] = $captainName;
         return $settings;
     }
 
     public function getRemoteConfig(Request $request)
     {
         $setting = $this->setting();
+        $captainName = $request->user()?->name;
 
         return response()->json([
             'status' => 'success',
             'config' => [
                 'account_id' => $setting->account_id,
                 'app_name' => $setting->app_name,
-                'captain_name' => $setting->captain_name,
+                'captain_name' => $captainName,
                 'app_logo_url' => $setting->publicLogoUrl(),
                 'app_version' => $setting->app_version,
                 'local_currency' => $setting->local_currency,
@@ -68,7 +69,7 @@ class RemoteConfigController extends Controller
                     ['id' => 'settings', 'label' => 'Settings', 'enabled' => true],
                 ],
             ],
-            'settings' => $this->publicSettings($setting),
+            'settings' => $this->publicSettings($setting, $captainName),
         ]);
     }
 
@@ -95,6 +96,17 @@ class RemoteConfigController extends Controller
             ], 403);
         }
 
+        if (array_key_exists('captain_name', $validated)) {
+            if (!$user) {
+                return response()->json(['status' => 'error', 'message' => 'Authenticated administrator required.'], 401);
+            }
+            $captainName = trim((string) $validated['captain_name']);
+            if ($captainName !== '') {
+                $user->forceFill(['name' => $captainName])->save();
+            }
+            unset($validated['captain_name']);
+        }
+
         $setting = $this->setting();
         foreach ($validated as $field => $value) {
             if ($value === null) continue;
@@ -109,7 +121,7 @@ class RemoteConfigController extends Controller
                 continue;
             }
 
-            if (in_array($field, ['app_name', 'captain_name', 'app_version'], true)) {
+            if (in_array($field, ['app_name', 'app_version'], true)) {
                 $setting->{$field} = trim((string) $value);
                 continue;
             }
@@ -126,7 +138,7 @@ class RemoteConfigController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'System settings updated successfully',
-            'settings' => $this->publicSettings($setting),
+            'settings' => $this->publicSettings($setting, $user?->fresh()?->name),
         ]);
     }
 
@@ -199,7 +211,7 @@ class RemoteConfigController extends Controller
             'app_logo_path' => $logoPath,
             'app_logo_url' => $setting->publicLogoUrl(),
             'url' => $setting->publicLogoUrl(),
-            'settings' => $this->publicSettings($setting),
+            'settings' => $this->publicSettings($setting, $request->user()?->name),
         ]);
     }
 
