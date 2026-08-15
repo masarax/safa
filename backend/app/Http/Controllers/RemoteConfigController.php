@@ -78,6 +78,16 @@ class RemoteConfigController extends Controller
 
     public function updateConfig(Request $request)
     {
+        // User identity is never a brand/system setting. Reject legacy callers
+        // explicitly instead of silently accepting and ignoring the field.
+        if ($request->has('captain_name')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User name must be changed from My Account settings.',
+                'errors' => ['captain_name' => ['User identity is not part of Brand & Business Configuration.']],
+            ], 422);
+        }
+
         $validated = $request->validate([
             'account_id' => 'nullable|integer',
             'app_name' => 'nullable|string|max:255',
