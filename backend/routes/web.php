@@ -30,6 +30,7 @@ Route::get('/safa-logo.png', fn () => response()->file(public_path('safa-logo.pn
 Route::get('/favicon.svg', fn () => response()->file(public_path('favicon.svg')));
 Route::get('/safa-web.css', fn () => response()->file(public_path('safa-web.css'), ['Content-Type' => 'text/css; charset=utf-8']));
 Route::get('/safa-web.js', fn () => response()->file(public_path('safa-web.js'), ['Content-Type' => 'application/javascript; charset=utf-8']));
+Route::get('/safa-web-events.js', fn () => response()->file(public_path('safa-web-events.js'), ['Content-Type' => 'application/javascript; charset=utf-8']));
 Route::get('/storage/logos/{file}', function (string $file) {
     $path = public_path('storage/logos/' . $file);
     if (!is_file($path)) return response()->json(['status' => 'not_found'], 404);
