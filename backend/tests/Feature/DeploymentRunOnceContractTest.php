@@ -23,68 +23,34 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringNotContainsString('getMessage()', $runner);
     }
 
-    public function test_deploy_workflow_uses_direct_cpanel_git_api_without_transfer_path_inputs(): void
+    public function test_deploy_workflow_has_no_dispatch_options_and_uses_only_existing_ftp_secrets(): void
     {
         $workflow = (string) file_get_contents(base_path('../.github/workflows/deploy.yml'));
 
-        $this->assertStringContainsString('upload_run_once:', $workflow);
-        $this->assertStringContainsString('default: false', $workflow);
-        $this->assertStringContainsString('CPANEL_API_URL', $workflow);
-        $this->assertStringContainsString('CPANEL_USERNAME', $workflow);
-        $this->assertStringContainsString('CPANEL_API_TOKEN', $workflow);
-        $this->assertStringContainsString('Authorization: cpanel', $workflow);
-        $normalized = str_replace('/', ' ', $workflow);
-        $this->assertStringContainsString('VersionControl create', $normalized);
-        $this->assertStringContainsString('VersionControl update', $normalized);
-        $this->assertStringContainsString('VersionControlDeployment create', $normalized);
-        $this->assertStringContainsString('VersionControlDeployment retrieve', $normalized);
-        $this->assertStringContainsString('Fileman save_file_content', $normalized);
-        $this->assertStringContainsString('/home/$CPANEL_USERNAME/repositories/safa', $workflow);
-        $this->assertStringContainsString('CPANEL_DEPLOY_ID', $workflow);
-        $this->assertStringContainsString('cPanel deployment log:', $workflow);
-        $this->assertStringContainsString('Run mandatory full test suite', $workflow);
-        $this->assertStringContainsString('bash -n deploy/cpanel-deploy.sh', $workflow);
-
-        // The workflow always deploys the checked-out main commit, requires the
-        // cPanel task to succeed for that SHA, then verifies the live exact build.
-        $this->assertStringContainsString('deploy_sha="$(git rev-parse HEAD)"', $workflow);
-        $this->assertStringContainsString('[[ "$task_identifier" != "$DEPLOY_SHA" ]]', $workflow);
-        $this->assertStringContainsString('EXPECTED_BUILD="$DEPLOY_SHA"', $workflow);
-        $this->assertStringNotContainsString('EXPECTED_BUILD="$GITHUB_SHA"', $workflow);
-
-        // Deployment configuration must not expose or depend on a file-transfer
-        // server/path mechanism. cPanel Git/UAPI owns the deployment transport.
+        $this->assertStringContainsString("workflow_dispatch:\n", $workflow);
+        $this->assertStringNotContainsString('inputs:', $workflow);
+        $this->assertStringNotContainsString('upload_run_once', $workflow);
         $this->assertStringNotContainsString('cpanel_server_dir', $workflow);
-        $this->assertStringNotContainsString('SamKirkland', $workflow);
-        $this->assertStringNotContainsString('FTP_', $workflow);
-        $this->assertStringNotContainsString('ftp', strtolower($workflow));
-    }
+        $this->assertStringNotContainsString('CPANEL_API_', $workflow);
+        $this->assertStringNotContainsString('PRODUCTION_BASE_URL', $workflow);
 
-    public function test_cpanel_deployment_script_is_safe_idempotent_and_runs_required_setup(): void
-    {
-        $cpanel = (string) file_get_contents(base_path('../.cpanel.yml'));
-        $script = (string) file_get_contents(base_path('deploy/cpanel-deploy.sh'));
+        preg_match_all('/secrets\.([A-Z0-9_]+)/', $workflow, $matches);
+        $secrets = array_values(array_unique($matches[1] ?? []));
+        sort($secrets);
 
-        $this->assertStringContainsString('/bin/bash backend/deploy/cpanel-deploy.sh', $cpanel);
-        $this->assertStringContainsString('DomainInfo single_domain_data', $script);
-        $this->assertStringContainsString('bootstrap/safa-build.json', $script);
-        $this->assertStringContainsString('.safa-deployed-files', $script);
-        $this->assertStringContainsString('--exclude=\'./.env\'', $script);
-        $this->assertStringContainsString('--exclude=\'./storage\'', $script);
-        $this->assertStringContainsString('storage/framework/cache/data', $script);
-        $this->assertStringContainsString('migrate --force --no-interaction', $script);
-        $this->assertStringContainsString('db:seed --force --no-interaction', $script);
-        $this->assertStringContainsString('optimize:clear', $script);
-        $this->assertStringContainsString('config:cache', $script);
-        $this->assertStringContainsString('view:cache', $script);
-        $this->assertStringContainsString('$PROJECT_ROOT/run-once.php', $script);
-        $this->assertStringContainsString('$PROJECT_ROOT/public/run-once.php', $script);
-        $this->assertStringContainsString('RUNNER_LOCK="$PROJECT_ROOT/storage/run-once.lock"', $script);
-        $this->assertStringContainsString('! -f "$RUNNER_LOCK"', $script);
-        $this->assertStringContainsString('[[ -f "$PROJECT_ROOT/.env" ]]', $script);
-        $this->assertStringNotContainsString('migrate:fresh', $script);
-        $this->assertStringNotContainsString('rm -rf "$PROJECT_ROOT"', $script);
-        $this->assertStringNotContainsString('ftp', strtolower($script));
+        $this->assertSame([
+            'FTP_PASSWORD',
+            'FTP_SERVER',
+            'FTP_USERNAME',
+        ], $secrets);
+
+        $this->assertStringContainsString('SamKirkland/FTP-Deploy-Action@v4.3.5', $workflow);
+        $this->assertStringContainsString('server: ${{ secrets.FTP_SERVER }}', $workflow);
+        $this->assertStringContainsString('username: ${{ secrets.FTP_USERNAME }}', $workflow);
+        $this->assertStringContainsString('password: ${{ secrets.FTP_PASSWORD }}', $workflow);
+        $this->assertStringContainsString('local-dir: backend/', $workflow);
+        $this->assertStringContainsString('server-dir: /', $workflow);
+        $this->assertStringContainsString('Run mandatory full test suite', $workflow);
     }
 
     public function test_signed_apk_workflow_is_secret_backed_and_publishes_checksum(): void
