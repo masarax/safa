@@ -11,14 +11,11 @@ class ServiceStatusTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_private_root_does_not_expose_a_public_service_status_page(): void
+    public function test_browser_root_redirects_to_login_without_exposing_health_details(): void
     {
-        $response = $this->getJson('/');
-
-        $response->assertNotFound()
-            ->assertExactJson([
-                'status' => 'not_found',
-            ]);
+        $this->get('/')
+            ->assertRedirect(route('safa.login'))
+            ->assertDontSee('checks');
     }
 
     public function test_api_health_is_unauthenticated_and_stable(): void
