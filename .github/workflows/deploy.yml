@@ -1,13 +1,7 @@
-name: Deploy Laravel Backend Directly to cPanel
+name: Deploy Laravel Backend to cPanel
 
 on:
   workflow_dispatch:
-    inputs:
-      upload_run_once:
-        description: 'Request the self-deleting /run-once.php page if it has never completed before'
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -18,330 +12,86 @@ concurrency:
 
 jobs:
   web-deploy:
-    name: Direct cPanel Git deployment
+    name: Deploy Laravel backend to cPanel
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      UPLOAD_RUN_ONCE: ${{ inputs.upload_run_once }}
+    timeout-minutes: 25
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 1
 
-      - name: Resolve checked-out deployment identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          deploy_sha="$(git rev-parse HEAD)"
-          [[ "$deploy_sha" =~ ^[a-f0-9]{40}$ ]]
-          printf 'DEPLOY_SHA=%s\n' "$deploy_sha" >> "$GITHUB_ENV"
-
       - name: Setup PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_mysql, pdo_sqlite, bcmath, ctype, fileinfo, json, tokenizer
           coverage: none
           ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
 
-      - name: Prepare CI environment
+      - name: Prepare test database
         working-directory: backend
-        shell: bash
         run: |
-          set -euo pipefail
           mkdir -p database
           rm -f database/testing.sqlite
           touch database/testing.sqlite
-          cp .env.example .env
-          php -r '$env=file_get_contents(".env"); $key="base64:".base64_encode(random_bytes(32)); $env=preg_replace("/^APP_KEY=.*$/m", "APP_KEY=$key", $env); $env=preg_replace("/^DB_CONNECTION=.*$/m", "DB_CONNECTION=sqlite", $env); $env=preg_replace("/^DB_DATABASE=.*$/m", "DB_DATABASE=".getcwd()."/database/testing.sqlite", $env); file_put_contents(".env", $env);'
 
       - name: Install Composer test dependencies
         working-directory: backend
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/testing.sqlite
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: PHP syntax check
         working-directory: backend
-        shell: bash
-        run: |
-          set -euo pipefail
-          find app config database deploy routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-          bash -n deploy/cpanel-deploy.sh
+        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Run mandatory full test suite
         working-directory: backend
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          APP_DEBUG: 'false'
+          APP_URL: http://localhost
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/testing.sqlite
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+          SAFA_API_KEY: safa_testing_key
+          SAFA_API_SECRET: safa_testing_secret
+          DB_UPDATE_SECRET: safa_testing_update_secret
+          XDEBUG_MODE: off
         run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
 
-      - name: Validate production dependency build
+      - name: Install production Composer dependencies
         working-directory: backend
-        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
-
-      - name: Trigger direct cPanel deployment
-        shell: bash
         env:
-          CPANEL_API_URL: ${{ secrets.CPANEL_API_URL }}
-          CPANEL_USERNAME: ${{ secrets.CPANEL_USERNAME }}
-          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
-          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-        run: |
-          set -euo pipefail
+          APP_ENV: production
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          APP_DEBUG: 'false'
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-          for variable in CPANEL_API_URL CPANEL_USERNAME CPANEL_API_TOKEN PRODUCTION_BASE_URL; do
-            value="${!variable:-}"
-            test -n "$value" || { echo "$variable is required"; exit 1; }
-          done
-
-          CPANEL_API_URL="${CPANEL_API_URL%/}"
-          PRODUCTION_BASE_URL="${PRODUCTION_BASE_URL%/}"
-          case "$CPANEL_API_URL" in https://*) ;; *) echo 'CPANEL_API_URL must use HTTPS'; exit 1 ;; esac
-          case "$PRODUCTION_BASE_URL" in https://*) ;; *) echo 'PRODUCTION_BASE_URL must use HTTPS'; exit 1 ;; esac
-          [[ "$CPANEL_USERNAME" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'CPANEL_USERNAME is invalid'; exit 1; }
-
-          production_domain="$(PRODUCTION_BASE_URL="$PRODUCTION_BASE_URL" php -r '$host=parse_url((string)getenv("PRODUCTION_BASE_URL"), PHP_URL_HOST); if (!is_string($host) || $host === "") exit(1); echo strtolower($host);')"
-          [[ "$production_domain" =~ ^[a-z0-9.-]+$ && "$production_domain" == *.* ]] || { echo 'Could not resolve the production domain'; exit 1; }
-
-          repository_root="/home/$CPANEL_USERNAME/repositories/safa"
-          printf 'CPANEL_REPOSITORY_ROOT=%s\n' "$repository_root" >> "$GITHUB_ENV"
-          printf 'PRODUCTION_DOMAIN=%s\n' "$production_domain" >> "$GITHUB_ENV"
-
-          uapi_call() {
-            local module="$1"
-            local function="$2"
-            shift 2
-            local endpoint="$CPANEL_API_URL/execute/$module/$function"
-            local -a args=(
-              --silent --show-error --fail-with-body --get
-              -H "Authorization: cpanel $CPANEL_USERNAME:$CPANEL_API_TOKEN"
-              "$endpoint"
-            )
-            local parameter
-            for parameter in "$@"; do
-              args+=(--data-urlencode "$parameter")
-            done
-            curl "${args[@]}"
-          }
-
-          uapi_ok() {
-            UAPI_JSON="$1" php -r '$d=json_decode((string)getenv("UAPI_JSON"), true); exit(is_array($d) && (int)($d["result"]["status"] ?? 0) === 1 ? 0 : 1);'
-          }
-
-          repository_exists() {
-            UAPI_JSON="$1" EXPECTED_ROOT="$repository_root" php -r '
-              $d=json_decode((string)getenv("UAPI_JSON"), true);
-              if (!is_array($d) || (int)($d["result"]["status"] ?? 0) !== 1) exit(2);
-              foreach (($d["result"]["data"] ?? []) as $repository) {
-                  if (is_array($repository) && (string)($repository["repository_root"] ?? "") === (string)getenv("EXPECTED_ROOT")) exit(0);
-              }
-              exit(1);
-            '
-          }
-
-          retrieve_json="$(uapi_call VersionControl retrieve)"
-          uapi_ok "$retrieve_json" || { echo 'Could not query cPanel Git repositories'; exit 1; }
-
-          if repository_exists "$retrieve_json"; then
-            echo 'Using existing cPanel-managed SAFA repository.'
-          else
-            echo 'Creating cPanel-managed SAFA repository from GitHub.'
-            source_repository='{"remote_name":"origin","url":"https://github.com/masarax/safa.git"}'
-            create_json="$(uapi_call VersionControl create \
-              'type=git' \
-              'name=SAFA Production' \
-              "repository_root=$repository_root" \
-              "source_repository=$source_repository")"
-            uapi_ok "$create_json" || { echo 'cPanel could not create the managed Git repository'; exit 1; }
-
-            repository_ready=0
-            for attempt in $(seq 1 36); do
-              sleep 5
-              retrieve_json="$(uapi_call VersionControl retrieve)"
-              if uapi_ok "$retrieve_json" && repository_exists "$retrieve_json"; then
-                repository_ready=1
-                break
-              fi
-            done
-            test "$repository_ready" = '1' || { echo 'Timed out waiting for the cPanel-managed repository clone'; exit 1; }
-          fi
-
-          update_ok=0
-          for attempt in $(seq 1 12); do
-            if update_json="$(uapi_call VersionControl update \
-              "repository_root=$repository_root" \
-              'branch=main' \
-              'source_repository={"remote_name":"origin"}')" && uapi_ok "$update_json"; then
-              update_ok=1
-              break
-            fi
-            sleep 5
-          done
-          test "$update_ok" = '1' || { echo 'cPanel could not update the managed repository from main'; exit 1; }
-
-          domain_marker_json="$(uapi_call Fileman save_file_content \
-            'file=.safa-production-domain' \
-            "content=$production_domain")"
-          uapi_ok "$domain_marker_json" || { echo 'Could not prepare the production-domain marker'; exit 1; }
-
-          run_once_value='0'
-          if [[ "$UPLOAD_RUN_ONCE" == 'true' ]]; then run_once_value='1'; fi
-          run_once_marker_json="$(uapi_call Fileman save_file_content \
-            'file=.safa-run-once.request' \
-            "content=$run_once_value")"
-          uapi_ok "$run_once_marker_json" || { echo 'Could not prepare the one-time-runner marker'; exit 1; }
-
-          deployment_json="$(uapi_call VersionControlDeployment create "repository_root=$repository_root")"
-          uapi_ok "$deployment_json" || { echo 'cPanel rejected the deployment task'; exit 1; }
-          deploy_id="$(DEPLOYMENT_JSON="$deployment_json" php -r '$d=json_decode((string)getenv("DEPLOYMENT_JSON"), true); $id=$d["result"]["data"]["deploy_id"] ?? null; if (!is_scalar($id) || (string)$id === "") exit(1); echo (string)$id;')"
-          [[ "$deploy_id" =~ ^[0-9]+$ ]] || { echo 'cPanel returned an invalid deployment task ID'; exit 1; }
-          printf 'CPANEL_DEPLOY_ID=%s\n' "$deploy_id" >> "$GITHUB_ENV"
-          echo "cPanel deployment task $deploy_id accepted for $DEPLOY_SHA."
-
-      - name: Wait for successful exact cPanel deployment
-        shell: bash
-        env:
-          CPANEL_API_URL: ${{ secrets.CPANEL_API_URL }}
-          CPANEL_USERNAME: ${{ secrets.CPANEL_USERNAME }}
-          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
-          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-        run: |
-          set -euo pipefail
-          CPANEL_API_URL="${CPANEL_API_URL%/}"
-          base="${PRODUCTION_BASE_URL%/}"
-
-          uapi_call() {
-            local module="$1"
-            local function="$2"
-            shift 2
-            local endpoint="$CPANEL_API_URL/execute/$module/$function"
-            local -a args=(
-              --silent --show-error --fail-with-body --get
-              -H "Authorization: cpanel $CPANEL_USERNAME:$CPANEL_API_TOKEN"
-              "$endpoint"
-            )
-            local parameter
-            for parameter in "$@"; do args+=(--data-urlencode "$parameter"); done
-            curl "${args[@]}"
-          }
-
-          task_summary() {
-            UAPI_JSON="$1" DEPLOY_ID="$CPANEL_DEPLOY_ID" php -r '
-              $d=json_decode((string)getenv("UAPI_JSON"), true);
-              if (!is_array($d) || (int)($d["result"]["status"] ?? 0) !== 1) { echo "api_error\t\t"; exit; }
-              foreach (($d["result"]["data"] ?? []) as $task) {
-                  if (!is_array($task) || (string)($task["deploy_id"] ?? "") !== (string)getenv("DEPLOY_ID")) continue;
-                  $timestamps=is_array($task["timestamps"] ?? null) ? $task["timestamps"] : [];
-                  $state="queued";
-                  if (!empty($timestamps["active"])) $state="active";
-                  if (!empty($timestamps["succeeded"])) $state="succeeded";
-                  if (!empty($timestamps["failed"])) $state="failed";
-                  if (!empty($timestamps["canceled"])) $state="canceled";
-                  $identifier=(string)($task["repository_state"]["identifier"] ?? "");
-                  $log=(string)($task["log_path"] ?? "");
-                  echo $state."\t".$identifier."\t".$log;
-                  exit;
-              }
-              echo "missing\t\t";
-            '
-          }
-
-          ready=0
-          for attempt in $(seq 1 72); do
-            status_json="$(uapi_call VersionControlDeployment retrieve 2>/dev/null || true)"
-            IFS=$'\t' read -r task_state task_identifier task_log <<< "$(task_summary "$status_json")"
-
-            case "$task_state" in
-              failed|canceled)
-                echo "cPanel deployment task $CPANEL_DEPLOY_ID ended as $task_state."
-                if [[ -n "$task_log" ]]; then echo "cPanel deployment log: $task_log"; fi
-                exit 1
-                ;;
-              succeeded)
-                if [[ "$task_identifier" != "$DEPLOY_SHA" ]]; then
-                  echo "cPanel deployed unexpected repository commit $task_identifier; expected $DEPLOY_SHA"
-                  exit 1
-                fi
-                health_json="$(curl --silent --show-error --max-time 15 "$base/api/auth/health" 2>/dev/null || true)"
-                if HEALTH_JSON="$health_json" EXPECTED_BUILD="$DEPLOY_SHA" php -r '$d=json_decode((string)getenv("HEALTH_JSON"), true); exit(is_array($d) && hash_equals((string)getenv("EXPECTED_BUILD"), (string)($d["build"] ?? "")) ? 0 : 1);'; then
-                  ready=1
-                  break
-                fi
-                ;;
-            esac
-            sleep 5
-          done
-
-          test "$ready" = '1' || {
-            echo "Production did not complete cPanel deployment for expected build $DEPLOY_SHA"
-            if [[ -n "${task_log:-}" ]]; then echo "Latest cPanel deployment log: $task_log"; fi
-            exit 1
-          }
-
-      - name: Setup-page verification
-        if: ${{ inputs.upload_run_once }}
-        shell: bash
-        env:
-          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-        run: |
-          set -euo pipefail
-          base="${PRODUCTION_BASE_URL%/}"
-          runner_file="$(mktemp)"
-          runner_code="$(curl --silent --show-error --max-time 20 --output "$runner_file" --write-out '%{http_code}' "$base/run-once.php")"
-          case "$runner_code" in
-            200)
-              grep -q 'SAFA one-time production setup' "$runner_file" || { echo 'Unexpected run-once page'; rm -f "$runner_file"; exit 1; }
-              ;;
-            404)
-              echo 'The one-time setup was already permanently completed; the runner remains unavailable.'
-              ;;
-            *)
-              echo "Unexpected run-once.php status $runner_code"
-              rm -f "$runner_file"
-              exit 1
-              ;;
-          esac
-          rm -f "$runner_file"
-
-      - name: Production readiness smoke verification
-        if: ${{ !inputs.upload_run_once }}
-        shell: bash
-        env:
-          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-        run: |
-          set -euo pipefail
-          base="${PRODUCTION_BASE_URL%/}"
-
-          health_json="$(curl --fail --silent --show-error --max-time 20 "$base/api/auth/health")"
-          HEALTH_JSON="$health_json" EXPECTED_BUILD="$DEPLOY_SHA" php -r '$d=json_decode((string)getenv("HEALTH_JSON"), true); $checks=$d["checks"]??null; if (!is_array($d) || ($d["status"] ?? null) !== "ok" || ($d["service"] ?? null) !== "SAFA API" || !hash_equals((string)getenv("EXPECTED_BUILD"), (string)($d["build"] ?? "")) || !is_array($checks) || count($checks)!==6 || in_array(false, $checks, true)) { fwrite(STDERR, "Unexpected production readiness payload\n"); exit(1); }'
-
-          root_code="$(curl --location --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base/")"
-          test "$root_code" = '200' || { echo "Expected browser root/login HTTP 200, received $root_code"; exit 1; }
-
-          login_file="$(mktemp)"
-          login_code="$(curl --silent --show-error --max-time 20 --output "$login_file" --write-out '%{http_code}' "$base/login")"
-          test "$login_code" = '200' || { echo "Expected /login HTTP 200, received $login_code"; rm -f "$login_file"; exit 1; }
-          grep -q 'SAFA' "$login_file" || { echo 'Unexpected login page'; rm -f "$login_file"; exit 1; }
-          rm -f "$login_file"
-
-          app_code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base/app")"
-          case "$app_code" in 302|303) ;; *) echo "Expected unauthenticated /app redirect, received $app_code"; exit 1 ;; esac
-
-          runner_code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base/run-once.php")"
-          case "$runner_code" in 403|404) ;; *) echo "run-once.php must be unavailable after a normal deployment; received $runner_code"; exit 1 ;; esac
-
-          for path in /install /install/update /install/update-process /update-db; do
-            body_file="$(mktemp)"
-            code="$(curl --silent --show-error --max-time 20 --output "$body_file" --write-out '%{http_code}' "$base$path")"
-            test "$code" = '404' || { echo "Expected 404 for $path, received $code"; rm -f "$body_file"; exit 1; }
-            BODY_FILE="$body_file" php -r '$d=json_decode(file_get_contents((string)getenv("BODY_FILE")), true); if (!is_array($d) || ($d["status"] ?? null) !== "not_found") { fwrite(STDERR, "Unexpected private-surface payload\n"); exit(1); }'
-            rm -f "$body_file"
-          done
-
-          for path in /health.php /public/index.php; do
-            code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base$path")"
-            case "$code" in 403|404) ;; *) echo "Expected a denied/not-found response for $path, received $code"; exit 1 ;; esac
-          done
-
-          for path in /api/version/check /api/v1/customers /api/v1/sync/down; do
-            code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base$path")"
-            case "$code" in 401|403|429) ;; *) echo "Unexpected status $code for protected route $path"; exit 1 ;; esac
-          done
+      - name: Sync Laravel backend to cPanel
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: backend/
+          server-dir: /
+          exclude: |
+            .git*
+            .env
+            .env.*
+            database/testing.sqlite
+            storage/installed
+            storage/framework/cache/*
+            storage/framework/sessions/*
+            storage/framework/views/*
+            tests/
+            node_modules/
