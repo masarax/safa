@@ -2,7 +2,7 @@
 <html lang="{{ $language }}" dir="ltr">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="light dark">
     <title>{{ $appName }} — {{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</title>
     <link rel="icon" href="{{ url('/favicon.svg') }}" type="image/svg+xml">
@@ -10,48 +10,53 @@
 </head>
 <body class="auth-body">
 <main class="auth-layout">
-    <section class="auth-brand" aria-labelledby="brand-title">
-        <img class="auth-logo brand-logo" src="{{ $logoSource }}" alt="{{ $appName }}">
-        <p class="eyebrow">{{ $appName }} Financial Operations</p>
-        <h1 id="brand-title">{{ $language === 'bn' ? 'নিরাপদ ব্যবসা ব্যবস্থাপনা, মোবাইল ও ওয়েবে' : 'Secure business management on mobile and web' }}</h1>
-        @if($captainName)
-            <p class="brand-caption">{{ $language === 'bn' ? 'ক্যাপ্টেন' : 'Captain' }}: <strong>{{ $captainName }}</strong></p>
-        @endif
-        <p>{{ $language === 'bn' ? 'একই অনুমতি, অ্যাকাউন্ট আইসোলেশন এবং সার্ভার-নিয়ন্ত্রিত ডেটা নীতির মাধ্যমে আপনার অনুমোদিত কাজ পরিচালনা করুন।' : 'Use the same server-enforced permissions, account isolation, and business data rules as the Android application.' }}</p>
-    </section>
-
-    <section class="auth-card" aria-labelledby="login-title">
-        <div class="language-switch" aria-label="Language">
-            <a class="{{ $language === 'en' ? 'active' : '' }}" href="{{ route('safa.login', ['lang' => 'en']) }}">English</a>
-            <a class="{{ $language === 'bn' ? 'active' : '' }}" href="{{ route('safa.login', ['lang' => 'bn']) }}">বাংলা</a>
+    <div class="auth-shell">
+        <div class="auth-toolbar">
+            <nav class="language-switch" aria-label="{{ $language === 'bn' ? 'ভাষা নির্বাচন' : 'Language selection' }}">
+                <a class="{{ $language === 'en' ? 'active' : '' }}" href="{{ route('safa.login', ['lang' => 'en']) }}" lang="en">English</a>
+                <a class="{{ $language === 'bn' ? 'active' : '' }}" href="{{ route('safa.login', ['lang' => 'bn']) }}" lang="bn">বাংলা</a>
+            </nav>
         </div>
 
-        <p class="eyebrow">{{ $language === 'bn' ? $appName . ' অ্যাকাউন্ট' : $appName . ' account' }}</p>
-        <h2 id="login-title">{{ $language === 'bn' ? 'লগইন করুন' : 'Sign in' }}</h2>
-        <p class="muted">{{ $language === 'bn' ? 'মোবাইল নম্বর অথবা ইমেইল এবং আপনার বিদ্যমান পিন/পাসওয়ার্ড ব্যবহার করুন।' : 'Use your mobile number or email with your existing PIN/password.' }}</p>
+        <section class="auth-card" aria-labelledby="login-title">
+            <header class="auth-brand">
+                <div class="auth-logo-wrap">
+                    <img class="auth-logo" src="{{ $logoSource }}" alt="{{ $appName }}">
+                </div>
+                <h1>{{ $language === 'bn' ? $appName . ' - সাফা' : $appName }}</h1>
+                @if($captainName)
+                    <p>{{ $language === 'bn' ? 'ক্যাপ্টেন' : 'Captain' }}: <strong>{{ $captainName }}</strong></p>
+                @else
+                    <p>{{ $language === 'bn' ? 'নিরাপদ ব্যবসা ব্যবস্থাপনা' : 'Secure business management' }}</p>
+                @endif
+            </header>
 
-        @if ($errors->any())
-            <div class="alert alert-error" role="alert">
-                {{ $language === 'bn' ? 'লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।' : 'The sign-in details are not valid. Please try again.' }}
-            </div>
-        @endif
+            <h2 id="login-title">{{ $language === 'bn' ? 'লগইন করুন' : 'Sign in' }}</h2>
+            <p class="auth-intro">{{ $language === 'bn' ? 'আপনার মোবাইল নম্বর অথবা ইমেইল এবং বিদ্যমান পিন/পাসওয়ার্ড ব্যবহার করুন।' : 'Use your mobile number or email with your existing PIN/password.' }}</p>
 
-        <form method="post" action="{{ route('safa.login.submit') }}" class="stack-form" autocomplete="on">
-            @csrf
-            <input type="hidden" name="language" value="{{ $language }}">
-            <label>
-                <span>{{ $language === 'bn' ? 'মোবাইল নম্বর অথবা ইমেইল' : 'Mobile number or email' }}</span>
-                <input type="text" name="identity" value="{{ old('identity') }}" maxlength="255" autocomplete="username" inputmode="email" required autofocus>
-            </label>
-            <label>
-                <span>{{ $language === 'bn' ? 'পিন / পাসওয়ার্ড' : 'PIN / password' }}</span>
-                <input type="password" name="credential" minlength="6" maxlength="255" autocomplete="current-password" required>
-            </label>
-            <button class="button primary wide" type="submit">{{ $language === 'bn' ? 'নিরাপদ লগইন' : 'Secure sign in' }}</button>
-        </form>
+            @if ($errors->any())
+                <div class="alert alert-error" role="alert">
+                    {{ $language === 'bn' ? 'লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।' : 'The sign-in details are not valid. Please try again.' }}
+                </div>
+            @endif
 
-        <p class="security-note">{{ $language === 'bn' ? 'ব্রাউজার লগইন HttpOnly সেশন, CSRF সুরক্ষা এবং নিরাপদ কুকি ব্যবহার করে। Android API কী ব্রাউজারে প্রকাশ করা হয় না।' : 'Browser access uses HttpOnly sessions, CSRF protection, and secure cookies. The Android API client key is never exposed to browser JavaScript.' }}</p>
-    </section>
+            <form method="post" action="{{ route('safa.login.submit') }}" class="stack-form" autocomplete="on">
+                @csrf
+                <input type="hidden" name="language" value="{{ $language }}">
+                <label>
+                    <span>{{ $language === 'bn' ? 'মোবাইল নম্বর অথবা ইমেইল' : 'Mobile number or email' }}</span>
+                    <input type="text" name="identity" value="{{ old('identity') }}" maxlength="255" autocomplete="username" inputmode="email" placeholder="01700000000" required autofocus>
+                </label>
+                <label>
+                    <span>{{ $language === 'bn' ? 'পিন / পাসওয়ার্ড' : 'PIN / password' }}</span>
+                    <input type="password" name="credential" minlength="6" maxlength="255" autocomplete="current-password" required>
+                </label>
+                <button class="primary-button wide" type="submit">{{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</button>
+            </form>
+
+            <p class="security-note">{{ $language === 'bn' ? 'আপনার ব্রাউজার সেশন HttpOnly কুকি ও CSRF সুরক্ষার মাধ্যমে নিরাপদ রাখা হয়।' : 'Your browser session is protected with HttpOnly cookies and CSRF protection.' }}</p>
+        </section>
+    </div>
 </main>
 </body>
 </html>

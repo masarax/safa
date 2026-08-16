@@ -6,26 +6,33 @@ use Tests\TestCase;
 
 class WebDesktopPresentationContractTest extends TestCase
 {
-    public function test_web_styles_preserve_mobile_base_and_add_desktop_workspace_layer(): void
+    public function test_web_styles_keep_responsive_layout_separate_from_shared_brand_tokens(): void
     {
         $entry = (string) file_get_contents(public_path('safa-web.css'));
         $desktop = (string) file_get_contents(public_path('safa-web-desktop.css'));
+        $unified = (string) file_get_contents(public_path('safa-web-unified.css'));
 
         $this->assertStringContainsString("@import url('/safa-web-base.css');", $entry);
         $this->assertStringContainsString("@import url('/safa-web-desktop.css');", $entry);
-        $this->assertFileExists(public_path('safa-web-base.css'));
+        $this->assertStringContainsString("@import url('/safa-web-unified.css');", $entry);
 
-        $this->assertStringContainsString('@media (min-width: 1024px)', $desktop);
-        $this->assertStringContainsString('--desktop-nav-w: 252px', $desktop);
+        $this->assertStringContainsString('@media (min-width:1024px)', $desktop);
+        $this->assertStringContainsString('--desktop-nav-w:236px', $desktop);
         $this->assertStringContainsString('.mobile-bottom-nav', $desktop);
-        $this->assertStringContainsString('flex-direction: column', $desktop);
+        $this->assertStringContainsString('flex-direction:column', $desktop);
         $this->assertStringContainsString('.mobile-app-shell', $desktop);
-        $this->assertStringContainsString('padding-left: var(--desktop-nav-w)', $desktop);
+        $this->assertStringContainsString('padding-left:var(--desktop-nav-w)', $desktop);
         $this->assertStringContainsString('.subpage', $desktop);
-        $this->assertStringContainsString('left: var(--desktop-nav-w)', $desktop);
+        $this->assertStringContainsString('left:var(--desktop-nav-w)', $desktop);
         $this->assertStringContainsString('#customers-list', $desktop);
         $this->assertStringContainsString('#suppliers-list', $desktop);
         $this->assertStringContainsString('.settings-grid', $desktop);
+
+        $this->assertStringNotContainsString('radial-gradient', $desktop);
+        $this->assertStringNotContainsString('#f97316', $desktop);
+        $this->assertStringNotContainsString('#064e3b', $desktop);
+        $this->assertStringContainsString('--brand-orange:#f97316', $unified);
+        $this->assertStringContainsString('--brand-green:#064e3b', $unified);
     }
 
     public function test_desktop_presentation_does_not_replace_android_parity_runtime(): void
