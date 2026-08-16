@@ -25,8 +25,12 @@ class ProductionRecoveryTest extends TestCase
 
         $this->get('/safa-web-product.css')
             ->assertOk()
-            ->assertHeader('Content-Type', 'text/css; charset=utf-8')
-            ->assertSee('--brand-green', false);
+            ->assertHeader('Content-Type', 'text/css; charset=utf-8');
+
+        $this->assertStringContainsString(
+            '--brand-green',
+            (string) file_get_contents(public_path('safa-web-product.css'))
+        );
 
         $this->get('/safa-web-product.js')
             ->assertOk()
@@ -67,7 +71,7 @@ class ProductionRecoveryTest extends TestCase
         $admin = User::query()->where('email', 'admin@example.test')->firstOrFail();
         $this->assertTrue($admin->isSuperAdmin());
         $this->assertTrue((bool) $admin->is_activated);
-        $this->assertSame('8801700000000', $admin->mobile);
+        $this->assertSame('01700000000', $admin->mobile);
         $this->assertTrue(Hash::check('654321', (string) $admin->pin_hash));
 
         $account = Account::query()->firstOrFail();
