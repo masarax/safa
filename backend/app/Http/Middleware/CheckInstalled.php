@@ -19,7 +19,7 @@ class CheckInstalled
             return $next($request);
         }
 
-        $isInstalled = file_exists(storage_path('installed')) || env('APP_INSTALLED') === true || env('APP_INSTALLED') === 'true';
+        $isInstalled = file_exists(storage_path('installed')) || (bool) config('safa.installed', false);
         if (!$isInstalled) {
             if ($this->expectsApiResponse($request)) {
                 return response()->json(['status' => 'error', 'message' => 'System installation required.'], 503);
