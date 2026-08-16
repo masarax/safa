@@ -94,6 +94,16 @@
                     <button class="secondary-button wide" data-maintenance-action="seed" type="submit" @disabled($seedDisabled)>Run Seed</button>
                 </form>
             </section>
+
+            @if($initialSuperAdminBootstrapAvailable)
+                <section class="surface-card" data-bootstrap-state="available">
+                    <div>
+                        <h2>Initial Super Admin</h2>
+                        <p>No Admin or Super Admin exists. Create the first Super Admin without exposing database credentials.</p>
+                    </div>
+                    <a class="primary-button wide" href="{{ route('install.superadmin.show') }}">Create Super Admin</a>
+                </section>
+            @endif
         </div>
     </section>
 </main>
