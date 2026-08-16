@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\URL;
 
 class DatabaseUpdateController extends Controller
 {
@@ -25,8 +25,7 @@ class DatabaseUpdateController extends Controller
             }
 
             self::healLegacyMigrationRecords($files);
-            $ran = DB::table('migrations')->pluck('migration')->all();
-            $ran = array_flip($ran);
+            $ran = array_flip(DB::table('migrations')->pluck('migration')->all());
 
             return array_values(array_filter(
                 $migrationNames,
@@ -40,78 +39,73 @@ class DatabaseUpdateController extends Controller
 
     public function show(Request $request)
     {
+        $this->authorizeSystemUpdate($request);
+
         $pendingMigrations = self::pendingMigrations();
-
         if (!$pendingMigrations) {
-            return redirect()->route('home')->with('info', 'Database is already up to date.');
+            return redirect()->route('safa.app')->with('info', 'SAFA is already up to date.');
         }
-
-        $secret = (string) config('safa.database_update_secret', '');
-        if ($secret === '') {
-            report(new \RuntimeException('DB_UPDATE_SECRET is not configured.'));
-            return response('Database update protection is not configured.', 503);
-        }
-
-        $expiresAt = now()->addMinutes(15);
-        $updateUrl = URL::temporarySignedRoute(
-            'install.update-process',
-            $expiresAt,
-            [
-                'update_token' => hash_hmac('sha256', (string) $expiresAt->timestamp, $secret),
-            ]
-        );
 
         return view('install_update', [
             'pendingMigrations' => $pendingMigrations,
-            'updateUrl' => $updateUrl,
         ]);
     }
 
     public function process(Request $request)
     {
-        if (!$request->hasValidSignature()) {
-            return $request->expectsJson()
-                ? response()->json(['status' => 'error', 'message' => 'Unauthorized database update request. The update link is invalid or expired.'], 403)
-                : response('Unauthorized database update request. The update link is invalid or expired.', 403);
-        }
+        $this->authorizeSystemUpdate($request);
 
-        $secret = (string) config('safa.database_update_secret', '');
-        $expires = (string) $request->query('expires', '');
-        $providedToken = (string) $request->query('update_token', '');
-        $expectedToken = $secret !== '' && $expires !== ''
-            ? hash_hmac('sha256', $expires, $secret)
-            : '';
-
-        if ($secret === '' || $providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
-            return $request->expectsJson()
-                ? response()->json(['status' => 'error', 'message' => 'Unauthorized database update request.'], 403)
-                : response('Unauthorized database update request.', 403);
+        if (!self::pendingMigrations()) {
+            return redirect()->route('safa.app')->with('info', 'SAFA is already up to date.');
         }
 
         try {
             $files = glob(database_path('migrations/*.php')) ?: [];
             self::healLegacyMigrationRecords($files);
 
-            Artisan::call('migrate', ['--force' => true]);
-            $output = trim(Artisan::output());
-
-            foreach (['config:clear', 'cache:clear', 'view:clear'] as $command) {
-                try {
-                    Artisan::call($command);
-                } catch (\Throwable $ignored) {
-                    // Cache cleanup must not turn a successful migration into a failure.
-                }
+            $exitCode = Artisan::call('migrate', ['--force' => true]);
+            if ($exitCode !== 0) {
+                throw new \RuntimeException('Migration command returned a non-zero exit code.');
             }
 
-            if (self::pendingMigrations()) {
-                return back()->with('error', 'Database update completed, but some schema updates are still pending. Please open the update page again.');
+            // Clear compiled/config/view/cache state so the newly deployed code is
+            // used immediately. A cache cleanup failure must not roll back or hide
+            // an otherwise successful schema migration.
+            try {
+                Artisan::call('optimize:clear');
+            } catch (\Throwable $cacheError) {
+                report($cacheError);
             }
 
-            return redirect()->route('home')->with('success', 'Database schema updated successfully without any data loss.');
+            $pending = self::pendingMigrations();
+            if ($pending) {
+                return redirect()->route('system.update.show')->with(
+                    'error',
+                    'The update ran, but some database changes are still pending. Review the server log and run the update again.'
+                );
+            }
+
+            return redirect()->route('safa.app')->with('success', 'SAFA was updated successfully.');
         } catch (\Throwable $e) {
             report($e);
-            return back()->with('error', 'Database update failed. No destructive database operation was performed. Please check the server error log.');
+
+            return redirect()->route('system.update.show')->with(
+                'error',
+                'The update could not be completed. Existing data was not intentionally removed. Review the server log before retrying.'
+            );
         }
+    }
+
+    private function authorizeSystemUpdate(Request $request): User
+    {
+        $user = $request->user();
+        abort_unless(
+            $user instanceof User && (bool) $user->is_activated && $user->isSuperAdmin(),
+            403,
+            'Only an activated SuperAdmin can run system updates.'
+        );
+
+        return $user;
     }
 
     private static function healLegacyMigrationRecords(array $migrationFiles): void
