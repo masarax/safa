@@ -18,6 +18,26 @@ class SystemUpdateFlowTest extends TestCase
     {
         parent::setUp();
         Config::set('safa.enforce_update_checks_in_tests', true);
+        Config::set('safa.installed', true);
+    }
+
+    public function test_uninitialized_browser_traffic_redirects_to_system_update(): void
+    {
+        Config::set('safa.installed', false);
+
+        $this->get('/')
+            ->assertRedirect(route('system.update.show'));
+    }
+
+    public function test_uninitialized_api_traffic_remains_machine_readable(): void
+    {
+        Config::set('safa.installed', false);
+
+        $this->getJson('/api/auth/health')
+            ->assertStatus(503)
+            ->assertJson([
+                'status' => 'maintenance_required',
+            ]);
     }
 
     public function test_pending_migration_redirects_normal_browser_traffic_to_system_update(): void
@@ -67,7 +87,7 @@ class SystemUpdateFlowTest extends TestCase
         $this->actingAs($user)->post('/system/update/seed')->assertForbidden();
     }
 
-    public function test_superadmin_sees_separate_migration_and_seed_actions_and_can_run_migration(): void
+    public function test_superadmin_sees_separate_actions_and_resumes_app_after_migration(): void
     {
         $this->markMigrationPending();
         $superAdmin = User::factory()->create([
@@ -85,7 +105,7 @@ class SystemUpdateFlowTest extends TestCase
 
         $this->actingAs($superAdmin)
             ->post('/system/update/migrate')
-            ->assertRedirect(route('system.update.show'));
+            ->assertRedirect(route('safa.app'));
 
         $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
     }
