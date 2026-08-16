@@ -40,8 +40,16 @@ class ProductionRecoveryTest extends TestCase
     public function test_index_setup_surface_is_completely_removed(): void
     {
         $this->get('/index')->assertNotFound();
-        $this->post('/index/bootstrap')->assertNotFound();
-        $this->post('/index/seed')->assertNotFound();
+
+        // There are deliberately no POST routes under /index. Laravel therefore
+        // rejects the unmatched methods before application middleware can run.
+        $this->post('/index/bootstrap')->assertStatus(405);
+        $this->post('/index/seed')->assertStatus(405);
+
+        $routes = (string) file_get_contents(base_path('routes/web.php'));
+        $this->assertStringNotContainsString('SetupController', $routes);
+        $this->assertStringNotContainsString("Route::get('/index'", $routes);
+        $this->assertStringNotContainsString("Route::post('/index", $routes);
     }
 
     public function test_login_is_minimal_and_rejected_explanatory_copy_is_absent(): void
