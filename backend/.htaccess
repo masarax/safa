@@ -21,8 +21,8 @@ Options -Indexes
     RewriteRule ^public/storage/logos/logo_[A-Za-z0-9_-]+\.(?:png|jpe?g|gif|webp)$ - [L,NC]
 
     # 3. Block direct web access to sensitive system files & internal directories.
-    # Requests such as /app/Http/... remain forbidden.
-    RewriteRule ^(app|bootstrap|config|database|public|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md|metadata\.json|\.env|\.git) - [F,L]
+    # Requests such as /app/Http/... and internal deployment templates remain forbidden.
+    RewriteRule ^(app|bootstrap|config|database|deploy|public|resources|routes|storage|tests|vendor|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml|README\.md|metadata\.json|\.env|\.git) - [F,L]
 
     # 4. Route all legitimate web traffic to index.php
     RewriteCond %{REQUEST_FILENAME} !-d
