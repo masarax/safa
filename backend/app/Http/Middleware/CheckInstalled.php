@@ -40,10 +40,13 @@ class CheckInstalled
         $isInstalled = file_exists(storage_path('installed')) || (bool) config('safa.installed', false);
         if (!$isInstalled) {
             if ($this->expectsApiResponse($request)) {
-                return response()->json(['status' => 'error', 'message' => 'System installation required.'], 503);
+                return response()->json([
+                    'status' => 'maintenance_required',
+                    'message' => 'System maintenance is required before this request can be served.',
+                ], 503);
             }
 
-            return response()->json(['status' => 'error', 'message' => 'SAFA is not installed.'], 503);
+            return redirect()->route('system.update.show');
         }
 
         try {
