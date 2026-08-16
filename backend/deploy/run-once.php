@@ -71,7 +71,9 @@ try {
     $app = require $bootstrap;
     $app->make(Kernel::class)->bootstrap();
 
-    $expectedToken = trim((string) env('SAFA_RUN_ONCE_TOKEN', ''));
+    // Read through Laravel configuration instead of env() directly so the token
+    // remains available after `config:cache` on production cPanel deployments.
+    $expectedToken = trim((string) config('safa.run_once_token', ''));
     if ($expectedToken === '') {
         $cleanupRunners();
         $notFound();
