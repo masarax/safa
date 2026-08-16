@@ -33,8 +33,13 @@ jobs:
         working-directory: backend
         env:
           APP_ENV: production
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           APP_DEBUG: 'false'
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
+
+      - name: Stamp deployed commit identity
+        shell: bash
+        run: printf '{"commit":"%s"}\n' "$(git rev-parse HEAD)" > backend/bootstrap/safa-build.json
 
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
