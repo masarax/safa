@@ -218,9 +218,6 @@ class DatabaseUpdateController extends Controller
             '2026_01_07_000000_create_system_settings_table' => [
                 'system_settings' => ['id', 'app_name', 'app_logo_url', 'app_version', 'local_currency', 'foreign_currency'],
             ],
-            '2026_08_12_000001_harden_auth_session_storage' => [
-                'auth_sessions' => ['access_token_hash', 'refresh_token_hash', 'session_token_hash'],
-            ],
         ];
     }
 }
