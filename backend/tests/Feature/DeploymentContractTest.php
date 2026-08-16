@@ -56,7 +56,7 @@ class DeploymentContractTest extends TestCase
         }
     }
 
-    public function test_database_updates_are_owned_by_the_authenticated_web_application(): void
+    public function test_database_maintenance_is_owned_by_the_protected_web_application(): void
     {
         $controller = (string) file_get_contents(app_path('Http/Controllers/DatabaseUpdateController.php'));
         $middleware = (string) file_get_contents(app_path('Http/Middleware/CheckInstalled.php'));
@@ -64,12 +64,17 @@ class DeploymentContractTest extends TestCase
         $publicHtaccess = (string) file_get_contents(public_path('.htaccess'));
 
         $this->assertStringContainsString("Route::get('/system/update'", $routes);
-        $this->assertStringContainsString("Route::post('/system/update'", $routes);
+        $this->assertStringContainsString("Route::post('/system/update/migrate'", $routes);
+        $this->assertStringContainsString("Route::post('/system/update/seed'", $routes);
         $this->assertStringContainsString("->name('system.update.show')", $routes);
-        $this->assertStringContainsString("->name('system.update.process')", $routes);
+        $this->assertStringContainsString("->name('system.update.migrate')", $routes);
+        $this->assertStringContainsString("->name('system.update.seed')", $routes);
         $this->assertStringContainsString("Artisan::call('migrate', ['--force' => true])", $controller);
+        $this->assertStringContainsString("Artisan::call('db:seed'", $controller);
         $this->assertStringContainsString("Artisan::call('optimize:clear')", $controller);
         $this->assertStringContainsString('$user->isSuperAdmin()', $controller);
+        $this->assertStringContainsString("config('safa.maintenance_token'", $controller);
+        $this->assertStringNotContainsString("config('database.connections.", $controller);
         $this->assertStringContainsString("redirect()->route('system.update.show')", $middleware);
         $this->assertStringContainsString("'status' => 'update_required'", $middleware);
 
