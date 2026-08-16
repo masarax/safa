@@ -19,11 +19,6 @@ Options -Indexes -MultiViews
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # Allow only the two short-lived deployment/setup entrypoints to execute
-    # directly when cPanel points the document root at public/.
-    RewriteRule ^run-once\.php$ - [L,NC]
-    RewriteRule ^safa-deploy-migrate-[a-f0-9]{32}\.php$ - [L,NC]
-
     # The authenticated browser application uses /app and /app/api/* as
     # Laravel routes. They must be rewritten before the internal-source deny.
     RewriteRule ^app/?$ index.php [L]
