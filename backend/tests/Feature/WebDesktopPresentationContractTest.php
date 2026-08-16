@@ -51,7 +51,7 @@ class WebDesktopPresentationContractTest extends TestCase
         $this->assertStringContainsString('customerSaleUrl', $runtime);
         $this->assertStringContainsString('supplierFundsUrl', $runtime);
         $this->assertStringContainsString('walletWithdrawUrl', $runtime);
-        $this->assertStringContainsString("$$('.screen')", $runtime);
-        $this->assertStringContainsString("$$('.bottom-nav-item')", $runtime);
+        $this->assertStringContainsString('$$(\'.screen\')', $runtime);
+        $this->assertStringContainsString('$$(\'.bottom-nav-item\')', $runtime);
     }
 }
