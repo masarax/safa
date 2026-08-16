@@ -45,7 +45,14 @@
                 </label>
 
                 @error('auth')
-                    <p class="auth-error-inline" role="alert" aria-live="assertive">{{ $language === 'bn' ? 'লগইন ব্যর্থ।' : 'Sign-in failed.' }}</p>
+                    @php($failureType = $errors->first('auth') === 'email' ? 'email' : 'mobile')
+                    <p class="auth-error-inline" role="alert" aria-live="assertive">
+                        @if($language === 'bn')
+                            {{ $failureType === 'email' ? 'ইমেইল অথবা পিন / পাসওয়ার্ড সঠিক নয়।' : 'মোবাইল নম্বর অথবা পিন / পাসওয়ার্ড সঠিক নয়।' }}
+                        @else
+                            {{ $failureType === 'email' ? 'Invalid email or PIN / password.' : 'Invalid mobile number or PIN / password.' }}
+                        @endif
+                    </p>
                 @enderror
 
                 <button class="primary-button wide" type="submit">{{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</button>
