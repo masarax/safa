@@ -101,7 +101,9 @@ class SystemUpdateFlowTest extends TestCase
             ->assertSee('System Maintenance')
             ->assertSee(self::PENDING_MIGRATION)
             ->assertSee('Run Migration')
-            ->assertSee('Run Seed');
+            ->assertSee('Run Seed')
+            ->assertSeeHtml('data-seed-state="migration-required"')
+            ->assertSeeHtml('data-maintenance-action="seed" type="submit" disabled');
 
         $this->actingAs($superAdmin)
             ->post('/system/update/migrate')
@@ -110,7 +112,7 @@ class SystemUpdateFlowTest extends TestCase
         $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
     }
 
-    public function test_maintenance_page_remains_available_when_no_migration_is_pending(): void
+    public function test_maintenance_page_keeps_seed_available_when_no_migration_is_pending(): void
     {
         $superAdmin = User::factory()->create([
             'role' => User::ROLE_SUPERADMIN,
@@ -121,7 +123,9 @@ class SystemUpdateFlowTest extends TestCase
             ->get('/system/update')
             ->assertOk()
             ->assertSee('Run Migration')
-            ->assertSee('Run Seed');
+            ->assertSee('Run Seed')
+            ->assertSeeHtml('data-seed-state="ready"')
+            ->assertDontSeeHtml('data-maintenance-action="seed" type="submit" disabled');
     }
 
     public function test_empty_database_recovery_write_requires_the_server_maintenance_key(): void
