@@ -11,9 +11,14 @@ class Phase2InstallerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_installer_and_update_controls_are_not_exposed(): void
+    public function test_only_the_narrow_first_superadmin_bootstrap_is_exposed(): void
     {
-        $this->get('/install')->assertNotFound();
+        $this->get('/install')
+            ->assertOk()
+            ->assertSee('Create the first Super Admin')
+            ->assertDontSee('Database Host')
+            ->assertDontSee('Database Password');
+
         $this->get('/install/update')->assertNotFound();
         $this->postJson('/update-db')->assertNotFound();
     }

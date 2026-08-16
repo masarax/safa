@@ -16,9 +16,11 @@ class Phase3InstallerSecurityTest extends TestCase
         $this->get('/update-db')->assertNotFound();
     }
 
-    public function test_public_installer_update_process_is_not_exposed(): void
+    public function test_retired_installer_database_and_update_processes_are_not_exposed(): void
     {
-        $this->get('/install')->assertNotFound();
+        $this->get('/install/test-db')->assertNotFound();
+        $this->post('/install/test-db')->assertNotFound();
+        $this->post('/install/process')->assertNotFound();
         $this->get('/install/update')->assertNotFound();
         $this->post('/install/update-process')->assertNotFound();
     }
