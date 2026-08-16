@@ -46,7 +46,7 @@ class WebAuthController extends Controller
         $user = $this->findUser($identity);
         if (!$user || !(bool) $user->is_activated || !$this->credentialMatches($user, (string) $validated['credential'])) {
             return back()->withInput(['identity' => $identity])->withErrors([
-                'identity' => 'The provided sign-in details are not valid.',
+                'auth' => 'Sign-in failed.',
             ]);
         }
 

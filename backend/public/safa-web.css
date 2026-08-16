@@ -40,5 +40,10 @@ html[data-theme="dark"] .recent-entry-icon.supplier{background:#153624;color:#69
 .reserve-item{min-width:0;padding:11px;border-radius:12px;background:var(--surface-soft);border:1px solid var(--line)}
 .reserve-item small{display:block;color:var(--muted);font-size:9px;line-height:13px}
 .reserve-item strong{display:block;margin-top:3px;color:var(--text-strong);font-size:13px;line-height:18px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Authentication feedback stays compact and does not become a dominant banner. */
+.auth-error-inline,.field-error{margin:0 2px;color:var(--danger);font-size:10px;line-height:14px;font-weight:700}
+.auth-error-inline{min-height:14px}
+
 @media(min-width:720px){.reserve-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(min-width:1024px){.desktop-topbar-context{display:block}}
