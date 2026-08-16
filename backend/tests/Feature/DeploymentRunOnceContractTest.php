@@ -69,7 +69,7 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString("Artisan::call('view:cache')", $workflow);
         $this->assertStringContainsString('pending_count', $workflow);
         $this->assertStringContainsString('@unlink($runner)', $workflow);
-        $this->assertStringContainsString("test \"$deleted_code\" = '404'", $workflow);
+        $this->assertStringContainsString("test \"\$deleted_code\" = '404'", $workflow);
         $this->assertStringContainsString('https://safa.masarax.com/login', $workflow);
         $this->assertStringContainsString('https://safa.masarax.com/api/auth/health', $workflow);
         $this->assertStringContainsString('SAFA_DEPLOY_SHA', $workflow);
