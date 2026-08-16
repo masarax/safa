@@ -84,18 +84,52 @@ class WebApplicationSecurityTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_invalid_or_inactive_login_uses_generic_failure(): void
+    public function test_unknown_wrong_and_inactive_login_share_one_compact_generic_failure(): void
     {
-        $user = $this->user(User::ROLE_USER, '0536308965', 'inactive@example.test');
-        $user->forceFill(['is_activated' => false])->saveQuietly();
+        $active = $this->user(User::ROLE_USER, '0536308965', 'active@example.test');
+        $inactive = $this->user(User::ROLE_USER, '0536308966', 'inactive@example.test');
+        $inactive->forceFill(['is_activated' => false])->saveQuietly();
 
-        $response = $this->from('/login')->post('/login', [
-            'identity' => $user->email,
+        $cases = [
+            ['unknown@example.test', '123456'],
+            [$active->email, '654321'],
+            [$inactive->email, '123456'],
+        ];
+
+        foreach ($cases as [$identity, $credential]) {
+            $this->from('/login')->post('/login', [
+                'identity' => $identity,
+                'credential' => $credential,
+                'language' => 'en',
+            ])->assertRedirect('/login')->assertSessionHasErrors([
+                'auth' => 'Sign-in failed.',
+            ]);
+
+            $this->get('/login?lang=en')
+                ->assertOk()
+                ->assertSee('Sign-in failed.')
+                ->assertSee('class="auth-error-inline"', false)
+                ->assertDontSee('The sign-in details are not valid. Please try again.')
+                ->assertDontSee('The provided sign-in details are not valid.')
+                ->assertSee('value="' . $identity . '"', false)
+                ->assertDontSee('value="' . $credential . '"', false);
+
+            $this->assertGuest();
+        }
+    }
+
+    public function test_bengali_login_failure_uses_equally_short_generic_feedback(): void
+    {
+        $this->from('/login?lang=bn')->post('/login', [
+            'identity' => 'unknown@example.test',
             'credential' => '123456',
-        ]);
+            'language' => 'bn',
+        ])->assertRedirect('/login?lang=bn')->assertSessionHasErrors('auth');
 
-        $response->assertRedirect('/login')->assertSessionHasErrors('identity');
-        $this->assertGuest();
+        $this->get('/login?lang=bn')
+            ->assertOk()
+            ->assertSee('লগইন ব্যর্থ।')
+            ->assertDontSee('লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।');
     }
 
     public function test_normal_user_cannot_access_supplier_transaction_or_wallet_web_routes(): void
