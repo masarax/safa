@@ -51,7 +51,7 @@
                     <span>{{ $language === 'bn' ? 'পিন / পাসওয়ার্ড' : 'PIN / password' }}</span>
                     <input type="password" name="credential" minlength="6" maxlength="255" autocomplete="current-password" required>
                 </label>
-                <button class="button primary wide" type="submit">{{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</button>
+                <button class="primary-button wide" type="submit">{{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</button>
             </form>
 
             <p class="security-note">{{ $language === 'bn' ? 'আপনার ব্রাউজার সেশন HttpOnly কুকি ও CSRF সুরক্ষার মাধ্যমে নিরাপদ রাখা হয়।' : 'Your browser session is protected with HttpOnly cookies and CSRF protection.' }}</p>
