@@ -18,6 +18,14 @@ $runnerCopies = [
     $projectRoot . '/public/run-once.php',
 ];
 
+$cleanupRunners = static function () use ($runnerCopies): void {
+    foreach (array_unique($runnerCopies) as $runner) {
+        if (is_file($runner)) {
+            @unlink($runner);
+        }
+    }
+};
+
 $notFound = static function (): never {
     http_response_code(404);
     header('Content-Type: text/plain; charset=utf-8');
@@ -25,7 +33,11 @@ $notFound = static function (): never {
     exit;
 };
 
-if (is_file($lockPath)) $notFound();
+if (is_file($lockPath)) {
+    $cleanupRunners();
+    $notFound();
+}
+
 if (!in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'POST'], true)) {
     http_response_code(405);
     header('Allow: GET, POST');
@@ -48,10 +60,6 @@ $render = static function (string $title, string $message, int $status = 200, bo
     exit;
 };
 
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
-    $render('SAFA one-time production setup', 'Enter the deployment setup token to complete the pending production setup. This page permanently disables itself after one successful run.', 200, true);
-}
-
 $autoload = $projectRoot . '/vendor/autoload.php';
 $bootstrap = $projectRoot . '/bootstrap/app.php';
 if (!is_file($autoload) || !is_file($bootstrap)) {
@@ -64,10 +72,19 @@ try {
     $app->make(Kernel::class)->bootstrap();
 
     $expectedToken = trim((string) env('SAFA_RUN_ONCE_TOKEN', ''));
+    if ($expectedToken === '') {
+        $cleanupRunners();
+        $notFound();
+    }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        $render('SAFA one-time production setup', 'Enter the deployment setup token to complete the pending production setup. This page permanently disables itself after one successful run.', 200, true);
+    }
+
     $providedToken = (string) ($_POST['token'] ?? '');
-    if ($expectedToken === '' || !hash_equals($expectedToken, $providedToken)) {
+    if ($providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
         usleep(350000);
-        $render('Setup denied', 'The one-time setup token is invalid or is not configured.', 403);
+        $render('Setup denied', 'The one-time setup token is invalid.', 403);
     }
 
     foreach ([
@@ -92,7 +109,9 @@ try {
 
     foreach ($commands as [$command, $arguments]) {
         $exitCode = Artisan::call($command, $arguments);
-        if ($exitCode !== 0) throw new RuntimeException('Production setup command failed.');
+        if ($exitCode !== 0) {
+            throw new RuntimeException('Production setup command failed.');
+        }
     }
 
     $installedMarker = $projectRoot . '/storage/installed';
@@ -118,9 +137,7 @@ try {
     }
 
     clearstatcache(true, $lockPath);
-    foreach ($runnerCopies as $runner) {
-        if (is_file($runner)) @unlink($runner);
-    }
+    $cleanupRunners();
 
     clearstatcache();
     foreach ($runnerCopies as $runner) {
