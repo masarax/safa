@@ -22,6 +22,7 @@
     <link rel="icon" href="{{ url('/favicon.svg') }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ url('/safa-web.css') }}">
     <script src="{{ url('/safa-web.js') }}" defer></script>
+    <script src="{{ url('/safa-web-product.js') }}" defer></script>
 </head>
 <body class="app-body">
 <div id="safa-app"
