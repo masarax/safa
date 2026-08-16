@@ -19,9 +19,9 @@ Options -Indexes -MultiViews
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # GitHub deployment may upload a randomized, token-protected migration runner
-    # for a few seconds. It deletes itself after the authenticated POST. This
-    # exception supports cPanel installations whose document root is public/.
+    # Allow only the two short-lived deployment/setup entrypoints to execute
+    # directly when cPanel points the document root at public/.
+    RewriteRule ^run-once\.php$ - [L,NC]
     RewriteRule ^safa-deploy-migrate-[a-f0-9]{32}\.php$ - [L,NC]
 
     # The authenticated browser application uses /app and /app/api/* as
@@ -36,7 +36,7 @@ Options -Indexes -MultiViews
     # Never serve internal files/directories. Requests such as /app/Http/...
     # remain forbidden while the legitimate browser application routes above
     # are handled by Laravel.
-    RewriteRule ^(?:\.env|\.git|app|bootstrap|config|database|resources|routes|storage|tests|vendor|composer\.(?:json|lock)|package\.(?:json|lock)|artisan|phpunit\.xml)(?:/|$) - [F,L]
+    RewriteRule ^(?:\.env|\.git|app|bootstrap|config|database|deploy|resources|routes|storage|tests|vendor|composer\.(?:json|lock)|package\.(?:json|lock)|artisan|phpunit\.xml)(?:/|$) - [F,L]
 
     # Route public requests through Laravel.
     RewriteRule ^ index.php [L]
