@@ -54,6 +54,35 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString('Run mandatory full test suite', $workflow);
     }
 
+    public function test_ftp_deploy_applies_pending_migrations_with_ephemeral_self_deleting_runner(): void
+    {
+        $workflow = (string) file_get_contents(base_path('../.github/workflows/deploy.yml'));
+        $publicHtaccess = (string) file_get_contents(public_path('.htaccess'));
+        $controller = (string) file_get_contents(app_path('Http/Controllers/DatabaseUpdateController.php'));
+
+        $this->assertStringContainsString('openssl rand -hex 16', $workflow);
+        $this->assertStringContainsString('openssl rand -hex 32', $workflow);
+        $this->assertStringContainsString('X-SAFA-Deploy-Token', $workflow);
+        $this->assertStringContainsString("Artisan::call('migrate', ['--force' => true])", $workflow);
+        $this->assertStringContainsString("Artisan::call('optimize:clear')", $workflow);
+        $this->assertStringContainsString("Artisan::call('config:cache')", $workflow);
+        $this->assertStringContainsString("Artisan::call('view:cache')", $workflow);
+        $this->assertStringContainsString('pending_count', $workflow);
+        $this->assertStringContainsString('@unlink($runner)', $workflow);
+        $this->assertStringContainsString("test \"\$deleted_code\" = '404'", $workflow);
+        $this->assertStringContainsString('https://safa.masarax.com/login', $workflow);
+        $this->assertStringContainsString('https://safa.masarax.com/api/auth/health', $workflow);
+        $this->assertStringContainsString('SAFA_DEPLOY_SHA', $workflow);
+        $this->assertStringNotContainsString('migrate:fresh', $workflow);
+
+        $this->assertStringContainsString(
+            'RewriteRule ^safa-deploy-migrate-[a-f0-9]{32}\\.php$ - [L,NC]',
+            $publicHtaccess
+        );
+        $this->assertStringContainsString('2026_08_12_000001_harden_auth_session_storage', $controller);
+        $this->assertStringContainsString("'auth_sessions' => ['access_token_hash', 'refresh_token_hash', 'session_token_hash']", $controller);
+    }
+
     public function test_signed_apk_workflow_is_secret_backed_and_publishes_checksum(): void
     {
         $workflow = (string) file_get_contents(base_path('../.github/workflows/release-apk.yml'));
