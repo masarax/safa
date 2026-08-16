@@ -84,7 +84,7 @@ class WebApplicationSecurityTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_unknown_wrong_and_inactive_login_share_one_compact_generic_failure(): void
+    public function test_unknown_wrong_and_inactive_email_login_share_one_email_specific_failure(): void
     {
         $active = $this->user(User::ROLE_USER, '0536308965', 'active@example.test');
         $inactive = $this->user(User::ROLE_USER, '0536308966', 'inactive@example.test');
@@ -107,10 +107,10 @@ class WebApplicationSecurityTest extends TestCase
 
             $response
                 ->assertOk()
-                ->assertSee('Sign-in failed.')
+                ->assertSee('Invalid email or PIN / password.')
+                ->assertDontSee('Invalid mobile number or PIN / password.')
                 ->assertSee('class="auth-error-inline"', false)
-                ->assertDontSee('The sign-in details are not valid. Please try again.')
-                ->assertDontSee('The provided sign-in details are not valid.')
+                ->assertDontSee('Sign-in failed.')
                 ->assertSee('value="' . $identity . '"', false)
                 ->assertDontSee('value="' . $credential . '"', false);
 
@@ -118,7 +118,41 @@ class WebApplicationSecurityTest extends TestCase
         }
     }
 
-    public function test_bengali_login_failure_uses_equally_short_generic_feedback(): void
+    public function test_unknown_wrong_and_inactive_mobile_login_share_one_mobile_specific_failure(): void
+    {
+        $active = $this->user(User::ROLE_USER, '0536308965', 'active@example.test');
+        $inactive = $this->user(User::ROLE_USER, '0536308966', 'inactive@example.test');
+        $inactive->forceFill(['is_activated' => false])->saveQuietly();
+
+        $cases = [
+            ['0536308999', '123456'],
+            [$active->mobile, '654321'],
+            [$inactive->mobile, '123456'],
+        ];
+
+        foreach ($cases as [$identity, $credential]) {
+            $response = $this->followingRedirects()
+                ->from('/login')
+                ->post('/login', [
+                    'identity' => $identity,
+                    'credential' => $credential,
+                    'language' => 'en',
+                ]);
+
+            $response
+                ->assertOk()
+                ->assertSee('Invalid mobile number or PIN / password.')
+                ->assertDontSee('Invalid email or PIN / password.')
+                ->assertSee('class="auth-error-inline"', false)
+                ->assertDontSee('Sign-in failed.')
+                ->assertSee('value="' . $identity . '"', false)
+                ->assertDontSee('value="' . $credential . '"', false);
+
+            $this->assertGuest();
+        }
+    }
+
+    public function test_bengali_login_failure_copy_matches_the_submitted_identity_type(): void
     {
         $this->followingRedirects()
             ->from('/login?lang=bn')
@@ -128,9 +162,19 @@ class WebApplicationSecurityTest extends TestCase
                 'language' => 'bn',
             ])
             ->assertOk()
-            ->assertSee('লগইন ব্যর্থ।')
-            ->assertSee('class="auth-error-inline"', false)
-            ->assertDontSee('লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।');
+            ->assertSee('ইমেইল অথবা পিন / পাসওয়ার্ড সঠিক নয়।')
+            ->assertDontSee('মোবাইল নম্বর অথবা পিন / পাসওয়ার্ড সঠিক নয়।');
+
+        $this->followingRedirects()
+            ->from('/login?lang=bn')
+            ->post('/login', [
+                'identity' => '০৫৩৬৩০৮৯৯৯',
+                'credential' => '123456',
+                'language' => 'bn',
+            ])
+            ->assertOk()
+            ->assertSee('মোবাইল নম্বর অথবা পিন / পাসওয়ার্ড সঠিক নয়।')
+            ->assertDontSee('ইমেইল অথবা পিন / পাসওয়ার্ড সঠিক নয়।');
     }
 
     public function test_normal_user_cannot_access_supplier_transaction_or_wallet_web_routes(): void
