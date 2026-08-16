@@ -69,6 +69,34 @@ class ProductionRecoveryTest extends TestCase
             ->assertDontSee('আপনার ব্রাউজার সেশন HttpOnly কুকি ও CSRF সুরক্ষার মাধ্যমে নিরাপদ রাখা হয়।');
     }
 
+    public function test_recovery_seed_action_is_visible_but_disabled_until_initial_admin_is_configured(): void
+    {
+        Config::set('safa.initial_admin', [
+            'name' => '',
+            'mobile' => '',
+            'email' => '',
+            'pin' => '',
+        ]);
+
+        $this->get('/system/update')
+            ->assertOk()
+            ->assertSee('Run Seed')
+            ->assertSeeHtml('data-seed-state="admin-config-required"')
+            ->assertSeeHtml('data-maintenance-action="seed" type="submit" disabled');
+
+        Config::set('safa.initial_admin', [
+            'name' => 'Production Admin',
+            'mobile' => '01700000000',
+            'email' => 'admin@example.test',
+            'pin' => '654321',
+        ]);
+
+        $this->get('/system/update')
+            ->assertOk()
+            ->assertSeeHtml('data-seed-state="ready"')
+            ->assertDontSeeHtml('data-maintenance-action="seed" type="submit" disabled');
+    }
+
     public function test_recovery_seed_creates_login_capable_superadmin_from_server_configuration(): void
     {
         Config::set('safa.maintenance_token', 'recovery-maintenance-secret');

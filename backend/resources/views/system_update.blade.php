@@ -36,6 +36,12 @@
             </div>
         @endif
 
+        @php
+            $seedBlockedByMigrations = (bool) $pendingMigrations;
+            $seedBlockedByAdminConfig = $recoveryMode && !$initialAdminConfigured;
+            $seedDisabled = $seedBlockedByMigrations || $seedBlockedByAdminConfig;
+        @endphp
+
         <div class="settings-grid">
             <section class="surface-card">
                 <div>
@@ -59,7 +65,7 @@
                             <input type="password" name="maintenance_token" autocomplete="off" required>
                         </label>
                     @endif
-                    <button class="primary-button wide" type="submit" @disabled(!$pendingMigrations)>Run Migration</button>
+                    <button class="primary-button wide" data-maintenance-action="migrate" type="submit" @disabled(!$pendingMigrations)>Run Migration</button>
                 </form>
             </section>
 
@@ -69,8 +75,12 @@
                     <p>Safe, idempotent production seed.</p>
                 </div>
 
-                @if($recoveryMode && !$initialAdminConfigured)
-                    <div class="alert alert-error">Initial Super Admin server configuration is required before seeding.</div>
+                @if($seedBlockedByMigrations)
+                    <div class="info-box" data-seed-state="migration-required">Run Migration first.</div>
+                @elseif($seedBlockedByAdminConfig)
+                    <div class="warning-box" data-seed-state="admin-config-required">Initial Super Admin server configuration is required before seeding.</div>
+                @else
+                    <div class="success-box" data-seed-state="ready">Seed is ready.</div>
                 @endif
 
                 <form action="{{ route('system.update.seed') }}" method="POST" class="stack-form">
@@ -81,7 +91,7 @@
                             <input type="password" name="maintenance_token" autocomplete="off" required>
                         </label>
                     @endif
-                    <button class="secondary-button wide" type="submit" @disabled((bool) $pendingMigrations)>Run Seed</button>
+                    <button class="secondary-button wide" data-maintenance-action="seed" type="submit" @disabled($seedDisabled)>Run Seed</button>
                 </form>
             </section>
         </div>
