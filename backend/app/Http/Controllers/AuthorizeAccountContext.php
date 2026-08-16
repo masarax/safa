@@ -67,17 +67,21 @@ trait AuthorizeAccountContext
                     return ['error' => response()->json(['status' => 'error', 'message' => 'Forbidden: requested account does not exist.'], 403)];
                 }
             } else {
-                // Never silently select the first account when a user owns more than one.
-                // Ambiguous account context is a data-isolation risk.
-                $ownedAccounts = Account::query()->where('owner_user_id', $user->id)->orderBy('id')->get();
-                if ($ownedAccounts->count() === 1) {
-                    $targetAccount = $ownedAccounts->first();
-                } elseif ($ownedAccounts->count() > 1) {
+                // SuperAdmin is the unrestricted tier: when no explicit context is
+                // supplied, its chooser set is every account. Lower roles retain
+                // the original owner-only implicit selection boundary.
+                $availableAccounts = $user->isSuperAdmin()
+                    ? Account::query()->orderBy('id')->get()
+                    : Account::query()->where('owner_user_id', $user->id)->orderBy('id')->get();
+
+                if ($availableAccounts->count() === 1) {
+                    $targetAccount = $availableAccounts->first();
+                } elseif ($availableAccounts->count() > 1) {
                     return ['error' => response()->json([
                         'status' => 'error',
                         'code' => 'ACCOUNT_CONTEXT_REQUIRED',
                         'message' => 'An explicit account context is required for this user.',
-                        'accounts' => $ownedAccounts->map(fn ($account) => ['id' => (int) $account->id, 'name' => $account->name])->values(),
+                        'accounts' => $availableAccounts->map(fn ($account) => ['id' => (int) $account->id, 'name' => $account->name])->values(),
                     ], 409)];
                 } else {
                     $targetAccount = Account::create([
@@ -88,7 +92,7 @@ trait AuthorizeAccountContext
                 }
             }
 
-            if ($user->role === 'superadmin' || (int) $targetAccount->owner_user_id === (int) $user->id) {
+            if ($user->isSuperAdmin() || (int) $targetAccount->owner_user_id === (int) $user->id) {
                 $request->attributes->set('active_account_id', (int) $targetAccount->id);
                 return ['user' => $user, 'account_id' => (int) $targetAccount->id];
             }

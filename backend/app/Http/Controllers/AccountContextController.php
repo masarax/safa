@@ -23,47 +23,83 @@ class AccountContextController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
         }
 
-        $owned = Account::where('owner_user_id', $user->id)->orderBy('id')->get();
-        $shares = UserAccountShare::with('owner')
-            ->where('shared_with_user_id', $user->id)
-            ->get();
+        if ($user->isSuperAdmin()) {
+            $visibleAccounts = Account::query()->orderBy('id')->get();
+            if ($visibleAccounts->isEmpty()) {
+                $visibleAccounts = collect([
+                    Account::create([
+                        'name' => 'SAFA Account',
+                        'balance' => 0,
+                        'owner_user_id' => $user->id,
+                    ]),
+                ]);
+            }
 
-        // Preserve the existing single-account bootstrap behavior without making
-        // an ambiguous selection when the user already has multiple choices.
-        if ($owned->isEmpty() && $shares->isEmpty()) {
-            $owned = collect([
-                Account::create([
-                    'name' => trim(($user->name ?: 'SAFA') . ' Account'),
-                    'balance' => 0,
-                    'owner_user_id' => $user->id,
-                ]),
-            ]);
-        }
+            $ownerIds = $visibleAccounts
+                ->pluck('owner_user_id')
+                ->filter(fn ($id) => (int) $id > 0)
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+            $ownerNames = User::query()->whereIn('id', $ownerIds)->pluck('name', 'id');
 
-        $accounts = $owned->map(fn ($account) => [
-            'account_id' => (int) $account->id,
-            'owner_user_id' => (int) $user->id,
-            'owner_name' => $user->name,
-            'role' => 'OWNER',
-            'permissions_override' => null,
-            'is_owner' => true,
-        ])->values();
+            $accounts = $visibleAccounts->map(function ($account) use ($user, $ownerNames) {
+                $ownerId = (int) ($account->owner_user_id ?? 0);
+                $isOwner = $ownerId === (int) $user->id;
 
-        foreach ($shares as $share) {
-            $account = Account::find($share->account_id);
-            if (!$account) continue;
-            $accounts->push([
+                return [
+                    'account_id' => (int) $account->id,
+                    'owner_user_id' => $ownerId,
+                    'owner_name' => (string) ($ownerNames[$ownerId] ?? $account->name ?? 'SAFA Account'),
+                    'role' => $isOwner ? 'OWNER' : 'SUPERADMIN',
+                    'permissions_override' => null,
+                    'is_owner' => $isOwner,
+                ];
+            })->values();
+        } else {
+            $owned = Account::where('owner_user_id', $user->id)->orderBy('id')->get();
+            $shares = UserAccountShare::with('owner')
+                ->where('shared_with_user_id', $user->id)
+                ->get();
+
+            // Preserve the existing single-account bootstrap behavior without making
+            // an ambiguous selection when the user already has multiple choices.
+            if ($owned->isEmpty() && $shares->isEmpty()) {
+                $owned = collect([
+                    Account::create([
+                        'name' => trim(($user->name ?: 'SAFA') . ' Account'),
+                        'balance' => 0,
+                        'owner_user_id' => $user->id,
+                    ]),
+                ]);
+            }
+
+            $accounts = $owned->map(fn ($account) => [
                 'account_id' => (int) $account->id,
-                'owner_user_id' => (int) $share->owner_user_id,
-                'owner_name' => $share->owner?->name ?? 'Unknown Owner',
-                'role' => 'MEMBER',
-                'permissions_override' => $share->permissions_override,
-                'share_id' => (int) $share->id,
-                'is_owner' => false,
-            ]);
+                'owner_user_id' => (int) $user->id,
+                'owner_name' => $user->name,
+                'role' => 'OWNER',
+                'permissions_override' => null,
+                'is_owner' => true,
+            ])->values();
+
+            foreach ($shares as $share) {
+                $account = Account::find($share->account_id);
+                if (!$account) continue;
+                $accounts->push([
+                    'account_id' => (int) $account->id,
+                    'owner_user_id' => (int) $share->owner_user_id,
+                    'owner_name' => $share->owner?->name ?? 'Unknown Owner',
+                    'role' => 'MEMBER',
+                    'permissions_override' => $share->permissions_override,
+                    'share_id' => (int) $share->id,
+                    'is_owner' => false,
+                ]);
+            }
+
+            $accounts = $accounts->unique('account_id')->values();
         }
 
-        $accounts = $accounts->unique('account_id')->values();
         $authorizedIds = $accounts->pluck('account_id')->map(fn ($id) => (int) $id)->all();
         $activeAccountId = null;
 
@@ -145,8 +181,8 @@ class AccountContextController extends Controller
     {
         $context = $this->resolveAuthorizedAccountContext($request);
         if (isset($context['error'])) return $context['error'];
-        $owner = $context['user'];
-        if (!$owner) return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
+        $actor = $context['user'];
+        if (!$actor) return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
 
         $validator = Validator::make($request->all(), [
             'mobile' => 'required|string',
@@ -158,20 +194,28 @@ class AccountContextController extends Controller
         }
 
         $accountId = (int) $request->input('account_id');
-        $targetContextRequest = Request::create($request->getRequestUri(), 'GET', ['account_id' => $accountId]);
-        foreach ($request->headers->all() as $key => $values) $targetContextRequest->headers->set($key, $values[0] ?? '');
-        $targetContextRequest->setUserResolver(fn () => $owner);
-        $authorized = $this->resolveAuthorizedAccountContext($targetContextRequest);
-        if (isset($authorized['error']) || (int) ($authorized['account_id'] ?? 0) !== $accountId) {
+        $account = Account::query()->find($accountId);
+        if (!$account) {
+            return response()->json(['status' => 'error', 'message' => 'Account not found.'], 404);
+        }
+
+        // Sharing is a delegation operation, not ordinary account access. Only
+        // the real owner or the unrestricted SuperAdmin tier may create/replace
+        // a share. A member who received access cannot delegate it onward.
+        $accountOwnerId = (int) ($account->owner_user_id ?? 0);
+        if ($accountOwnerId <= 0 || (!$actor->isSuperAdmin() && $accountOwnerId !== (int) $actor->id)) {
             return response()->json(['status' => 'error', 'message' => 'You are not authorized to share this account.'], 403);
         }
 
         $target = User::where('mobile', trim($request->input('mobile')))->first();
         if (!$target) return response()->json(['status' => 'error', 'message' => 'Target user not found.'], 404);
-        if ((int) $target->id === (int) $owner->id) return response()->json(['status' => 'error', 'message' => 'Cannot share an account with yourself.'], 422);
+        if ((int) $target->id === (int) $actor->id) return response()->json(['status' => 'error', 'message' => 'Cannot share an account with yourself.'], 422);
+        if ((int) $target->id === $accountOwnerId) return response()->json(['status' => 'error', 'message' => 'Target user already owns this account.'], 422);
 
+        // Always persist the authoritative account owner. SuperAdmin may perform
+        // the delegation, but must never become the synthetic owner of that share.
         $share = UserAccountShare::updateOrCreate(
-            ['owner_user_id' => $owner->id, 'shared_with_user_id' => $target->id, 'account_id' => $accountId],
+            ['owner_user_id' => $accountOwnerId, 'shared_with_user_id' => $target->id, 'account_id' => $accountId],
             ['permissions_override' => $request->input('permissions_override')]
         );
 
