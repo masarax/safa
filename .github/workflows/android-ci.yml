@@ -65,6 +65,7 @@ jobs:
         run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload debug APK
+        continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: safa-debug-apk-${{ github.run_id }}
@@ -107,6 +108,7 @@ jobs:
 
       - name: Upload release build and reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: android-quality-release-${{ github.run_id }}
@@ -152,6 +154,17 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=SAFA CI Runtime,OU=CI,O=MASARA X,L=Riyadh,C=SA"
 
+      - name: Build release APK before emulator
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/safa-ci-runtime.jks
+          STORE_PASSWORD: ci-only-password
+          KEY_ALIAS: safa-ci
+          KEY_PASSWORD: ci-only-password
+        run: |
+          rm -rf app/build/outputs/apk/release
+          ./gradlew --no-daemon assembleRelease
+          test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+
       - name: Run connected tests and release runtime smoke
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         env:
@@ -166,7 +179,7 @@ jobs:
           disable-animations: true
           disk-size: 4096M
           script: |
-            ./gradlew --no-daemon connectedDebugAndroidTest assembleRelease
+            ./gradlew --no-daemon connectedDebugAndroidTest
             test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
             adb install -r "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
             adb logcat -c
@@ -179,6 +192,7 @@ jobs:
 
       - name: Upload instrumentation and release-smoke results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: android-instrumentation-${{ github.run_id }}
