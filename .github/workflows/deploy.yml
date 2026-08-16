@@ -76,6 +76,100 @@ jobs:
           APP_DEBUG: 'false'
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
+      - name: Stamp exact deployed commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_sha="$(git rev-parse HEAD)"
+          printf '{"commit":"%s"}\n' "$deploy_sha" > backend/bootstrap/safa-build.json
+          printf 'SAFA_DEPLOY_SHA=%s\n' "$deploy_sha" >> "$GITHUB_ENV"
+
+      - name: Prepare one-time production migration runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner_name="safa-deploy-migrate-$(openssl rand -hex 16).php"
+          runner_token="$(openssl rand -hex 32)"
+          echo "::add-mask::$runner_token"
+          printf 'SAFA_MIGRATION_RUNNER=%s\n' "$runner_name" >> "$GITHUB_ENV"
+          printf 'SAFA_MIGRATION_TOKEN=%s\n' "$runner_token" >> "$GITHUB_ENV"
+
+          cat > "backend/$runner_name" <<'PHP'
+          <?php
+          declare(strict_types=1);
+
+          header('Content-Type: application/json; charset=utf-8');
+          header('Cache-Control: no-store');
+          header('X-Content-Type-Options: nosniff');
+
+          if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+              http_response_code(405);
+              echo json_encode(['status' => 'method_not_allowed']);
+              exit;
+          }
+
+          $expectedToken = '__SAFA_DEPLOY_TOKEN__';
+          $providedToken = (string) ($_SERVER['HTTP_X_SAFA_DEPLOY_TOKEN'] ?? '');
+          if ($providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
+              http_response_code(403);
+              echo json_encode(['status' => 'forbidden']);
+              exit;
+          }
+
+          $basePath = is_file(__DIR__ . '/artisan') ? __DIR__ : dirname(__DIR__);
+          $runnerName = basename(__FILE__);
+          $runnerCopies = [
+              $basePath . DIRECTORY_SEPARATOR . $runnerName,
+              $basePath . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . $runnerName,
+          ];
+          register_shutdown_function(static function () use ($runnerCopies): void {
+              foreach (array_unique($runnerCopies) as $runner) {
+                  if (is_file($runner)) {
+                      @unlink($runner);
+                  }
+              }
+          });
+
+          try {
+              require $basePath . '/vendor/autoload.php';
+              $app = require $basePath . '/bootstrap/app.php';
+              $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+              $kernel->bootstrap();
+
+              $pendingBefore = App\Http\Controllers\DatabaseUpdateController::pendingMigrations();
+              Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+              Illuminate\Support\Facades\Artisan::call('optimize:clear');
+              Illuminate\Support\Facades\Artisan::call('config:cache');
+              Illuminate\Support\Facades\Artisan::call('view:cache');
+              $pendingAfter = App\Http\Controllers\DatabaseUpdateController::pendingMigrations();
+
+              if ($pendingAfter !== []) {
+                  http_response_code(500);
+                  echo json_encode([
+                      'status' => 'migration_incomplete',
+                      'pending_before' => count($pendingBefore),
+                      'pending_count' => count($pendingAfter),
+                  ]);
+                  exit;
+              }
+
+              echo json_encode([
+                  'status' => 'ok',
+                  'pending_before' => count($pendingBefore),
+                  'pending_count' => 0,
+              ]);
+          } catch (Throwable $e) {
+              error_log('SAFA deployment migration failed: ' . get_class($e));
+              http_response_code(500);
+              echo json_encode(['status' => 'migration_failed']);
+          }
+          PHP
+
+          sed -i "s/__SAFA_DEPLOY_TOKEN__/$runner_token/g" "backend/$runner_name"
+          cp "backend/$runner_name" "backend/public/$runner_name"
+          php -l "backend/$runner_name"
+          php -l "backend/public/$runner_name"
+
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -96,3 +190,36 @@ jobs:
             storage/framework/views/*
             tests/
             node_modules/
+
+      - name: Apply production migrations and rebuild caches
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$RUNNER_TEMP/safa-migration-response.json"
+          http_code="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header "X-SAFA-Deploy-Token: $SAFA_MIGRATION_TOKEN" \
+            "https://safa.masarax.com/$SAFA_MIGRATION_RUNNER")"
+          cat "$response_file"
+          test "$http_code" = '200'
+          php -r '$data=json_decode(file_get_contents($argv[1]), true); if (!is_array($data) || ($data["status"] ?? null) !== "ok" || ($data["pending_count"] ?? -1) !== 0) { exit(1); }' "$response_file"
+
+          deleted_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "https://safa.masarax.com/$SAFA_MIGRATION_RUNNER")"
+          test "$deleted_code" = '404'
+
+      - name: Verify production website and Android auth service
+        shell: bash
+        run: |
+          set -euo pipefail
+          login_body="$RUNNER_TEMP/safa-login.html"
+          login_code="$(curl --silent --show-error --location --output "$login_body" --write-out '%{http_code}' 'https://safa.masarax.com/login')"
+          test "$login_code" = '200'
+          ! grep -q '"status"[[:space:]]*:[[:space:]]*"update_required"' "$login_body"
+
+          health_body="$RUNNER_TEMP/safa-auth-health.json"
+          health_code="$(curl --silent --show-error --output "$health_body" --write-out '%{http_code}' 'https://safa.masarax.com/api/auth/health')"
+          cat "$health_body"
+          test "$health_code" = '200'
+          php -r '$data=json_decode(file_get_contents($argv[1]), true); if (!is_array($data) || ($data["status"] ?? null) !== "ok" || ($data["build"] ?? null) !== $argv[2]) { exit(1); }' "$health_body" "$SAFA_DEPLOY_SHA"
