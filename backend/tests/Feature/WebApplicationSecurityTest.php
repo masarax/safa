@@ -97,15 +97,15 @@ class WebApplicationSecurityTest extends TestCase
         ];
 
         foreach ($cases as [$identity, $credential]) {
-            $this->from('/login')->post('/login', [
-                'identity' => $identity,
-                'credential' => $credential,
-                'language' => 'en',
-            ])->assertRedirect('/login')->assertSessionHasErrors([
-                'auth' => 'Sign-in failed.',
-            ]);
+            $response = $this->followingRedirects()
+                ->from('/login')
+                ->post('/login', [
+                    'identity' => $identity,
+                    'credential' => $credential,
+                    'language' => 'en',
+                ]);
 
-            $this->get('/login?lang=en')
+            $response
                 ->assertOk()
                 ->assertSee('Sign-in failed.')
                 ->assertSee('class="auth-error-inline"', false)
@@ -120,15 +120,16 @@ class WebApplicationSecurityTest extends TestCase
 
     public function test_bengali_login_failure_uses_equally_short_generic_feedback(): void
     {
-        $this->from('/login?lang=bn')->post('/login', [
-            'identity' => 'unknown@example.test',
-            'credential' => '123456',
-            'language' => 'bn',
-        ])->assertRedirect('/login?lang=bn')->assertSessionHasErrors('auth');
-
-        $this->get('/login?lang=bn')
+        $this->followingRedirects()
+            ->from('/login?lang=bn')
+            ->post('/login', [
+                'identity' => 'unknown@example.test',
+                'credential' => '123456',
+                'language' => 'bn',
+            ])
             ->assertOk()
             ->assertSee('লগইন ব্যর্থ।')
+            ->assertSee('class="auth-error-inline"', false)
             ->assertDontSee('লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।');
     }
 
