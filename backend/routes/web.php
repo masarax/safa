@@ -5,7 +5,6 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DatabaseUpdateController;
 use App\Http\Controllers\RemoteBusinessController;
 use App\Http\Controllers\RemoteConfigController;
-use App\Http\Controllers\SetupController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserManagementController;
@@ -45,10 +44,6 @@ Route::get('/storage/logos/{file}', function (string $file) {
     return response()->file($path, ['Cache-Control' => 'public, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
 })->where('file', 'logo_[A-Za-z0-9_-]+\\.(?:png|jpe?g|gif|webp)');
 
-Route::get('/index', [SetupController::class, 'show'])->name('safa.setup');
-Route::post('/index/bootstrap', [SetupController::class, 'bootstrap'])->middleware('throttle:5,1')->name('safa.setup.bootstrap');
-Route::post('/index/seed', [SetupController::class, 'seed'])->middleware(['auth', 'throttle:5,1'])->name('safa.setup.seed');
-
 Route::get('/', fn (Request $request) => $request->user() ? redirect()->route('safa.app') : redirect()->route('safa.login'));
 Route::middleware('guest')->group(function () {
     Route::get('/login', [WebAuthController::class, 'showLogin'])->name('safa.login');
@@ -56,9 +51,10 @@ Route::middleware('guest')->group(function () {
 });
 Route::post('/logout', [WebAuthController::class, 'logout'])->middleware('auth')->name('safa.logout');
 
-Route::middleware(['auth', 'throttle:20,1'])->group(function () {
+Route::middleware('throttle:20,1')->group(function () {
     Route::get('/system/update', [DatabaseUpdateController::class, 'show'])->name('system.update.show');
-    Route::post('/system/update', [DatabaseUpdateController::class, 'process'])->name('system.update.process');
+    Route::post('/system/update/migrate', [DatabaseUpdateController::class, 'migrate'])->name('system.update.migrate');
+    Route::post('/system/update/seed', [DatabaseUpdateController::class, 'seed'])->name('system.update.seed');
 });
 
 Route::middleware(['auth', 'throttle:120,1'])->group(function () {

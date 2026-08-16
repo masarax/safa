@@ -11,16 +11,21 @@ class CheckInstalled
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if ($request->is('index') || $request->is('index/*')) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
         if (app()->environment('testing') && !(bool) config('safa.enforce_update_checks_in_tests', false)) {
             return $next($request);
         }
 
-        // Setup/recovery and the exact public presentation assets must remain
-        // reachable even before the installation marker exists. The setup
-        // controller independently enforces one-time ownership and SuperAdmin
-        // authorization rules; no arbitrary filesystem path is exposed here.
+        // Maintenance, authentication, and exact public presentation assets must
+        // remain reachable while an empty database is being recovered. The
+        // maintenance controller independently protects every write operation.
         if ($request->is('install*')
-            || $request->is('index*')
+            || $request->is('system/update*')
+            || $request->is('login')
+            || $request->is('logout')
             || $request->is('safa-logo.png')
             || $request->is('favicon.svg')
             || $request->is('safa-web.css')
@@ -39,14 +44,6 @@ class CheckInstalled
             }
 
             return response()->json(['status' => 'error', 'message' => 'SAFA is not installed.'], 503);
-        }
-
-        // These routes must remain reachable while an update is pending. Guests
-        // need the login page before the authenticated SuperAdmin update screen.
-        if ($request->is('system/update*')
-            || $request->is('login')
-            || $request->is('logout')) {
-            return $next($request);
         }
 
         try {

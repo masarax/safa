@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class WebAuthController extends Controller
@@ -23,7 +24,7 @@ class WebAuthController extends Controller
         if (!in_array($language, ['en', 'bn'], true)) $language = 'en';
         $request->session()->put('safa_web_language', $language);
 
-        $setting = SystemSetting::first();
+        $setting = Schema::hasTable('system_settings') ? SystemSetting::first() : null;
 
         return view('safa.login', [
             'language' => $language,
@@ -76,6 +77,8 @@ class WebAuthController extends Controller
 
     private function findUser(string $identity): ?User
     {
+        if (!Schema::hasTable('users')) return null;
+
         if (filter_var($identity, FILTER_VALIDATE_EMAIL)) {
             $query = User::query()->whereRaw('LOWER(email) = ?', [strtolower($identity)]);
             return $query->count() === 1 ? $query->first() : null;

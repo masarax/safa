@@ -21,19 +21,17 @@
         <section class="auth-card" aria-labelledby="login-title">
             <header class="auth-brand">
                 <div class="auth-logo-wrap"><img class="auth-logo" src="{{ $logoSource }}" alt="{{ $appName }}"></div>
-                <h1>{{ $language === 'bn' ? $appName . ' - সাফা' : $appName }}</h1>
-                @if($captainName)
-                    <p>{{ $language === 'bn' ? 'ক্যাপ্টেন' : 'Captain' }}: <strong>{{ $captainName }}</strong></p>
-                @else
-                    <p>{{ $language === 'bn' ? 'নিরাপদ ব্যবসা ব্যবস্থাপনা' : 'Secure business management' }}</p>
-                @endif
+                <h1>{{ $appName }}</h1>
             </header>
 
             <h2 id="login-title">{{ $language === 'bn' ? 'লগইন করুন' : 'Sign in' }}</h2>
-            <p class="auth-intro">{{ $language === 'bn' ? 'আপনার মোবাইল নম্বর অথবা ইমেইল এবং বিদ্যমান পিন/পাসওয়ার্ড ব্যবহার করুন।' : 'Use your mobile number or email with your existing PIN/password.' }}</p>
 
             @if ($errors->any())
                 <div class="alert alert-error" role="alert">{{ $language === 'bn' ? 'লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।' : 'The sign-in details are not valid. Please try again.' }}</div>
+            @endif
+
+            @if (session('success'))
+                <div class="alert alert-success" role="status">{{ session('success') }}</div>
             @endif
 
             <form method="post" action="{{ route('safa.login.submit') }}" class="stack-form" autocomplete="on">
@@ -49,8 +47,6 @@
                 </label>
                 <button class="primary-button wide" type="submit">{{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</button>
             </form>
-
-            <p class="security-note">{{ $language === 'bn' ? 'আপনার ব্রাউজার সেশন HttpOnly কুকি ও CSRF সুরক্ষার মাধ্যমে নিরাপদ রাখা হয়।' : 'Your browser session is protected with HttpOnly cookies and CSRF protection.' }}</p>
         </section>
     </div>
 </main>

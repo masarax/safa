@@ -40,29 +40,34 @@ class SystemUpdateFlowTest extends TestCase
             ]);
     }
 
-    public function test_guest_is_sent_to_login_before_opening_system_updater(): void
+    public function test_initialized_guest_is_sent_to_login_before_opening_system_maintenance(): void
     {
-        $this->markMigrationPending();
+        User::factory()->create([
+            'role' => User::ROLE_SUPERADMIN,
+            'is_activated' => true,
+        ]);
 
         $this->get('/system/update')
-            ->assertRedirect('/login');
+            ->assertRedirect(route('safa.login'));
     }
 
-    public function test_non_superadmin_cannot_view_or_execute_system_update(): void
+    public function test_non_superadmin_cannot_view_or_execute_maintenance_actions(): void
     {
-        $this->markMigrationPending();
+        User::factory()->create([
+            'role' => User::ROLE_SUPERADMIN,
+            'is_activated' => true,
+        ]);
         $user = User::factory()->create([
             'role' => User::ROLE_ADMIN,
             'is_activated' => true,
         ]);
 
         $this->actingAs($user)->get('/system/update')->assertForbidden();
-        $this->actingAs($user)->post('/system/update')->assertForbidden();
-
-        $this->assertDatabaseMissing('migrations', ['migration' => self::PENDING_MIGRATION]);
+        $this->actingAs($user)->post('/system/update/migrate')->assertForbidden();
+        $this->actingAs($user)->post('/system/update/seed')->assertForbidden();
     }
 
-    public function test_superadmin_can_run_update_and_normal_navigation_resumes(): void
+    public function test_superadmin_sees_separate_migration_and_seed_actions_and_can_run_migration(): void
     {
         $this->markMigrationPending();
         $superAdmin = User::factory()->create([
@@ -73,22 +78,19 @@ class SystemUpdateFlowTest extends TestCase
         $this->actingAs($superAdmin)
             ->get('/system/update')
             ->assertOk()
-            ->assertSee('System Update Required')
+            ->assertSee('System Maintenance')
             ->assertSee(self::PENDING_MIGRATION)
-            ->assertSee('Run Update');
+            ->assertSee('Run Migration')
+            ->assertSee('Run Seed');
 
         $this->actingAs($superAdmin)
-            ->post('/system/update')
-            ->assertRedirect(route('safa.app'));
+            ->post('/system/update/migrate')
+            ->assertRedirect(route('system.update.show'));
 
         $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
-
-        $this->actingAs($superAdmin)
-            ->get('/')
-            ->assertRedirect(route('safa.app'));
     }
 
-    public function test_system_update_page_disappears_when_nothing_is_pending(): void
+    public function test_maintenance_page_remains_available_when_no_migration_is_pending(): void
     {
         $superAdmin = User::factory()->create([
             'role' => User::ROLE_SUPERADMIN,
@@ -97,7 +99,30 @@ class SystemUpdateFlowTest extends TestCase
 
         $this->actingAs($superAdmin)
             ->get('/system/update')
-            ->assertRedirect(route('safa.app'));
+            ->assertOk()
+            ->assertSee('Run Migration')
+            ->assertSee('Run Seed');
+    }
+
+    public function test_empty_database_recovery_write_requires_the_server_maintenance_key(): void
+    {
+        Config::set('safa.maintenance_token', 'correct-maintenance-key');
+        $this->markMigrationPending();
+
+        $this->get('/system/update')
+            ->assertOk()
+            ->assertSee('Recovery mode')
+            ->assertSee('Maintenance key');
+
+        $this->post('/system/update/migrate', [
+            'maintenance_token' => 'wrong-key',
+        ])->assertForbidden();
+        $this->assertDatabaseMissing('migrations', ['migration' => self::PENDING_MIGRATION]);
+
+        $this->post('/system/update/migrate', [
+            'maintenance_token' => 'correct-maintenance-key',
+        ])->assertRedirect(route('system.update.show'));
+        $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
     }
 
     private function markMigrationPending(): void
