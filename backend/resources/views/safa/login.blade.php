@@ -20,9 +20,7 @@
 
         <section class="auth-card" aria-labelledby="login-title">
             <header class="auth-brand">
-                <div class="auth-logo-wrap">
-                    <img class="auth-logo" src="{{ $logoSource }}" alt="{{ $appName }}">
-                </div>
+                <div class="auth-logo-wrap"><img class="auth-logo" src="{{ $logoSource }}" alt="{{ $appName }}"></div>
                 <h1>{{ $language === 'bn' ? $appName . ' - সাফা' : $appName }}</h1>
                 @if($captainName)
                     <p>{{ $language === 'bn' ? 'ক্যাপ্টেন' : 'Captain' }}: <strong>{{ $captainName }}</strong></p>
@@ -35,9 +33,7 @@
             <p class="auth-intro">{{ $language === 'bn' ? 'আপনার মোবাইল নম্বর অথবা ইমেইল এবং বিদ্যমান পিন/পাসওয়ার্ড ব্যবহার করুন।' : 'Use your mobile number or email with your existing PIN/password.' }}</p>
 
             @if ($errors->any())
-                <div class="alert alert-error" role="alert">
-                    {{ $language === 'bn' ? 'লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।' : 'The sign-in details are not valid. Please try again.' }}
-                </div>
+                <div class="alert alert-error" role="alert">{{ $language === 'bn' ? 'লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।' : 'The sign-in details are not valid. Please try again.' }}</div>
             @endif
 
             <form method="post" action="{{ route('safa.login.submit') }}" class="stack-form" autocomplete="on">
@@ -45,11 +41,11 @@
                 <input type="hidden" name="language" value="{{ $language }}">
                 <label>
                     <span>{{ $language === 'bn' ? 'মোবাইল নম্বর অথবা ইমেইল' : 'Mobile number or email' }}</span>
-                    <input type="text" name="identity" value="{{ old('identity') }}" maxlength="255" autocomplete="username" inputmode="email" placeholder="01700000000" required autofocus>
+                    <div class="field-control"><span class="field-icon icon icon-phone" aria-hidden="true"></span><input type="text" name="identity" value="{{ old('identity') }}" maxlength="255" autocomplete="username" inputmode="email" placeholder="01700000000" required autofocus></div>
                 </label>
                 <label>
                     <span>{{ $language === 'bn' ? 'পিন / পাসওয়ার্ড' : 'PIN / password' }}</span>
-                    <input type="password" name="credential" minlength="6" maxlength="255" autocomplete="current-password" required>
+                    <div class="field-control"><span class="field-icon icon icon-lock" aria-hidden="true"></span><input type="password" name="credential" minlength="6" maxlength="255" autocomplete="current-password" required></div>
                 </label>
                 <button class="primary-button wide" type="submit">{{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</button>
             </form>
