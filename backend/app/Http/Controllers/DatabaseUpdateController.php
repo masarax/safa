@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\InitialSuperAdminBootstrap;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,10 +51,15 @@ class DatabaseUpdateController extends Controller
             $this->authorizeSuperAdmin($request);
         }
 
+        $pendingMigrations = self::pendingMigrations();
+
         return view('install_update', [
-            'pendingMigrations' => self::pendingMigrations(),
+            'pendingMigrations' => $pendingMigrations,
             'recoveryMode' => $recoveryMode,
             'initialAdminConfigured' => $this->initialAdminConfigured(),
+            'initialSuperAdminBootstrapAvailable' => $recoveryMode
+                && !$pendingMigrations
+                && InitialSuperAdminBootstrap::available(),
         ]);
     }
 
