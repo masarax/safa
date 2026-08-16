@@ -1,1 +1,23 @@
 @import url('/safa-web-product.css');
+
+/* Runtime compatibility overrides for the existing JS-generated dialogs. */
+.app-sidebar{display:block}
+.desktop-topbar-context{display:none}
+.icon-button[data-close-modal],
+.icon-button[data-close-subpage],
+.icon-button[data-flow-cancel]{font-size:0}
+.icon-button[data-close-modal]::before,
+.icon-button[data-close-subpage]::before,
+.icon-button[data-flow-cancel]::before{
+  content:"";
+  width:18px;
+  height:18px;
+  display:block;
+  background:currentColor;
+  -webkit-mask:var(--runtime-icon) center/contain no-repeat;
+  mask:var(--runtime-icon) center/contain no-repeat;
+}
+.icon-button[data-close-modal]{--runtime-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z'/%3E%3C/svg%3E")}
+.icon-button[data-close-subpage],
+.icon-button[data-flow-cancel]{--runtime-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2Z'/%3E%3C/svg%3E")}
+@media(min-width:1024px){.desktop-topbar-context{display:block}}
