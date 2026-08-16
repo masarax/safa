@@ -94,6 +94,7 @@ class SuperAdminWorkspaceTest extends TestCase
             'is_activated' => true,
         ]);
         $recipient = User::factory()->create([
+            'mobile' => '966500000001',
             'role' => User::ROLE_NORMAL_USER,
             'is_activated' => true,
         ]);
@@ -136,6 +137,7 @@ class SuperAdminWorkspaceTest extends TestCase
             'is_activated' => true,
         ]);
         $recipient = User::factory()->create([
+            'mobile' => '966500000002',
             'role' => User::ROLE_NORMAL_USER,
             'is_activated' => true,
         ]);
