@@ -13,10 +13,9 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed non-user system configuration only.
-     *
-     * Administrator identity and credentials are deliberately never embedded
-     * in source. Provision them explicitly with `safa:provision-admin`.
+     * Seed system configuration and the workspace foundation for any existing
+     * SuperAdmin. Administrator credentials are deliberately never embedded in
+     * source; identity is still provisioned explicitly with `safa:provision-admin`.
      */
     public function run(): void
     {
@@ -46,5 +45,7 @@ class DatabaseSeeder extends Seeder
                 'update_url' => null,
             ]
         );
+
+        $this->call(SuperAdminWorkspaceSeeder::class);
     }
 }
