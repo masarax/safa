@@ -53,7 +53,7 @@ class WebUnifiedDesignSystemContractTest extends TestCase
         $this->assertStringContainsString('class="auth-shell"', $login);
         $this->assertStringContainsString('class="auth-logo-wrap"', $login);
         $this->assertStringContainsString('class="language-switch"', $login);
-        $this->assertStringContainsString('class="button primary wide"', $login);
+        $this->assertStringContainsString('class="primary-button wide"', $login);
         $this->assertStringContainsString('name="identity"', $login);
         $this->assertStringContainsString('name="credential"', $login);
         $this->assertStringContainsString('@csrf', $login);
