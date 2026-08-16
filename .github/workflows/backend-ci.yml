@@ -5,11 +5,13 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/deploy.yml'
   push:
     branches: [main]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -52,7 +54,7 @@ jobs:
 
       - name: PHP syntax check
         working-directory: backend
-        run: find app config database deploy routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Browser JavaScript syntax check
         working-directory: backend

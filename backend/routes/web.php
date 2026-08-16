@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\DatabaseUpdateController;
 use App\Http\Controllers\RemoteBusinessController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\SupplierController;
@@ -47,6 +48,11 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [WebAuthController::class, 'login'])->middleware('throttle:5,1')->name('safa.login.submit');
 });
 Route::post('/logout', [WebAuthController::class, 'logout'])->middleware('auth')->name('safa.logout');
+
+Route::middleware(['auth', 'throttle:20,1'])->group(function () {
+    Route::get('/system/update', [DatabaseUpdateController::class, 'show'])->name('system.update.show');
+    Route::post('/system/update', [DatabaseUpdateController::class, 'process'])->name('system.update.process');
+});
 
 Route::middleware(['auth', 'throttle:120,1'])->group(function () {
     Route::get('/app', [WebAppController::class, 'index'])->name('safa.app');
