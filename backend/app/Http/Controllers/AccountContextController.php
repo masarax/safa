@@ -23,47 +23,83 @@ class AccountContextController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Authenticated user is required.'], 401);
         }
 
-        $owned = Account::where('owner_user_id', $user->id)->orderBy('id')->get();
-        $shares = UserAccountShare::with('owner')
-            ->where('shared_with_user_id', $user->id)
-            ->get();
+        if ($user->isSuperAdmin()) {
+            $visibleAccounts = Account::query()->orderBy('id')->get();
+            if ($visibleAccounts->isEmpty()) {
+                $visibleAccounts = collect([
+                    Account::create([
+                        'name' => 'SAFA Account',
+                        'balance' => 0,
+                        'owner_user_id' => $user->id,
+                    ]),
+                ]);
+            }
 
-        // Preserve the existing single-account bootstrap behavior without making
-        // an ambiguous selection when the user already has multiple choices.
-        if ($owned->isEmpty() && $shares->isEmpty()) {
-            $owned = collect([
-                Account::create([
-                    'name' => trim(($user->name ?: 'SAFA') . ' Account'),
-                    'balance' => 0,
-                    'owner_user_id' => $user->id,
-                ]),
-            ]);
-        }
+            $ownerIds = $visibleAccounts
+                ->pluck('owner_user_id')
+                ->filter(fn ($id) => (int) $id > 0)
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+            $ownerNames = User::query()->whereIn('id', $ownerIds)->pluck('name', 'id');
 
-        $accounts = $owned->map(fn ($account) => [
-            'account_id' => (int) $account->id,
-            'owner_user_id' => (int) $user->id,
-            'owner_name' => $user->name,
-            'role' => 'OWNER',
-            'permissions_override' => null,
-            'is_owner' => true,
-        ])->values();
+            $accounts = $visibleAccounts->map(function ($account) use ($user, $ownerNames) {
+                $ownerId = (int) ($account->owner_user_id ?? 0);
+                $isOwner = $ownerId === (int) $user->id;
 
-        foreach ($shares as $share) {
-            $account = Account::find($share->account_id);
-            if (!$account) continue;
-            $accounts->push([
+                return [
+                    'account_id' => (int) $account->id,
+                    'owner_user_id' => $ownerId,
+                    'owner_name' => (string) ($ownerNames[$ownerId] ?? $account->name ?? 'SAFA Account'),
+                    'role' => $isOwner ? 'OWNER' : 'SUPERADMIN',
+                    'permissions_override' => null,
+                    'is_owner' => $isOwner,
+                ];
+            })->values();
+        } else {
+            $owned = Account::where('owner_user_id', $user->id)->orderBy('id')->get();
+            $shares = UserAccountShare::with('owner')
+                ->where('shared_with_user_id', $user->id)
+                ->get();
+
+            // Preserve the existing single-account bootstrap behavior without making
+            // an ambiguous selection when the user already has multiple choices.
+            if ($owned->isEmpty() && $shares->isEmpty()) {
+                $owned = collect([
+                    Account::create([
+                        'name' => trim(($user->name ?: 'SAFA') . ' Account'),
+                        'balance' => 0,
+                        'owner_user_id' => $user->id,
+                    ]),
+                ]);
+            }
+
+            $accounts = $owned->map(fn ($account) => [
                 'account_id' => (int) $account->id,
-                'owner_user_id' => (int) $share->owner_user_id,
-                'owner_name' => $share->owner?->name ?? 'Unknown Owner',
-                'role' => 'MEMBER',
-                'permissions_override' => $share->permissions_override,
-                'share_id' => (int) $share->id,
-                'is_owner' => false,
-            ]);
+                'owner_user_id' => (int) $user->id,
+                'owner_name' => $user->name,
+                'role' => 'OWNER',
+                'permissions_override' => null,
+                'is_owner' => true,
+            ])->values();
+
+            foreach ($shares as $share) {
+                $account = Account::find($share->account_id);
+                if (!$account) continue;
+                $accounts->push([
+                    'account_id' => (int) $account->id,
+                    'owner_user_id' => (int) $share->owner_user_id,
+                    'owner_name' => $share->owner?->name ?? 'Unknown Owner',
+                    'role' => 'MEMBER',
+                    'permissions_override' => $share->permissions_override,
+                    'share_id' => (int) $share->id,
+                    'is_owner' => false,
+                ]);
+            }
+
+            $accounts = $accounts->unique('account_id')->values();
         }
 
-        $accounts = $accounts->unique('account_id')->values();
         $authorizedIds = $accounts->pluck('account_id')->map(fn ($id) => (int) $id)->all();
         $activeAccountId = null;
 
