@@ -13,6 +13,9 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString("env('SAFA_RUN_ONCE_TOKEN'", $runner);
         $this->assertStringContainsString('hash_equals($expectedToken, $providedToken)', $runner);
         $this->assertStringContainsString('storage/run-once.lock', $runner);
+        $this->assertStringContainsString('$cleanupRunners = static function () use ($runnerCopies): void', $runner);
+        $this->assertStringContainsString('if (is_file($lockPath)) {', $runner);
+        $this->assertStringContainsString("if (\$expectedToken === '') {", $runner);
         $this->assertStringContainsString("['migrate', ['--force' => true]]", $runner);
         $this->assertStringContainsString("['db:seed', ['--force' => true]]", $runner);
         $this->assertStringContainsString("['optimize:clear', []]", $runner);
@@ -52,6 +55,22 @@ class DeploymentRunOnceContractTest extends TestCase
         $this->assertStringContainsString('server-dir: /', $workflow);
         $this->assertStringContainsString('public/storage/logos/**', $workflow);
         $this->assertStringContainsString('Run mandatory full test suite', $workflow);
+    }
+
+    public function test_deploy_stages_only_the_secure_browser_setup_copies(): void
+    {
+        $workflow = (string) file_get_contents(base_path('../.github/workflows/deploy.yml'));
+        $rootHtaccess = (string) file_get_contents(base_path('.htaccess'));
+        $publicHtaccess = (string) file_get_contents(public_path('.htaccess'));
+        $envExample = (string) file_get_contents(base_path('.env.example'));
+
+        $this->assertStringContainsString('cp backend/deploy/run-once.php backend/run-once.php', $workflow);
+        $this->assertStringContainsString('cp backend/deploy/run-once.php backend/public/run-once.php', $workflow);
+        $this->assertStringContainsString("            deploy/\n", $workflow);
+        $this->assertStringContainsString('(app|bootstrap|config|database|deploy|public|resources|routes|storage|tests|vendor|', $rootHtaccess);
+        $this->assertStringContainsString('RewriteRule ^run-once\\.php$ - [L,NC]', $publicHtaccess);
+        $this->assertStringContainsString('if this value is empty the runner returns 404 and deletes itself', $envExample);
+        $this->assertStringNotContainsString('upload_run_once=true', $envExample);
     }
 
     public function test_ftp_deploy_applies_pending_migrations_with_ephemeral_self_deleting_runner(): void
