@@ -46,7 +46,7 @@ class WebAuthController extends Controller
         $user = $this->findUser($identity);
         if (!$user || !(bool) $user->is_activated || !$this->credentialMatches($user, (string) $validated['credential'])) {
             return back()->withInput(['identity' => $identity])->withErrors([
-                'auth' => 'Sign-in failed.',
+                'auth' => $this->failureIdentityType($identity),
             ]);
         }
 
@@ -105,6 +105,14 @@ class WebAuthController extends Controller
         }
 
         return false;
+    }
+
+    private function failureIdentityType(string $identity): string
+    {
+        // Failure copy is selected only from the submitted identifier's shape.
+        // It must never depend on whether an account exists, is active, or which
+        // credential hash matched, so the UI cannot become a user-enumeration side channel.
+        return str_contains($identity, '@') ? 'email' : 'mobile';
     }
 
     private function normalizeDigits(string $value): string
