@@ -48,7 +48,7 @@ jobs:
 
       - name: PHP syntax check
         working-directory: backend
-        run: find app config database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find app config database deploy routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Run mandatory full test suite
         working-directory: backend
@@ -83,6 +83,16 @@ jobs:
           deploy_sha="$(git rev-parse HEAD)"
           printf '{"commit":"%s"}\n' "$deploy_sha" > backend/bootstrap/safa-build.json
           printf 'SAFA_DEPLOY_SHA=%s\n' "$deploy_sha" >> "$GITHUB_ENV"
+
+      - name: Stage optional browser one-time setup page
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f backend/run-once.php backend/public/run-once.php
+          cp backend/deploy/run-once.php backend/run-once.php
+          cp backend/deploy/run-once.php backend/public/run-once.php
+          php -l backend/run-once.php
+          php -l backend/public/run-once.php
 
       - name: Prepare one-time production migration runner
         shell: bash
@@ -183,8 +193,10 @@ jobs:
             .env
             .env.*
             database/testing.sqlite
+            deploy/
             public/storage/logos/**
             storage/installed
+            storage/run-once.lock
             storage/framework/cache/*
             storage/framework/sessions/*
             storage/framework/views/*
