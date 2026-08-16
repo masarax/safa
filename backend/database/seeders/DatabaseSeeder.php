@@ -12,18 +12,17 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed production-safe reference/configuration data and the workspace
-     * foundation for an existing SuperAdmin. This seeder is intentionally
-     * idempotent and never creates sample business records or deletes data.
+     * Seed production-safe reference/configuration data and workspace state.
+     * Initial Super Admin credentials are read only from server configuration,
+     * never hard-coded, and are ignored once an activated Super Admin exists.
      */
     public function run(): void
     {
+        $this->call(InitialSuperAdminSeeder::class);
+
         $apiKey = trim((string) env('SAFA_API_KEY', ''));
         $apiSecret = trim((string) env('SAFA_API_SECRET', ''));
 
-        // API credentials remain server-managed secrets. Missing credentials
-        // must not prevent the website/SuperAdmin bootstrap from completing,
-        // and no insecure default credential is ever generated or committed.
         if ($apiKey !== '' && $apiSecret !== '') {
             SafaApiKey::updateOrCreate(
                 ['client_name' => 'SAFA Mobile Client'],

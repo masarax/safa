@@ -1,16 +1,21 @@
 <?php
 
 return [
-    // Read environment-backed installation state here so production config caching
-    // keeps the value available without calling env() from application runtime.
     'installed' => filter_var(env('APP_INSTALLED', false), FILTER_VALIDATE_BOOL),
 
-    // Optional one-time/recovery ownership secret for /index. If it is not set,
-    // SetupController accepts the already-configured database password instead.
-    // The value is never rendered into HTML or committed to source control.
-    'setup_token' => (string) env('SAFA_SETUP_TOKEN', ''),
+    // Recovery writes are allowed only before an activated Super Admin exists.
+    // SAFA_SETUP_TOKEN is retained only as a compatibility fallback for servers
+    // that already configured the previous release; no DB password/APP_KEY fallback exists.
+    'maintenance_token' => (string) env('SAFA_MAINTENANCE_TOKEN', env('SAFA_SETUP_TOKEN', '')),
 
-    // Tests normally bypass installation/update gating. Feature tests can opt in
-    // with Config::set('safa.enforce_update_checks_in_tests', true).
+    // Initial identity is server-managed and consumed only when no Super Admin exists.
+    // Re-running the seeder never overwrites an existing administrator credential.
+    'initial_admin' => [
+        'name' => (string) env('SAFA_INITIAL_ADMIN_NAME', ''),
+        'mobile' => (string) env('SAFA_INITIAL_ADMIN_MOBILE', ''),
+        'email' => (string) env('SAFA_INITIAL_ADMIN_EMAIL', ''),
+        'pin' => (string) env('SAFA_INITIAL_ADMIN_PIN', ''),
+    ],
+
     'enforce_update_checks_in_tests' => false,
 ];

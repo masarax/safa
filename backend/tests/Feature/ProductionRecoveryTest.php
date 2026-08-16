@@ -37,36 +37,43 @@ class ProductionRecoveryTest extends TestCase
             ->assertHeader('Content-Type', 'application/javascript; charset=utf-8');
     }
 
-    public function test_initial_index_bootstrap_rejects_an_invalid_setup_secret(): void
+    public function test_index_setup_surface_is_completely_removed(): void
     {
-        Config::set('safa.setup_token', 'correct-recovery-secret');
-
-        $this->post('/index/bootstrap', [
-            'setup_secret' => 'wrong-secret',
-            'name' => 'Production Admin',
-            'mobile' => '01700000000',
-            'email' => 'admin@example.test',
-            'pin' => '654321',
-            'pin_confirmation' => '654321',
-        ])->assertSessionHasErrors('setup_secret');
-
-        $this->assertDatabaseCount('users', 0);
+        $this->get('/index')->assertNotFound();
+        $this->post('/index/bootstrap')->assertNotFound();
+        $this->post('/index/seed')->assertNotFound();
     }
 
-    public function test_initial_index_bootstrap_creates_login_capable_superadmin_and_full_reference_seed(): void
+    public function test_login_is_minimal_and_rejected_explanatory_copy_is_absent(): void
     {
-        Config::set('safa.setup_token', 'correct-recovery-secret');
+        $this->get('/login?lang=en')
+            ->assertOk()
+            ->assertSee('Sign in')
+            ->assertSee('Mobile number or email')
+            ->assertSee('PIN / password')
+            ->assertDontSee('Use your mobile number or email with your existing PIN/password.')
+            ->assertDontSee('Your browser session is protected with HttpOnly cookies and CSRF protection.')
+            ->assertDontSee('Secure business management');
 
-        $response = $this->post('/index/bootstrap', [
-            'setup_secret' => 'correct-recovery-secret',
+        $this->get('/login?lang=bn')
+            ->assertOk()
+            ->assertDontSee('আপনার মোবাইল নম্বর অথবা ইমেইল এবং বিদ্যমান পিন/পাসওয়ার্ড ব্যবহার করুন।')
+            ->assertDontSee('আপনার ব্রাউজার সেশন HttpOnly কুকি ও CSRF সুরক্ষার মাধ্যমে নিরাপদ রাখা হয়।');
+    }
+
+    public function test_recovery_seed_creates_login_capable_superadmin_from_server_configuration(): void
+    {
+        Config::set('safa.maintenance_token', 'recovery-maintenance-secret');
+        Config::set('safa.initial_admin', [
             'name' => 'Production Admin',
             'mobile' => '+880 1700-000000',
             'email' => 'admin@example.test',
             'pin' => '654321',
-            'pin_confirmation' => '654321',
         ]);
 
-        $response->assertRedirect(route('safa.app'));
+        $this->post('/system/update/seed', [
+            'maintenance_token' => 'recovery-maintenance-secret',
+        ])->assertRedirect(route('safa.login'));
 
         $admin = User::query()->where('email', 'admin@example.test')->firstOrFail();
         $this->assertTrue($admin->isSuperAdmin());
@@ -80,39 +87,39 @@ class ProductionRecoveryTest extends TestCase
         $this->assertSame(count(User::defaultPermissions(false)), Permission::query()->count());
         $this->assertNotNull(SystemSetting::query()->first());
         $this->assertNotNull(AppVersion::query()->where('platform', 'android')->first());
-
-        $this->assertAuthenticatedAs($admin);
     }
 
-    public function test_bootstrap_is_closed_to_guests_after_superadmin_exists(): void
-    {
-        User::factory()->create([
-            'role' => User::ROLE_SUPERADMIN,
-            'is_activated' => true,
-        ]);
-
-        $this->get('/index')->assertRedirect(route('safa.login'));
-        $this->post('/index/bootstrap', [])->assertForbidden();
-    }
-
-    public function test_safe_seed_refresh_is_idempotent_and_preserves_existing_business_rows(): void
+    public function test_seed_is_idempotent_preserves_business_data_and_never_resets_existing_admin_pin(): void
     {
         $admin = User::factory()->create([
             'role' => User::ROLE_SUPERADMIN,
             'is_activated' => true,
+            'pin_hash' => Hash::make('111111'),
+            'password' => Hash::make('111111'),
         ]);
+        $originalPinHash = $admin->pin_hash;
         $account = Account::query()->create([
             'owner_user_id' => $admin->id,
             'name' => 'Existing Business',
             'balance' => '125.50',
         ]);
 
-        $this->actingAs($admin)->post('/index/seed')->assertRedirect(route('safa.setup'));
-        $this->actingAs($admin)->post('/index/seed')->assertRedirect(route('safa.setup'));
+        Config::set('safa.initial_admin', [
+            'name' => 'Replacement Admin',
+            'mobile' => '01799999999',
+            'email' => 'replacement@example.test',
+            'pin' => '999999',
+        ]);
+
+        $this->actingAs($admin)->post('/system/update/seed')->assertRedirect(route('system.update.show'));
+        $this->actingAs($admin)->post('/system/update/seed')->assertRedirect(route('system.update.show'));
 
         $account->refresh();
+        $admin->refresh();
         $this->assertSame('Existing Business', $account->name);
         $this->assertSame('125.50', (string) $account->balance);
+        $this->assertSame($originalPinHash, $admin->pin_hash);
+        $this->assertDatabaseMissing('users', ['email' => 'replacement@example.test']);
         $this->assertSame(4, Role::query()->count());
         $this->assertSame(count(User::defaultPermissions(false)), Permission::query()->count());
     }
