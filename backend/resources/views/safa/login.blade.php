@@ -26,10 +26,6 @@
 
             <h2 id="login-title">{{ $language === 'bn' ? 'লগইন করুন' : 'Sign in' }}</h2>
 
-            @if ($errors->any())
-                <div class="alert alert-error" role="alert">{{ $language === 'bn' ? 'লগইন তথ্য সঠিক নয়। আবার চেষ্টা করুন।' : 'The sign-in details are not valid. Please try again.' }}</div>
-            @endif
-
             @if (session('success'))
                 <div class="alert alert-success" role="status">{{ session('success') }}</div>
             @endif
@@ -39,12 +35,19 @@
                 <input type="hidden" name="language" value="{{ $language }}">
                 <label>
                     <span>{{ $language === 'bn' ? 'মোবাইল নম্বর অথবা ইমেইল' : 'Mobile number or email' }}</span>
-                    <div class="field-control"><span class="field-icon icon icon-phone" aria-hidden="true"></span><input type="text" name="identity" value="{{ old('identity') }}" maxlength="255" autocomplete="username" inputmode="email" placeholder="01700000000" required autofocus></div>
+                    <div class="field-control"><span class="field-icon icon icon-phone" aria-hidden="true"></span><input type="text" name="identity" value="{{ old('identity') }}" maxlength="255" autocomplete="username" inputmode="email" placeholder="01700000000" required autofocus aria-describedby="identity-error"></div>
+                    @error('identity')<span id="identity-error" class="field-error" role="alert">{{ $message }}</span>@enderror
                 </label>
                 <label>
                     <span>{{ $language === 'bn' ? 'পিন / পাসওয়ার্ড' : 'PIN / password' }}</span>
-                    <div class="field-control"><span class="field-icon icon icon-lock" aria-hidden="true"></span><input type="password" name="credential" minlength="6" maxlength="255" autocomplete="current-password" required></div>
+                    <div class="field-control"><span class="field-icon icon icon-lock" aria-hidden="true"></span><input type="password" name="credential" minlength="6" maxlength="255" autocomplete="current-password" required aria-describedby="credential-error"></div>
+                    @error('credential')<span id="credential-error" class="field-error" role="alert">{{ $message }}</span>@enderror
                 </label>
+
+                @error('auth')
+                    <p class="auth-error-inline" role="alert" aria-live="assertive">{{ $language === 'bn' ? 'লগইন ব্যর্থ।' : 'Sign-in failed.' }}</p>
+                @enderror
+
                 <button class="primary-button wide" type="submit">{{ $language === 'bn' ? 'লগইন' : 'Sign in' }}</button>
             </form>
         </section>
