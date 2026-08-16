@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DatabaseUpdateController;
+use App\Http\Controllers\InitialSuperAdminController;
 use App\Http\Controllers\RemoteBusinessController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\SupplierController;
@@ -20,7 +21,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 $closedInstallerResponse = fn () => response()->json(['status' => 'not_found'], 404);
-Route::any('/install', $closedInstallerResponse);
+Route::get('/install', [InitialSuperAdminController::class, 'show'])->middleware('throttle:20,1')->name('install.superadmin.show');
+Route::post('/install/super-admin', [InitialSuperAdminController::class, 'store'])->middleware('throttle:5,1')->name('install.superadmin.store');
 Route::any('/install/test-db', $closedInstallerResponse);
 Route::any('/install/process', $closedInstallerResponse);
 Route::any('/install/update', $closedInstallerResponse);
