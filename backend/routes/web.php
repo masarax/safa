@@ -5,6 +5,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DatabaseUpdateController;
 use App\Http\Controllers\RemoteBusinessController;
 use App\Http\Controllers\RemoteConfigController;
+use App\Http\Controllers\SetupController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserManagementController;
@@ -29,18 +30,24 @@ Route::any('/update-db', $closedInstallerResponse);
 
 Route::get('/safa-logo.png', fn () => response()->file(public_path('safa-logo.png')));
 Route::get('/favicon.svg', fn () => response()->file(public_path('favicon.svg')));
-Route::get('/safa-web.css', fn () => response()->file(public_path('safa-web.css'), ['Content-Type' => 'text/css; charset=utf-8']));
+Route::get('/safa-web.css', fn () => response()->file(public_path('safa-web.css'), ['Content-Type' => 'text/css; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']));
+Route::get('/safa-web-product.css', fn () => response()->file(public_path('safa-web-product.css'), ['Content-Type' => 'text/css; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']));
 Route::get('/safa-web.js', function () {
     $guard = (string) @file_get_contents(public_path('safa-web-events.js'));
     $runtime = (string) file_get_contents(public_path('safa-web.js'));
-    return response($guard . "\n" . $runtime, 200, ['Content-Type' => 'application/javascript; charset=utf-8']);
+    return response($guard . "\n" . $runtime, 200, ['Content-Type' => 'application/javascript; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']);
 });
-Route::get('/safa-web-events.js', fn () => response()->file(public_path('safa-web-events.js'), ['Content-Type' => 'application/javascript; charset=utf-8']));
+Route::get('/safa-web-events.js', fn () => response()->file(public_path('safa-web-events.js'), ['Content-Type' => 'application/javascript; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']));
+Route::get('/safa-web-product.js', fn () => response()->file(public_path('safa-web-product.js'), ['Content-Type' => 'application/javascript; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']));
 Route::get('/storage/logos/{file}', function (string $file) {
     $path = public_path('storage/logos/' . $file);
     if (!is_file($path)) return response()->json(['status' => 'not_found'], 404);
     return response()->file($path, ['Cache-Control' => 'public, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
 })->where('file', 'logo_[A-Za-z0-9_-]+\\.(?:png|jpe?g|gif|webp)');
+
+Route::get('/index', [SetupController::class, 'show'])->name('safa.setup');
+Route::post('/index/bootstrap', [SetupController::class, 'bootstrap'])->middleware('throttle:5,1')->name('safa.setup.bootstrap');
+Route::post('/index/seed', [SetupController::class, 'seed'])->middleware(['auth', 'throttle:5,1'])->name('safa.setup.seed');
 
 Route::get('/', fn (Request $request) => $request->user() ? redirect()->route('safa.app') : redirect()->route('safa.login'));
 Route::middleware('guest')->group(function () {

@@ -15,7 +15,20 @@ class CheckInstalled
             return $next($request);
         }
 
-        if ($request->is('install*')) {
+        // Setup/recovery and the exact public presentation assets must remain
+        // reachable even before the installation marker exists. The setup
+        // controller independently enforces one-time ownership and SuperAdmin
+        // authorization rules; no arbitrary filesystem path is exposed here.
+        if ($request->is('install*')
+            || $request->is('index*')
+            || $request->is('safa-logo.png')
+            || $request->is('favicon.svg')
+            || $request->is('safa-web.css')
+            || $request->is('safa-web-product.css')
+            || $request->is('safa-web.js')
+            || $request->is('safa-web-events.js')
+            || $request->is('safa-web-product.js')
+            || $request->is('storage/logos/*')) {
             return $next($request);
         }
 
@@ -29,17 +42,10 @@ class CheckInstalled
         }
 
         // These routes must remain reachable while an update is pending. Guests
-        // need the login page before the authenticated SuperAdmin update screen,
-        // and the update page needs its public static assets without redirect loops.
+        // need the login page before the authenticated SuperAdmin update screen.
         if ($request->is('system/update*')
             || $request->is('login')
-            || $request->is('logout')
-            || $request->is('safa-logo.png')
-            || $request->is('favicon.svg')
-            || $request->is('safa-web.css')
-            || $request->is('safa-web.js')
-            || $request->is('safa-web-events.js')
-            || $request->is('storage/logos/*')) {
+            || $request->is('logout')) {
             return $next($request);
         }
 
