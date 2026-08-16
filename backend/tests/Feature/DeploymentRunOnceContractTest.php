@@ -9,8 +9,11 @@ class DeploymentRunOnceContractTest extends TestCase
     public function test_run_once_runner_requires_secret_lock_and_self_deletion(): void
     {
         $runner = (string) file_get_contents(base_path('deploy/run-once.php'));
+        $config = (string) file_get_contents(config_path('safa.php'));
 
-        $this->assertStringContainsString("env('SAFA_RUN_ONCE_TOKEN'", $runner);
+        $this->assertStringContainsString("'run_once_token' => env('SAFA_RUN_ONCE_TOKEN')", $config);
+        $this->assertStringContainsString("config('safa.run_once_token'", $runner);
+        $this->assertStringNotContainsString("env('SAFA_RUN_ONCE_TOKEN'", $runner);
         $this->assertStringContainsString('hash_equals($expectedToken, $providedToken)', $runner);
         $this->assertStringContainsString('storage/run-once.lock', $runner);
         $this->assertStringContainsString('$cleanupRunners = static function () use ($runnerCopies): void', $runner);
