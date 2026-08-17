@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\DatabaseUpdateService;
 use App\Support\InitialSuperAdminBootstrap;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Http\RedirectResponse;
@@ -63,6 +64,31 @@ class DatabaseUpdateController extends Controller
         ]);
     }
 
+    public function run(Request $request, DatabaseUpdateService $updates): RedirectResponse
+    {
+        $user = $this->authorizeSuperAdmin($request);
+
+        try {
+            $result = $updates->run($user);
+            if ($result['busy']) {
+                return redirect()->route('system.update.show')->with(
+                    'info',
+                    'A database update is already running. Try again after it finishes.'
+                );
+            }
+
+            return redirect()->route('system.update.show')->with(
+                'success',
+                'Database update completed successfully.'
+            );
+        } catch (\Throwable) {
+            return redirect()->route('system.update.show')->with(
+                'error',
+                'Database update failed. Existing business data was not intentionally removed.'
+            );
+        }
+    }
+
     public function migrate(Request $request): RedirectResponse
     {
         if ($redirect = $this->redirectGuestWhenInitialized($request)) {
@@ -96,9 +122,6 @@ class DatabaseUpdateController extends Controller
                 );
             }
 
-            // A recovered fresh database still needs the independent seed/bootstrap
-            // action. An already initialized SuperAdmin session can immediately
-            // resume the normal application after the schema gate is cleared.
             if ($recoveryMode) {
                 return redirect()->route('system.update.show')->with('success', 'Database migration completed successfully.');
             }
