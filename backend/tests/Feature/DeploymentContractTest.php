@@ -64,10 +64,12 @@ class DeploymentContractTest extends TestCase
         $routes = (string) file_get_contents(base_path('routes/web.php'));
         $publicHtaccess = (string) file_get_contents(public_path('.htaccess'));
 
-        $this->assertStringContainsString("Route::get('/system/update'", $routes);
-        $this->assertStringContainsString("Route::post('/system/update/run'", $routes);
-        $this->assertStringContainsString("->name('system.update.show')", $routes);
-        $this->assertStringContainsString("->name('system.update.run')", $routes);
+        $this->assertStringContainsString("Route::get('/update'", $routes);
+        $this->assertStringContainsString("Route::post('/update/run'", $routes);
+        $this->assertStringContainsString("'/system/update'", $routes);
+        $this->assertStringContainsString("'/system/update/run'", $routes);
+        $this->assertStringNotContainsString("Route::get('/system/update'", $routes);
+        $this->assertStringNotContainsString("Route::post('/system/update/run'", $routes);
         $this->assertStringNotContainsString("Route::post('/system/update/migrate'", $routes);
         $this->assertStringNotContainsString("Route::post('/system/update/seed'", $routes);
 
@@ -79,6 +81,8 @@ class DeploymentContractTest extends TestCase
         $this->assertStringContainsString('flock($handle, LOCK_EX | LOCK_NB)', $service);
         $this->assertStringContainsString("redirect()->route('system.update.show')", $middleware);
         $this->assertStringContainsString("'status' => 'update_required'", $middleware);
+        $this->assertStringNotContainsString("config('safa.installed'", $middleware);
+        $this->assertStringNotContainsString('storage_path(\'installed\')', $middleware);
 
         foreach (['migrate:fresh', 'migrate:reset', 'migrate:refresh', 'migrate:rollback', 'db:wipe', 'truncate'] as $destructiveCommand) {
             $this->assertStringNotContainsString($destructiveCommand, $service);
