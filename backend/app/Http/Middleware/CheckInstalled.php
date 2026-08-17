@@ -11,68 +11,83 @@ class CheckInstalled
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->is('index')
-            || $request->is('index/*')
-            || $request->is('install')
-            || $request->is('install/*')
-            || $request->is('update-db')) {
-            return response()->json(['status' => 'not_found'], 404);
-        }
-
-        if (app()->environment('testing') && !(bool) config('safa.enforce_update_checks_in_tests', false)) {
+        if (app()->environment('testing') && !config('safa.enforce_update_checks_in_tests', false)) {
             return $next($request);
         }
 
-        // Authentication, the authenticated database-update route, and exact
-        // public presentation assets remain reachable while an update is pending.
-        if ($request->is('system/update*')
-            || $request->is('login')
-            || $request->is('logout')
-            || $request->is('safa-logo.png')
-            || $request->is('favicon.svg')
-            || $request->is('safa-web.css')
-            || $request->is('safa-web-product.css')
-            || $request->is('safa-web.js')
-            || $request->is('safa-web-events.js')
-            || $request->is('safa-web-product.js')
-            || $request->is('storage/logos/*')) {
+        $path = ltrim($request->path(), '/');
+
+        // First installation is CLI-owned. Public installer/recovery surfaces are
+        // permanently retired and must remain indistinguishable from missing URLs.
+        if ($this->isRetiredInstallerPath($path)) {
+            return $this->notFound($request);
+        }
+
+        // Login/logout and the canonical authenticated update endpoint must remain
+        // reachable while a release has pending forward migrations.
+        if ($this->isUpdateExemptPath($path)) {
             return $next($request);
         }
 
-        $isInstalled = file_exists(storage_path('installed')) || (bool) config('safa.installed', false);
-        if (!$isInstalled) {
-            if ($this->expectsApiResponse($request)) {
+        try {
+            $pending = DatabaseUpdateController::pendingMigrations();
+        } catch (\Throwable $e) {
+            report($e);
+            $pending = [];
+        }
+
+        if ($pending !== []) {
+            if ($request->expectsJson() || $request->is('api/*') || $request->is('app/api/*')) {
                 return response()->json([
-                    'status' => 'maintenance_required',
-                    'message' => 'System maintenance is required before this request can be served.',
+                    'status' => 'update_required',
+                    'message' => 'Database update required.',
+                    'pending_count' => count($pending),
                 ], 503);
             }
 
             return redirect()->route('system.update.show');
         }
 
-        try {
-            $pending = DatabaseUpdateController::pendingMigrations();
-            if ($pending) {
-                if ($this->expectsApiResponse($request)) {
-                    return response()->json([
-                        'status' => 'update_required',
-                        'message' => 'A system update is required before this request can be served.',
-                        'pending_count' => count($pending),
-                    ], 503);
-                }
-
-                return redirect()->route('system.update.show');
-            }
-        } catch (\Throwable $e) {
-            report($e);
-        }
-
         return $next($request);
     }
 
-    private function expectsApiResponse(Request $request): bool
+    private function isUpdateExemptPath(string $path): bool
     {
-        return $request->is('api/*') || $request->is('app/api/*') || $request->expectsJson();
+        if ($path === 'login' || $path === 'logout' || $path === 'update' || str_starts_with($path, 'update/')) {
+            return true;
+        }
+
+        foreach ([
+            'safa-logo.png',
+            'favicon.svg',
+            'safa-web.css',
+            'safa-web-product.css',
+            'safa-web.js',
+            'safa-web-events.js',
+            'safa-web-product.js',
+        ] as $asset) {
+            if ($path === $asset) return true;
+        }
+
+        return str_starts_with($path, 'storage/logos/');
+    }
+
+    private function isRetiredInstallerPath(string $path): bool
+    {
+        return $path === 'index'
+            || $path === 'install'
+            || str_starts_with($path, 'install/')
+            || $path === 'update-db'
+            || $path === 'system/update'
+            || str_starts_with($path, 'system/update/');
+    }
+
+    private function notFound(Request $request): Response
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
+        abort(404);
     }
 }

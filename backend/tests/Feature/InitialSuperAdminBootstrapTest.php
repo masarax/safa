@@ -43,24 +43,27 @@ class InitialSuperAdminBootstrapTest extends TestCase
 
     public function test_database_update_surface_requires_an_authenticated_activated_superadmin(): void
     {
-        $this->get('/system/update')->assertRedirect(route('safa.login'));
-        $this->post('/system/update/run')->assertRedirect(route('safa.login'));
+        $this->get('/update')->assertRedirect(route('safa.login'));
+        $this->post('/update/run')->assertRedirect(route('safa.login'));
+        $this->get('/system/update')->assertNotFound();
+        $this->post('/system/update/run')->assertNotFound();
 
         $admin = User::factory()->create([
             'role' => User::ROLE_ADMIN,
             'is_activated' => true,
         ]);
-        $this->actingAs($admin)->get('/system/update')->assertForbidden();
-        $this->actingAs($admin)->post('/system/update/run')->assertForbidden();
+        $this->actingAs($admin)->get('/update')->assertForbidden();
+        $this->actingAs($admin)->post('/update/run')->assertForbidden();
 
         $superAdmin = User::factory()->create([
             'role' => User::ROLE_SUPERADMIN,
             'is_activated' => true,
         ]);
         $this->actingAs($superAdmin)
-            ->get('/system/update')
+            ->get('/update')
             ->assertOk()
             ->assertSee('Database Update')
+            ->assertSee('Update Database')
             ->assertDontSee('Maintenance key')
             ->assertDontSee('Create Super Admin')
             ->assertDontSee('Run Migration')

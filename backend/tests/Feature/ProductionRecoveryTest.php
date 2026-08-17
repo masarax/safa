@@ -61,8 +61,10 @@ class ProductionRecoveryTest extends TestCase
 
     public function test_guest_and_non_superadmin_cannot_reach_database_update_writes(): void
     {
-        $this->get('/system/update')->assertRedirect(route('safa.login'));
-        $this->post('/system/update/run')->assertRedirect(route('safa.login'));
+        $this->get('/update')->assertRedirect(route('safa.login'));
+        $this->post('/update/run')->assertRedirect(route('safa.login'));
+        $this->get('/system/update')->assertNotFound();
+        $this->post('/system/update/run')->assertNotFound();
         $this->post('/system/update/migrate')->assertNotFound();
         $this->post('/system/update/seed')->assertNotFound();
 
@@ -71,8 +73,8 @@ class ProductionRecoveryTest extends TestCase
             'is_activated' => true,
         ]);
 
-        $this->actingAs($admin)->get('/system/update')->assertForbidden();
-        $this->actingAs($admin)->post('/system/update/run')->assertForbidden();
+        $this->actingAs($admin)->get('/update')->assertForbidden();
+        $this->actingAs($admin)->post('/update/run')->assertForbidden();
     }
 
     public function test_superadmin_update_page_contains_no_guest_recovery_controls(): void
@@ -83,9 +85,9 @@ class ProductionRecoveryTest extends TestCase
         ]);
 
         $this->actingAs($superAdmin)
-            ->get('/system/update')
+            ->get('/update')
             ->assertOk()
-            ->assertSee('Run Database Update')
+            ->assertSee('Update Database')
             ->assertDontSee('Recovery mode')
             ->assertDontSee('Maintenance key')
             ->assertDontSee('Run Migration')

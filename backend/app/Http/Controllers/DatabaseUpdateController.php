@@ -6,10 +6,10 @@ use App\Models\User;
 use App\Services\DatabaseUpdateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\View\View;
 
 class DatabaseUpdateController extends Controller
 {
@@ -40,13 +40,17 @@ class DatabaseUpdateController extends Controller
         }
     }
 
-    public function show(Request $request): View
+    public function show(Request $request): Response
     {
-        $this->authorizeSuperAdmin($request);
+        $user = $request->user();
+        $canRunUpdate = $user instanceof User
+            && (bool) $user->is_activated
+            && $user->isSuperAdmin();
 
-        return view('system_update', [
+        return response()->view('system_update', [
             'pendingMigrations' => self::pendingMigrations(),
-        ]);
+            'canRunUpdate' => $canRunUpdate,
+        ], $canRunUpdate ? 200 : 403);
     }
 
     public function run(Request $request, DatabaseUpdateService $updates): RedirectResponse
@@ -62,9 +66,16 @@ class DatabaseUpdateController extends Controller
                 );
             }
 
+            if (self::pendingMigrations() === []) {
+                return redirect()->route('safa.app')->with(
+                    'success',
+                    'Database update completed successfully.'
+                );
+            }
+
             return redirect()->route('system.update.show')->with(
-                'success',
-                'Database update completed successfully.'
+                'error',
+                'Database update completed, but pending migrations remain.'
             );
         } catch (\Throwable $e) {
             report($e);
