@@ -21,12 +21,13 @@ class SystemUpdateFlowTest extends TestCase
         Config::set('safa.installed', true);
     }
 
-    public function test_uninitialized_browser_traffic_redirects_to_system_update(): void
+    public function test_uninitialized_browser_traffic_redirects_to_authenticated_update_entrypoint(): void
     {
         Config::set('safa.installed', false);
 
-        $this->get('/')
-            ->assertRedirect(route('system.update.show'));
+        $this->get('/')->assertRedirect(route('system.update.show'));
+        $this->get('/system/update')->assertRedirect(route('safa.login'));
+        $this->get('/login')->assertOk();
     }
 
     public function test_uninitialized_api_traffic_remains_machine_readable(): void
@@ -35,17 +36,15 @@ class SystemUpdateFlowTest extends TestCase
 
         $this->getJson('/api/auth/health')
             ->assertStatus(503)
-            ->assertJson([
-                'status' => 'maintenance_required',
-            ]);
+            ->assertJson(['status' => 'maintenance_required']);
     }
 
-    public function test_pending_migration_redirects_normal_browser_traffic_to_system_update(): void
+    public function test_pending_migration_redirects_normal_browser_traffic_but_keeps_login_available(): void
     {
         $this->markMigrationPending();
 
-        $this->get('/')
-            ->assertRedirect(route('system.update.show'));
+        $this->get('/')->assertRedirect(route('system.update.show'));
+        $this->get('/login')->assertOk();
     }
 
     public function test_pending_migration_returns_machine_readable_503_for_api_requests(): void
@@ -60,23 +59,14 @@ class SystemUpdateFlowTest extends TestCase
             ]);
     }
 
-    public function test_initialized_guest_is_sent_to_login_before_opening_system_maintenance(): void
+    public function test_guest_is_sent_to_login_before_opening_system_maintenance(): void
     {
-        User::factory()->create([
-            'role' => User::ROLE_SUPERADMIN,
-            'is_activated' => true,
-        ]);
-
-        $this->get('/system/update')
-            ->assertRedirect(route('safa.login'));
+        $this->get('/system/update')->assertRedirect(route('safa.login'));
+        $this->post('/system/update/run')->assertRedirect(route('safa.login'));
     }
 
     public function test_non_superadmin_cannot_view_or_execute_maintenance_actions(): void
     {
-        User::factory()->create([
-            'role' => User::ROLE_SUPERADMIN,
-            'is_activated' => true,
-        ]);
         $user = User::factory()->create([
             'role' => User::ROLE_ADMIN,
             'is_activated' => true,
@@ -84,8 +74,12 @@ class SystemUpdateFlowTest extends TestCase
 
         $this->actingAs($user)->get('/system/update')->assertForbidden();
         $this->actingAs($user)->post('/system/update/run')->assertForbidden();
-        $this->actingAs($user)->post('/system/update/migrate')->assertForbidden();
-        $this->actingAs($user)->post('/system/update/seed')->assertForbidden();
+    }
+
+    public function test_legacy_split_migrate_and_seed_web_actions_are_not_routed(): void
+    {
+        $this->post('/system/update/migrate')->assertNotFound();
+        $this->post('/system/update/seed')->assertNotFound();
     }
 
     public function test_superadmin_sees_one_click_update_and_applies_pending_migration(): void
@@ -104,6 +98,7 @@ class SystemUpdateFlowTest extends TestCase
             ->assertSee('Run Database Update')
             ->assertDontSee('Run Migration')
             ->assertDontSee('Run Seed')
+            ->assertDontSee('Maintenance key')
             ->assertSeeHtml('data-database-update-state="pending"');
 
         $this->actingAs($superAdmin)
@@ -126,31 +121,19 @@ class SystemUpdateFlowTest extends TestCase
             ->assertSee('Run Database Update')
             ->assertSeeHtml('data-database-update-state="current"')
             ->assertDontSee('Run Migration')
-            ->assertDontSee('Run Seed');
+            ->assertDontSee('Run Seed')
+            ->assertDontSee('Recovery mode');
     }
 
-    public function test_empty_database_recovery_write_requires_the_server_maintenance_key(): void
+    public function test_empty_database_has_no_public_recovery_write_path(): void
     {
-        Config::set('safa.maintenance_token', 'correct-maintenance-key');
+        Config::set('safa.installed', false);
         $this->markMigrationPending();
 
-        $this->get('/system/update')
-            ->assertOk()
-            ->assertSee('Recovery mode')
-            ->assertSee('Maintenance key')
-            ->assertSee('Run Migration')
-            ->assertSee('Run Seed')
-            ->assertDontSee('Run Database Update');
-
-        $this->post('/system/update/migrate', [
-            'maintenance_token' => 'wrong-key',
-        ])->assertForbidden();
+        $this->get('/system/update')->assertRedirect(route('safa.login'));
+        $this->post('/system/update/migrate')->assertNotFound();
+        $this->post('/system/update/seed')->assertNotFound();
         $this->assertDatabaseMissing('migrations', ['migration' => self::PENDING_MIGRATION]);
-
-        $this->post('/system/update/migrate', [
-            'maintenance_token' => 'correct-maintenance-key',
-        ])->assertRedirect(route('system.update.show'));
-        $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
     }
 
     private function markMigrationPending(): void

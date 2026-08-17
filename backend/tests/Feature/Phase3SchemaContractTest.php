@@ -2,59 +2,48 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use App\Http\Controllers\InstallerController;
+use App\Http\Controllers\DatabaseUpdateController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
 
 class Phase3SchemaContractTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Scenario A: Test autoHealExistingSchema with complete valid schema auto-registers safely.
-     */
-    public function test_auto_heal_existing_schema_contract_mapping()
+    public function test_auto_heal_existing_schema_contract_mapping(): void
     {
-        // Run full migrations to establish existing schema
         Artisan::call('migrate', ['--force' => true]);
 
-        // Verify that pending migrations check auto-heals and returns empty pending list
-        $pending = InstallerController::getPendingMigrations();
+        $pending = DatabaseUpdateController::pendingMigrations();
+
         $this->assertEmpty($pending, 'All migrations should be recognized as completed and zero pending.');
     }
 
-    /**
-     * Scenario B & C: Test missing required column prevents false migration completion registration.
-     */
-    public function test_missing_column_does_not_false_heal()
+    public function test_missing_column_does_not_false_heal(): void
     {
         Artisan::call('migrate', ['--force' => true]);
 
-        // Remove migration entry from migrations table to test auto-healing contract validation
-        DB::table('migrations')->where('migration', '2026_01_02_000000_expand_safa_and_wallet_tables')->delete();
+        $migration = '2026_01_05_000000_create_superadmin_and_rbac_tables';
+        DB::table('migrations')->where('migration', $migration)->delete();
 
-        // Drop 'receiver_account_no' column from transactions table so contract is incomplete
-        Schema::table('transactions', function ($table) {
-            $table->dropColumn('receiver_account_no');
+        Schema::table('users', function ($table) {
+            $table->dropColumn('permissions');
         });
 
-        $migrationFiles = [
-            database_path('migrations/2026_01_02_000000_expand_safa_and_wallet_tables.php')
-        ];
+        $pending = DatabaseUpdateController::pendingMigrations();
 
-        InstallerController::autoHealExistingSchema($migrationFiles);
-
-        $executedAfter = DB::table('migrations')->pluck('migration')->toArray();
-        $this->assertNotContains('2026_01_02_000000_expand_safa_and_wallet_tables', $executedAfter, 'Migration must remain pending when required column receiver_account_no is missing.');
+        $this->assertContains(
+            $migration,
+            $pending,
+            'Migration must remain pending when a required schema column is absent.'
+        );
+        $this->assertDatabaseMissing('migrations', ['migration' => $migration]);
     }
 
-    /**
-     * Scenario F: Existing data preservation test.
-     */
-    public function test_existing_data_preservation_during_migration()
+    public function test_existing_data_preservation_during_migration_state_check(): void
     {
         Artisan::call('migrate', ['--force' => true]);
 
@@ -62,7 +51,7 @@ class Phase3SchemaContractTest extends TestCase
             'name' => 'Test Account',
             'balance' => 1000.00,
             'created_at' => now(),
-            'updated_at' => now()
+            'updated_at' => now(),
         ]);
 
         $customerId = DB::table('customers')->insertGetId([
@@ -71,32 +60,27 @@ class Phase3SchemaContractTest extends TestCase
             'name' => 'Real Customer',
             'phone' => '01711223344',
             'created_at' => now(),
-            'updated_at' => now()
+            'updated_at' => now(),
         ]);
 
-        $pending = InstallerController::getPendingMigrations();
+        $pending = DatabaseUpdateController::pendingMigrations();
         $this->assertEmpty($pending);
 
-        // Verify inserted data remains 100% untouched
         $customer = DB::table('customers')->where('id', $customerId)->first();
         $this->assertNotNull($customer);
-        $this->assertEquals('Real Customer', $customer->name);
-        $this->assertEquals('01711223344', $customer->phone);
+        $this->assertSame('Real Customer', $customer->name);
+        $this->assertSame('01711223344', $customer->phone);
     }
 
-    /**
-     * Scenario G: Idempotency test (running update twice).
-     */
-    public function test_migration_idempotency_second_run_is_noop()
+    public function test_migration_idempotency_second_run_is_noop(): void
     {
         Artisan::call('migrate', ['--force' => true]);
 
-        $firstPending = InstallerController::getPendingMigrations();
+        $firstPending = DatabaseUpdateController::pendingMigrations();
         $this->assertEmpty($firstPending);
 
-        // Run second update call
         Artisan::call('migrate', ['--force' => true]);
-        $secondPending = InstallerController::getPendingMigrations();
+        $secondPending = DatabaseUpdateController::pendingMigrations();
 
         $this->assertEmpty($secondPending);
     }

@@ -3,7 +3,6 @@
 use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DatabaseUpdateController;
-use App\Http\Controllers\InitialSuperAdminController;
 use App\Http\Controllers\RemoteBusinessController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\SupplierController;
@@ -19,15 +18,6 @@ use App\Http\Middleware\RequireBusinessPermission;
 use App\Http\Middleware\ValidateLogoUpload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
-$closedInstallerResponse = fn () => response()->json(['status' => 'not_found'], 404);
-Route::get('/install', [InitialSuperAdminController::class, 'show'])->middleware('throttle:20,1')->name('install.superadmin.show');
-Route::post('/install/super-admin', [InitialSuperAdminController::class, 'store'])->middleware('throttle:5,1')->name('install.superadmin.store');
-Route::any('/install/test-db', $closedInstallerResponse);
-Route::any('/install/process', $closedInstallerResponse);
-Route::any('/install/update', $closedInstallerResponse);
-Route::any('/install/update-process', $closedInstallerResponse);
-Route::any('/update-db', $closedInstallerResponse);
 
 Route::get('/safa-logo.png', fn () => response()->file(public_path('safa-logo.png')));
 Route::get('/favicon.svg', fn () => response()->file(public_path('favicon.svg')));
@@ -46,6 +36,30 @@ Route::get('/storage/logos/{file}', function (string $file) {
     return response()->file($path, ['Cache-Control' => 'public, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
 })->where('file', 'logo_[A-Za-z0-9_-]+\\.(?:png|jpe?g|gif|webp)');
 
+// Retired installer/recovery endpoints are deliberately hard-closed for every
+// HTTP method. Route::fallback only guarantees browser-style fallback routing;
+// explicit tombstones prevent method probing from exposing a 405 distinction.
+foreach ([
+    '/index',
+    '/install',
+    '/install/super-admin',
+    '/install/test-db',
+    '/install/process',
+    '/install/update',
+    '/install/update-process',
+    '/update-db',
+    '/system/update/migrate',
+    '/system/update/seed',
+] as $retiredPath) {
+    Route::any($retiredPath, function (Request $request) {
+        if ($request->expectsJson()) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
+        abort(404);
+    });
+}
+
 Route::get('/', fn (Request $request) => $request->user() ? redirect()->route('safa.app') : redirect()->route('safa.login'));
 Route::middleware('guest')->group(function () {
     Route::get('/login', [WebAuthController::class, 'showLogin'])->name('safa.login');
@@ -53,11 +67,9 @@ Route::middleware('guest')->group(function () {
 });
 Route::post('/logout', [WebAuthController::class, 'logout'])->middleware('auth')->name('safa.logout');
 
-Route::middleware('throttle:20,1')->group(function () {
+Route::middleware(['auth', 'throttle:20,1'])->group(function () {
     Route::get('/system/update', [DatabaseUpdateController::class, 'show'])->name('system.update.show');
-    Route::post('/system/update/run', [DatabaseUpdateController::class, 'run'])->middleware(['auth', 'throttle:5,1'])->name('system.update.run');
-    Route::post('/system/update/migrate', [DatabaseUpdateController::class, 'migrate'])->name('system.update.migrate');
-    Route::post('/system/update/seed', [DatabaseUpdateController::class, 'seed'])->name('system.update.seed');
+    Route::post('/system/update/run', [DatabaseUpdateController::class, 'run'])->middleware('throttle:5,1')->name('system.update.run');
 });
 
 Route::middleware(['auth', 'throttle:120,1'])->group(function () {
