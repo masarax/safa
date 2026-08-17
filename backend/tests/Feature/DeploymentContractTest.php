@@ -56,30 +56,32 @@ class DeploymentContractTest extends TestCase
         }
     }
 
-    public function test_database_maintenance_is_owned_by_the_protected_web_application(): void
+    public function test_database_maintenance_is_owned_by_authenticated_superadmin_application_flow(): void
     {
         $controller = (string) file_get_contents(app_path('Http/Controllers/DatabaseUpdateController.php'));
+        $service = (string) file_get_contents(app_path('Services/DatabaseUpdateService.php'));
         $middleware = (string) file_get_contents(app_path('Http/Middleware/CheckInstalled.php'));
         $routes = (string) file_get_contents(base_path('routes/web.php'));
         $publicHtaccess = (string) file_get_contents(public_path('.htaccess'));
 
         $this->assertStringContainsString("Route::get('/system/update'", $routes);
-        $this->assertStringContainsString("Route::post('/system/update/migrate'", $routes);
-        $this->assertStringContainsString("Route::post('/system/update/seed'", $routes);
+        $this->assertStringContainsString("Route::post('/system/update/run'", $routes);
         $this->assertStringContainsString("->name('system.update.show')", $routes);
-        $this->assertStringContainsString("->name('system.update.migrate')", $routes);
-        $this->assertStringContainsString("->name('system.update.seed')", $routes);
-        $this->assertStringContainsString("Artisan::call('migrate', ['--force' => true])", $controller);
-        $this->assertStringContainsString("Artisan::call('db:seed'", $controller);
-        $this->assertStringContainsString("Artisan::call('optimize:clear')", $controller);
+        $this->assertStringContainsString("->name('system.update.run')", $routes);
+        $this->assertStringNotContainsString("Route::post('/system/update/migrate'", $routes);
+        $this->assertStringNotContainsString("Route::post('/system/update/seed'", $routes);
+
         $this->assertStringContainsString('$user->isSuperAdmin()', $controller);
-        $this->assertStringContainsString("config('safa.maintenance_token'", $controller);
-        $this->assertStringNotContainsString("config('database.connections.", $controller);
+        $this->assertStringNotContainsString("config('safa.maintenance_token'", $controller);
+        $this->assertStringContainsString("Artisan::call('migrate', ['--force' => true])", $service);
+        $this->assertStringContainsString('ReleaseDataUpdateSeeder::class', $service);
+        $this->assertStringContainsString("Artisan::call('optimize:clear')", $service);
+        $this->assertStringContainsString('flock($handle, LOCK_EX | LOCK_NB)', $service);
         $this->assertStringContainsString("redirect()->route('system.update.show')", $middleware);
         $this->assertStringContainsString("'status' => 'update_required'", $middleware);
 
-        foreach (['migrate:fresh', 'migrate:reset', 'migrate:refresh'] as $destructiveCommand) {
-            $this->assertStringNotContainsString($destructiveCommand, $controller);
+        foreach (['migrate:fresh', 'migrate:reset', 'migrate:refresh', 'migrate:rollback', 'db:wipe', 'truncate'] as $destructiveCommand) {
+            $this->assertStringNotContainsString($destructiveCommand, $service);
         }
 
         $this->assertFileDoesNotExist(base_path('deploy/run-once.php'));
