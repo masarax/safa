@@ -201,6 +201,17 @@
                     </article>
                     @endif
 
+                    @if($isSuperAdmin)
+                    <article class="surface-card span-2" id="database-update-settings">
+                        <div class="card-heading"><div><h2>{{ $bn ? 'ডাটাবেজ আপডেট' : 'Database Update' }}</h2><p>{{ $bn ? 'নতুন মাইগ্রেশন ও অনুমোদিত release data update নিরাপদভাবে চালান' : 'Apply new migrations and approved release data updates safely' }}</p></div></div>
+                        <form method="post" action="{{ route('system.update.run') }}" class="stack-form">
+                            @csrf
+                            <button class="primary-button wide" type="submit">{{ $bn ? 'ডাটাবেজ আপডেট রান করুন' : 'Run Database Update' }}</button>
+                        </form>
+                        <p>{{ $bn ? 'এই অপশন business data reset, rollback বা truncate করে না।' : 'This action does not reset, roll back, or truncate business data.' }}</p>
+                    </article>
+                    @endif
+
                     @if($canManageUsers)
                     <article class="surface-card span-2" id="user-management-settings">
                         <div class="card-heading"><div><h2>{{ $bn ? 'ইউজার ম্যানেজমেন্ট' : 'User Management' }}</h2><p>{{ $bn ? 'অন্য ব্যবহারকারী ও তাদের অ্যাক্সেস স্তর পরিচালনা করুন' : 'Manage users and role-based access' }}</p></div></div>

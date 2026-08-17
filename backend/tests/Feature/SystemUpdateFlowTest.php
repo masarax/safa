@@ -83,11 +83,12 @@ class SystemUpdateFlowTest extends TestCase
         ]);
 
         $this->actingAs($user)->get('/system/update')->assertForbidden();
+        $this->actingAs($user)->post('/system/update/run')->assertForbidden();
         $this->actingAs($user)->post('/system/update/migrate')->assertForbidden();
         $this->actingAs($user)->post('/system/update/seed')->assertForbidden();
     }
 
-    public function test_superadmin_sees_separate_actions_and_resumes_app_after_migration(): void
+    public function test_superadmin_sees_one_click_update_and_applies_pending_migration(): void
     {
         $this->markMigrationPending();
         $superAdmin = User::factory()->create([
@@ -98,21 +99,21 @@ class SystemUpdateFlowTest extends TestCase
         $this->actingAs($superAdmin)
             ->get('/system/update')
             ->assertOk()
-            ->assertSee('System Maintenance')
+            ->assertSee('Database Update')
             ->assertSee(self::PENDING_MIGRATION)
-            ->assertSee('Run Migration')
-            ->assertSee('Run Seed')
-            ->assertSeeHtml('data-seed-state="migration-required"')
-            ->assertSeeHtml('data-maintenance-action="seed" type="submit" disabled');
+            ->assertSee('Run Database Update')
+            ->assertDontSee('Run Migration')
+            ->assertDontSee('Run Seed')
+            ->assertSeeHtml('data-database-update-state="pending"');
 
         $this->actingAs($superAdmin)
-            ->post('/system/update/migrate')
-            ->assertRedirect(route('safa.app'));
+            ->post('/system/update/run')
+            ->assertRedirect(route('system.update.show'));
 
         $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
     }
 
-    public function test_maintenance_page_keeps_seed_available_when_no_migration_is_pending(): void
+    public function test_installed_maintenance_page_keeps_one_idempotent_update_action_when_current(): void
     {
         $superAdmin = User::factory()->create([
             'role' => User::ROLE_SUPERADMIN,
@@ -122,10 +123,10 @@ class SystemUpdateFlowTest extends TestCase
         $this->actingAs($superAdmin)
             ->get('/system/update')
             ->assertOk()
-            ->assertSee('Run Migration')
-            ->assertSee('Run Seed')
-            ->assertSeeHtml('data-seed-state="ready"')
-            ->assertDontSeeHtml('data-maintenance-action="seed" type="submit" disabled');
+            ->assertSee('Run Database Update')
+            ->assertSeeHtml('data-database-update-state="current"')
+            ->assertDontSee('Run Migration')
+            ->assertDontSee('Run Seed');
     }
 
     public function test_empty_database_recovery_write_requires_the_server_maintenance_key(): void
@@ -136,7 +137,10 @@ class SystemUpdateFlowTest extends TestCase
         $this->get('/system/update')
             ->assertOk()
             ->assertSee('Recovery mode')
-            ->assertSee('Maintenance key');
+            ->assertSee('Maintenance key')
+            ->assertSee('Run Migration')
+            ->assertSee('Run Seed')
+            ->assertDontSee('Run Database Update');
 
         $this->post('/system/update/migrate', [
             'maintenance_token' => 'wrong-key',

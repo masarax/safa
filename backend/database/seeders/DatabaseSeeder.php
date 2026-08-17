@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\AppVersion;
 use App\Models\SafaApiKey;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -35,17 +34,6 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        AppVersion::updateOrCreate(
-            ['platform' => 'android'],
-            [
-                'min_version_code' => 2,
-                'latest_version_code' => 2,
-                'force_update' => false,
-                'update_url' => null,
-            ]
-        );
-
-        $this->call(SuperAdminWorkspaceSeeder::class);
-        $this->call(CoreReferenceSeeder::class);
+        $this->call(ReleaseDataUpdateSeeder::class);
     }
 }
