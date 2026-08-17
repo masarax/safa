@@ -23,10 +23,9 @@ class InstalledDatabaseUpdateTest extends TestCase
     {
         parent::setUp();
         Config::set('safa.enforce_update_checks_in_tests', true);
-        Config::set('safa.installed', true);
     }
 
-    public function test_only_activated_superadmin_can_execute_installed_database_update(): void
+    public function test_only_activated_superadmin_can_execute_database_update(): void
     {
         $activeSuperAdmin = $this->superAdmin('0500000001', 'super@example.test');
         $admin = User::factory()->create([
@@ -42,10 +41,10 @@ class InstalledDatabaseUpdateTest extends TestCase
             'is_activated' => false,
         ]);
 
-        $this->post('/system/update/run')->assertRedirect(route('safa.login'));
-        $this->actingAs($admin)->post('/system/update/run')->assertForbidden();
-        $this->actingAs($inactiveSuperAdmin)->post('/system/update/run')->assertForbidden();
-        $this->actingAs($activeSuperAdmin)->post('/system/update/run')->assertRedirect(route('system.update.show'));
+        $this->post('/update/run')->assertRedirect(route('safa.login'));
+        $this->actingAs($admin)->post('/update/run')->assertForbidden();
+        $this->actingAs($inactiveSuperAdmin)->post('/update/run')->assertForbidden();
+        $this->actingAs($activeSuperAdmin)->post('/update/run')->assertRedirect(route('safa.app'));
     }
 
     public function test_database_update_setting_is_visible_only_to_superadmin_in_both_languages(): void
@@ -63,7 +62,7 @@ class InstalledDatabaseUpdateTest extends TestCase
             ->get('/app')
             ->assertOk()
             ->assertSeeHtml('id="database-update-settings"')
-            ->assertSee('Run Database Update');
+            ->assertSee('Database Update');
 
         $this->actingAs($superAdmin)
             ->withSession(['safa_web_language' => 'bn'])
@@ -106,8 +105,8 @@ class InstalledDatabaseUpdateTest extends TestCase
         $this->markMigrationPending();
 
         $this->actingAs($superAdmin)
-            ->post('/system/update/run')
-            ->assertRedirect(route('system.update.show'));
+            ->post('/update/run')
+            ->assertRedirect(route('safa.app'));
 
         $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
         $this->assertDatabaseHas('accounts', [
@@ -153,8 +152,8 @@ class InstalledDatabaseUpdateTest extends TestCase
             'phone' => '0500000101',
         ]);
 
-        $this->actingAs($superAdmin)->post('/system/update/run')->assertRedirect(route('system.update.show'));
-        $this->actingAs($superAdmin)->post('/system/update/run')->assertRedirect(route('system.update.show'));
+        $this->actingAs($superAdmin)->post('/update/run')->assertRedirect(route('safa.app'));
+        $this->actingAs($superAdmin)->post('/update/run')->assertRedirect(route('safa.app'));
 
         $this->assertSame(1, Account::query()->whereKey($account->id)->count());
         $this->assertSame(1, Customer::query()->where('account_id', $account->id)->where('local_id', 101)->count());
@@ -177,7 +176,7 @@ class InstalledDatabaseUpdateTest extends TestCase
         try {
             $this->actingAs($superAdmin)
                 ->followingRedirects()
-                ->post('/system/update/run')
+                ->post('/update/run')
                 ->assertOk()
                 ->assertSee('A database update is already running. Try again after it finishes.');
         } finally {
@@ -191,7 +190,8 @@ class InstalledDatabaseUpdateTest extends TestCase
         $source = (string) file_get_contents(app_path('Services/DatabaseUpdateService.php'));
 
         $this->assertStringContainsString("Artisan::call('migrate'", $source);
-        foreach (['migrate:fresh', 'migrate:reset', 'migrate:rollback', "Artisan::call('db:wipe'", 'truncate('] as $forbidden) {
+        $this->assertStringContainsString('ReleaseDataUpdateSeeder::class', $source);
+        foreach (['migrate:fresh', 'migrate:reset', 'migrate:refresh', 'migrate:rollback', "Artisan::call('db:wipe'", 'truncate('] as $forbidden) {
             $this->assertStringNotContainsString($forbidden, $source);
         }
     }
