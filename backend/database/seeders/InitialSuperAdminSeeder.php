@@ -28,9 +28,20 @@ class InitialSuperAdminSeeder extends Seeder
 
         $config = (array) config('safa.initial_admin', []);
         $name = trim((string) ($config['name'] ?? ''));
-        $mobile = MobileNumber::normalize((string) ($config['mobile'] ?? ''));
+        $mobileInput = trim((string) ($config['mobile'] ?? ''));
         $email = strtolower(trim((string) ($config['email'] ?? '')));
         $pin = trim((string) ($config['pin'] ?? ''));
+
+        // Completely absent bootstrap credentials are intentional: database
+        // seeding must still be able to apply non-secret release/reference data.
+        // The first Super Admin can then be provisioned explicitly through the
+        // supported CLI/web bootstrap flow. Partial configuration remains an
+        // operator error and is rejected by the validation below.
+        if ($name === '' && $mobileInput === '' && $email === '' && $pin === '') {
+            return;
+        }
+
+        $mobile = MobileNumber::normalize($mobileInput);
 
         if ($name === ''
             || $mobile === ''
