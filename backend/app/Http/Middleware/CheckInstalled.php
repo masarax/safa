@@ -11,7 +11,11 @@ class CheckInstalled
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->is('index') || $request->is('index/*')) {
+        if ($request->is('index')
+            || $request->is('index/*')
+            || $request->is('install')
+            || $request->is('install/*')
+            || $request->is('update-db')) {
             return response()->json(['status' => 'not_found'], 404);
         }
 
@@ -19,11 +23,9 @@ class CheckInstalled
             return $next($request);
         }
 
-        // Maintenance, authentication, and exact public presentation assets must
-        // remain reachable while an empty database is being recovered. The
-        // maintenance controller independently protects every write operation.
-        if ($request->is('install*')
-            || $request->is('system/update*')
+        // Authentication, the authenticated database-update route, and exact
+        // public presentation assets remain reachable while an update is pending.
+        if ($request->is('system/update*')
             || $request->is('login')
             || $request->is('logout')
             || $request->is('safa-logo.png')
