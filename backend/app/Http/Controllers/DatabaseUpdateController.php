@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\DatabaseUpdateService;
-use App\Support\InitialSuperAdminBootstrap;
-use Database\Seeders\DatabaseSeeder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -42,25 +40,12 @@ class DatabaseUpdateController extends Controller
         }
     }
 
-    public function show(Request $request): View|RedirectResponse
+    public function show(Request $request): View
     {
-        $recoveryMode = !$this->hasActiveSuperAdmin();
-        if (!$recoveryMode) {
-            if (!$request->user()) {
-                return redirect()->route('safa.login');
-            }
-            $this->authorizeSuperAdmin($request);
-        }
+        $this->authorizeSuperAdmin($request);
 
-        $pendingMigrations = self::pendingMigrations();
-
-        return view('install_update', [
-            'pendingMigrations' => $pendingMigrations,
-            'recoveryMode' => $recoveryMode,
-            'initialAdminConfigured' => $this->initialAdminConfigured(),
-            'initialSuperAdminBootstrapAvailable' => $recoveryMode
-                && !$pendingMigrations
-                && InitialSuperAdminBootstrap::available(),
+        return view('system_update', [
+            'pendingMigrations' => self::pendingMigrations(),
         ]);
     }
 
@@ -81,121 +66,14 @@ class DatabaseUpdateController extends Controller
                 'success',
                 'Database update completed successfully.'
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            report($e);
+
             return redirect()->route('system.update.show')->with(
                 'error',
                 'Database update failed. Existing business data was not intentionally removed.'
             );
         }
-    }
-
-    public function migrate(Request $request): RedirectResponse
-    {
-        if ($redirect = $this->redirectGuestWhenInitialized($request)) {
-            return $redirect;
-        }
-        $recoveryMode = !$this->hasActiveSuperAdmin();
-        $this->authorizeMaintenance($request);
-
-        if (!self::pendingMigrations()) {
-            return redirect()->route('system.update.show')->with('info', 'No pending migrations.');
-        }
-
-        try {
-            $files = glob(database_path('migrations/*.php')) ?: [];
-            self::healLegacyMigrationRecords($files);
-
-            if (Artisan::call('migrate', ['--force' => true]) !== 0) {
-                throw new \RuntimeException('Migration command returned a non-zero exit code.');
-            }
-
-            try {
-                Artisan::call('optimize:clear');
-            } catch (\Throwable $cacheError) {
-                report($cacheError);
-            }
-
-            if (self::pendingMigrations()) {
-                return redirect()->route('system.update.show')->with(
-                    'error',
-                    'Migration completed, but database changes are still pending. Review the server log before retrying.'
-                );
-            }
-
-            if ($recoveryMode) {
-                return redirect()->route('system.update.show')->with('success', 'Database migration completed successfully.');
-            }
-
-            return redirect()->route('safa.app')->with('success', 'Database migration completed successfully.');
-        } catch (\Throwable $e) {
-            report($e);
-
-            return redirect()->route('system.update.show')->with(
-                'error',
-                'Database migration failed. Existing data was not intentionally removed.'
-            );
-        }
-    }
-
-    public function seed(Request $request): RedirectResponse
-    {
-        if ($redirect = $this->redirectGuestWhenInitialized($request)) {
-            return $redirect;
-        }
-        $recoveryMode = !$this->hasActiveSuperAdmin();
-        $this->authorizeMaintenance($request);
-
-        if (self::pendingMigrations()) {
-            return redirect()->route('system.update.show')->with('error', 'Run Migration before Run Seed.');
-        }
-
-        try {
-            if (Artisan::call('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true]) !== 0) {
-                throw new \RuntimeException('Database seed returned a non-zero exit code.');
-            }
-
-            if (!$this->hasActiveSuperAdmin()) {
-                throw new \RuntimeException('Seed completed without an activated Super Admin.');
-            }
-
-            $this->markInstalled();
-
-            try {
-                Artisan::call('optimize:clear');
-            } catch (\Throwable $cacheError) {
-                report($cacheError);
-            }
-
-            if ($recoveryMode) {
-                return redirect()->route('safa.login')->with('success', 'Seed completed. Sign in with the configured Super Admin account.');
-            }
-
-            return redirect()->route('system.update.show')->with('success', 'Seed completed successfully.');
-        } catch (\Throwable $e) {
-            report($e);
-
-            $message = $recoveryMode
-                ? 'Seed failed. Configure the server maintenance key and complete SAFA_INITIAL_ADMIN_* values, then retry.'
-                : 'Seed failed. Existing business data was not intentionally removed.';
-
-            return redirect()->route('system.update.show')->with('error', $message);
-        }
-    }
-
-    private function authorizeMaintenance(Request $request): void
-    {
-        if ($this->hasActiveSuperAdmin()) {
-            $this->authorizeSuperAdmin($request);
-            return;
-        }
-
-        $expected = trim((string) config('safa.maintenance_token', ''));
-        $provided = trim((string) $request->input('maintenance_token', ''));
-        abort_unless(
-            $expected !== '' && $provided !== '' && hash_equals($expected, $provided),
-            403,
-            'Maintenance authorization failed.'
-        );
     }
 
     private function authorizeSuperAdmin(Request $request): User
@@ -210,54 +88,12 @@ class DatabaseUpdateController extends Controller
         return $user;
     }
 
-    private function redirectGuestWhenInitialized(Request $request): ?RedirectResponse
-    {
-        return $this->hasActiveSuperAdmin() && !$request->user()
-            ? redirect()->route('safa.login')
-            : null;
-    }
-
-    private function hasActiveSuperAdmin(): bool
-    {
-        try {
-            return Schema::hasTable('users')
-                && Schema::hasColumn('users', 'role')
-                && Schema::hasColumn('users', 'is_activated')
-                && User::query()
-                    ->where('role', User::ROLE_SUPERADMIN)
-                    ->where('is_activated', true)
-                    ->exists();
-        } catch (\Throwable $e) {
-            report($e);
-            return false;
-        }
-    }
-
-    private function initialAdminConfigured(): bool
-    {
-        $admin = (array) config('safa.initial_admin', []);
-
-        return trim((string) ($admin['name'] ?? '')) !== ''
-            && trim((string) ($admin['mobile'] ?? '')) !== ''
-            && filter_var(trim((string) ($admin['email'] ?? '')), FILTER_VALIDATE_EMAIL) !== false
-            && preg_match('/^\d{6}$/', trim((string) ($admin['pin'] ?? ''))) === 1;
-    }
-
-    private function markInstalled(): void
-    {
-        if (app()->environment('testing') || is_file(storage_path('installed'))) {
-            return;
-        }
-
-        @file_put_contents(storage_path('installed'), now()->toIso8601String() . PHP_EOL, LOCK_EX);
-    }
-
     private static function healLegacyMigrationRecords(array $migrationFiles): void
     {
         if (!Schema::hasTable('migrations')) {
             try {
                 Artisan::call('migrate:install');
-            } catch (\Throwable $e) {
+            } catch (\Throwable) {
                 return;
             }
         }

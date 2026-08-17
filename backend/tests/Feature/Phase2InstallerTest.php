@@ -2,32 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\InstallerController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class Phase2InstallerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_only_the_narrow_first_superadmin_bootstrap_is_exposed(): void
-    {
-        $this->get('/install')
-            ->assertOk()
-            ->assertSee('Create the first Super Admin')
-            ->assertDontSee('Database Host')
-            ->assertDontSee('Database Password');
-
-        $this->get('/install/update')->assertNotFound();
-        $this->postJson('/update-db')->assertNotFound();
-    }
-
-    public function test_installer_database_probe_and_process_are_unreachable_even_with_database_input(): void
+    public function test_all_legacy_installer_and_database_probe_paths_are_hard_closed(): void
     {
         $payload = [
-            'app_name' => 'SAFA',
-            'app_url' => 'https://example.invalid',
             'db_host' => '127.0.0.1',
             'db_port' => 3306,
             'db_name' => 'private_db',
@@ -35,34 +19,24 @@ class Phase2InstallerTest extends TestCase
             'db_pass' => 'probe_password',
         ];
 
-        foreach (['/install/test-db', '/install/process', '/install/update-process'] as $path) {
+        foreach (['/install', '/install/super-admin', '/install/test-db', '/install/process', '/install/update', '/install/update-process', '/update-db'] as $path) {
+            $this->get($path)->assertNotFound();
             $response = $this->postJson($path, $payload);
             $response->assertNotFound();
             $response->assertJson(['status' => 'not_found']);
-            $this->assertStringNotContainsString('Exception:', $response->getContent());
             $this->assertStringNotContainsString('PDO', $response->getContent());
             $this->assertStringNotContainsString('probe_password', $response->getContent());
         }
     }
 
-    public function test_retired_installer_controller_methods_cannot_execute_database_or_update_work(): void
+    public function test_installer_controller_and_routes_are_removed_from_runtime_source(): void
     {
-        $controller = new InstallerController();
+        $routes = (string) file_get_contents(base_path('routes/web.php'));
+        $bootstrap = (string) file_get_contents(base_path('bootstrap/app.php'));
 
-        foreach (['index', 'testDb', 'process', 'success', 'updateView', 'updateProcess'] as $method) {
-            $response = $controller->{$method}();
-            $this->assertSame(404, $response->getStatusCode());
-            $payload = $response->getData(true);
-            $this->assertSame('not_found', $payload['status'] ?? null);
-            $this->assertStringNotContainsString('PDO', $response->getContent());
-            $this->assertStringNotContainsString('Exception:', $response->getContent());
-        }
-    }
-
-    public function test_pending_migrations_are_empty_after_migration(): void
-    {
-        Artisan::call('migrate', ['--force' => true]);
-        $this->assertEmpty(InstallerController::getPendingMigrations());
+        $this->assertStringNotContainsString('InstallerController', $routes);
+        $this->assertStringNotContainsString('InitialSuperAdminController', $routes);
+        $this->assertStringNotContainsString('ensure.not.installed', $bootstrap);
     }
 
     public function test_branding_assets_exist(): void
