@@ -6,7 +6,6 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 
 use App\Http\Middleware\CheckInstalled;
-use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\VerifyMultiLevelToken;
 use App\Http\Middleware\VerifyActiveAuthSession;
@@ -23,7 +22,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'check.installed' => CheckInstalled::class,
-            'ensure.not.installed' => EnsureNotInstalled::class,
             'security.headers' => SecurityHeaders::class,
             'verify.multilevel.token' => VerifyMultiLevelToken::class,
             'verify.active.session' => VerifyActiveAuthSession::class,
