@@ -43,6 +43,19 @@ php artisan migrate
 
 Configure the database and server-only secrets in `.env` before running the application.
 
+### First Super Admin and database seeding
+
+`DatabaseSeeder` never creates a default administrator or hard-coded credential. When all four `SAFA_INITIAL_ADMIN_*` values are empty, normal database seeding skips administrator creation and continues with non-secret release/reference data. If any initial-admin value is supplied, the complete configuration must be valid or seeding fails closed.
+
+For an empty database that has already been migrated and does not use `SAFA_INITIAL_ADMIN_*`, seed the non-secret data and then provision the first Super Admin explicitly:
+
+```bash
+php artisan db:seed --force
+php artisan safa:provision-admin
+```
+
+Do not rerun `migrate:fresh` to recover from a seeding/configuration error. In production, use only forward migrations (`php artisan migrate --force`); `migrate:fresh` destroys existing data.
+
 ## Testing
 
 For a deterministic local test environment:
