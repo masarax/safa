@@ -26,11 +26,11 @@ class Phase3SchemaContractTest extends TestCase
     {
         Artisan::call('migrate', ['--force' => true]);
 
-        $migration = '2026_08_12_000001_harden_auth_session_storage';
+        $migration = '2026_01_05_000000_create_superadmin_and_rbac_tables';
         DB::table('migrations')->where('migration', $migration)->delete();
 
-        Schema::table('auth_sessions', function ($table) {
-            $table->dropColumn('refresh_token_hash');
+        Schema::table('users', function ($table) {
+            $table->dropColumn('permissions');
         });
 
         $pending = DatabaseUpdateController::pendingMigrations();
