@@ -26,32 +26,27 @@ class InitialSuperAdminSeeder extends Seeder
             throw new RuntimeException('An inactive Super Admin already exists and must be recovered manually.');
         }
 
-        $config = (array) config('safa.initial_admin', []);
-        $name = trim((string) ($config['name'] ?? ''));
-        $mobileInput = trim((string) ($config['mobile'] ?? ''));
-        $email = strtolower(trim((string) ($config['email'] ?? '')));
-        $pin = trim((string) ($config['pin'] ?? ''));
-
-        // Completely absent bootstrap credentials are intentional: database
-        // seeding must still be able to apply non-secret release/reference data.
-        // The first Super Admin can then be provisioned explicitly through the
-        // supported CLI/web bootstrap flow. Partial configuration remains an
-        // operator error and is rejected by the validation below.
-        if ($name === '' && $mobileInput === '' && $email === '' && $pin === '') {
+        if (!$this->canPromptInteractively()) {
+            $this->command?->warn('No Super Admin exists. Run php artisan db:seed interactively to create the first Super Admin.');
             return;
         }
 
-        $mobile = MobileNumber::normalize($mobileInput);
+        $name = trim((string) $this->command->ask('Super Admin name'));
+        $mobile = MobileNumber::normalize((string) $this->command->ask('Mobile number'));
+        $email = strtolower(trim((string) $this->command->ask('Email address')));
+        $pin = trim((string) $this->command->secret('6-digit PIN'));
+        $pinConfirmation = trim((string) $this->command->secret('Confirm 6-digit PIN'));
 
         if ($name === ''
             || $mobile === ''
             || !MobileNumber::isValid($mobile)
             || filter_var($email, FILTER_VALIDATE_EMAIL) === false
-            || preg_match('/^\d{6}$/', $pin) !== 1) {
-            throw new RuntimeException('Initial Super Admin server configuration is incomplete or invalid.');
+            || preg_match('/^\d{6}$/', $pin) !== 1
+            || !hash_equals($pin, $pinConfirmation)) {
+            throw new RuntimeException('Initial Super Admin input is invalid. Name, valid mobile/email and matching 6-digit PIN values are required.');
         }
 
-        if (User::query()->where('mobile', $mobile)->orWhere('email', $email)->exists()) {
+        if (User::query()->where('mobile', $mobile)->orWhereRaw('LOWER(email) = ?', [$email])->exists()) {
             throw new RuntimeException('Initial Super Admin identity conflicts with an existing user.');
         }
 
@@ -67,6 +62,20 @@ class InitialSuperAdminSeeder extends Seeder
                 'is_activated' => true,
                 'permissions' => User::permissionsForRole(User::ROLE_SUPERADMIN),
             ]);
-        });
+        }, 3);
+
+        $this->command->info('Initial Super Admin created successfully.');
+    }
+
+    private function canPromptInteractively(): bool
+    {
+        if ($this->command === null) {
+            return false;
+        }
+
+        $arguments = array_map('strval', $_SERVER['argv'] ?? []);
+
+        return !in_array('--no-interaction', $arguments, true)
+            && !in_array('-n', $arguments, true);
     }
 }
