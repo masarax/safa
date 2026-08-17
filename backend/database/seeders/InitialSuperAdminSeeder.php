@@ -73,9 +73,17 @@ class InitialSuperAdminSeeder extends Seeder
             return false;
         }
 
-        $arguments = array_map('strval', $_SERVER['argv'] ?? []);
+        $arguments = array_values(array_map('strval', $_SERVER['argv'] ?? []));
+        if (in_array('--no-interaction', $arguments, true) || in_array('-n', $arguments, true)) {
+            return false;
+        }
 
-        return !in_array('--no-interaction', $arguments, true)
-            && !in_array('-n', $arguments, true);
+        $artisanCommand = $arguments[1] ?? '';
+        if ($artisanCommand === 'db:seed') {
+            return true;
+        }
+
+        return in_array($artisanCommand, ['migrate:fresh', 'migrate:refresh'], true)
+            && in_array('--seed', $arguments, true);
     }
 }
