@@ -36,6 +36,30 @@ Route::get('/storage/logos/{file}', function (string $file) {
     return response()->file($path, ['Cache-Control' => 'public, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
 })->where('file', 'logo_[A-Za-z0-9_-]+\\.(?:png|jpe?g|gif|webp)');
 
+// Retired installer/recovery endpoints are deliberately hard-closed for every
+// HTTP method. Route::fallback only guarantees browser-style fallback routing;
+// explicit tombstones prevent method probing from exposing a 405 distinction.
+foreach ([
+    '/index',
+    '/install',
+    '/install/super-admin',
+    '/install/test-db',
+    '/install/process',
+    '/install/update',
+    '/install/update-process',
+    '/update-db',
+    '/system/update/migrate',
+    '/system/update/seed',
+] as $retiredPath) {
+    Route::any($retiredPath, function (Request $request) {
+        if ($request->expectsJson()) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
+        abort(404);
+    });
+}
+
 Route::get('/', fn (Request $request) => $request->user() ? redirect()->route('safa.app') : redirect()->route('safa.login'));
 Route::middleware('guest')->group(function () {
     Route::get('/login', [WebAuthController::class, 'showLogin'])->name('safa.login');
