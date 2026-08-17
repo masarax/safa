@@ -150,6 +150,43 @@ The FTP workflow intentionally cannot execute migrations or cache commands. For 
 
 Third-party GitHub Actions are pinned to immutable commit SHAs. Production signing credentials and deployment credentials remain GitHub secrets and are not exposed to pull-request code.
 
+### Signed Android APK release
+
+Production APK publication uses `.github/workflows/release-apk.yml` (`Build Signed Android APK`). The workflow can be started manually with `workflow_dispatch` or by pushing an intentional release tag matching `v*`. A production-signed APK must only be produced from the exact commit intended for release.
+
+Configure these repository GitHub Actions secrets before triggering the workflow:
+
+- `ANDROID_KEYSTORE_BASE64`: base64-encoded production Android keystore bytes.
+- `ANDROID_STORE_PASSWORD`: keystore store password.
+- `ANDROID_KEY_ALIAS`: alias of the production signing key in the keystore.
+- `ANDROID_KEY_PASSWORD`: password for that signing key.
+
+Never commit the keystore, decoded signing material, passwords, aliases containing sensitive context, or copied secret values to the repository. The workflow fails closed when any required signing secret is missing, decodes the keystore only into the runner's temporary directory with restricted permissions, validates the requested alias, and removes the decoded keystore in an `always()` cleanup step.
+
+Before each release:
+
+1. Update `SAFA_VERSION_CODE` and `SAFA_VERSION_NAME` in `gradle.properties` through the normal issue/branch/PR/CI process. `SAFA_VERSION_CODE` must be greater than the integer recorded in `release/android-last-published-version-code.txt`.
+2. Confirm the intended release commit is green in the normal Android CI.
+3. Confirm all four production signing secrets above are configured in GitHub Actions without printing or copying their values into logs or issue/PR text.
+4. Run **Actions → Build Signed Android APK → Run workflow** against the intended release ref, or push an intentional `v*` release tag that points to that exact commit.
+5. Require the release job to pass unit tests, lint, minified/resource-shrunk `assembleRelease`, and `apksigner verify` before accepting the artifact.
+
+A successful run uploads one artifact named `safa-signed-apk-<run-id>` for 30 days. It contains:
+
+- the signed release APK;
+- `mapping.txt` for the minified release;
+- `SHA256SUMS.txt` for the APK;
+- `build-identity.txt` containing the exact Git commit SHA and Git ref used by the run.
+
+Before publishing or distributing the APK, download the artifact and verify all of the following:
+
+1. `build-identity.txt` contains the intended full 40-character commit SHA and expected release ref.
+2. Put the APK and `SHA256SUMS.txt` in the same directory and run `sha256sum -c SHA256SUMS.txt`; it must report success.
+3. Run `apksigner verify --verbose <apk-file>` using Android SDK Build Tools; verification must succeed.
+4. Confirm the APK version identity matches the reviewed `SAFA_VERSION_CODE` / `SAFA_VERSION_NAME` for that release.
+
+After the APK is actually published, update `release/android-last-published-version-code.txt` to the published `SAFA_VERSION_CODE` through the normal issue/branch/PR/CI process. Do not advance that baseline for an unpublished or failed release.
+
 ## Important Development Rules
 
 1. Never add passwords, PINs, JWT secrets, refresh tokens or private API secrets to Git.
