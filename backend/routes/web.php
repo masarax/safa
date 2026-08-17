@@ -55,6 +55,7 @@ Route::post('/logout', [WebAuthController::class, 'logout'])->middleware('auth')
 
 Route::middleware('throttle:20,1')->group(function () {
     Route::get('/system/update', [DatabaseUpdateController::class, 'show'])->name('system.update.show');
+    Route::post('/system/update/run', [DatabaseUpdateController::class, 'run'])->middleware(['auth', 'throttle:5,1'])->name('system.update.run');
     Route::post('/system/update/migrate', [DatabaseUpdateController::class, 'migrate'])->name('system.update.migrate');
     Route::post('/system/update/seed', [DatabaseUpdateController::class, 'seed'])->name('system.update.seed');
 });
