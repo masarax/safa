@@ -1,4 +1,6 @@
-@php($bn = session('safa_web_language', 'en') === 'bn')
+@php
+    $bn = session('safa_web_language', 'en') === 'bn';
+@endphp
 <!doctype html>
 <html lang="{{ $bn ? 'bn' : 'en' }}">
 <head>
@@ -61,7 +63,9 @@
                     <a class="secondary-button wide" href="{{ route('safa.app') }}">{{ $bn ? 'অ্যাপে ফিরুন' : 'Back to application' }}</a>
                 </section>
             </div>
-        @else
+        @endif
+
+        @if($recoveryMode)
             <div class="warning-box">
                 <strong>Recovery mode</strong>
                 <span>No activated Super Admin is available. A server-configured maintenance key is required.</span>
