@@ -15,17 +15,24 @@ class InitialSuperAdminInteractiveSeederTest extends TestCase
 
     public function test_interactive_seed_prompts_for_and_creates_first_superadmin(): void
     {
-        $this->artisan('db:seed', [
-            '--class' => InitialSuperAdminSeeder::class,
-            '--force' => true,
-        ])
-            ->expectsQuestion('Super Admin name', 'Primary Admin')
-            ->expectsQuestion('Mobile number', '+966536308965')
-            ->expectsQuestion('Email address', 'ADMIN@EXAMPLE.TEST')
-            ->expectsQuestion('6-digit PIN', '654321')
-            ->expectsQuestion('Confirm 6-digit PIN', '654321')
-            ->expectsOutputToContain('Initial Super Admin created successfully.')
-            ->assertExitCode(0);
+        $originalArgv = $_SERVER['argv'] ?? [];
+        $_SERVER['argv'] = ['artisan', 'db:seed'];
+
+        try {
+            $this->artisan('db:seed', [
+                '--class' => InitialSuperAdminSeeder::class,
+                '--force' => true,
+            ])
+                ->expectsQuestion('Super Admin name', 'Primary Admin')
+                ->expectsQuestion('Mobile number', '+966536308965')
+                ->expectsQuestion('Email address', 'ADMIN@EXAMPLE.TEST')
+                ->expectsQuestion('6-digit PIN', '654321')
+                ->expectsQuestion('Confirm 6-digit PIN', '654321')
+                ->expectsOutputToContain('Initial Super Admin created successfully.')
+                ->assertExitCode(0);
+        } finally {
+            $_SERVER['argv'] = $originalArgv;
+        }
 
         $admin = User::query()->where('role', User::ROLE_SUPERADMIN)->firstOrFail();
         $this->assertSame('Primary Admin', $admin->name);
