@@ -17,4 +17,15 @@ class WebFlowEventContractTest extends TestCase
         $this->assertStringContainsString("setAttribute('data-flow-cancel'", $guard);
         $this->assertStringContainsString('$guard . "\\n" . $runtime', $routes);
     }
+
+    public function test_database_update_form_keeps_native_csrf_redirect_flow(): void
+    {
+        $guard = (string) file_get_contents(public_path('safa-web-events.js'));
+        $appView = (string) file_get_contents(resource_path('views/safa/app.blade.php'));
+
+        $this->assertStringContainsString('form[action$="/system/update/run"]', $guard);
+        $this->assertStringContainsString('event.stopImmediatePropagation()', $guard);
+        $this->assertStringContainsString("route('system.update.run')", $appView);
+        $this->assertStringContainsString('@csrf', $appView);
+    }
 }
