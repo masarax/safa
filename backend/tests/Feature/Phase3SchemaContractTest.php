@@ -26,24 +26,21 @@ class Phase3SchemaContractTest extends TestCase
     {
         Artisan::call('migrate', ['--force' => true]);
 
-        DB::table('migrations')
-            ->where('migration', '2026_01_02_000000_expand_safa_and_wallet_tables')
-            ->delete();
+        $migration = '2026_08_12_000001_harden_auth_session_storage';
+        DB::table('migrations')->where('migration', $migration)->delete();
 
-        Schema::table('transactions', function ($table) {
-            $table->dropColumn('receiver_account_no');
+        Schema::table('auth_sessions', function ($table) {
+            $table->dropColumn('refresh_token_hash');
         });
 
         $pending = DatabaseUpdateController::pendingMigrations();
 
         $this->assertContains(
-            '2026_01_02_000000_expand_safa_and_wallet_tables',
+            $migration,
             $pending,
             'Migration must remain pending when a required schema column is absent.'
         );
-        $this->assertDatabaseMissing('migrations', [
-            'migration' => '2026_01_02_000000_expand_safa_and_wallet_tables',
-        ]);
+        $this->assertDatabaseMissing('migrations', ['migration' => $migration]);
     }
 
     public function test_existing_data_preservation_during_migration_state_check(): void
