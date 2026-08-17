@@ -2,68 +2,38 @@
 
 namespace Tests\Feature;
 
-use App\Models\Account;
 use App\Models\AppVersion;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Config;
-use RuntimeException;
 use Tests\TestCase;
 
 class DatabaseSeederInitialAdminTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_database_seed_succeeds_when_initial_admin_configuration_is_completely_absent(): void
+    public function test_programmatic_database_seed_skips_identity_and_keeps_reference_updates(): void
     {
-        Config::set('safa.initial_admin', $this->initialAdminConfig());
-
         $this->seed(DatabaseSeeder::class);
 
         $this->assertSame(0, User::query()->where('role', User::ROLE_SUPERADMIN)->count());
         $this->assertTrue(AppVersion::query()->where('platform', 'android')->exists());
     }
 
-    public function test_database_seed_rejects_partial_initial_admin_configuration(): void
+    public function test_first_admin_credentials_are_not_part_of_application_or_env_configuration(): void
     {
-        Config::set('safa.initial_admin', $this->initialAdminConfig([
-            'name' => 'Incomplete Admin',
-        ]));
+        $config = (string) file_get_contents(config_path('safa.php'));
+        $envExample = (string) file_get_contents(base_path('.env.example'));
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Initial Super Admin server configuration is incomplete or invalid.');
-
-        $this->seed(DatabaseSeeder::class);
-    }
-
-    public function test_database_seed_creates_configured_initial_superadmin_and_workspace(): void
-    {
-        Config::set('safa.initial_admin', $this->initialAdminConfig([
-            'name' => 'Configured Admin',
-            'mobile' => '+880 1712-345678',
-            'email' => 'Configured@Example.Test',
-            'pin' => '654321',
-        ]));
-
-        $this->seed(DatabaseSeeder::class);
-
-        $admin = User::query()->where('email', 'configured@example.test')->firstOrFail();
-        $this->assertTrue($admin->isSuperAdmin());
-        $this->assertTrue((bool) $admin->is_activated);
-        $this->assertSame('01712345678', $admin->mobile);
-
-        $account = Account::query()->firstOrFail();
-        $this->assertSame($admin->id, (int) $account->owner_user_id);
-    }
-
-    private function initialAdminConfig(array $overrides = []): array
-    {
-        return array_merge([
-            'name' => '',
-            'mobile' => '',
-            'email' => '',
-            'pin' => '',
-        ], $overrides);
+        foreach ([
+            'SAFA_INITIAL_ADMIN_NAME',
+            'SAFA_INITIAL_ADMIN_MOBILE',
+            'SAFA_INITIAL_ADMIN_EMAIL',
+            'SAFA_INITIAL_ADMIN_PIN',
+            "'initial_admin'",
+        ] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $config);
+            $this->assertStringNotContainsString($forbidden, $envExample);
+        }
     }
 }

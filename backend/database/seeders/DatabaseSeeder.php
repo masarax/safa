@@ -12,8 +12,8 @@ class DatabaseSeeder extends Seeder
 
     /**
      * Seed production-safe reference/configuration data and workspace state.
-     * Initial Super Admin credentials are read only from server configuration,
-     * never hard-coded, and are ignored once an activated Super Admin exists.
+     * When run interactively and no Super Admin exists, the first administrator
+     * is prompted for securely instead of being read from source or environment.
      */
     public function run(): void
     {

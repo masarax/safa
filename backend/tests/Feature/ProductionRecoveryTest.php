@@ -3,10 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
-use App\Models\AppVersion;
 use App\Models\Permission;
 use App\Models\Role;
-use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -40,9 +38,6 @@ class ProductionRecoveryTest extends TestCase
     public function test_index_setup_surface_is_completely_removed(): void
     {
         $this->get('/index')->assertNotFound();
-
-        // There are deliberately no POST routes under /index. Laravel therefore
-        // rejects the unmatched methods before application middleware can run.
         $this->post('/index/bootstrap')->assertStatus(405);
         $this->post('/index/seed')->assertStatus(405);
 
@@ -69,60 +64,26 @@ class ProductionRecoveryTest extends TestCase
             ->assertDontSee('আপনার ব্রাউজার সেশন HttpOnly কুকি ও CSRF সুরক্ষার মাধ্যমে নিরাপদ রাখা হয়।');
     }
 
-    public function test_recovery_seed_action_is_visible_but_disabled_until_initial_admin_is_configured(): void
+    public function test_legacy_web_recovery_seed_is_disabled_without_env_backed_admin_credentials(): void
     {
-        Config::set('safa.initial_admin', [
-            'name' => '',
-            'mobile' => '',
-            'email' => '',
-            'pin' => '',
-        ]);
-
         $this->get('/system/update')
             ->assertOk()
             ->assertSee('Run Seed')
             ->assertSeeHtml('data-seed-state="admin-config-required"')
             ->assertSeeHtml('data-maintenance-action="seed" type="submit" disabled');
-
-        Config::set('safa.initial_admin', [
-            'name' => 'Production Admin',
-            'mobile' => '01700000000',
-            'email' => 'admin@example.test',
-            'pin' => '654321',
-        ]);
-
-        $this->get('/system/update')
-            ->assertOk()
-            ->assertSeeHtml('data-seed-state="ready"')
-            ->assertDontSeeHtml('data-maintenance-action="seed" type="submit" disabled');
     }
 
-    public function test_recovery_seed_creates_login_capable_superadmin_from_server_configuration(): void
+    public function test_legacy_web_recovery_seed_cannot_create_an_administrator(): void
     {
         Config::set('safa.maintenance_token', 'recovery-maintenance-secret');
-        Config::set('safa.initial_admin', [
-            'name' => 'Production Admin',
-            'mobile' => '+880 1700-000000',
-            'email' => 'admin@example.test',
-            'pin' => '654321',
-        ]);
 
-        $this->post('/system/update/seed', [
+        $this->from('/system/update')->post('/system/update/seed', [
             'maintenance_token' => 'recovery-maintenance-secret',
-        ])->assertRedirect(route('safa.login'));
+        ])
+            ->assertRedirect('/system/update')
+            ->assertSessionHas('error');
 
-        $admin = User::query()->where('email', 'admin@example.test')->firstOrFail();
-        $this->assertTrue($admin->isSuperAdmin());
-        $this->assertTrue((bool) $admin->is_activated);
-        $this->assertSame('01700000000', $admin->mobile);
-        $this->assertTrue(Hash::check('654321', (string) $admin->pin_hash));
-
-        $account = Account::query()->firstOrFail();
-        $this->assertSame($admin->id, (int) $account->owner_user_id);
-        $this->assertSame(4, Role::query()->count());
-        $this->assertSame(count(User::defaultPermissions(false)), Permission::query()->count());
-        $this->assertNotNull(SystemSetting::query()->first());
-        $this->assertNotNull(AppVersion::query()->where('platform', 'android')->first());
+        $this->assertFalse(User::query()->where('role', User::ROLE_SUPERADMIN)->exists());
     }
 
     public function test_seed_is_idempotent_preserves_business_data_and_never_resets_existing_admin_pin(): void
@@ -140,13 +101,6 @@ class ProductionRecoveryTest extends TestCase
             'balance' => '125.50',
         ]);
 
-        Config::set('safa.initial_admin', [
-            'name' => 'Replacement Admin',
-            'mobile' => '01799999999',
-            'email' => 'replacement@example.test',
-            'pin' => '999999',
-        ]);
-
         $this->actingAs($admin)->post('/system/update/seed')->assertRedirect(route('system.update.show'));
         $this->actingAs($admin)->post('/system/update/seed')->assertRedirect(route('system.update.show'));
 
@@ -155,7 +109,6 @@ class ProductionRecoveryTest extends TestCase
         $this->assertSame('Existing Business', $account->name);
         $this->assertSame('125.50', (string) $account->balance);
         $this->assertSame($originalPinHash, $admin->pin_hash);
-        $this->assertDatabaseMissing('users', ['email' => 'replacement@example.test']);
         $this->assertSame(4, Role::query()->count());
         $this->assertSame(count(User::defaultPermissions(false)), Permission::query()->count());
     }
