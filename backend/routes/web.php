@@ -37,8 +37,7 @@ Route::get('/storage/logos/{file}', function (string $file) {
 })->where('file', 'logo_[A-Za-z0-9_-]+\\.(?:png|jpe?g|gif|webp)');
 
 // Retired installer/recovery endpoints are deliberately hard-closed for every
-// HTTP method. Route::fallback only guarantees browser-style fallback routing;
-// explicit tombstones prevent method probing from exposing a 405 distinction.
+// HTTP method. Explicit tombstones prevent method probing from exposing a 405.
 foreach ([
     '/index',
     '/install',
@@ -48,6 +47,8 @@ foreach ([
     '/install/update',
     '/install/update-process',
     '/update-db',
+    '/system/update',
+    '/system/update/run',
     '/system/update/migrate',
     '/system/update/seed',
 ] as $retiredPath) {
@@ -67,9 +68,11 @@ Route::middleware('guest')->group(function () {
 });
 Route::post('/logout', [WebAuthController::class, 'logout'])->middleware('auth')->name('safa.logout');
 
+// Canonical production database maintenance surface. Route names are retained
+// for internal backward compatibility; the public URL contract is /update.
 Route::middleware(['auth', 'throttle:20,1'])->group(function () {
-    Route::get('/system/update', [DatabaseUpdateController::class, 'show'])->name('system.update.show');
-    Route::post('/system/update/run', [DatabaseUpdateController::class, 'run'])->middleware('throttle:5,1')->name('system.update.run');
+    Route::get('/update', [DatabaseUpdateController::class, 'show'])->name('system.update.show');
+    Route::post('/update/run', [DatabaseUpdateController::class, 'run'])->middleware('throttle:5,1')->name('system.update.run');
 });
 
 Route::middleware(['auth', 'throttle:120,1'])->group(function () {
