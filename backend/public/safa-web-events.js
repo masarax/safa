@@ -15,4 +15,16 @@
     button.removeAttribute('data-flow-back');
     button.setAttribute('data-flow-cancel', '');
   }, true);
+
+  // The application runtime intentionally handles normal workspace forms with
+  // fetch(), but the high-impact database updater must remain a regular Laravel
+  // POST so CSRF, redirects and flash status are handled by the server. Stop the
+  // bubbling runtime listener without cancelling the browser's native submit.
+  document.addEventListener('submit', event => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (!form.matches('form[action$="/system/update/run"]')) return;
+
+    event.stopImmediatePropagation();
+  }, true);
 })();
