@@ -1,6 +1,6 @@
 # SAFA (সাফা) — Multi-Account, Multi-Currency Financial Management
 
-SAFA is an offline-first financial/account-management system with an Android client and Laravel 13 API backend. The current development architecture is intentionally API-first and account-scoped.
+SAFA is an offline-first financial/account-management system with an Android client and Laravel 13 backend. The production architecture is API-first, account-scoped and designed to keep financial data authoritative on the server while Android remains usable offline.
 
 ## Production
 
@@ -8,7 +8,7 @@ SAFA is an offline-first financial/account-management system with an Android cli
 - Canonical mobile API base: `https://safa.masarax.com/api/v1`
 - Compatibility API base: `https://safa.masarax.com/api`
 - Health endpoint: `GET https://safa.masarax.com/api/auth/health`
-- Browser root `/` is intentionally private and returns `404 {"status":"not_found"}`.
+- Browser root `/` sends guests to the secure login page and authenticated users to the web application.
 
 ## Current Architecture
 
@@ -21,11 +21,12 @@ Android (Kotlin / Jetpack Compose)
         | HTTPS versioned REST API + Moshi
         | JWT + device/session/fingerprint verification
         v
-Laravel 13 Backend
+Laravel 13 Backend / Web App
         |
         +-- Account authorization / sharing
         +-- Sync reconciliation / idempotency
         +-- Financial domain validation
+        +-- SuperAdmin-only database update lifecycle
         +-- Audit/security middleware
         |
         v
@@ -42,11 +43,18 @@ It is **not** SQLCipher/Room. Documentation, dependencies and shrink rules must 
 
 The backend uses a custom JWT-based access token plus refresh/session/device/fingerprint security model. Auth-session token values are encrypted at rest and indexed using SHA-256 hashes for lookup.
 
-The Android client stores its authentication credentials using Keystore-backed encrypted storage.
+The browser application uses protected Laravel sessions and the same server-side user/role/account authorization model. The Android client stores its authentication credentials using Keystore-backed encrypted storage.
 
 ### Database
 
-The supported production configuration is MySQL, as reflected by `backend/.env.example` and the production-oriented migrations. SQLite is used by CI for isolated automated backend tests where supported.
+The supported production configuration is MySQL, as reflected by `backend/.env.example` and the production migrations. SQLite is used by CI for isolated automated backend tests where supported.
+
+First privileged-user provisioning and later database upgrades are intentionally separate:
+
+- **First SuperAdmin:** interactive server-console `php artisan db:seed` after forward migrations. No first-admin identity/PIN exists in `.env`, source code, a public installer or a second provisioning command.
+- **Later updates:** pending migrations are handled through authenticated activated-SuperAdmin `/update`, with a runtime non-destructive migration guard, update lock, approved idempotent release-data updater, cache clearing and post-update verification.
+
+See [`docs/DATABASE_UPDATE_POLICY.md`](docs/DATABASE_UPDATE_POLICY.md) and [`docs/PRODUCTION_ARCHITECTURE.md`](docs/PRODUCTION_ARCHITECTURE.md).
 
 ## Core Modules
 
@@ -62,6 +70,7 @@ The supported production configuration is MySQL, as reflected by `backend/.env.e
 - Account sharing with account-specific permission overrides
 - JWT/device/session/fingerprint authentication
 - Audit/security middleware
+- SuperAdmin-only live database update lifecycle
 
 ## Security Model
 
@@ -115,24 +124,21 @@ composer install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate
+php artisan db:seed
 php artisan test
 ```
 
-Provision the first SuperAdmin explicitly rather than embedding credentials in source code:
-
-```bash
-php artisan safa:provision-admin
-```
+When `db:seed` is run interactively and no active SuperAdmin exists, the first SuperAdmin is created by the canonical interactive seeder after validating name, mobile, email and matching 6-digit PIN input. Non-interactive seeding never invents a privileged user.
 
 ### Fresh development database
 
-For a clean disposable development schema:
+For a clean **disposable** development schema:
 
 ```bash
-php artisan migrate:fresh
+php artisan migrate:fresh --seed
 ```
 
-Only use `migrate:fresh` against a disposable development/test database.
+`migrate:fresh`, refresh, reset, rollback and wipe are not production update/recovery procedures for an existing SAFA database.
 
 ## CI/CD
 
@@ -140,15 +146,21 @@ Production-readiness CI runs automatically for relevant pull requests and pushes
 
 - Laravel syntax checks and the complete backend test suite.
 - Android unit tests and lint.
-- A real minified/resource-shrunk release APK build using an ephemeral CI-only signing key.
-- Emulator-backed Android instrumentation tests, including local-first recovery/conflict coverage.
-- Test/build reports uploaded for failure diagnosis.
+- A minified/resource-shrunk release build.
+- Emulator-backed Android instrumentation/runtime tests where configured by the Android production CI workflow.
 
-Production deployment itself remains manual. Deployment first runs the mandatory backend gate, then synchronizes the Laravel backend and performs read-only HTTPS smoke verification of the live health endpoint, private installer/root surface and protected critical routes. The health response verifies the PHP runtime, database connection, required migration columns, configured database-backed cache/session tables, writable Laravel runtime directories and exact deployed commit. A deployment is not considered successful if any smoke check fails.
+Production backend deployment is a separate manual workflow: **Deploy Laravel Backend to cPanel**. It intentionally performs file deployment only:
 
-The FTP workflow intentionally cannot execute migrations or cache commands. For a schema-changing release, use the authenticated cPanel terminal to review pending migrations and run `php artisan migrate --force`, then `php artisan optimize:clear` and `php artisan optimize`. Never use `migrate:fresh` in production. If those explicit operator steps have not been completed, the live readiness response stays degraded and the deployment workflow fails; rerun it only after the safe maintenance step is complete.
+1. checks out `main`;
+2. prepares production Composer dependencies;
+3. stamps the exact deployed Git commit;
+4. synchronizes `backend/` to cPanel over FTP while preserving production-owned runtime state.
 
-Third-party GitHub Actions are pinned to immutable commit SHAs. Production signing credentials and deployment credentials remain GitHub secrets and are not exposed to pull-request code.
+The FTP workflow does **not** run migrations, seeders, cache mutations or HTTP-triggered database maintenance.
+
+For a schema-changing release, pending migrations keep login available but place normal browser application traffic in the update-required flow. API clients receive machine-readable `503 update_required`. An authenticated activated SuperAdmin opens `/update` and uses **Update Database**. Before Laravel migration execution, SAFA validates pending migration `up()` methods against the production non-destructive migration policy. The updater then runs forward migrations, the approved idempotent release-data updater, cache clearing and a final pending-migration verification under an application lock.
+
+Third-party GitHub Actions should remain pinned according to the repository's CI security policy. Production signing credentials and deployment credentials remain GitHub secrets and are not exposed to pull-request code.
 
 ### Signed Android APK release
 
@@ -169,7 +181,7 @@ Before each release:
 2. Confirm the intended release commit is green in the normal Android CI.
 3. Confirm all four production signing secrets above are configured in GitHub Actions without printing or copying their values into logs or issue/PR text.
 4. Run **Actions → Build Signed Android APK → Run workflow** against the intended release ref, or push an intentional `v*` release tag that points to that exact commit.
-5. Require the release job to pass unit tests, lint, minified/resource-shrunk `assembleRelease`, and `apksigner verify` before accepting the artifact.
+5. Require the release job to pass its test/lint/release-build and `apksigner verify` gates before accepting the artifact.
 
 A successful run uploads one artifact named `safa-signed-apk-<run-id>` for 30 days. It contains:
 
@@ -189,14 +201,16 @@ After the APK is actually published, update `release/android-last-published-vers
 
 ## Important Development Rules
 
-1. Never add passwords, PINs, JWT secrets, refresh tokens or private API secrets to Git.
-2. Never authorize an account using owner identity alone when the requested account is not owned by the current user.
-3. Every business table/query must remain account-scoped.
-4. Every foreign business relationship must be verified against the active account.
-5. Do not use PHP/Android binary floating point as the authoritative representation of money.
-6. REST and any supported compatibility API must converge on the same domain validation rules; GraphQL business mutations are deprecated.
-7. Add a regression test for every security or synchronization bug that is fixed.
-8. Do not introduce an unused backend/platform dependency without an implemented feature and documented production role.
+1. Never add passwords, PINs, JWT secrets, refresh tokens, first-admin credentials or private API secrets to Git.
+2. First SuperAdmin provisioning has one supported source of truth: the interactive production seeder.
+3. Never authorize an account using owner identity alone when the requested account is not owned by the current user.
+4. Every business table/query must remain account-scoped.
+5. Every foreign business relationship must be verified against the active account.
+6. Do not use PHP/Android binary floating point as the authoritative representation of money.
+7. REST and any supported compatibility API must converge on the same domain validation rules; GraphQL business mutations are deprecated.
+8. Production migration `up()` methods must follow the non-destructive expand/backfill compatibility contract; destructive cleanup never belongs in the normal `/update` path.
+9. Add a regression test for every security, synchronization or database-update bug that is fixed.
+10. Do not introduce an unused backend/platform dependency without an implemented feature and documented production role.
 
 ## Tests
 
