@@ -16,9 +16,14 @@ return new class extends Migration {
         }
 
         if (Schema::hasTable('user_account_shares') && Schema::hasColumn('user_account_shares', 'account_id')) {
-            // Legacy NULL shares have no safe account semantics. Remove them before
-            // making account context mandatory. This is a development-stage schema.
-            DB::table('user_account_shares')->whereNull('account_id')->delete();
+            // A legacy NULL share cannot be assigned to an account without business
+            // knowledge. Preserve the row and stop before tightening the schema so an
+            // operator can repair the mapping explicitly instead of losing data.
+            if (DB::table('user_account_shares')->whereNull('account_id')->exists()) {
+                throw new RuntimeException(
+                    'Legacy user account shares without account_id must be repaired before this migration can continue.'
+                );
+            }
 
             try {
                 Schema::table('user_account_shares', function (Blueprint $table) {
