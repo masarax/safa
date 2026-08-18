@@ -19,6 +19,15 @@ class ProductionMigrationSafetyTest extends TestCase
         }
     }
 
+    public function test_historical_tenant_hardening_preserves_unmapped_share_rows_instead_of_deleting_them(): void
+    {
+        $migration = (string) file_get_contents(database_path('migrations/2026_08_12_000002_harden_tenant_audit_integrity.php'));
+
+        $this->assertStringContainsString("whereNull('account_id')->exists()", $migration);
+        $this->assertStringContainsString('must be repaired before this migration can continue', $migration);
+        $this->assertStringNotContainsString("whereNull('account_id')->delete()", $migration);
+    }
+
     public function test_destructive_schema_and_data_operations_in_up_are_rejected(): void
     {
         $source = <<<'PHP'
