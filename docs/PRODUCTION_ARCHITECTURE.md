@@ -97,10 +97,12 @@ Authentication-sensitive routes may use stricter endpoint-specific limits in add
 - `android-ci.yml` runs Android unit tests, lint, a minified release build, emulator-backed instrumentation tests and a minified release runtime launch smoke test.
 - Android CI rejects a release `versionCode` that is not greater than the tracked last-published version code.
 - Third-party GitHub Actions are pinned to immutable commit SHAs with human-readable version comments.
-- Production deployment is manual and must pass read-only HTTPS smoke verification after file synchronization.
-- A production deployment is not considered successful until the live health/private-surface/protected-route checks pass.
-- Live health is a readiness gate: it checks runtime extensions, database connectivity, required migration columns, configured database cache/session tables, writable Laravel runtime directories and the exact deployed commit without mutating business data.
-- FTP does not run migrations or cache commands. Schema-changing releases require an authorized cPanel operator to review and run `php artisan migrate --force`, `php artisan optimize:clear`, and `php artisan optimize`; readiness remains HTTP 503 until this explicit maintenance is complete.
+- Production backend deployment is manual and **file-only**: `deploy.yml` prepares production Composer dependencies, stamps the exact checked-out `main` commit, and synchronizes `backend/` over FTP while preserving production runtime state such as `.env`, sessions, logs, cache state and uploaded logos.
+- The FTP workflow does not run migrations, seeders, cache rebuild commands or database writes. Runtime verification is an operational step outside the file-synchronization workflow.
+- Pending migrations are the source of truth for database-update-required state. Login remains reachable so an administrator can authenticate; normal browser application traffic is directed to `/update`, while API clients receive a machine-readable `503 update_required` response.
+- Only an authenticated, activated **SuperAdmin** can execute `/update`. The one-click update acquires the application update lock, validates pending migration `up()` methods against the non-destructive production migration policy, runs forward `migrate --force`, applies the approved idempotent release-data updater, clears application caches, verifies that no migrations remain, and records the operation in application logs.
+- First SuperAdmin provisioning is a separate first-install responsibility and is CLI-only through the interactive production seeder; it is never performed by FTP deployment, `.env` identity credentials, a public installer, or the `/update` flow.
+- Production migration `up()` methods must follow the additive/expand-backfill compatibility rules in `docs/DATABASE_UPDATE_POLICY.md`. Destructive cleanup is never part of the normal one-click live database update path.
 
 ## Dependency hygiene
 
