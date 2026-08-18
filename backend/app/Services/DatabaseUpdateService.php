@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Http\Controllers\DatabaseUpdateController;
 use App\Models\User;
+use App\Support\ProductionMigrationSafety;
 use Database\Seeders\ReleaseDataUpdateSeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -36,6 +37,8 @@ class DatabaseUpdateService
             }
 
             $pendingBefore = DatabaseUpdateController::pendingMigrations();
+            ProductionMigrationSafety::assertPendingMigrationsAreSafe($pendingBefore);
+
             Log::info('SAFA database update started.', [
                 'user_id' => (int) $actor->id,
                 'pending_migrations' => count($pendingBefore),
