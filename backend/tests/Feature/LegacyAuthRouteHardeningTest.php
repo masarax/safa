@@ -20,11 +20,13 @@ class LegacyAuthRouteHardeningTest extends TestCase
 
     public function test_public_legacy_bind_device_route_is_removed(): void
     {
-        $this->postJson('/api/auth/bind-device', [
-            'mobile' => '0500000000',
-            'pin' => '123456',
-            'device_uuid' => 'legacy-device',
-            'fingerprint_hash' => 'legacy-fingerprint',
-        ])->assertNotFound();
+        $matchingRoutes = collect(app('router')->getRoutes()->getRoutes())
+            ->filter(fn ($route) =>
+                $route->uri() === 'api/auth/bind-device'
+                && in_array('POST', $route->methods(), true)
+            )
+            ->values();
+
+        $this->assertCount(0, $matchingRoutes);
     }
 }
