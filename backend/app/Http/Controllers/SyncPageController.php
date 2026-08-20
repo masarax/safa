@@ -9,6 +9,7 @@ use App\Models\SupplierDeposit;
 use App\Models\Transaction;
 use App\Models\WalletBatch;
 use App\Models\WalletLedger;
+use App\Support\BusinessPermissions;
 use Illuminate\Http\Request;
 
 class SyncPageController extends Controller
@@ -22,6 +23,8 @@ class SyncPageController extends Controller
         $accountId = (int) $context['account_id'];
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(250, max(1, (int) $request->query('per_page', 100)));
+        $user = $context['user'] ?? $request->user();
+        $permissions = BusinessPermissions::effective($user, $accountId);
 
         $collections = [
             'transactions' => Transaction::class,
@@ -37,6 +40,19 @@ class SyncPageController extends Controller
         $hasMore = false;
 
         foreach ($collections as $key => $model) {
+            $requiredPermission = BusinessPermissions::readPermissionForEntity($key);
+            if ($requiredPermission !== null && empty($permissions[$requiredPermission])) {
+                $data[$key] = [];
+                $meta[$key] = [
+                    'current_page' => $page,
+                    'per_page' => $perPage,
+                    'last_page' => 1,
+                    'has_more' => false,
+                    'total' => 0,
+                ];
+                continue;
+            }
+
             $paginator = $model::withTrashed()
                 ->where('account_id', $accountId)
                 ->orderBy('id')
@@ -52,8 +68,6 @@ class SyncPageController extends Controller
             $hasMore = $hasMore || $paginator->hasMorePages();
         }
 
-        $user = $context['user'] ?? $request->user();
-        $permissions = $user ? $user->getFormattedPermissions() : \App\Models\User::defaultPermissions(true);
         return response()->json(array_merge([
             'status' => 'success',
             'account_id' => $accountId,
