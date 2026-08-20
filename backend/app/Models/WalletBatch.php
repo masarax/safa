@@ -44,7 +44,7 @@ class WalletBatch extends Model
         });
 
         static::deleting(function (self $batch): void {
-            if (!$batch->exists || $batch->isForceDeleting()) return;
+            if (!$batch->exists || $batch->isForceDeleting() || !$batch->supplier_deposit_id) return;
 
             $consumed = DecimalMath::subtractAmount($batch->initial_bdt ?? '0.00', $batch->remaining_bdt ?? '0.00');
             $referenced = Transaction::withTrashed()
@@ -53,7 +53,7 @@ class WalletBatch extends Model
                 ->exists();
 
             if (DecimalMath::compareAmount($consumed, '0') > 0 || $referenced) {
-                throw new DomainException('Wallet stock cannot be deleted after it has been consumed or referenced by a transaction.');
+                throw new DomainException('Supplier-funded wallet stock cannot be deleted after it has been consumed or referenced by a transaction.');
             }
         });
     }
