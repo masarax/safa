@@ -10,12 +10,9 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Prevents credential login from guessing when the same canonical mobile
- * identifies more than one account across the current and legacy models.
- *
- * A legacy operator linked to the exact same User is one identity and is
- * therefore allowed. Unlinked or differently-linked records are ambiguous
- * and must be resolved administratively before authentication can continue.
+ * Detect ambiguous canonical/legacy identity without exposing it publicly.
+ * The login controller consumes the request attribute and returns the same
+ * generic credential failure used for unknown, inactive and wrong credentials.
  */
 class RejectAmbiguousLoginIdentity
 {
@@ -43,20 +40,14 @@ class RejectAmbiguousLoginIdentity
         );
 
         $identityIds = $userIds->map(fn (int $id) => "user:$id")->all();
-
         foreach ($legacyOperators as $operator) {
             $identityIds[] = $operator->user_id
-                ? "user:" . (int) $operator->user_id
-                : "legacy:" . (int) $operator->id;
+                ? 'user:' . (int) $operator->user_id
+                : 'legacy:' . (int) $operator->id;
         }
 
-        $identityIds = array_values(array_unique($identityIds));
-
-        if (count($identityIds) > 1) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Multiple accounts match this mobile number. Please contact an administrator.',
-            ], 409);
+        if (count(array_unique($identityIds)) > 1) {
+            $request->attributes->set('safa_login_identity_ambiguous', true);
         }
 
         return $next($request);

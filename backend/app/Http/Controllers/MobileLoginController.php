@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Models\User;
+use App\Support\CredentialVerifier;
 use App\Support\MobileNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Canonical first-factor mobile authentication endpoint.
@@ -28,22 +28,20 @@ class MobileLoginController extends Controller
         if (!MobileNumber::isValid($mobile)) return $this->error('MOBILE_INVALID', 'Invalid mobile number.', 422);
         if ($pin === '' || !preg_match('/^\d{6}$/', $pin)) return $this->error('PIN_INVALID', '6-Digit PIN is required for login.', 422);
 
-        $user = $this->findUserByMobile($mobile);
-        if (!$user) return $this->error('INVALID_CREDENTIALS', 'Mobile number or PIN is incorrect.', 401);
-        if (!(bool) $user->is_activated) return $this->error('ACCOUNT_INACTIVE', 'This account is inactive. Please contact an administrator.', 403);
+        $user = (bool) $request->attributes->get('safa_login_identity_ambiguous', false)
+            ? null
+            : $this->findUserByMobile($mobile);
 
-        $pinValid = false;
-        foreach (array_filter([$user->pin_hash, $user->password]) as $hash) {
-            try {
-                if (Hash::check($pin, $hash)) {
-                    $pinValid = true;
-                    break;
-                }
-            } catch (\Throwable) {
-                // Ignore malformed hashes and continue with supported hashes.
-            }
+        $pinValid = CredentialVerifier::verify($pin, [
+            $user?->pin_hash,
+            $user?->password,
+        ]);
+
+        // Unknown, ambiguous, wrong-credential and inactive identities share
+        // one public failure contract. Activation is never exposed pre-auth.
+        if (!$user || !$pinValid || !(bool) $user->is_activated) {
+            return $this->error('INVALID_CREDENTIALS', 'Mobile number or PIN is incorrect.', 401);
         }
-        if (!$pinValid) return $this->error('INVALID_CREDENTIALS', 'Mobile number or PIN is incorrect.', 401);
 
         $deviceUuid = trim((string) ($request->input('device_uuid') ?? $request->input('device_token') ?? $request->header('X-SAFA-DEVICE-TOKEN') ?? ''));
         $fingerprintHash = trim((string) ($request->input('fingerprint_hash') ?? $request->input('fingerprint_token') ?? $request->header('X-SAFA-FINGERPRINT-TOKEN') ?? ''));
@@ -96,8 +94,6 @@ class MobileLoginController extends Controller
             ],
             'permissions' => $permissions,
             'tokens' => $tokens,
-            // Backward-compatible aliases retained while deployed clients move
-            // to the canonical nested tokens object.
             'access_token' => $tokens['access_token'],
             'refresh_token' => $tokens['refresh_token'],
             'device_token' => $tokens['device_token'],
@@ -110,14 +106,11 @@ class MobileLoginController extends Controller
     {
         $normalized = MobileNumber::normalize($mobile);
         if ($normalized === '') return null;
+
         $query = User::query()->where('mobile', $normalized);
-        $count = $query->count();
-        if ($count > 1) abort($this->error('AMBIGUOUS_MOBILE', 'Multiple accounts match this mobile number. Please contact an administrator.', 409));
-        if ($count === 1) return $query->first();
-        $fallback = User::query()->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') = ?", [$normalized]);
-        $fallbackCount = $fallback->count();
-        if ($fallbackCount > 1) abort($this->error('AMBIGUOUS_MOBILE', 'Multiple accounts match this mobile number. Please contact an administrator.', 409));
-        return $fallbackCount === 1 ? $fallback->first() : null;
+        if ($query->count() !== 1) return null;
+
+        return $query->first();
     }
 
     private function error(string $code, string $message, int $status, array $details = []): JsonResponse

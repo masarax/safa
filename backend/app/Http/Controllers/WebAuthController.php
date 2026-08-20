@@ -6,11 +6,11 @@ use App\Models\Account;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserAccountShare;
+use App\Support\CredentialVerifier;
 use App\Support\MobileNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -44,7 +44,9 @@ class WebAuthController extends Controller
 
         $identity = trim((string) $validated['identity']);
         $user = $this->findUser($identity);
-        if (!$user || !(bool) $user->is_activated || !$this->credentialMatches($user, (string) $validated['credential'])) {
+        $credentialMatches = $this->credentialMatches($user, (string) $validated['credential']);
+
+        if (!$user || !$credentialMatches || !(bool) $user->is_activated) {
             return back()->withInput(['identity' => $identity])->withErrors([
                 'auth' => $this->failureIdentityType($identity),
             ]);
@@ -91,27 +93,20 @@ class WebAuthController extends Controller
         return $query->count() === 1 ? $query->first() : null;
     }
 
-    private function credentialMatches(User $user, string $credential): bool
+    private function credentialMatches(?User $user, string $credential): bool
     {
         $normalized = $this->normalizeDigits(trim($credential));
         $candidate = preg_match('/^\d{6}$/', $normalized) ? $normalized : $credential;
 
-        foreach (array_filter([$user->pin_hash, $user->password]) as $hash) {
-            try {
-                if (Hash::check($candidate, (string) $hash)) return true;
-            } catch (\Throwable) {
-                // Invalid legacy hashes are treated as a failed credential check.
-            }
-        }
-
-        return false;
+        return CredentialVerifier::verify($candidate, [
+            $user?->pin_hash,
+            $user?->password,
+        ]);
     }
 
     private function failureIdentityType(string $identity): string
     {
-        // Failure copy is selected only from the submitted identifier's shape.
-        // It must never depend on whether an account exists, is active, or which
-        // credential hash matched, so the UI cannot become a user-enumeration side channel.
+        // Failure copy depends only on submitted shape, never account state.
         return str_contains($identity, '@') ? 'email' : 'mobile';
     }
 
