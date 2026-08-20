@@ -11,14 +11,16 @@ final class TransactionWalletAccounting
 {
     public function restoreExisting(Transaction $transaction, int $accountId): void
     {
-        if ((string) $transaction->type === 'Cancelled' || !$transaction->wallet_batch_id) return;
+        if ($transaction->trashed() || (string) $transaction->type === 'Cancelled' || !$transaction->wallet_batch_id) return;
 
         $batch = WalletBatch::withTrashed()
             ->where('account_id', $accountId)
             ->whereKey((int) $transaction->wallet_batch_id)
             ->lockForUpdate()
             ->first();
-        if (!$batch) return;
+        if (!$batch) {
+            throw new DomainException('Referenced wallet stock is no longer available.');
+        }
 
         $batch->remaining_bdt = DecimalMath::addAmount($batch->remaining_bdt, $transaction->amount_bdt);
         $batch->save();
