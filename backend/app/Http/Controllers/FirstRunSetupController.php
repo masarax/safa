@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\FirstRunDatabaseBootstrapService;
+use App\Support\FirstRunSetupCode;
 use App\Support\FirstRunSetupState;
 use App\Support\MobileNumber;
 use Illuminate\Http\RedirectResponse;
@@ -16,9 +17,11 @@ class FirstRunSetupController extends Controller
     public function showDatabase(Request $request): Response
     {
         abort_unless(FirstRunSetupState::databaseInitializationRequired(), 404);
+        FirstRunSetupCode::ensure();
 
         return response()->view('first_run_database', [
             'pendingMigrations' => DatabaseUpdateController::pendingMigrations(),
+            'setupCodePath' => FirstRunSetupCode::operatorPath(),
         ]);
     }
 
@@ -27,7 +30,12 @@ class FirstRunSetupController extends Controller
         // State must be checked before rate limiting so the migration endpoint
         // disappears as a hard 404 immediately after the schema is initialized.
         abort_unless(FirstRunSetupState::databaseInitializationRequired(), 404);
-        $this->consumeAttempt('first-run-database|' . $request->ip(), 3);
+        $this->consumeAttempt('first-run-database|' . $request->ip(), 5);
+
+        $setupCode = (string) $request->input('setup_code', '');
+        if (!FirstRunSetupCode::verify($setupCode)) {
+            return back()->with('error', 'The one-time setup code is invalid.')->withInput();
+        }
 
         $claim = bin2hex(random_bytes(32));
         $request->session()->put(FirstRunSetupState::SESSION_CLAIM, $claim);
@@ -38,11 +46,15 @@ class FirstRunSetupController extends Controller
                 return redirect()->route('setup.database.show')->with('info', 'Database initialization is already running.');
             }
 
+            // From this point the schema exists, so the public migration route is
+            // retired permanently. The private deployment code must die with it.
+            FirstRunSetupCode::destroy();
             return redirect()->route('setup.admin.show')->with('success', 'Database initialized successfully. Create the first SuperAdmin to finish setup.');
         } catch (\Throwable $e) {
             report($e);
 
             if (FirstRunSetupState::adminCompletionRequired() && FirstRunSetupState::claimMatches($claim)) {
+                FirstRunSetupCode::destroy();
                 return redirect()->route('setup.admin.show')->with('info', 'Database schema is initialized. Finish the first SuperAdmin setup.');
             }
 
