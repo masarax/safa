@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\UsesCollisionSafeLocalId;
+use App\Support\DecimalMath;
+use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -20,4 +22,39 @@ class WalletBatch extends Model
         'initial_bdt' => 'decimal:2',
         'remaining_bdt' => 'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $batch): void {
+            if (!$batch->exists) return;
+
+            $newInitial = $batch->initial_bdt ?? '0.00';
+            $newRemaining = $batch->remaining_bdt ?? '0.00';
+            if (DecimalMath::compareAmount($newRemaining, $newInitial) > 0) {
+                throw new DomainException('Wallet remaining stock cannot exceed its initial stock.');
+            }
+
+            $originalInitial = $batch->getRawOriginal('initial_bdt') ?? '0.00';
+            $originalRemaining = $batch->getRawOriginal('remaining_bdt') ?? '0.00';
+            $consumed = DecimalMath::subtractAmount($originalInitial, $originalRemaining);
+            if (DecimalMath::compareAmount($consumed, '0') > 0
+                && DecimalMath::compareAmount($newInitial, $consumed) < 0) {
+                throw new DomainException('Wallet initial stock cannot be reduced below already-consumed stock.');
+            }
+        });
+
+        static::deleting(function (self $batch): void {
+            if (!$batch->exists || $batch->isForceDeleting()) return;
+
+            $consumed = DecimalMath::subtractAmount($batch->initial_bdt ?? '0.00', $batch->remaining_bdt ?? '0.00');
+            $referenced = Transaction::withTrashed()
+                ->where('account_id', $batch->account_id)
+                ->where('wallet_batch_id', $batch->id)
+                ->exists();
+
+            if (DecimalMath::compareAmount($consumed, '0') > 0 || $referenced) {
+                throw new DomainException('Wallet stock cannot be deleted after it has been consumed or referenced by a transaction.');
+            }
+        });
+    }
 }
