@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Transaction;
 use App\Models\Customer;
 use App\Models\Supplier;
+use App\Models\Transaction;
 use App\Models\WalletBatch;
+use App\Services\TransactionWalletAccounting;
 use App\Support\MoneyDecimal;
+use DomainException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class TransactionController extends Controller
 {
     use AuthorizeAccountContext;
+
+    public function __construct(private readonly TransactionWalletAccounting $walletAccounting) {}
 
     private function timestamp($value): int
     {
@@ -60,6 +64,31 @@ class TransactionController extends Controller
         return $value > 0 ? $value : null;
     }
 
+    private function valuesForStore(Request $request, string $amountSar, string $amountBdt, ?int $batchId, string $status): array
+    {
+        return [
+            'type' => $status,
+            'amount' => $amountSar,
+            'amount_sar' => $amountSar,
+            'customer_id' => $this->nullableForeignKey($request, 'customer_id'),
+            'supplier_id' => $this->nullableForeignKey($request, 'supplier_id'),
+            'customer_rate' => $this->decimal($request->input('customer_rate') ?: 0, 4, 6),
+            'supplier_rate' => $this->decimal($request->input('supplier_rate') ?: 0, 4, 6),
+            'amount_bdt' => $amountBdt,
+            'sar_collected' => MoneyDecimal::signed($request->input('sar_collected', $amountSar), 2, 13),
+            'bdt_disbursed' => MoneyDecimal::unsigned($request->input('bdt_disbursed', $amountBdt), 2, 13),
+            'receiver_name' => substr((string) $request->input('receiver_name', ''), 0, 255),
+            'receiver_phone' => substr((string) $request->input('receiver_phone', ''), 0, 50),
+            'receiver_account_type' => substr((string) $request->input('receiver_account_type', ''), 0, 50),
+            'receiver_account_no' => substr((string) $request->input('receiver_account_no', ''), 0, 100),
+            'wallet_batch_id' => $batchId,
+            'notes' => $request->input('notes'),
+            'timestamp' => $this->timestamp($request->input('timestamp')),
+            'hash' => $request->input('hash'),
+            'deleted_at' => null,
+        ];
+    }
+
     public function index(Request $request)
     {
         $context = $this->resolveAuthorizedAccountContext($request);
@@ -81,36 +110,40 @@ class TransactionController extends Controller
             'timestamp' => 'nullable|integer|min:1', 'type' => 'nullable|string|max:20', 'hash' => 'nullable|string|max:255',
         ]);
         if ($validator->fails()) return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
-        if ($relationshipError = $this->validateAccountRelationships($request->all(), (int) $context['account_id'])) return $relationshipError;
+        $accountId = (int) $context['account_id'];
+        if ($relationshipError = $this->validateAccountRelationships($request->all(), $accountId)) return $relationshipError;
 
         try {
-            $transaction = DB::transaction(function () use ($request, $context) {
+            $transaction = DB::transaction(function () use ($request, $accountId) {
                 $amountSar = $this->decimal($request->input('amount_sar') ?? $request->input('amount') ?? 0, 2, 13);
                 $localId = (int) ($request->input('local_id') ?: floor(microtime(true) * 1000));
                 $amountBdt = $this->decimal($request->input('amount_bdt') ?: 0, 2, 13);
-                return Transaction::withTrashed()->updateOrCreate(
-                    ['account_id' => (int) $context['account_id'], 'local_id' => $localId],
-                    [
-                        'type' => substr((string) $request->input('type', 'Pending'), 0, 20),
-                        'amount' => $amountSar, 'amount_sar' => $amountSar,
-                        'customer_id' => $this->nullableForeignKey($request, 'customer_id'),
-                        'supplier_id' => $this->nullableForeignKey($request, 'supplier_id'),
-                        'customer_rate' => $this->decimal($request->input('customer_rate') ?: 0, 4, 6),
-                        'supplier_rate' => $this->decimal($request->input('supplier_rate') ?: 0, 4, 6),
-                        'amount_bdt' => $amountBdt,
-                        'sar_collected' => MoneyDecimal::signed($request->input('sar_collected', $amountSar), 2, 13),
-                        'bdt_disbursed' => MoneyDecimal::unsigned($request->input('bdt_disbursed', $amountBdt), 2, 13),
-                        'receiver_name' => substr((string) $request->input('receiver_name', ''), 0, 255),
-                        'receiver_phone' => substr((string) $request->input('receiver_phone', ''), 0, 50),
-                        'receiver_account_type' => substr((string) $request->input('receiver_account_type', ''), 0, 50),
-                        'receiver_account_no' => substr((string) $request->input('receiver_account_no', ''), 0, 100),
-                        'wallet_batch_id' => $this->nullableForeignKey($request, 'wallet_batch_id'),
-                        'notes' => $request->input('notes'), 'timestamp' => $this->timestamp($request->input('timestamp')),
-                        'hash' => $request->input('hash'), 'deleted_at' => null,
-                    ]
-                );
+                $status = substr((string) $request->input('type', 'Pending'), 0, 20);
+                $batchId = $this->nullableForeignKey($request, 'wallet_batch_id');
+                $existing = Transaction::withTrashed()
+                    ->where('account_id', $accountId)
+                    ->where('local_id', $localId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($existing) $this->walletAccounting->restoreExisting($existing, $accountId);
+                $this->walletAccounting->debitNew($accountId, $batchId, $amountBdt, $status);
+                $values = $this->valuesForStore($request, $amountSar, $amountBdt, $batchId, $status);
+
+                if ($existing) {
+                    $existing->fill($values);
+                    $existing->save();
+                    return $existing->fresh();
+                }
+
+                return Transaction::create(array_merge([
+                    'account_id' => $accountId,
+                    'local_id' => $localId,
+                ], $values));
             });
             return response()->json(['status' => 'success', 'message' => 'Transaction saved successfully.', 'transaction' => $transaction, 'id' => (int) $transaction->id], 201);
+        } catch (DomainException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
             report($e);
             return response()->json(['status' => 'error', 'message' => 'Unable to save transaction.'], 422);
@@ -121,7 +154,8 @@ class TransactionController extends Controller
     {
         $context = $this->resolveAuthorizedAccountContext($request);
         if (isset($context['error'])) return $context['error'];
-        $transaction = Transaction::withTrashed()->where('account_id', $context['account_id'])->where(fn ($q) => $q->where('id', (int) $id)->orWhere('local_id', (int) $id))->first();
+        $accountId = (int) $context['account_id'];
+        $transaction = Transaction::withTrashed()->where('account_id', $accountId)->where(fn ($q) => $q->where('id', (int) $id)->orWhere('local_id', (int) $id))->first();
         if (!$transaction) return response()->json(['status' => 'error', 'message' => 'Transaction not found.'], 404);
 
         $validator = Validator::make($request->all(), [
@@ -133,10 +167,19 @@ class TransactionController extends Controller
             'timestamp' => 'nullable|integer|min:1', 'hash' => 'nullable|string|max:255',
         ]);
         if ($validator->fails()) return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
-        if ($relationshipError = $this->validateAccountRelationships($request->all(), (int) $context['account_id'])) return $relationshipError;
+        if ($relationshipError = $this->validateAccountRelationships($request->all(), $accountId)) return $relationshipError;
 
         try {
-            DB::transaction(function () use ($request, $transaction) {
+            $transaction = DB::transaction(function () use ($request, $accountId, $id) {
+                $transaction = Transaction::withTrashed()
+                    ->where('account_id', $accountId)
+                    ->where(fn ($q) => $q->where('id', (int) $id)->orWhere('local_id', (int) $id))
+                    ->lockForUpdate()
+                    ->first();
+                if (!$transaction) throw new DomainException('Transaction not found.');
+
+                $this->walletAccounting->restoreExisting($transaction, $accountId);
+
                 foreach (['type','receiver_name','receiver_phone','receiver_account_type','receiver_account_no','notes','hash'] as $field) {
                     if ($request->has($field)) $transaction->{$field} = $request->input($field);
                 }
@@ -152,9 +195,19 @@ class TransactionController extends Controller
                 $transaction->amount = $transaction->amount_sar;
                 if ($request->has('timestamp')) $transaction->timestamp = $this->timestamp($request->input('timestamp'));
                 $transaction->deleted_at = null;
+
+                $this->walletAccounting->debitNew(
+                    $accountId,
+                    $transaction->wallet_batch_id ? (int) $transaction->wallet_batch_id : null,
+                    $transaction->amount_bdt,
+                    (string) $transaction->type,
+                );
                 $transaction->save();
+                return $transaction->fresh();
             });
-            return response()->json(['status' => 'success', 'message' => 'Transaction updated successfully.', 'transaction' => $transaction->refresh()]);
+            return response()->json(['status' => 'success', 'message' => 'Transaction updated successfully.', 'transaction' => $transaction]);
+        } catch (DomainException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], $e->getMessage() === 'Transaction not found.' ? 404 : 422);
         } catch (\Throwable $e) {
             report($e);
             return response()->json(['status' => 'error', 'message' => 'Unable to update transaction.'], 422);
@@ -166,9 +219,24 @@ class TransactionController extends Controller
         $context = $this->resolveAuthorizedAccountContext($request);
         if (isset($context['error'])) return $context['error'];
         if (!$request->boolean('confirmed')) return response()->json(['status' => 'confirmation_required', 'message' => 'Confirmation required before deleting transaction.', 'requires_confirmation' => true], 409);
-        $transaction = Transaction::where('account_id', $context['account_id'])->where(fn ($q) => $q->where('id', (int) $id)->orWhere('local_id', (int) $id))->first();
-        if (!$transaction) return response()->json(['status' => 'error', 'message' => 'Transaction not found.'], 404);
-        DB::transaction(fn () => $transaction->delete());
-        return response()->json(['status' => 'success', 'message' => 'Transaction deleted successfully.', 'id' => (int) $transaction->id]);
+        $accountId = (int) $context['account_id'];
+
+        try {
+            $deletedId = DB::transaction(function () use ($accountId, $id) {
+                $transaction = Transaction::query()
+                    ->where('account_id', $accountId)
+                    ->where(fn ($q) => $q->where('id', (int) $id)->orWhere('local_id', (int) $id))
+                    ->lockForUpdate()
+                    ->first();
+                if (!$transaction) throw new DomainException('Transaction not found.');
+                $this->walletAccounting->restoreExisting($transaction, $accountId);
+                $transaction->delete();
+                return (int) $transaction->id;
+            });
+        } catch (DomainException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 404);
+        }
+
+        return response()->json(['status' => 'success', 'message' => 'Transaction deleted successfully.', 'id' => $deletedId]);
     }
 }
