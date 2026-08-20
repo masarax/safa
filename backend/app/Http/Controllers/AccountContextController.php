@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Account;
 use App\Models\User;
 use App\Models\UserAccountShare;
+use App\Support\MobileNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -193,6 +194,15 @@ class AccountContextController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Validation failed.', 'errors' => $validator->errors()], 422);
         }
 
+        $mobile = MobileNumber::normalize((string) $request->input('mobile'));
+        if (!MobileNumber::isValid($mobile)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed.',
+                'errors' => ['mobile' => ['The mobile number is not valid.']],
+            ], 422);
+        }
+
         $accountId = (int) $request->input('account_id');
         $account = Account::query()->find($accountId);
         if (!$account) {
@@ -207,7 +217,7 @@ class AccountContextController extends Controller
             return response()->json(['status' => 'error', 'message' => 'You are not authorized to share this account.'], 403);
         }
 
-        $target = User::where('mobile', trim($request->input('mobile')))->first();
+        $target = User::where('mobile', $mobile)->first();
         if (!$target) return response()->json(['status' => 'error', 'message' => 'Target user not found.'], 404);
         if ((int) $target->id === (int) $actor->id) return response()->json(['status' => 'error', 'message' => 'Cannot share an account with yourself.'], 422);
         if ((int) $target->id === $accountOwnerId) return response()->json(['status' => 'error', 'message' => 'Target user already owns this account.'], 422);
