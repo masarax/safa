@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\FirstRunSetupCode;
 use App\Support\FirstRunSetupState;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -41,10 +42,12 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         Config::set('database.default', 'first_run_test');
         Config::set('safa.enforce_update_checks_in_tests', true);
         DB::purge('first_run_test');
+        FirstRunSetupCode::destroy();
     }
 
     protected function tearDown(): void
     {
+        FirstRunSetupCode::destroy();
         DB::disconnect('first_run_test');
         DB::purge('first_run_test');
         Config::set('database.default', $this->originalConnection);
@@ -64,14 +67,26 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         $this->get('/setup/database')
             ->assertOk()
             ->assertSee('Initialize Database')
+            ->assertSee(FirstRunSetupCode::operatorPath())
             ->assertSeeHtml('data-first-run-action="initialize-database"');
 
-        $this->post('/setup/database')
+        $this->assertFileExists(FirstRunSetupCode::path());
+        $setupCode = trim((string) file_get_contents(FirstRunSetupCode::path()));
+        $this->assertMatchesRegularExpression('/^[A-F0-9]{32}$/', $setupCode);
+
+        // A web visitor who cannot read the server-private deployment file cannot
+        // claim a fresh installation or create its first administrator.
+        $this->post('/setup/database', ['setup_code' => str_repeat('0', 32)])
+            ->assertRedirect();
+        $this->assertFalse(Schema::hasTable('migrations'));
+
+        $this->post('/setup/database', ['setup_code' => $setupCode])
             ->assertRedirect(route('setup.admin.show'));
 
         $this->assertTrue(Schema::hasTable('migrations'));
         $this->assertTrue(Schema::hasTable(FirstRunSetupState::TABLE));
         $this->assertDatabaseHas(FirstRunSetupState::TABLE, ['id' => 1, 'completed_at' => null]);
+        $this->assertFileDoesNotExist(FirstRunSetupCode::path());
 
         // The migration surface disappears immediately after the schema exists.
         $this->get('/setup/database')->assertNotFound();
