@@ -177,7 +177,10 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          disk-size: 4096M
+          # Keep userdata below the hosted runner's remaining free-space budget.
+          # The previous 4096M request required >7.3GB after SDK/system-image setup
+          # and prevented the emulator from starting at all.
+          disk-size: 2048M
           script: |
             ./gradlew --no-daemon connectedDebugAndroidTest
             test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
