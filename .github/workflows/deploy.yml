@@ -17,13 +17,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: main
           fetch-depth: 1
 
       - name: Set up PHP for Composer
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: '8.3'
           extensions: mbstring, xml, pdo, pdo_mysql, bcmath, ctype, fileinfo, json, tokenizer
@@ -42,7 +42,7 @@ jobs:
         run: printf '{"commit":"%s"}\n' "$(git rev-parse HEAD)" > backend/bootstrap/safa-build.json
 
       - name: Sync Laravel backend to cPanel
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
