@@ -38,7 +38,7 @@ class Phase32AuthenticationContractTest extends TestCase
         }
     }
 
-    public function test_duplicate_legacy_mobile_identity_is_rejected_instead_of_guessed(): void
+    public function test_duplicate_legacy_mobile_identity_is_rejected_without_revealing_ambiguity(): void
     {
         OperatorAccount::create([
             'name' => 'Legacy One',
@@ -64,7 +64,9 @@ class Phase32AuthenticationContractTest extends TestCase
             'pin' => '123456',
             'device_uuid' => 'duplicate-device',
             'fingerprint_hash' => 'duplicate-fingerprint',
-        ])->assertStatus(409);
+        ])->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_CREDENTIALS')
+            ->assertJsonPath('message', 'Mobile number or PIN is incorrect.');
 
         $this->assertDatabaseCount('users', 0);
     }
