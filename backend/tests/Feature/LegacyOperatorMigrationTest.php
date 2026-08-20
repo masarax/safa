@@ -61,12 +61,13 @@ class LegacyOperatorMigrationTest extends TestCase
         User::create(['name'=>'B','email'=>'b@safa.local','mobile'=>'01911111111','pin_hash'=>Hash::make('123456'),'password'=>Hash::make('123456'),'role'=>'staff','is_activated'=>true,'permissions'=>[]]);
     }
 
-    public function test_deactivated_canonical_user_cannot_authenticate(): void
+    public function test_deactivated_canonical_user_is_not_exposed_by_login(): void
     {
         $user = User::create(['name'=>'Inactive','email'=>'inactive@safa.local','mobile'=>'01922222222','pin_hash'=>Hash::make('123456'),'password'=>Hash::make('123456'),'role'=>'staff','is_activated'=>false,'permissions'=>[]]);
         $this->postJson('/api/auth/login', ['mobile'=>'01922222222','pin'=>'123456','device_uuid'=>'inactive-device','fingerprint_hash'=>'inactive-fingerprint'])
-            ->assertStatus(403)
-            ->assertJsonPath('message', 'This account is inactive. Please contact an administrator.');
+            ->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_CREDENTIALS')
+            ->assertJsonPath('message', 'Mobile number or PIN is incorrect.');
         $this->assertNotNull($user->id);
     }
 
