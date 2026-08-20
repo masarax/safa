@@ -34,7 +34,8 @@ class FirstRunSetupController extends Controller
 
         $setupCode = (string) $request->input('setup_code', '');
         if (!FirstRunSetupCode::verify($setupCode)) {
-            return back()->with('error', 'The one-time setup code is invalid.')->withInput();
+            // Never flash the deployment-owned code back into session data.
+            return back()->with('error', 'The one-time setup code is invalid.');
         }
 
         $claim = bin2hex(random_bytes(32));
