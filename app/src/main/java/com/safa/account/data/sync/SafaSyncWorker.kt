@@ -45,6 +45,11 @@ class SafaSyncWorker(
                 retryOrFail()
             }
         } catch (t: CancellationException) {
+            // Cancellation can race an in-flight upload after rows were leased.
+            // Release the lease before propagating cancellation. If the server
+            // committed before cancellation, the stable mutation_id makes replay
+            // idempotent on the next reconciliation attempt.
+            runCatching { LocalFirstStore(applicationContext).resetProcessing() }
             throw t
         } catch (t: Throwable) {
             if (isTransient(t)) {
