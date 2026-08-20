@@ -4,14 +4,14 @@ on:
   pull_request:
     paths:
       - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
-      - '.github/workflows/deploy.yml'
+      - '.github/workflows/**'
+      - 'scripts/check-workflow-action-pins.sh'
   push:
     branches: [main]
     paths:
       - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
-      - '.github/workflows/deploy.yml'
+      - '.github/workflows/**'
+      - 'scripts/check-workflow-action-pins.sh'
   workflow_dispatch:
 
 permissions:
@@ -29,6 +29,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Verify immutable workflow action pins
+        run: bash scripts/check-workflow-action-pins.sh
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
