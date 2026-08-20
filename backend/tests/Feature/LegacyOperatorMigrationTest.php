@@ -28,7 +28,8 @@ class LegacyOperatorMigrationTest extends TestCase
         $this->assertSame(User::ROLE_USER, $user->role);
         $this->assertTrue($user->is_activated);
         $this->assertTrue(Hash::check('123456', $user->pin_hash));
-        $this->assertSame(User::permissionsForRole(User::ROLE_USER), $user->permissions);
+        // MySQL JSON objects do not guarantee key order; permissions are a map.
+        $this->assertEquals(User::permissionsForRole(User::ROLE_USER), $user->permissions);
 
         $this->postJson('/api/auth/login', [
             'mobile' => '01912345678', 'pin' => '123456',
