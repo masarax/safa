@@ -6,10 +6,13 @@ use App\Models\Account;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Models\User;
+use App\Support\MobileNumber;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class UserManagementController extends Controller
@@ -36,6 +39,8 @@ class UserManagementController extends Controller
         $actor = $this->getManager($request);
         if (!$actor) return $this->forbidden();
 
+        $mobile = MobileNumber::normalize((string) $request->input('mobile'));
+        $request->merge(['mobile' => $mobile]);
         $roles = $this->manageableRoles($actor);
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
@@ -48,25 +53,32 @@ class UserManagementController extends Controller
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => 'Validation failed.', 'errors' => $validator->errors()], 422);
         }
+        if (!MobileNumber::isValid($mobile)) return $this->invalidMobile();
+        if ($this->canonicalMobileConflict($mobile)) return $this->duplicateMobile();
 
         $role = User::normalizeRole((string) $request->input('role'));
         if (!$actor->canManageRole($role)) return $this->forbidden();
 
         $hash = Hash::make((string) $request->input('pin'));
-        $user = DB::transaction(function () use ($request, $hash, $role) {
-            $user = User::create([
-                'name' => trim($request->string('name')->toString()),
-                'email' => $request->filled('email') ? strtolower(trim((string) $request->input('email'))) : null,
-                'mobile' => $request->string('mobile')->toString(),
-                'role' => $role,
-                'pin_hash' => $hash,
-                'password' => $hash,
-                'is_activated' => $request->has('is_activated') ? (bool) $request->boolean('is_activated') : true,
-                'permissions' => User::permissionsForRole($role),
-            ]);
-            $this->syncOperatorAccount($user);
-            return $user;
-        });
+        try {
+            $user = DB::transaction(function () use ($request, $hash, $role, $mobile) {
+                $user = User::create([
+                    'name' => trim($request->string('name')->toString()),
+                    'email' => $request->filled('email') ? strtolower(trim((string) $request->input('email'))) : null,
+                    'mobile' => $mobile,
+                    'role' => $role,
+                    'pin_hash' => $hash,
+                    'password' => $hash,
+                    'is_activated' => $request->has('is_activated') ? (bool) $request->boolean('is_activated') : true,
+                    'permissions' => User::permissionsForRole($role),
+                ]);
+                $this->syncOperatorAccount($user);
+                return $user;
+            });
+        } catch (QueryException $e) {
+            if ($this->canonicalMobileConflict($mobile)) return $this->duplicateMobile();
+            throw $e;
+        }
 
         $serialized = $this->serializeUser($user);
         return response()->json([
@@ -97,10 +109,16 @@ class UserManagementController extends Controller
             return response()->json(['status' => 'error', 'message' => 'User not found.'], 404);
         }
 
+        $mobile = null;
+        if ($request->has('mobile')) {
+            $mobile = MobileNumber::normalize((string) $request->input('mobile'));
+            $request->merge(['mobile' => $mobile]);
+        }
+
         $roles = $this->manageableRoles($actor);
         $validator = Validator::make($request->all(), [
             'name' => ['sometimes', 'string', 'max:255'],
-            'mobile' => ['sometimes', 'string', 'max:30', 'unique:users,mobile,' . $user->id],
+            'mobile' => ['sometimes', 'required', 'string', 'max:30', 'unique:users,mobile,' . $user->id],
             'email' => ['sometimes', 'nullable', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'role' => ['sometimes', 'in:' . implode(',', $roles)],
             'pin' => ['sometimes', 'digits:6'],
@@ -110,32 +128,39 @@ class UserManagementController extends Controller
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => 'Validation failed.', 'errors' => $validator->errors()], 422);
         }
+        if ($mobile !== null && !MobileNumber::isValid($mobile)) return $this->invalidMobile();
+        if ($mobile !== null && $this->canonicalMobileConflict($mobile, (int) $user->id)) return $this->duplicateMobile();
 
         $targetRole = $request->has('role')
             ? User::normalizeRole((string) $request->input('role'))
             : User::normalizeRole((string) $user->role);
         if (!$actor->canManageRole($targetRole)) return $this->forbidden();
 
-        DB::transaction(function () use ($request, $user, $targetRole) {
-            if ($request->has('name')) $user->name = trim((string) $request->input('name'));
-            if ($request->has('email')) $user->email = $request->filled('email') ? strtolower(trim((string) $request->input('email'))) : null;
-            if ($request->has('mobile')) $user->mobile = (string) $request->input('mobile');
-            if ($request->has('role')) $user->role = $targetRole;
-            if ($request->has('is_activated')) $user->is_activated = (bool) $request->boolean('is_activated');
+        try {
+            DB::transaction(function () use ($request, $user, $targetRole, $mobile) {
+                if ($request->has('name')) $user->name = trim((string) $request->input('name'));
+                if ($request->has('email')) $user->email = $request->filled('email') ? strtolower(trim((string) $request->input('email'))) : null;
+                if ($mobile !== null) $user->mobile = $mobile;
+                if ($request->has('role')) $user->role = $targetRole;
+                if ($request->has('is_activated')) $user->is_activated = (bool) $request->boolean('is_activated');
 
-            $secret = $request->input('pin') ?? $request->input('password');
-            if ($secret !== null && $secret !== '') {
-                $hash = Hash::make((string) $secret);
-                $user->pin_hash = $hash;
-                $user->password = $hash;
-                AuthSession::where('user_id', $user->id)->update(['is_revoked' => true]);
-                DeviceBinding::where('user_id', $user->id)->update(['is_active' => false]);
-            }
+                $secret = $request->input('pin') ?? $request->input('password');
+                if ($secret !== null && $secret !== '') {
+                    $hash = Hash::make((string) $secret);
+                    $user->pin_hash = $hash;
+                    $user->password = $hash;
+                    AuthSession::where('user_id', $user->id)->update(['is_revoked' => true]);
+                    DeviceBinding::where('user_id', $user->id)->update(['is_active' => false]);
+                }
 
-            $user->permissions = User::permissionsForRole($targetRole);
-            $user->save();
-            $this->syncOperatorAccount($user);
-        });
+                $user->permissions = User::permissionsForRole($targetRole);
+                $user->save();
+                $this->syncOperatorAccount($user);
+            });
+        } catch (QueryException $e) {
+            if ($mobile !== null && $this->canonicalMobileConflict($mobile, (int) $user->id)) return $this->duplicateMobile();
+            throw $e;
+        }
 
         return response()->json([
             'status' => 'success',
@@ -215,6 +240,42 @@ class UserManagementController extends Controller
         }
 
         return $user && $user->is_activated && $user->canManageUsers() ? $user : null;
+    }
+
+    private function canonicalMobileConflict(string $mobile, ?int $ignoreUserId = null): bool
+    {
+        $users = User::query()->where('mobile', $mobile);
+        if ($ignoreUserId !== null) $users->whereKeyNot($ignoreUserId);
+        if ($users->exists()) return true;
+
+        if (!Schema::hasTable('operator_accounts')) return false;
+
+        return DB::table('operator_accounts')
+            ->select(['user_id', 'mobile'])
+            ->whereNotNull('mobile')
+            ->get()
+            ->contains(function ($operator) use ($mobile, $ignoreUserId): bool {
+                if ($ignoreUserId !== null && (int) ($operator->user_id ?? 0) === $ignoreUserId) return false;
+                return MobileNumber::normalize((string) $operator->mobile) === $mobile;
+            });
+    }
+
+    private function invalidMobile(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Validation failed.',
+            'errors' => ['mobile' => ['The mobile number is not valid.']],
+        ], 422);
+    }
+
+    private function duplicateMobile(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Validation failed.',
+            'errors' => ['mobile' => ['The mobile number has already been taken.']],
+        ], 422);
     }
 
     private function syncOperatorAccount(User $user): void
