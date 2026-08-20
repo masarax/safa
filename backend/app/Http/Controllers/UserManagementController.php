@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Models\User;
@@ -164,6 +165,21 @@ class UserManagementController extends Controller
         }
         if (!$actor->canManageRole((string) $user->role)) {
             return response()->json(['status' => 'error', 'message' => 'User not found.'], 404);
+        }
+
+        $ownedAccountIds = Account::query()
+            ->where('owner_user_id', $user->id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($accountId) => (int) $accountId)
+            ->values();
+        if ($ownedAccountIds->isNotEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 'ACCOUNT_OWNERSHIP_REQUIRED',
+                'message' => 'Transfer or resolve owned business accounts before deleting this user.',
+                'account_ids' => $ownedAccountIds,
+            ], 409);
         }
 
         DB::transaction(function () use ($user) {
