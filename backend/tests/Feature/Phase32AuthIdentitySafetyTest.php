@@ -12,7 +12,7 @@ class Phase32AuthIdentitySafetyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_duplicate_legacy_mobile_is_rejected_instead_of_guessing(): void
+    public function test_duplicate_legacy_mobile_is_rejected_without_revealing_ambiguity(): void
     {
         User::create([
             'name' => 'Canonical User',
@@ -40,7 +40,8 @@ class Phase32AuthIdentitySafetyTest extends TestCase
             'pin' => '123456',
             'device_uuid' => 'ambiguous-device',
             'fingerprint_hash' => 'ambiguous-fingerprint',
-        ])->assertStatus(409)
-            ->assertJsonPath('message', 'Multiple accounts match this mobile number. Please contact an administrator.');
+        ])->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_CREDENTIALS')
+            ->assertJsonPath('message', 'Mobile number or PIN is incorrect.');
     }
 }
