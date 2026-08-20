@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
+use App\Models\SystemSetting;
 use App\Models\User;
+use App\Models\UserAccountShare;
 use App\Support\CredentialVerifier;
 use App\Support\MobileNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class WebAuthController extends Controller
@@ -15,7 +19,19 @@ class WebAuthController extends Controller
     public function showLogin(Request $request): View|RedirectResponse
     {
         if ($request->user()) return redirect()->route('safa.app');
-        return view('auth.login');
+
+        $language = strtolower((string) $request->query('lang', $request->session()->get('safa_web_language', 'en')));
+        if (!in_array($language, ['en', 'bn'], true)) $language = 'en';
+        $request->session()->put('safa_web_language', $language);
+
+        $setting = Schema::hasTable('system_settings') ? SystemSetting::first() : null;
+
+        return view('safa.login', [
+            'language' => $language,
+            'appName' => $setting?->app_name ?: 'SAFA',
+            'captainName' => null,
+            'logoSource' => $setting?->webLogoSource() ?: '/safa-logo.png',
+        ]);
     }
 
     public function login(Request $request): RedirectResponse
@@ -23,63 +39,80 @@ class WebAuthController extends Controller
         $validated = $request->validate([
             'identity' => ['required', 'string', 'max:255'],
             'credential' => ['required', 'string', 'min:6', 'max:255'],
+            'language' => ['nullable', 'in:en,bn'],
         ]);
 
-        $rawIdentity = trim((string) $validated['identity']);
-        $credential = $this->normalizeDigits((string) $validated['credential']);
-        $isEmail = filter_var($rawIdentity, FILTER_VALIDATE_EMAIL) !== false;
-        $user = $isEmail
-            ? User::query()->where('email', strtolower($rawIdentity))->first()
-            : User::query()->where('mobile', MobileNumber::normalize($rawIdentity))->first();
+        $identity = trim((string) $validated['identity']);
+        $user = $this->findUser($identity);
+        $credentialMatches = $this->credentialMatches($user, (string) $validated['credential']);
 
-        $credentialMatches = $this->credentialMatches($user, $credential);
         if (!$user || !$credentialMatches || !(bool) $user->is_activated) {
-            return back()
-                ->withInput($request->only('identity'))
-                ->withErrors(['identity' => $this->failureMessage($request, $isEmail)]);
+            return back()->withInput(['identity' => $identity])->withErrors([
+                'auth' => $this->failureIdentityType($identity),
+            ]);
         }
 
-        Auth::login($user);
+        Auth::login($user, false);
         $request->session()->regenerate();
+        $request->session()->put('safa_web_language', $validated['language'] ?? 'en');
+
+        $ownedIds = Account::query()->where('owner_user_id', $user->id)->pluck('id');
+        $sharedIds = UserAccountShare::query()->where('shared_with_user_id', $user->id)->pluck('account_id');
+        $authorizedIds = $ownedIds->merge($sharedIds)->map(fn ($id) => (int) $id)->unique()->values();
+        if ($authorizedIds->count() === 1) {
+            $request->session()->put('safa_active_account_id', $authorizedIds->first());
+        } else {
+            $request->session()->forget('safa_active_account_id');
+        }
 
         return redirect()->intended(route('safa.app'));
     }
 
     public function logout(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
+        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('safa.login');
+    }
+
+    private function findUser(string $identity): ?User
+    {
+        if (!Schema::hasTable('users')) return null;
+
+        if (filter_var($identity, FILTER_VALIDATE_EMAIL)) {
+            $query = User::query()->whereRaw('LOWER(email) = ?', [strtolower($identity)]);
+            return $query->count() === 1 ? $query->first() : null;
+        }
+
+        $mobile = MobileNumber::normalize($identity);
+        if ($mobile === '' || !MobileNumber::isValid($mobile)) return null;
+        $query = User::query()->where('mobile', $mobile);
+
+        return $query->count() === 1 ? $query->first() : null;
     }
 
     private function credentialMatches(?User $user, string $credential): bool
     {
-        $looksLikePin = preg_match('/^\d{6}$/', $credential) === 1;
-        $storedHash = $looksLikePin
-            ? ($user?->pin_hash ?: $user?->password)
-            : ($user?->password ?: $user?->pin_hash);
+        $normalized = $this->normalizeDigits(trim($credential));
+        $candidate = preg_match('/^\d{6}$/', $normalized) ? $normalized : $credential;
 
-        return CredentialVerifier::verify($credential, $storedHash);
+        return CredentialVerifier::verify($candidate, [
+            $user?->pin_hash,
+            $user?->password,
+        ]);
     }
 
-    private function failureMessage(Request $request, bool $isEmail): string
+    private function failureIdentityType(string $identity): string
     {
-        $bn = $request->session()->get('safa_web_language', 'en') === 'bn';
-        if ($isEmail) {
-            return $bn
-                ? 'ইমেইল বা পাসওয়ার্ড সঠিক নয়।'
-                : 'Email or password is incorrect.';
-        }
-
-        return $bn
-            ? 'মোবাইল নম্বর বা পিন সঠিক নয়।'
-            : 'Mobile number or PIN is incorrect.';
+        // Failure copy depends only on submitted shape, never account state.
+        return str_contains($identity, '@') ? 'email' : 'mobile';
     }
 
     private function normalizeDigits(string $value): string
     {
-        return strtr(trim($value), [
+        return strtr($value, [
             '٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9',
             '۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',
             '০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9',
