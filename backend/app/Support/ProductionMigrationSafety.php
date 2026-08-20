@@ -15,6 +15,16 @@ final class ProductionMigrationSafety
         'forcedelete' => 'forceDelete',
     ];
 
+    /**
+     * Index-only replacement is non-data-destructive and is required by an
+     * existing production migration before widening encrypted token columns.
+     * Other drop* helpers remain fail-closed because they can remove columns,
+     * tables or integrity constraints.
+     *
+     * @var array<int, string>
+     */
+    private const SAFE_DROP_METHODS = ['dropindex'];
+
     /** @var array<string, string> */
     private const RAW_SQL_METHODS = [
         'statement' => 'statement',
@@ -73,7 +83,11 @@ final class ProductionMigrationSafety
                     || $previous === '?->'
                     || $previous === '::';
 
-                if ($isMethodCall && str_starts_with($method, 'drop')) {
+                if (
+                    $isMethodCall
+                    && str_starts_with($method, 'drop')
+                    && !in_array($method, self::SAFE_DROP_METHODS, true)
+                ) {
                     $violations[] = $token[1] . '()';
                 } elseif ($isMethodCall && isset(self::DESTRUCTIVE_METHODS[$method])) {
                     $violations[] = self::DESTRUCTIVE_METHODS[$method] . '()';
