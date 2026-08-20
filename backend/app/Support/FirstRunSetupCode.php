@@ -69,6 +69,7 @@ final class FirstRunSetupCode
 
     public static function operatorPath(): string
     {
-        return 'backend/storage/' . self::RELATIVE_PATH;
+        // deploy.yml uploads backend/ directly into the cPanel server root.
+        return 'storage/' . self::RELATIVE_PATH;
     }
 }
