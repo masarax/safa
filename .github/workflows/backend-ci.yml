@@ -66,3 +66,66 @@ jobs:
       - name: Run full test suite
         working-directory: backend
         run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
+
+  mysql-parity:
+    name: MySQL 8 strict migrations and full tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: safa_test
+      DB_USERNAME: safa
+      DB_PASSWORD: safa_test_password
+      DB_URL: ''
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: safa_test
+          MYSQL_USER: safa
+          MYSQL_PASSWORD: safa_test_password
+          MYSQL_ROOT_PASSWORD: root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Verify immutable workflow action pins
+        run: bash scripts/check-workflow-action-pins.sh
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, pdo, pdo_mysql, bcmath, ctype, fileinfo, json, tokenizer
+          coverage: none
+          ini-values: memory_limit=1G, max_execution_time=0, opcache.enable=0, opcache.jit=0
+
+      - name: Prepare MySQL test environment
+        working-directory: backend
+        shell: bash
+        run: |
+          cp .env.example .env
+          php -r '$env=file_get_contents(".env"); $key="base64:".base64_encode(random_bytes(32)); $env=preg_replace("/^APP_KEY=.*$/m", "APP_KEY=$key", $env); file_put_contents(".env", $env);'
+          php -r '$pdo=new PDO("mysql:host=127.0.0.1;port=3306", "root", "root_password", [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); $pdo->exec("SET GLOBAL sql_mode=\"STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION\"");'
+          php -r '$pdo=new PDO("mysql:host=127.0.0.1;port=3306;dbname=safa_test", "safa", "safa_test_password", [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); $mode=(string) $pdo->query("SELECT @@SESSION.sql_mode")->fetchColumn(); if (!str_contains($mode, "STRICT_TRANS_TABLES")) { fwrite(STDERR, "MySQL strict mode is required\n"); exit(1); } echo $mode, PHP_EOL;'
+
+      - name: Install Composer dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Migrate clean MySQL database
+        working-directory: backend
+        run: php artisan migrate --force --no-interaction
+
+      - name: Run full test suite on MySQL
+        working-directory: backend
+        run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
