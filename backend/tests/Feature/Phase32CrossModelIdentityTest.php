@@ -12,7 +12,7 @@ class Phase32CrossModelIdentityTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_current_user_and_unlinked_legacy_operator_with_same_mobile_are_rejected(): void
+    public function test_current_user_and_unlinked_legacy_operator_with_same_mobile_are_rejected_generically(): void
     {
         User::create([
             'name' => 'Canonical User',
@@ -40,8 +40,9 @@ class Phase32CrossModelIdentityTest extends TestCase
             'pin' => '123456',
             'device_uuid' => 'cross-model-device',
             'fingerprint_hash' => 'cross-model-fingerprint',
-        ])->assertStatus(409)
-            ->assertJsonPath('message', 'Multiple accounts match this mobile number. Please contact an administrator.');
+        ])->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_CREDENTIALS')
+            ->assertJsonPath('message', 'Mobile number or PIN is incorrect.');
     }
 
     public function test_linked_legacy_row_does_not_supply_a_second_pin(): void
@@ -79,7 +80,7 @@ class Phase32CrossModelIdentityTest extends TestCase
             'mobile' => '01987654321',
             'pin' => '654321',
             'device_uuid' => 'canonical-pin-device',
-            'fingerprint_hash' => 'canonical-pin-fingerprint',
+            'fingerprint_hash' => 'canonical-fingerprint',
         ])->assertOk()->assertJsonPath('user.id', $user->id);
     }
 }
