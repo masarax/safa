@@ -161,15 +161,45 @@ class MobileLoginApiTest extends TestCase
             ->assertStatus(200)->assertJsonPath('status', 'success')->assertJsonPath('user.id', $user->id)->assertJsonPath('user.mobile', '0536308965');
     }
 
-    public function test_inactive_account_returns_403_before_credential_error(): void
+    public function test_unknown_wrong_and_inactive_mobile_share_one_failure_contract(): void
     {
-        [$user] = $this->seedUser(['is_activated' => false]);
-        $this->postJson('/api/auth/login', [
-            'mobile' => $user->mobile, 'pin' => '123456',
-            'device_uuid' => 'inactive-device', 'fingerprint_hash' => 'inactive-fingerprint',
-        ], ['Accept' => 'application/json'])
-            ->assertStatus(403)
-            ->assertJsonPath('message', 'This account is inactive. Please contact an administrator.');
+        [$active] = $this->seedUser();
+        $inactive = User::create([
+            'name' => 'Inactive User',
+            'email' => 'inactive@safa.local',
+            'mobile' => '0536308966',
+            'pin_hash' => Hash::make('123456'),
+            'password' => Hash::make('123456'),
+            'role' => 'staff',
+            'is_activated' => false,
+            'permissions' => User::defaultPermissions(false),
+        ]);
+
+        $cases = [
+            ['0536308999', '123456'],
+            [$active->mobile, '654321'],
+            [$inactive->mobile, '123456'],
+        ];
+
+        foreach ($cases as [$mobile, $pin]) {
+            $response = $this->postJson('/api/auth/login', [
+                'mobile' => $mobile,
+                'pin' => $pin,
+                'device_uuid' => 'failure-device',
+                'fingerprint_hash' => 'failure-fingerprint',
+            ], ['Accept' => 'application/json']);
+
+            $response
+                ->assertStatus(401)
+                ->assertExactJson([
+                    'status' => 'error',
+                    'message' => 'Mobile number or PIN is incorrect.',
+                    'error' => [
+                        'code' => 'INVALID_CREDENTIALS',
+                        'message' => 'Mobile number or PIN is incorrect.',
+                    ],
+                ]);
+        }
     }
 
     public function test_authenticated_session_endpoint_accepts_the_current_access_token(): void
