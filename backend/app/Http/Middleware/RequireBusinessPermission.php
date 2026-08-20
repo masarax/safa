@@ -57,7 +57,7 @@ class RequireBusinessPermission
             };
         } elseif (preg_match('#/(wallet-ledgers|wallet-batches|supplier-deposits)(?:/[^/]+)?$#', $path)) {
             $permission = 'can_manage_wallet';
-        } elseif (preg_match('#/expenses-incomes(?:/[^/]+)?$#', $path)) {
+        } elseif (preg_match('#/(expenses-incomes|expenses)(?:/[^/]+)?$#', $path)) {
             $permission = 'can_manage_expenses';
         }
 

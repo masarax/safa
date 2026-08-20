@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Support\BusinessPermissions;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -28,11 +29,12 @@ class WebAppController extends Controller
         $setting = SystemSetting::first();
         $language = $request->session()->get('safa_web_language', 'en');
         if (!in_array($language, ['en', 'bn'], true)) $language = 'en';
+        $permissions = BusinessPermissions::effective($user, (int) ($activeAccountId ?? 0));
 
         return view('safa.app', [
             'user' => $user,
             'roleLabel' => User::roleLabel((string) $user->role),
-            'permissions' => $user->getFormattedPermissions(),
+            'permissions' => $permissions,
             'accounts' => $accounts,
             'activeAccountId' => $activeAccountId,
             'setting' => $setting,
