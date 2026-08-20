@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesCollisionSafeLocalId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SupplierDeposit extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, UsesCollisionSafeLocalId;
 
     protected $fillable = [
         'account_id', 'local_id', 'supplier_id', 'amount_sar', 'rate', 'amount_bdt',
