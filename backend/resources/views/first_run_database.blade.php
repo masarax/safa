@@ -32,8 +32,13 @@
             <span>Only reviewed forward migrations are allowed. Fresh, rollback, reset, wipe and truncate commands are never used.</span>
         </div>
 
-        <form action="{{ route('setup.database.run') }}" method="POST" class="stack-form">
+        <form action="{{ route('setup.database.run') }}" method="POST" class="stack-form" autocomplete="off">
             @csrf
+            <label>
+                One-time setup code
+                <input type="password" name="setup_code" minlength="32" maxlength="32" pattern="[A-Fa-f0-9]{32}" required autocomplete="off" spellcheck="false">
+            </label>
+            <p class="system-note">For takeover protection, read the code from the server-only file <code>{{ $setupCodePath }}</code>. The file is outside public storage and is deleted when migration succeeds.</p>
             <button class="primary-button wide" data-first-run-action="initialize-database" type="submit">Initialize Database</button>
         </form>
 
