@@ -8,6 +8,7 @@ use App\Support\MobileNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 
 class FirstRunSetupController extends Controller
@@ -23,7 +24,10 @@ class FirstRunSetupController extends Controller
 
     public function runDatabase(Request $request, FirstRunDatabaseBootstrapService $bootstrap): RedirectResponse
     {
+        // State must be checked before rate limiting so the migration endpoint
+        // disappears as a hard 404 immediately after the schema is initialized.
         abort_unless(FirstRunSetupState::databaseInitializationRequired(), 404);
+        $this->consumeAttempt('first-run-database|' . $request->ip(), 3);
 
         $claim = bin2hex(random_bytes(32));
         $request->session()->put(FirstRunSetupState::SESSION_CLAIM, $claim);
@@ -56,7 +60,10 @@ class FirstRunSetupController extends Controller
 
     public function createAdmin(Request $request, FirstRunDatabaseBootstrapService $bootstrap): RedirectResponse
     {
+        // Claim/state authorization happens before the limiter so completed or
+        // foreign setup sessions never reveal this retired endpoint as HTTP 429.
         $claim = $this->authorizeClaim($request);
+        $this->consumeAttempt('first-run-admin|' . $request->ip(), 5);
 
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
@@ -103,5 +110,16 @@ class FirstRunSetupController extends Controller
         abort_unless(FirstRunSetupState::claimMatches($claim), 403, 'First-run setup belongs to the browser session that initialized the database.');
 
         return $claim;
+    }
+
+    private function consumeAttempt(string $key, int $maxAttempts): void
+    {
+        if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
+            abort(429, 'Too many first-run setup attempts.');
+        }
+
+        // During first-run the global middleware has already selected the file
+        // cache store, so this remains available even before cache tables exist.
+        RateLimiter::hit($key, 60);
     }
 }
