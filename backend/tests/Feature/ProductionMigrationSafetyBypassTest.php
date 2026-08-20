@@ -7,7 +7,7 @@ use Tests\TestCase;
 
 class ProductionMigrationSafetyBypassTest extends TestCase
 {
-    public function test_compound_drop_helpers_are_rejected(): void
+    public function test_compound_column_drop_helper_is_rejected_but_index_replacement_is_allowed(): void
     {
         $source = <<<'PHP'
 <?php
@@ -25,7 +25,7 @@ PHP;
 
         $violations = ProductionMigrationSafety::violations($source);
         $this->assertContains('dropConstrainedForeignId()', $violations);
-        $this->assertContains('dropIndex()', $violations);
+        $this->assertNotContains('dropIndex()', $violations);
     }
 
     public function test_concatenated_raw_sql_is_rejected_fail_closed(): void
