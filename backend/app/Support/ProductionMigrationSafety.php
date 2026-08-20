@@ -8,15 +8,18 @@ final class ProductionMigrationSafety
 {
     /** @var array<string, string> */
     private const DESTRUCTIVE_METHODS = [
-        'drop' => 'drop',
-        'dropifexists' => 'dropIfExists',
-        'dropcolumn' => 'dropColumn',
-        'dropcolumns' => 'dropColumns',
         'rename' => 'rename',
         'renamecolumn' => 'renameColumn',
         'truncate' => 'truncate',
         'delete' => 'delete',
         'forcedelete' => 'forceDelete',
+    ];
+
+    /** @var array<string, string> */
+    private const RAW_SQL_METHODS = [
+        'statement' => 'statement',
+        'unprepared' => 'unprepared',
+        'affectingstatement' => 'affectingStatement',
     ];
 
     /**
@@ -70,29 +73,74 @@ final class ProductionMigrationSafety
                     || $previous === '?->'
                     || $previous === '::';
 
-                if ($isMethodCall && isset(self::DESTRUCTIVE_METHODS[$method])) {
+                if ($isMethodCall && str_starts_with($method, 'drop')) {
+                    $violations[] = $token[1] . '()';
+                } elseif ($isMethodCall && isset(self::DESTRUCTIVE_METHODS[$method])) {
                     $violations[] = self::DESTRUCTIVE_METHODS[$method] . '()';
                 }
-            }
 
-            if (is_array($token) && $token[0] === T_CONSTANT_ENCAPSED_STRING) {
-                $literal = self::decodeQuotedLiteral($token[1]);
-                if (preg_match('/\bDROP\s+(?:TABLE|COLUMN|DATABASE)\b/i', $literal) === 1) {
-                    $violations[] = 'raw DROP';
-                }
-                if (preg_match('/\bTRUNCATE(?:\s+TABLE)?\b/i', $literal) === 1) {
-                    $violations[] = 'raw TRUNCATE';
-                }
-                if (preg_match('/\bDELETE\s+FROM\b/i', $literal) === 1) {
-                    $violations[] = 'raw DELETE';
-                }
-                if (preg_match('/\bRENAME\s+TABLE\b/i', $literal) === 1) {
-                    $violations[] = 'raw RENAME TABLE';
+                if ($isMethodCall && isset(self::RAW_SQL_METHODS[$method])) {
+                    foreach (self::rawSqlCallViolations($tokens, $i) as $violation) {
+                        $violations[] = $violation;
+                    }
                 }
             }
         }
 
         return array_values(array_unique($violations));
+    }
+
+    /**
+     * Raw SQL is allowed only when the entire first argument is one quoted
+     * literal that can be inspected. Variables, concatenation and heredoc/nowdoc
+     * are fail-closed because the production updater cannot prove them safe.
+     *
+     * @param array<int, array{0:int,1:string,2:int}|string> $tokens
+     * @return array<int, string>
+     */
+    private static function rawSqlCallViolations(array $tokens, int $methodIndex): array
+    {
+        $openIndex = self::nextMeaningfulTokenIndex($tokens, $methodIndex + 1);
+        if ($openIndex === null || $tokens[$openIndex] !== '(') {
+            return ['dynamic raw SQL'];
+        }
+
+        $argumentIndex = self::nextMeaningfulTokenIndex($tokens, $openIndex + 1);
+        if ($argumentIndex === null) {
+            return ['dynamic raw SQL'];
+        }
+
+        $argument = $tokens[$argumentIndex];
+        if (!is_array($argument) || $argument[0] !== T_CONSTANT_ENCAPSED_STRING) {
+            return ['dynamic raw SQL'];
+        }
+
+        $afterArgument = self::nextMeaningfulTokenIndex($tokens, $argumentIndex + 1);
+        if ($afterArgument === null || $tokens[$afterArgument] !== ')') {
+            return ['dynamic raw SQL'];
+        }
+
+        return self::rawSqlLiteralViolations(self::decodeQuotedLiteral($argument[1]));
+    }
+
+    /** @return array<int, string> */
+    private static function rawSqlLiteralViolations(string $literal): array
+    {
+        $violations = [];
+        if (preg_match('/\bDROP\s+(?:TABLE|COLUMN|DATABASE|INDEX|CONSTRAINT|FOREIGN\s+KEY)\b/i', $literal) === 1) {
+            $violations[] = 'raw DROP';
+        }
+        if (preg_match('/\bTRUNCATE(?:\s+TABLE)?\b/i', $literal) === 1) {
+            $violations[] = 'raw TRUNCATE';
+        }
+        if (preg_match('/\bDELETE\s+FROM\b/i', $literal) === 1) {
+            $violations[] = 'raw DELETE';
+        }
+        if (preg_match('/\bRENAME\s+TABLE\b/i', $literal) === 1) {
+            $violations[] = 'raw RENAME TABLE';
+        }
+
+        return $violations;
     }
 
     /**
