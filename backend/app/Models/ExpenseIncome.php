@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesCollisionSafeLocalId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ExpenseIncome extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, UsesCollisionSafeLocalId;
 
     protected $table = 'expenses_incomes';
 
