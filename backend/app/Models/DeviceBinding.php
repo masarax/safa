@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Validation\ValidationException;
 
 class DeviceBinding extends Model
 {
@@ -29,6 +30,29 @@ class DeviceBinding extends Model
             'is_active' => 'boolean',
             'bound_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $binding): void {
+            $user = User::query()->find((int) $binding->user_id);
+            if (!$user || !(bool) $user->is_activated) {
+                throw ValidationException::withMessages([
+                    'device_uuid' => ['Device binding requires an active user account.'],
+                ]);
+            }
+
+            if (
+                $binding->exists
+                && $binding->isDirty('is_active')
+                && !(bool) $binding->getRawOriginal('is_active')
+                && (bool) $binding->is_active
+            ) {
+                throw ValidationException::withMessages([
+                    'device_uuid' => ['A revoked device must be restored through the authorized recovery flow.'],
+                ]);
+            }
+        });
     }
 
     /**

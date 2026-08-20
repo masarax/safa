@@ -163,7 +163,14 @@ jobs:
         run: |
           rm -rf app/build/outputs/apk/release
           ./gradlew --no-daemon assembleRelease
-          test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          release_apk="$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          test -n "$release_apk"
+          cp "$release_apk" "$RUNNER_TEMP/safa-release-smoke.apk"
+          # Release intermediates are several GB and are no longer needed once the
+          # signed APK is preserved. Reclaim them before installing the API 35
+          # system image/AVD so hosted-runner disk pressure cannot block boot.
+          rm -rf app/build
+          df -h . "$RUNNER_TEMP"
 
       - name: Run connected tests and release runtime smoke
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
@@ -172,16 +179,20 @@ jobs:
           STORE_PASSWORD: ci-only-password
           KEY_ALIAS: safa-ci
           KEY_PASSWORD: ci-only-password
+          RELEASE_APK_PATH: ${{ runner.temp }}/safa-release-smoke.apk
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
           disable-animations: true
-          disk-size: 4096M
+          # API 35's system image needs about 5.3GB in addition to userdata.
+          # Keep userdata compact; the test and release APK payloads fit well
+          # below this while the host retains enough space for Gradle test output.
+          disk-size: 1024M
           script: |
             ./gradlew --no-daemon connectedDebugAndroidTest
-            test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
-            adb install -r "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+            test -f "$RELEASE_APK_PATH"
+            adb install -r "$RELEASE_APK_PATH"
             adb logcat -c
             adb shell am force-stop com.safa.account
             adb shell am start -W -n com.safa.account/.MainActivity
@@ -189,6 +200,15 @@ jobs:
             adb shell pidof com.safa.account || adb logcat -d -b crash -v threadtime | tee app/build/release-smoke-crash.log
             adb shell pidof com.safa.account || adb logcat -d -v threadtime -t 400 | grep -E 'FATAL EXCEPTION|AndroidRuntime|SafaApp|SAFA_DIAGNOSTIC|com\.safa\.account' | tee app/build/release-smoke-logcat.log
             adb shell pidof com.safa.account | grep -q '[0-9]'
+
+      - name: Restore release APK for diagnostics
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/safa-release-smoke.apk" ]; then
+            mkdir -p app/build/outputs/apk/release
+            cp "$RUNNER_TEMP/safa-release-smoke.apk" app/build/outputs/apk/release/safa-release-smoke.apk
+          fi
 
       - name: Upload instrumentation and release-smoke results
         if: always()

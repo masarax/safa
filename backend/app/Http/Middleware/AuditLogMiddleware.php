@@ -15,18 +15,26 @@ class AuditLogMiddleware
 
         if (in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
             try {
-                $sensitive = [
-                    'password', 'pin', 'api_secret', 'api_key', 'token', 'access_token',
-                    'refresh_token', 'device_token', 'session_token', 'fingerprint_token',
-                    'fingerprint_hash', 'authorization',
+                $exactSensitive = [
+                    'api_key', 'authorization', 'fingerprint_hash',
                 ];
 
-                $redact = function ($value) use (&$redact, $sensitive) {
+                $isSensitiveKey = static function (string $key) use ($exactSensitive): bool {
+                    $normalized = strtolower((string) preg_replace('/[^a-z0-9]+/i', '_', trim($key)));
+                    $normalized = trim($normalized, '_');
+                    if (in_array($normalized, $exactSensitive, true)) return true;
+
+                    return preg_match(
+                        '/(?:^|_)(?:password|passcode|pin|secret|token|authorization)(?:_|$)/',
+                        $normalized,
+                    ) === 1;
+                };
+
+                $redact = function ($value) use (&$redact, $isSensitiveKey) {
                     if (!is_array($value)) return $value;
                     $result = [];
                     foreach ($value as $key => $item) {
-                        $normalized = strtolower((string) $key);
-                        $result[$key] = in_array($normalized, $sensitive, true)
+                        $result[$key] = $isSensitiveKey((string) $key)
                             ? '[REDACTED]'
                             : (is_array($item) ? $redact($item) : $item);
                     }
