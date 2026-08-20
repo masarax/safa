@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\UserAccountShare;
+use App\Support\BusinessPermissions;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,28 +22,10 @@ class RequireBusinessPermission
             return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 401);
         }
 
-        $permissions = $user->getFormattedPermissions();
         $accountId = (int) ($request->attributes->get('active_account_id')
             ?: $request->header('X-SAFA-ACCOUNT-ID')
             ?: $request->input('account_id', 0));
-
-        if ($accountId > 0) {
-            $share = UserAccountShare::query()
-                ->where('shared_with_user_id', $user->id)
-                ->where('account_id', $accountId)
-                ->where('owner_user_id', '!=', $user->id)
-                ->first();
-
-            if ($share && is_array($share->permissions_override)) {
-                // A share may narrow access inside the user's role preset, but it
-                // can never elevate a Normal/Business user into a hidden module.
-                foreach ($share->permissions_override as $key => $allowed) {
-                    if (array_key_exists($key, $permissions)) {
-                        $permissions[$key] = (bool) $permissions[$key] && (bool) $allowed;
-                    }
-                }
-            }
-        }
+        $permissions = BusinessPermissions::effective($user, $accountId);
 
         $method = strtoupper($request->method());
         $path = trim($request->path(), '/');
