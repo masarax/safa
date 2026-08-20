@@ -7,30 +7,40 @@ use Illuminate\Support\Facades\Hash;
 /** Constant-work credential verification for public authentication surfaces. */
 final class CredentialVerifier
 {
-    /**
-     * Public, non-secret bcrypt hash used only when no account/hash exists.
-     * Cost 12 matches Laravel's default bcrypt work factor used by this app.
-     */
+    /** Public, non-secret bcrypt hash used only as a timing equalizer. */
     public const DUMMY_BCRYPT_HASH = '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.';
 
-    public static function verify(string $credential, ?string $storedHash): bool
+    /**
+     * Verify exactly two supported hash slots without short-circuiting.
+     * Missing or malformed hashes are replaced by the public dummy hash so
+     * unknown identities and known identities perform comparable bcrypt work.
+     *
+     * @param array<int, string|null> $storedHashes
+     */
+    public static function verify(string $credential, array $storedHashes): bool
     {
-        $hasStoredHash = is_string($storedHash) && trim($storedHash) !== '';
-        $hash = $hasStoredHash ? $storedHash : self::DUMMY_BCRYPT_HASH;
+        $matches = false;
 
-        try {
-            $matches = Hash::check($credential, $hash);
-        } catch (\Throwable) {
-            // Malformed legacy hashes still execute one supported bcrypt check so
-            // the public failure path remains comparable to a missing identity.
+        for ($slot = 0; $slot < 2; $slot++) {
+            $storedHash = $storedHashes[$slot] ?? null;
+            $hasStoredHash = is_string($storedHash) && trim($storedHash) !== '';
+            $hash = $hasStoredHash ? $storedHash : self::DUMMY_BCRYPT_HASH;
+
             try {
-                Hash::check($credential, self::DUMMY_BCRYPT_HASH);
+                $slotMatches = Hash::check($credential, $hash);
             } catch (\Throwable) {
-                // The framework bcrypt driver is expected to support this hash.
+                // A malformed legacy hash must not create a cheaper public path.
+                try {
+                    Hash::check($credential, self::DUMMY_BCRYPT_HASH);
+                } catch (\Throwable) {
+                    // The configured bcrypt driver is expected to support it.
+                }
+                $slotMatches = false;
             }
-            return false;
+
+            $matches = $matches || ($hasStoredHash && $slotMatches);
         }
 
-        return $hasStoredHash && $matches;
+        return $matches;
     }
 }
