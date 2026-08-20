@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesCollisionSafeLocalId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WalletBatch extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, UsesCollisionSafeLocalId;
 
     protected $fillable = [
         'account_id', 'local_id', 'ledger_id', 'rate', 'initial_bdt', 'remaining_bdt',
