@@ -79,7 +79,14 @@ class ApiSecurityInterceptor(
                     currentAccessToken
                 } else {
                     val refreshToken = tokenManager.getRefreshToken()
-                    refreshOverride?.invoke(refreshToken) ?: performTokenRefresh(refreshToken)
+                    // A test override returning null explicitly represents refresh
+                    // failure. Do not fall through into the real network refresh in
+                    // that case; production calls use performTokenRefresh directly.
+                    if (refreshOverride != null) {
+                        refreshOverride.invoke(refreshToken)
+                    } else {
+                        performTokenRefresh(refreshToken)
+                    }
                 }
 
                 if (!newToken.isNullOrBlank()) {
