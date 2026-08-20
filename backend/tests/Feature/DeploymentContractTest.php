@@ -12,9 +12,16 @@ class DeploymentContractTest extends TestCase
 
         $this->assertStringContainsString("workflow_dispatch:\n", $workflow);
         $this->assertStringContainsString('composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress', $workflow);
-        $this->assertStringContainsString('SamKirkland/FTP-Deploy-Action@v4.3.5', $workflow);
+        $this->assertStringContainsString('actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0', $workflow);
+        $this->assertStringContainsString('shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2', $workflow);
+        $this->assertStringContainsString('SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5', $workflow);
         $this->assertStringContainsString('local-dir: backend/', $workflow);
         $this->assertStringContainsString('server-dir: /', $workflow);
+
+        preg_match_all('/^[ \t]*uses:[ \t]+[^\s#]+@([^\s#]+)/m', $workflow, $actionRefs);
+        foreach ($actionRefs[1] ?? [] as $actionRef) {
+            $this->assertMatchesRegularExpression('/^[0-9a-f]{40}$/i', $actionRef);
+        }
 
         preg_match_all('/secrets\.([A-Z0-9_]+)/', $workflow, $matches);
         $secrets = array_values(array_unique($matches[1] ?? []));
