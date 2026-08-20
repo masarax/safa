@@ -36,7 +36,9 @@ class DatabaseUpdateService
                 return ['busy' => true, 'migrated' => 0];
             }
 
-            $pendingBefore = DatabaseUpdateController::pendingMigrations();
+            // Legacy migration-record repair is intentionally privileged and may
+            // mutate metadata. It only runs inside this already-authorized update.
+            $pendingBefore = DatabaseUpdateController::pendingMigrations(true);
             ProductionMigrationSafety::assertPendingMigrationsAreSafe($pendingBefore);
 
             Log::info('SAFA database update started.', [

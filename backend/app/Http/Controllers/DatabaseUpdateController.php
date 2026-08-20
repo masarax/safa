@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Schema;
 
 class DatabaseUpdateController extends Controller
 {
-    public static function pendingMigrations(): array
+    public static function pendingMigrations(bool $healLegacyRecords = false): array
     {
         $files = glob(database_path('migrations/*.php')) ?: [];
         $migrationNames = array_map(fn ($file) => basename($file, '.php'), $files);
@@ -27,7 +27,9 @@ class DatabaseUpdateController extends Controller
                 return $migrationNames;
             }
 
-            self::healLegacyMigrationRecords($files);
+            if ($healLegacyRecords) {
+                self::healLegacyMigrationRecords($files);
+            }
             $ran = array_flip(DB::table('migrations')->pluck('migration')->all());
 
             return array_values(array_filter(
@@ -42,15 +44,12 @@ class DatabaseUpdateController extends Controller
 
     public function show(Request $request): Response
     {
-        $user = $request->user();
-        $canRunUpdate = $user instanceof User
-            && (bool) $user->is_activated
-            && $user->isSuperAdmin();
+        $this->authorizeSuperAdmin($request);
 
         return response()->view('system_update', [
             'pendingMigrations' => self::pendingMigrations(),
-            'canRunUpdate' => $canRunUpdate,
-        ], $canRunUpdate ? 200 : 403);
+            'canRunUpdate' => true,
+        ]);
     }
 
     public function run(Request $request, DatabaseUpdateService $updates): RedirectResponse
