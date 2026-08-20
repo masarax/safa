@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Models\User;
+use App\Support\CredentialVerifier;
 use App\Support\MobileNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Canonical first-factor mobile authentication endpoint.
@@ -29,21 +29,15 @@ class MobileLoginController extends Controller
         if ($pin === '' || !preg_match('/^\d{6}$/', $pin)) return $this->error('PIN_INVALID', '6-Digit PIN is required for login.', 422);
 
         $user = $this->findUserByMobile($mobile);
-        if (!$user) return $this->error('INVALID_CREDENTIALS', 'Mobile number or PIN is incorrect.', 401);
-        if (!(bool) $user->is_activated) return $this->error('ACCOUNT_INACTIVE', 'This account is inactive. Please contact an administrator.', 403);
+        $credentialHash = $user?->pin_hash ?: $user?->password;
+        $pinValid = CredentialVerifier::verify($pin, $credentialHash);
 
-        $pinValid = false;
-        foreach (array_filter([$user->pin_hash, $user->password]) as $hash) {
-            try {
-                if (Hash::check($pin, $hash)) {
-                    $pinValid = true;
-                    break;
-                }
-            } catch (\Throwable) {
-                // Ignore malformed hashes and continue with supported hashes.
-            }
+        // Unknown identity, wrong PIN and inactive account intentionally share
+        // one public failure contract. Activation is evaluated only after the
+        // same bcrypt verification work has already happened.
+        if (!$user || !$pinValid || !(bool) $user->is_activated) {
+            return $this->error('INVALID_CREDENTIALS', 'Mobile number or PIN is incorrect.', 401);
         }
-        if (!$pinValid) return $this->error('INVALID_CREDENTIALS', 'Mobile number or PIN is incorrect.', 401);
 
         $deviceUuid = trim((string) ($request->input('device_uuid') ?? $request->input('device_token') ?? $request->header('X-SAFA-DEVICE-TOKEN') ?? ''));
         $fingerprintHash = trim((string) ($request->input('fingerprint_hash') ?? $request->input('fingerprint_token') ?? $request->header('X-SAFA-FINGERPRINT-TOKEN') ?? ''));
