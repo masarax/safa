@@ -44,7 +44,19 @@ class DatabaseUpdateController extends Controller
 
     public function show(Request $request): Response
     {
-        $this->authorizeSuperAdmin($request);
+        $user = $request->user();
+        $canRunUpdate = $user instanceof User
+            && (bool) $user->is_activated
+            && $user->isSuperAdmin();
+
+        // The restricted 403 page is intentionally side-effect free. Do not
+        // inspect or heal migration metadata until authorization has succeeded.
+        if (!$canRunUpdate) {
+            return response()->view('system_update', [
+                'pendingMigrations' => [],
+                'canRunUpdate' => false,
+            ], 403);
+        }
 
         return response()->view('system_update', [
             'pendingMigrations' => self::pendingMigrations(),
