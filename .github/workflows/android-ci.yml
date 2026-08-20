@@ -177,10 +177,11 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          # Keep userdata below the hosted runner's remaining free-space budget.
-          # The previous 4096M request required >7.3GB after SDK/system-image setup
-          # and prevented the emulator from starting at all.
-          disk-size: 2048M
+          # API 35's system image needs about 5.3GB in addition to userdata.
+          # A 2048M userdata request pushed the hosted runner requirement above
+          # its remaining free space after the release build. 1024M keeps enough
+          # room for the app/instrumentation payload while allowing the AVD to boot.
+          disk-size: 1024M
           script: |
             ./gradlew --no-daemon connectedDebugAndroidTest
             test -n "$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
