@@ -58,15 +58,25 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_pristine_database_can_be_initialized_once_then_normal_login_takes_over(): void
+    public function test_pristine_database_exposes_setup_gateway_and_can_be_initialized_once(): void
     {
         $this->assertFalse(Schema::hasTable('migrations'));
         $this->assertFalse(Schema::hasTable('users'));
 
-        $this->get('/')->assertRedirect(route('setup.database.show'));
-        $this->get('/setup/database')
+        $this->get('/')->assertRedirect(route('setup.index'));
+        $this->get('/setup')->assertRedirect(route('setup.database.show', ['lang' => 'en']));
+        $this->getJson('/api/setup/status')
             ->assertOk()
-            ->assertSee('Initialize Database')
+            ->assertJson([
+                'status' => 'setup_required',
+                'phase' => 'database',
+                'setup_path' => '/setup',
+            ])
+            ->assertJsonMissingPath('setup_code');
+
+        $this->get('/setup/database?lang=bn')
+            ->assertOk()
+            ->assertSee('ডাটাবেজ প্রস্তুত করুন')
             ->assertSee(FirstRunSetupCode::operatorPath())
             ->assertSeeHtml('data-first-run-action="initialize-database"');
 
@@ -76,12 +86,16 @@ class FirstRunDatabaseBootstrapTest extends TestCase
 
         // A web visitor who cannot read the server-private deployment file cannot
         // claim a fresh installation or create its first administrator.
-        $this->post('/setup/database', ['setup_code' => str_repeat('0', 32)])
-            ->assertRedirect();
+        $this->post('/setup/database', [
+            'language' => 'en',
+            'setup_code' => str_repeat('0', 32),
+        ])->assertRedirect();
         $this->assertFalse(Schema::hasTable('migrations'));
 
-        $this->post('/setup/database', ['setup_code' => $setupCode])
-            ->assertRedirect(route('setup.admin.show'));
+        $this->post('/setup/database', [
+            'language' => 'en',
+            'setup_code' => $setupCode,
+        ])->assertRedirect(route('setup.admin.show', ['lang' => 'en']));
 
         $this->assertTrue(Schema::hasTable('migrations'));
         $this->assertTrue(Schema::hasTable(FirstRunSetupState::TABLE));
@@ -91,19 +105,23 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         // The migration surface disappears immediately after the schema exists.
         $this->get('/setup/database')->assertNotFound();
         $this->post('/setup/database')->assertNotFound();
-
-        $this->get('/setup/admin')
+        $this->getJson('/api/setup/status')
             ->assertOk()
-            ->assertSee('Create First SuperAdmin')
+            ->assertJson(['status' => 'setup_required', 'phase' => 'admin']);
+
+        $this->get('/setup/admin?lang=bn')
+            ->assertOk()
+            ->assertSee('প্রথম SuperAdmin তৈরি করুন')
             ->assertSeeHtml('data-first-run-action="create-superadmin"');
 
         $this->post('/setup/admin', [
+            'language' => 'en',
             'name' => 'Initial Owner',
             'mobile' => '0536308965',
             'email' => 'owner@safa.test',
             'pin' => '123456',
             'pin_confirmation' => '123456',
-        ])->assertRedirect(route('safa.login'));
+        ])->assertRedirect(route('safa.login', ['lang' => 'en']));
 
         $this->assertDatabaseHas('users', [
             'email' => 'owner@safa.test',
@@ -116,21 +134,82 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         $this->assertNotNull(DB::table(FirstRunSetupState::TABLE)->where('id', 1)->value('completed_at'));
 
         // First-run endpoints can never be replayed after successful completion.
+        $this->get('/setup')->assertNotFound();
         $this->get('/setup/database')->assertNotFound();
         $this->post('/setup/database')->assertNotFound();
         $this->get('/setup/admin')->assertNotFound();
         $this->post('/setup/admin')->assertNotFound();
+        $this->getJson('/api/setup/status')
+            ->assertOk()
+            ->assertJson(['status' => 'ready', 'phase' => null, 'setup_path' => null]);
         $this->get('/login')->assertOk();
+    }
+
+    public function test_empty_prepared_schema_still_exposes_first_run_setup_without_destructive_migration(): void
+    {
+        $this->assertSame(0, Artisan::call('migrate', ['--force' => true]));
+        $this->assertTrue(Schema::hasTable('migrations'));
+        $this->assertTrue(Schema::hasTable('users'));
+        $this->assertTrue(Schema::hasTable('accounts'));
+        $this->assertSame(0, DB::table('users')->count());
+        $this->assertSame(0, DB::table('accounts')->count());
+        $this->assertNull(FirstRunSetupState::row());
+        $this->assertTrue(FirstRunSetupState::databaseInitializationRequired());
+
+        $this->get('/')->assertRedirect(route('setup.index'));
+        $this->get('/setup')->assertRedirect(route('setup.database.show', ['lang' => 'en']));
+        $this->get('/setup/database')
+            ->assertOk()
+            ->assertSee('The schema is already prepared')
+            ->assertSeeHtml('data-first-run-state="prepared"')
+            ->assertSeeHtml('data-first-run-action="initialize-database"');
+
+        $setupCode = trim((string) file_get_contents(FirstRunSetupCode::path()));
+        $this->post('/setup/database', [
+            'language' => 'en',
+            'setup_code' => $setupCode,
+        ])->assertRedirect(route('setup.admin.show', ['lang' => 'en']));
+
+        $this->assertDatabaseHas(FirstRunSetupState::TABLE, ['id' => 1, 'completed_at' => null]);
+        $this->assertSame([], \App\Http\Controllers\DatabaseUpdateController::pendingMigrations());
+    }
+
+    public function test_any_existing_identity_or_business_data_blocks_public_first_run_claim(): void
+    {
+        $this->assertSame(0, Artisan::call('migrate', ['--force' => true]));
+        DB::table('accounts')->insert([
+            'owner_user_id' => null,
+            'name' => 'Existing Business Data',
+            'balance' => 0,
+            'hash' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertFalse(FirstRunSetupState::databaseInitializationRequired());
+        $this->get('/setup')->assertNotFound();
+        $this->get('/setup/database')->assertNotFound();
+        $this->getJson('/api/setup/status')->assertOk()->assertJson(['status' => 'ready']);
     }
 
     public function test_ordinary_future_pending_migration_never_reopens_public_first_run_setup(): void
     {
         $this->assertSame(0, Artisan::call('migrate', ['--force' => true]));
+        DB::table(FirstRunSetupState::TABLE)->insert([
+            'id' => 1,
+            'bootstrap_claim_hash' => hash('sha256', str_repeat('a', 64)),
+            'database_initialized_at' => now(),
+            'completed_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $latest = DB::table('migrations')->orderByDesc('batch')->orderByDesc('migration')->value('migration');
         $this->assertNotNull($latest);
         DB::table('migrations')->where('migration', $latest)->delete();
 
         $this->assertFalse(FirstRunSetupState::databaseInitializationRequired());
+        $this->get('/setup')->assertNotFound();
         $this->get('/setup/database')->assertNotFound();
         $this->post('/setup/database')->assertNotFound();
         $this->get('/setup/admin')->assertNotFound();
@@ -144,6 +223,7 @@ class FirstRunDatabaseBootstrapTest extends TestCase
             ->assertJson([
                 'status' => 'setup_required',
                 'phase' => 'database',
+                'setup_path' => '/setup',
             ]);
 
         foreach (['/install', '/install/process', '/system/update', '/update-db'] as $path) {

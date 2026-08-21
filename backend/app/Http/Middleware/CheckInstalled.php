@@ -25,12 +25,12 @@ class CheckInstalled
             return $this->notFound($request);
         }
 
-        if ($this->isPublicAssetPath($path)) {
+        if ($this->isPublicAssetPath($path) || $path === 'api/setup/status') {
             return $next($request);
         }
 
         if (FirstRunSetupState::databaseInitializationRequired()) {
-            if ($path === 'setup/database') {
+            if ($path === 'setup' || $path === 'setup/database') {
                 return $next($request);
             }
 
@@ -43,7 +43,7 @@ class CheckInstalled
             if ($path === 'setup/database') {
                 return $this->notFound($request);
             }
-            if ($path === 'setup/admin') {
+            if ($path === 'setup' || $path === 'setup/admin') {
                 return $next($request);
             }
 
@@ -53,7 +53,7 @@ class CheckInstalled
         // Once installation is complete, first-run URLs are indistinguishable
         // from routes that never existed and can never become public again merely
         // because a future release has pending migrations.
-        if ($path === 'setup/database' || $path === 'setup/admin' || str_starts_with($path, 'setup/')) {
+        if ($path === 'setup' || str_starts_with($path, 'setup/')) {
             return $this->notFound($request);
         }
 
@@ -92,10 +92,11 @@ class CheckInstalled
                 'status' => 'setup_required',
                 'message' => 'First-run setup is required.',
                 'phase' => $phase,
+                'setup_path' => '/setup',
             ], 503);
         }
 
-        return redirect()->route($phase === 'database' ? 'setup.database.show' : 'setup.admin.show');
+        return redirect()->route('setup.index');
     }
 
     private function isUpdateExemptPath(string $path): bool

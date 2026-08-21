@@ -6,6 +6,7 @@ use App\Services\FirstRunDatabaseBootstrapService;
 use App\Support\FirstRunSetupCode;
 use App\Support\FirstRunSetupState;
 use App\Support\MobileNumber;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,14 +15,54 @@ use Illuminate\Support\Facades\Validator;
 
 class FirstRunSetupController extends Controller
 {
+    public function index(Request $request): RedirectResponse
+    {
+        $language = $this->language($request);
+
+        if (FirstRunSetupState::databaseInitializationRequired()) {
+            return redirect()->route('setup.database.show', ['lang' => $language]);
+        }
+        if (FirstRunSetupState::adminCompletionRequired()) {
+            return redirect()->route('setup.admin.show', ['lang' => $language]);
+        }
+
+        abort(404);
+    }
+
+    public function status(): JsonResponse
+    {
+        if (FirstRunSetupState::databaseInitializationRequired()) {
+            return response()->json([
+                'status' => 'setup_required',
+                'phase' => 'database',
+                'setup_path' => '/setup',
+            ]);
+        }
+        if (FirstRunSetupState::adminCompletionRequired()) {
+            return response()->json([
+                'status' => 'setup_required',
+                'phase' => 'admin',
+                'setup_path' => '/setup',
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'ready',
+            'phase' => null,
+            'setup_path' => null,
+        ]);
+    }
+
     public function showDatabase(Request $request): Response
     {
         abort_unless(FirstRunSetupState::databaseInitializationRequired(), 404);
         FirstRunSetupCode::ensure();
+        $language = $this->language($request);
 
         return response()->view('first_run_database', [
             'pendingMigrations' => DatabaseUpdateController::pendingMigrations(),
             'setupCodePath' => FirstRunSetupCode::operatorPath(),
+            'language' => $language,
         ]);
     }
 
@@ -30,12 +71,15 @@ class FirstRunSetupController extends Controller
         // State must be checked before rate limiting so the migration endpoint
         // disappears as a hard 404 immediately after the schema is initialized.
         abort_unless(FirstRunSetupState::databaseInitializationRequired(), 404);
+        $language = $this->language($request);
         $this->consumeAttempt('first-run-database|' . $request->ip(), 5);
 
         $setupCode = (string) $request->input('setup_code', '');
         if (!FirstRunSetupCode::verify($setupCode)) {
             // Never flash the deployment-owned code back into session data.
-            return back()->with('error', 'The one-time setup code is invalid.');
+            return back()->with('error', $language === 'bn'
+                ? 'একবার ব্যবহারযোগ্য সেটআপ কোডটি সঠিক নয়।'
+                : 'The one-time setup code is invalid.');
         }
 
         $claim = bin2hex(random_bytes(32));
@@ -44,23 +88,41 @@ class FirstRunSetupController extends Controller
         try {
             $result = $bootstrap->initializeDatabase($claim);
             if ($result['busy']) {
-                return redirect()->route('setup.database.show')->with('info', 'Database initialization is already running.');
+                return redirect()->route('setup.database.show', ['lang' => $language])->with(
+                    'info',
+                    $language === 'bn' ? 'ডাটাবেজ সেটআপ ইতিমধ্যে চলছে।' : 'Database initialization is already running.'
+                );
             }
 
             // From this point the schema exists, so the public migration route is
             // retired permanently. The private deployment code must die with it.
             FirstRunSetupCode::destroy();
-            return redirect()->route('setup.admin.show')->with('success', 'Database initialized successfully. Create the first SuperAdmin to finish setup.');
+            return redirect()->route('setup.admin.show', ['lang' => $language])->with(
+                'success',
+                $language === 'bn'
+                    ? 'ডাটাবেজ প্রস্তুত হয়েছে। এখন প্রথম SuperAdmin তৈরি করুন।'
+                    : 'Database initialized successfully. Create the first SuperAdmin to finish setup.'
+            );
         } catch (\Throwable $e) {
             report($e);
 
             if (FirstRunSetupState::adminCompletionRequired() && FirstRunSetupState::claimMatches($claim)) {
                 FirstRunSetupCode::destroy();
-                return redirect()->route('setup.admin.show')->with('info', 'Database schema is initialized. Finish the first SuperAdmin setup.');
+                return redirect()->route('setup.admin.show', ['lang' => $language])->with(
+                    'info',
+                    $language === 'bn'
+                        ? 'ডাটাবেজ স্কিমা প্রস্তুত। প্রথম SuperAdmin সেটআপ শেষ করুন।'
+                        : 'Database schema is initialized. Finish the first SuperAdmin setup.'
+                );
             }
 
             $request->session()->forget(FirstRunSetupState::SESSION_CLAIM);
-            return redirect()->route('setup.database.show')->with('error', 'Database initialization failed. Check the server logs and database configuration.');
+            return redirect()->route('setup.database.show', ['lang' => $language])->with(
+                'error',
+                $language === 'bn'
+                    ? 'ডাটাবেজ সেটআপ সম্পন্ন হয়নি। সার্ভার লগ ও ডাটাবেজ কনফিগারেশন পরীক্ষা করুন।'
+                    : 'Database initialization failed. Check the server logs and database configuration.'
+            );
         }
     }
 
@@ -68,7 +130,9 @@ class FirstRunSetupController extends Controller
     {
         $this->authorizeClaim($request);
 
-        return response()->view('first_run_admin');
+        return response()->view('first_run_admin', [
+            'language' => $this->language($request),
+        ]);
     }
 
     public function createAdmin(Request $request, FirstRunDatabaseBootstrapService $bootstrap): RedirectResponse
@@ -76,6 +140,7 @@ class FirstRunSetupController extends Controller
         // Claim/state authorization happens before the limiter so completed or
         // foreign setup sessions never reveal this retired endpoint as HTTP 429.
         $claim = $this->authorizeClaim($request);
+        $language = $this->language($request);
         $this->consumeAttempt('first-run-admin|' . $request->ip(), 5);
 
         $validator = Validator::make($request->all(), [
@@ -105,14 +170,21 @@ class FirstRunSetupController extends Controller
         } catch (\Throwable $e) {
             report($e);
             return back()->withInput($request->except(['pin', 'pin_confirmation']))
-                ->with('error', 'First SuperAdmin setup failed. No default credentials were created.');
+                ->with('error', $language === 'bn'
+                    ? 'প্রথম SuperAdmin সেটআপ সম্পন্ন হয়নি। কোনো ডিফল্ট লগইন তৈরি করা হয়নি।'
+                    : 'First SuperAdmin setup failed. No default credentials were created.');
         }
 
         $request->session()->forget(FirstRunSetupState::SESSION_CLAIM);
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('safa.login')->with('success', 'Setup completed. Sign in with the SuperAdmin credentials you just created.');
+        return redirect()->route('safa.login', ['lang' => $language])->with(
+            'success',
+            $language === 'bn'
+                ? 'সেটআপ সম্পন্ন হয়েছে। নতুন SuperAdmin তথ্য দিয়ে লগইন করুন।'
+                : 'Setup completed. Sign in with the SuperAdmin credentials you just created.'
+        );
     }
 
     private function authorizeClaim(Request $request): string
@@ -134,5 +206,16 @@ class FirstRunSetupController extends Controller
         // During first-run the global middleware has already selected the file
         // cache store, so this remains available even before cache tables exist.
         RateLimiter::hit($key, 60);
+    }
+
+    private function language(Request $request): string
+    {
+        $requested = strtolower(trim((string) ($request->input('language') ?: $request->query('lang', ''))));
+        if (in_array($requested, ['en', 'bn'], true)) {
+            $request->session()->put('safa_web_language', $requested);
+            return $requested;
+        }
+
+        return (string) $request->session()->get('safa_web_language', 'en') === 'bn' ? 'bn' : 'en';
     }
 }

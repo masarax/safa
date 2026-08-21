@@ -10,14 +10,48 @@ final class FirstRunSetupState
     public const TABLE = 'safa_installation_state';
     public const SESSION_CLAIM = 'safa_first_run_claim';
 
+    /**
+     * Tables whose rows prove that this database has already been claimed by a
+     * real installation. Infrastructure/reference tables may legitimately exist
+     * before first-run setup, so their mere presence must not hide the setup UI.
+     */
+    private const CLAIMED_DATA_TABLES = [
+        'users',
+        'accounts',
+        'customers',
+        'suppliers',
+        'transactions',
+        'wallet_ledgers',
+        'wallet_batches',
+        'supplier_deposits',
+        'expenses_incomes',
+        'user_account_shares',
+        'device_bindings',
+        'auth_sessions',
+    ];
+
     public static function databaseInitializationRequired(): bool
     {
         try {
-            // Only a genuinely pristine database may enter public first-run
-            // initialization. A partial/legacy schema is never treated as fresh.
-            return !Schema::hasTable('migrations')
-                && !Schema::hasTable('users')
-                && !Schema::hasTable('accounts');
+            // A persisted installation-state row is the durable boundary between
+            // the database phase and the first-admin/completed phases.
+            if (self::row() !== null) {
+                return false;
+            }
+
+            // Never expose public bootstrap over a database containing identity or
+            // business data. This keeps legacy/partially initialized recovery fail
+            // closed while allowing an empty schema prepared by an earlier deploy.
+            foreach (self::CLAIMED_DATA_TABLES as $table) {
+                if (self::tableHasRows($table)) {
+                    return false;
+                }
+            }
+
+            // A completely pristine database and an empty, unclaimed pre-created
+            // schema are both valid first-run states. The bootstrap service still
+            // runs only reviewed forward migrations and refuses destructive work.
+            return true;
         } catch (\Throwable $e) {
             report($e);
             return false;
@@ -72,5 +106,10 @@ final class FirstRunSetupState
         }
 
         return DB::table(self::TABLE)->where('id', 1)->first();
+    }
+
+    private static function tableHasRows(string $table): bool
+    {
+        return Schema::hasTable($table) && DB::table($table)->limit(1)->exists();
     }
 }
