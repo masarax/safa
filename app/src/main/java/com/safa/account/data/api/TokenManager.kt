@@ -3,12 +3,14 @@ package com.safa.account.data.api
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import android.util.Base64
 import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.safa.account.data.network.DeviceSecurityHelper
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import org.json.JSONObject
 
 class TokenManager(private val context: Context) {
     private val legacyPrefs = context.getSharedPreferences("safa_secure_prefs", Context.MODE_PRIVATE)
@@ -110,12 +112,23 @@ class TokenManager(private val context: Context) {
         return token
     }
 
-    fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) = prefs.edit {
-        putString(KEY_ACCESS_TOKEN, accessToken)
-        putString(KEY_REFRESH_TOKEN, refreshToken)
-        if (!deviceToken.isNullOrBlank()) putString(KEY_DEVICE_TOKEN, deviceToken)
-        putString(KEY_SESSION_TOKEN, sessionToken)
-        if (!fingerprintToken.isNullOrBlank()) putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
+    private fun accountIdFromAccessToken(token: String?): Int? = runCatching {
+        val payload = token?.split('.')?.getOrNull(1)?.takeIf { it.isNotBlank() }
+            ?: return@runCatching null
+        val decoded = Base64.decode(payload, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        JSONObject(String(decoded, Charsets.UTF_8)).optInt("account_id", 0).takeIf { it > 0 }
+    }.getOrNull()
+
+    fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) {
+        val automaticAccountId = accountIdFromAccessToken(accessToken)
+        prefs.edit {
+            putString(KEY_ACCESS_TOKEN, accessToken)
+            putString(KEY_REFRESH_TOKEN, refreshToken)
+            if (!deviceToken.isNullOrBlank()) putString(KEY_DEVICE_TOKEN, deviceToken)
+            putString(KEY_SESSION_TOKEN, sessionToken)
+            if (!fingerprintToken.isNullOrBlank()) putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
+            if (automaticAccountId != null) putInt(KEY_ACTIVE_ACCOUNT_ID, automaticAccountId)
+        }
     }
 
     fun notifySessionInvalidated() {
