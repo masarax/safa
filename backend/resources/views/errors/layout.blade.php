@@ -30,10 +30,10 @@
         <p>@yield('message')</p>
 
         <div class="stack-form">
-            <a class="primary-button wide" href="{{ url('/' . ($bn ? '?lang=bn' : '')) }}">
+            <a class="primary-button wide" href="{{ url('/') }}{{ $bn ? '?lang=bn' : '' }}">
                 {{ $bn ? 'SAFA হোম / সেটআপে যান' : 'Go to SAFA home / setup' }}
             </a>
-            <a class="secondary-button wide" href="{{ url('/login' . ($bn ? '?lang=bn' : '')) }}">
+            <a class="secondary-button wide" href="{{ url('/login') }}{{ $bn ? '?lang=bn' : '' }}">
                 {{ $bn ? 'লগইন পেইজ' : 'Sign-in page' }}
             </a>
         </div>
