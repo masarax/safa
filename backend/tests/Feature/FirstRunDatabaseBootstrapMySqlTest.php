@@ -30,7 +30,7 @@ class FirstRunDatabaseBootstrapMySqlTest extends TestCase
         $this->assertFalse(Schema::hasTable('migrations'));
         $this->assertFalse(Schema::hasTable('users'));
 
-        $this->get('/')->assertRedirect(route('release.update.show'));
+        $this->get('/')->assertRedirect(route('system.update.show'));
         $this->get('/update')
             ->assertOk()
             ->assertSee('System Update Ready')
@@ -62,8 +62,8 @@ class FirstRunDatabaseBootstrapMySqlTest extends TestCase
             'name' => 'SAFA Account',
         ]);
 
-        $this->get('/update')->assertNotFound();
-        $this->post('/update/run')->assertNotFound();
+        $this->get('/update')->assertRedirect(route('safa.login'));
+        $this->post('/update/run')->assertRedirect(route('safa.login'));
         $this->get('/data-migration')->assertNotFound();
         $this->get('/setup')->assertNotFound();
         $this->getJson('/api/setup/status')->assertNotFound();
