@@ -6,7 +6,6 @@ use App\Models\Account;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Models\User;
-use App\Models\UserAccountShare;
 use App\Support\CredentialVerifier;
 use App\Support\MobileNumber;
 use Illuminate\Http\JsonResponse;
@@ -67,7 +66,10 @@ class MobileLoginController extends Controller
                 $binding->update(['device_model' => $deviceModel, 'fingerprint_hash' => $fingerprintHash, 'is_active' => true]);
             }
 
-            $activeAccountId = $this->resolveAutomaticAccountId($authenticatedUser);
+            // A successful credential login always enters the authenticated user's
+            // own business account. Shared accounts are explicit Settings-only
+            // contexts and are never selected as a login fallback.
+            $activeAccountId = $this->resolveOwnedAccountId($authenticatedUser);
 
             AuthSession::query()->where('user_id', $authenticatedUser->id)->where('device_uuid', $deviceUuid)->where('is_revoked', false)->update(['is_revoked' => true]);
             $sessionToken = AuthSession::newOpaqueToken();
@@ -128,27 +130,14 @@ class MobileLoginController extends Controller
         ], 200);
     }
 
-    /** Resolve one server-authorized account without any interactive chooser. */
-    private function resolveAutomaticAccountId(User $user): int
+    /** Resolve or provision the authenticated user's primary owned account. */
+    private function resolveOwnedAccountId(User $user): int
     {
         $owned = Account::query()
             ->where('owner_user_id', $user->id)
             ->orderBy('id')
             ->first();
         if ($owned) return (int) $owned->id;
-
-        if (strtolower(trim((string) $user->role)) === 'superadmin') {
-            $firstAuthorized = Account::query()->orderBy('id')->first();
-            if ($firstAuthorized) return (int) $firstAuthorized->id;
-        } else {
-            $sharedAccountId = UserAccountShare::query()
-                ->where('shared_with_user_id', $user->id)
-                ->orderBy('account_id')
-                ->value('account_id');
-            if ($sharedAccountId && Account::query()->whereKey($sharedAccountId)->exists()) {
-                return (int) $sharedAccountId;
-            }
-        }
 
         $account = Account::create([
             'name' => trim(((string) $user->name ?: 'SAFA') . ' Account'),
