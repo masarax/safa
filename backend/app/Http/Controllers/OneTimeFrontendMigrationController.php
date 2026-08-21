@@ -18,9 +18,16 @@ class OneTimeFrontendMigrationController extends Controller
     {
         abort_unless(OneTimeFrontendMigrationState::required(), 404);
 
+        $requiresSetupCode = FirstRunSetupState::databaseInitializationRequired();
+        if ($requiresSetupCode) {
+            FirstRunSetupCode::ensure();
+        }
+
         return response()->view('frontend_data_migration', [
             'language' => $this->language($request),
             'pendingMigrations' => DatabaseUpdateController::pendingMigrations(),
+            'requiresSetupCode' => $requiresSetupCode,
+            'setupCodePath' => $requiresSetupCode ? FirstRunSetupCode::operatorPath() : null,
         ]);
     }
 
@@ -38,6 +45,23 @@ class OneTimeFrontendMigrationController extends Controller
 
         $firstDatabaseInitialization = FirstRunSetupState::databaseInitializationRequired();
         $claim = null;
+
+        // A completely empty database would otherwise let the first random web
+        // visitor become the first SuperAdmin after migration. Preserve the
+        // deployment-owner proof for that one case while keeping existing-data
+        // migrations as a single frontend click.
+        if ($firstDatabaseInitialization) {
+            FirstRunSetupCode::ensure();
+            $setupCode = (string) $request->input('setup_code', '');
+            if (!FirstRunSetupCode::verify($setupCode)) {
+                return redirect()->route('frontend.migration.show', ['lang' => $language])->with(
+                    'error',
+                    $language === 'bn'
+                        ? 'খালি ডাটাবেজের প্রথম সেটআপের জন্য server-private setup code সঠিক নয়।'
+                        : 'The server-private setup code is invalid for first setup on an empty database.'
+                );
+            }
+        }
 
         try {
             if ($firstDatabaseInitialization) {
@@ -58,8 +82,6 @@ class OneTimeFrontendMigrationController extends Controller
             }
 
             OneTimeFrontendMigrationState::markCompleted();
-            // The old first-run database setup code is no longer needed after the
-            // frontend migration action succeeds, so remove any stale copy.
             FirstRunSetupCode::destroy();
 
             if (
