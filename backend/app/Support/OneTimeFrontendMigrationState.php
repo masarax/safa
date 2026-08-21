@@ -12,6 +12,13 @@ final class OneTimeFrontendMigrationState
 
     public static function required(): bool
     {
+        // Existing test suites opt into install/update middleware for their own
+        // contracts. Keep this new gate isolated unless a test explicitly asks
+        // to exercise the one-time frontend migration lifecycle.
+        if (app()->environment('testing') && !config('safa.enforce_frontend_migration_in_tests', false)) {
+            return false;
+        }
+
         try {
             if (!Schema::hasTable(self::TABLE)) {
                 return true;
