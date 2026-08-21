@@ -1,6 +1,7 @@
 package com.safa.account.data.api
 
-import org.json.JSONObject
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import java.net.URI
 
 /**
@@ -12,11 +13,20 @@ import java.net.URI
  * the deployment-owned setup code, database credentials, or browser claim.
  */
 object FirstRunSetupClient {
+    private val healthPayloadType = Types.newParameterizedType(
+        Map::class.java,
+        String::class.java,
+        Any::class.java
+    )
+    private val healthPayloadAdapter = Moshi.Builder()
+        .build()
+        .adapter<Map<String, Any?>>(healthPayloadType)
+
     fun phaseFromHealthResponse(httpCode: Int, errorBody: String?): String? {
         if (httpCode != 503 || errorBody.isNullOrBlank()) return null
-        val json = runCatching { JSONObject(errorBody) }.getOrNull() ?: return null
-        if (json.optString("status") != "setup_required") return null
-        return json.optString("phase").takeIf { it == "database" || it == "admin" }
+        val payload = runCatching { healthPayloadAdapter.fromJson(errorBody) }.getOrNull() ?: return null
+        if (payload["status"] != "setup_required") return null
+        return (payload["phase"] as? String).takeIf { it == "database" || it == "admin" }
     }
 
     fun webSetupUrl(apiBaseUrl: String): String {
