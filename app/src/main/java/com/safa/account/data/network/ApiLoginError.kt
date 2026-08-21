@@ -76,6 +76,7 @@ object ApiLoginErrorParser {
 
     fun fromThrowable(t: Throwable): ApiLoginError.Network {
         val error = when (t) {
+            is LoginNetworkException -> t.error
             is SocketTimeoutException -> ApiLoginError.Network("TIMEOUT", "Connection timed out. Check your connection and try again.")
             is ConnectException -> ApiLoginError.Network("CONNECTIVITY", "Unable to connect to the server. Check your internet connection.")
             is SSLException -> ApiLoginError.Network("TLS", "A secure connection to the server could not be established.")

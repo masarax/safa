@@ -32,6 +32,9 @@ class TokenManager(private val context: Context) {
     @Volatile
     private var biometricUnlockApproved = false
 
+    @Volatile
+    private var logoutInProgress = false
+
     init { migrateLegacyPreferences() }
 
     companion object {
@@ -135,6 +138,14 @@ class TokenManager(private val context: Context) {
         clearAllTokens()
         _sessionInvalidated.tryEmit(Unit)
     }
+
+    fun beginLogout() {
+        logoutInProgress = true
+        revokeBiometricUnlockApproval()
+    }
+
+    fun finishLogout() { logoutInProgress = false }
+    fun isLogoutInProgress(): Boolean = logoutInProgress
 
     fun clearAllTokens() = prefs.edit {
         remove(KEY_ACCESS_TOKEN)

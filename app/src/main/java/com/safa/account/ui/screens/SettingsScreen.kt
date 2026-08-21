@@ -740,11 +740,13 @@ fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
 
     var tempAppName by remember { mutableStateOf(customAppName) }
     var tempAppLogo by remember { mutableStateOf(customAppLogoUri ?: customAppLogo) }
+    var isSavingBranding by remember { mutableStateOf(false) }
+    var logoSaveError by remember { mutableStateOf<String?>(null) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             tempAppLogo = it.toString()
-            viewModel.uploadAppLogoToServer(context, it)
+            logoSaveError = null
         }
     }
 
@@ -810,25 +812,46 @@ fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                     Text(if (lang == "BN") "ছবি আপলোড করুন" else "Upload Picture Logo")
                 }
 
+                logoSaveError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+
                 Button(
-                    onClick = { 
-                        viewModel.updateCustomAppNameOnServer(tempAppName)
+                    onClick = {
+                        if (isSavingBranding) return@Button
+                        logoSaveError = null
                         if (tempAppLogo.startsWith("content://") || tempAppLogo.startsWith("file://")) {
-                            viewModel.uploadAppLogoToServer(context, Uri.parse(tempAppLogo))
+                            isSavingBranding = true
+                            viewModel.uploadAppLogoToServer(context, Uri.parse(tempAppLogo)) { success, message ->
+                                isSavingBranding = false
+                                if (success) {
+                                    viewModel.updateCustomAppNameOnServer(tempAppName)
+                                    onBack()
+                                } else {
+                                    logoSaveError = message ?: if (lang == "BN") "লোগো আপলোড করা যায়নি।" else "Logo upload failed."
+                                }
+                            }
                         } else if (tempAppLogo.startsWith("http")) {
                             viewModel.updateCustomAppLogoUri(tempAppLogo)
                             viewModel.updateConfigOnServer(mapOf("app_name" to tempAppName, "app_logo_url" to tempAppLogo))
+                            viewModel.updateCustomAppName(tempAppName)
+                            onBack()
                         } else {
                             viewModel.updateCustomAppLogo(tempAppLogo)
                             viewModel.updateCustomAppLogoUri(null)
-                            viewModel.updateConfigOnServer(mapOf("app_name" to tempAppName, "app_logo" to tempAppLogo))
+                            viewModel.updateCustomAppNameOnServer(tempAppName)
+                            onBack()
                         }
-                        onBack()
                     },
+                    enabled = !isSavingBranding,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")
+                    if (isSavingBranding) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")
+                    }
                 }
             }
         }

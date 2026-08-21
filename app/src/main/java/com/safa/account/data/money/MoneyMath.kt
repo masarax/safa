@@ -34,6 +34,7 @@ object MoneyMath {
 
     fun amountString(value: Any?): String = amount(value).toPlainString()
     fun rateString(value: Any?): String = rate(value).toPlainString()
+    fun rateDisplayString(value: Any?): String = rate(value).setScale(2, ROUNDING).toPlainString()
 
     fun multiply(rawAmount: Any?, rawRate: Any?): BigDecimal =
         amount(amount(rawAmount).multiply(rate(rawRate)))
@@ -87,7 +88,10 @@ object MoneyMath {
 
     fun sameAmount(left: Any?, right: Any?): Boolean = amount(left).compareTo(amount(right)) == 0
     fun sameRate(left: Any?, right: Any?): Boolean = rate(left).compareTo(rate(right)) == 0
-    fun isZeroAmount(value: Any?): Boolean = amount(value).signum() == 0
+    fun isZeroAmount(value: Any?): Boolean {
+        if (value is CharSequence && value.toString().trim().isEmpty()) return false
+        return amount(value).signum() == 0
+    }
 
     fun isPositiveAmount(value: Any?): Boolean = amount(value).signum() > 0
     fun isPositiveRate(value: Any?): Boolean = rate(value).signum() > 0

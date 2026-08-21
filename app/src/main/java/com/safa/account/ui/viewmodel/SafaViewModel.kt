@@ -216,7 +216,18 @@ class SafaViewModel(
     val isBiometricEnabled: StateFlow<Boolean> = _isBiometricEnabled.asStateFlow()
 
     fun setBiometricEnabled(enabled: Boolean) {
+        val operator = _currentOperator.value
+        if (enabled && operator != null) {
+            tokenManager?.enableBiometricQuickUnlock(operator.id, operator.mobile)
+        } else if (!enabled) {
+            tokenManager?.disableBiometricQuickUnlock()
+        }
         _isBiometricEnabled.value = enabled
+        if (operator != null && operator.isBiometricEnabled != enabled) {
+            val updated = operator.copy(isBiometricEnabled = enabled)
+            _currentOperator.value = updated
+            viewModelScope.launch { repository.updateOperator(updated) }
+        }
     }
 
     fun updateSelectedForeignCurrency(currency: String) {
@@ -304,35 +315,57 @@ class SafaViewModel(
         updateConfigOnServer(mapOf("local_currency" to local, "foreign_currency" to foreign))
     }
 
-    fun uploadAppLogoToServer(context: android.content.Context, uri: Uri) {
+    fun uploadAppLogoToServer(
+        context: android.content.Context,
+        uri: Uri,
+        onResult: (Boolean, String?) -> Unit = { _, _ -> },
+    ) {
         viewModelScope.launch {
             try {
-                val contentResolver = context.contentResolver
-                val inputStream = contentResolver.openInputStream(uri) ?: return@launch
-                val bytes = inputStream.readBytes()
-                inputStream.close()
-
-                val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
-                val mediaType = mimeType.toMediaTypeOrNull()
-                val requestFile = RequestBody.create(mediaType, bytes)
-                val part = MultipartBody.Part.createFormData("logo", "logo.jpg", requestFile)
-
-                val api = syncManager?.getApiService() ?: return@launch
-                val response = api.uploadLogo(part)
-                if (response.isSuccessful && response.body() != null) {
-                    val body = response.body()!!
-                    val logoUrl = body["logo_url"]?.toString()
-                        ?: body["url"]?.toString()
-                        ?: body["path"]?.toString()
-                        ?: body["app_logo_url"]?.toString()
-                    if (!logoUrl.isNullOrBlank()) {
-                        val fullUrl = if (logoUrl.startsWith("http")) logoUrl else "https://safa.masarax.com$logoUrl"
-                        updateCustomAppLogoUri(fullUrl)
-                        updateConfigOnServer(mapOf("app_logo_url" to fullUrl))
-                    }
+                val prepared = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.safa.account.data.api.LogoUploadPreparer.prepare(context.applicationContext, uri)
                 }
+                val requestFile = RequestBody.create(prepared.mimeType.toMediaTypeOrNull(), prepared.bytes)
+                val part = MultipartBody.Part.createFormData("logo", prepared.fileName, requestFile)
+                val api = syncManager?.getApiService()
+                if (api == null) {
+                    onResult(false, safeConnectionFailure())
+                    return@launch
+                }
+
+                val response = api.uploadLogo(part)
+                if (!response.isSuccessful || response.body() == null) {
+                    onResult(false, safeServerFailure("Upload logo", response.code()))
+                    return@launch
+                }
+
+                val body = response.body()!!
+                val logoUrl = body["app_logo_url"]?.toString()
+                    ?: body["logo_url"]?.toString()
+                    ?: body["url"]?.toString()
+                    ?: body["app_logo_path"]?.toString()
+                    ?: body["path"]?.toString()
+                if (logoUrl.isNullOrBlank()) {
+                    onResult(false, if (_currentLanguage.value == "BN") "লোগো আপলোড হয়েছে, কিন্তু সার্ভার URL দেয়নি।" else "The logo uploaded but the server did not return its URL.")
+                    return@launch
+                }
+
+                val fullUrl = if (logoUrl.startsWith("http", ignoreCase = true)) {
+                    logoUrl
+                } else {
+                    runCatching {
+                        java.net.URI(tokenManager?.getBaseUrl() ?: "https://safa.masarax.com/api/").resolve(logoUrl).toString()
+                    }.getOrElse { "https://safa.masarax.com/${logoUrl.trimStart('/')}" }
+                }
+                updateCustomAppLogoUri(fullUrl)
+                onResult(true, null)
             } catch (e: Exception) {
                 com.safa.account.utils.SafaLogger.error("LOGO_UPLOAD", "Logo upload failed", e)
+                onResult(
+                    false,
+                    if (_currentLanguage.value == "BN") "লোগো আপলোড করা যায়নি। ছবিটি যাচাই করে আবার চেষ্টা করুন।"
+                    else "The logo could not be uploaded. Check the image and try again."
+                )
             }
         }
     }
@@ -982,6 +1015,10 @@ class SafaViewModel(
 
     fun loginWithServer(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
+            if (tokenManager?.isLogoutInProgress() == true) {
+                onResult(false, if (_currentLanguage.value == "BN") "লগআউট শেষ হচ্ছে। এক মুহূর্ত পরে আবার চেষ্টা করুন।" else "Finishing sign out. Try again in a moment.")
+                return@launch
+            }
             if (mobile.isBlank() || pin.length < 6) {
                 onResult(false, t("pin_incorrect"))
                 return@launch
@@ -1272,6 +1309,7 @@ class SafaViewModel(
     }
 
     fun logout() {
+        tokenManager?.beginLogout()
         _currentOperator.value = null
         _selectedLoginOperator.value = null
         _pinBuffer.value = ""
@@ -1691,7 +1729,7 @@ class SafaViewModel(
         notes: String,
         sarCollected: BigDecimal? = null,
         bdtDisbursed: BigDecimal? = null,
-        status: String = "Pending",
+        status: String = "Delivered",
         timestamp: Long? = null,
         onComplete: () -> Unit
     ) {
@@ -1836,6 +1874,27 @@ class SafaViewModel(
                     status = OutboxStatus.PENDING
                 )
             )
+            onComplete()
+            triggerFullSync()
+        }
+    }
+
+    fun updateRemittance(transaction: RemittanceTransaction, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            val previous = repository.getTransactionById(transaction.id)
+            if (previous != null && previous.status != "Cancelled" && previous.walletBatchId > 0) {
+                repository.getWalletBatchById(previous.walletBatchId)?.let { batch ->
+                    repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.add(batch.remainingBdt, previous.amountBdt)))
+                }
+            }
+            if (transaction.status != "Cancelled" && transaction.walletBatchId > 0) {
+                repository.getWalletBatchById(transaction.walletBatchId)?.let { batch ->
+                    repository.updateWalletBatch(
+                        batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, transaction.amountBdt)))
+                    )
+                }
+            }
+            repository.updateTransaction(transaction)
             onComplete()
             triggerFullSync()
         }

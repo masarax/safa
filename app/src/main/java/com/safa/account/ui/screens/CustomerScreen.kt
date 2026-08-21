@@ -853,78 +853,6 @@ fun CustomerProfileView(
                 localCur = localCur,
                 onDismiss = { showConfirmationPage = false }
             )
-        } else if (txToEdit != null) {
-            EditTransactionPage(
-                lang = lang,
-                tx = txToEdit!!,
-                suppliers = suppliers,
-                editSupplierId = editSupplierId,
-                onEditSupplierIdChange = { editSupplierId = it },
-                editAmountSar = editAmountSar,
-                onEditAmountSarChange = { newValue ->
-                    editAmountSar = newValue
-                    val s = newValue.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
-                    val r = editCustomerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
-                    editBdtDisbursed = MoneyMath.multiply(s, r).toPlainString()
-                },
-                editCustomerRate = editCustomerRate,
-                onEditCustomerRateChange = { newValue ->
-                    editCustomerRate = newValue
-                    val s = editAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
-                    val r = newValue.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
-                    editBdtDisbursed = MoneyMath.multiply(s, r).toPlainString()
-                },
-                editSupplierRate = editSupplierRate,
-                onEditSupplierRateChange = { editSupplierRate = it },
-                editReceiverName = editReceiverName,
-                onEditReceiverNameChange = { editReceiverName = it },
-                editReceiverPhone = editReceiverPhone,
-                onEditReceiverPhoneChange = { editReceiverPhone = it },
-                editReceiverAccountType = editReceiverAccountType,
-                onEditReceiverAccountTypeChange = { editReceiverAccountType = it },
-                editReceiverAccountNo = editReceiverAccountNo,
-                onEditReceiverAccountNoChange = { editReceiverAccountNo = it },
-                editSarCollected = editSarCollected,
-                onEditSarCollectedChange = { editSarCollected = it },
-                editBdtDisbursed = editBdtDisbursed,
-                onEditBdtDisbursedChange = { editBdtDisbursed = it },
-                editTxNotes = editTxNotes,
-                onEditTxNotesChange = { editTxNotes = it },
-                editStatus = editStatus,
-                onEditStatusChange = { editStatus = it },
-                isRateBasedModeEnabled = isRateBasedModeEnabled,
-                isSupplierRateEnabled = isSupplierRateEnabled,
-                isEditAmountCalCOpen = isEditAmountCalCOpen,
-                onIsEditAmountCalCOpenChange = { isEditAmountCalCOpen = it },
-                onCancel = { txToEdit = null },
-                onSave = {
-                    if (txToEdit != null) {
-                        val amt = editAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
-                        val cRate = editCustomerRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
-                        val sRate = editSupplierRate.toBigDecimalOrNull() ?: MoneyMath.ZERO_RATE
-                        val col = editSarCollected.toBigDecimalOrNull() ?: amt
-                        val amountBdt = MoneyMath.multiply(amt, cRate)
-                        val dis = editBdtDisbursed.toBigDecimalOrNull() ?: amountBdt
-                        val updatedTx = txToEdit!!.copy(
-                            amountSar = amt,
-                            customerRate = cRate,
-                            supplierRate = sRate,
-                            amountBdt = amountBdt,
-                            receiverName = editReceiverName,
-                            receiverPhone = editReceiverPhone,
-                            receiverAccountType = editReceiverAccountType,
-                            receiverAccountNo = editReceiverAccountNo,
-                            notes = editTxNotes,
-                            status = editStatus,
-                            supplierId = editSupplierId ?: txToEdit!!.supplierId,
-                            sarCollected = col,
-                            bdtDisbursed = dis
-                        )
-                        viewModel.updateTransactionStatus(updatedTx, editStatus)
-                    }
-                    txToEdit = null
-                }
-            )
         } else if (isAddingTransaction) {
             AddTransactionStepPage(
                 lang = lang,
@@ -936,10 +864,10 @@ fun CustomerProfileView(
                     val batch = walletBatches.find { it.id == batchId }
                     val latestRate = batch?.rate ?: currentRatesState?.supplierRate ?: MoneyMath.rate("32.00")
                     
-                    inputSupplierRate = latestRate.toString()
+                    inputSupplierRate = MoneyMath.rateDisplayString(latestRate)
                     
                     val defaultCustRate = currentRatesState?.customerRate ?: MoneyMath.rate("32.10")
-                    inputCustomerRate = defaultCustRate.toString()
+                    inputCustomerRate = MoneyMath.rateDisplayString(defaultCustRate)
 
                     inputSarCollected = inputAmountSar
 
@@ -986,7 +914,7 @@ fun CustomerProfileView(
                 onSelectedTimestampChange = { inputTimestamp = it },
                 isRateBasedModeEnabled = isRateBasedModeEnabled,
                 isSupplierRateEnabled = isSupplierRateEnabled,
-                onCancel = { isAddingTransaction = false },
+                onCancel = { isAddingTransaction = false; txToEdit = null },
                 onSubmit = {
                     val amt = inputAmountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                     val cRate = inputCustomerRate.toBigDecimalOrNull() ?: MoneyMath.rate("32.10")
@@ -995,6 +923,51 @@ fun CustomerProfileView(
                     val dis = inputBdtDisbursed.toBigDecimalOrNull() ?: MoneyMath.multiply(amt, cRate)
                     val dueAmt = inputDueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                     val rcvStr = if (inputReceiverAccountType == "Cash") "Cash" else inputReceiverAccountNo
+                    val editingTx = txToEdit
+
+                    if (editingTx != null) {
+                        val selectedBatch = walletBatches.find { it.id == batchId }
+                        val updated = editingTx.copy(
+                            supplierId = selectedBatch?.supplierId ?: editingTx.supplierId,
+                            amountSar = amt,
+                            customerRate = cRate,
+                            supplierRate = inputSupplierRate.toBigDecimalOrNull() ?: selectedBatch?.rate ?: editingTx.supplierRate,
+                            amountBdt = MoneyMath.multiply(amt, cRate),
+                            receiverName = editingTx.receiverName,
+                            receiverPhone = rcvStr,
+                            receiverAccountType = inputReceiverAccountType,
+                            receiverAccountNo = rcvStr,
+                            notes = inputNotes,
+                            sarCollected = col,
+                            bdtDisbursed = dis,
+                            timestamp = inputTimestamp,
+                            walletBatchId = batchId,
+                        )
+                        confirmCustName = customer.name
+                        confirmAmountSar = amt
+                        confirmCustomerRate = cRate
+                        confirmCollectedSar = col
+                        confirmDueCollectedSar = MoneyMath.ZERO_AMOUNT
+                        confirmNewDueSar = MoneyMath.subtract(amt, col)
+                        confirmTotalRemainingDueSar = totalUncollectedSar
+                        confirmPaymentMethod = inputReceiverAccountType
+                        confirmRecipientNo = rcvStr
+                        confirmTimestamp = inputTimestamp
+                        confirmIsAdvanceReturn = editingTx.receiverName == "Advance Return"
+                        viewModel.updateRemittance(updated) {
+                            txToEdit = null
+                            inputAmountSar = ""
+                            inputReceiverPhone = ""
+                            inputReceiverAccountNo = ""
+                            inputNotes = ""
+                            inputSarCollected = ""
+                            inputBdtDisbursed = ""
+                            inputDueSarCollected = ""
+                            inputTimestamp = System.currentTimeMillis()
+                            isAddingTransaction = false
+                            showConfirmationPage = true
+                        }
+                    } else {
 
                     confirmCustName = customer.name
                     confirmAmountSar = amt
@@ -1094,6 +1067,7 @@ fun CustomerProfileView(
                             isAddingTransaction = false
                             showConfirmationPage = true
                         }
+                    }
                     }
                 }
             )
@@ -1913,7 +1887,7 @@ fun CustomerProfileView(
                                                         Text(text = if (lang == "BN") "রিয়াল ফেরত" else "Refunded", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1565C0))
                                                     } else {
                                                         Text(text = "SAR ${tx.amountSar}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                                                        Text(text = "Rate: ${tx.customerRate}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                                        Text(text = "Rate: ${MoneyMath.rateDisplayString(tx.customerRate)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                     }
                                                 }
                                             }
@@ -2016,18 +1990,21 @@ fun CustomerProfileView(
                                                         OutlinedButton(
                                                             onClick = {
                                                                 txToEdit = tx
-                                                                editAmountSar = tx.amountSar.toString()
-                                                                editCustomerRate = tx.customerRate.toString()
-                                                                editSupplierRate = tx.supplierRate.toString()
-                                                                editReceiverName = tx.receiverName
-                                                                editReceiverPhone = tx.receiverPhone
-                                                                editReceiverAccountType = tx.receiverAccountType
-                                                                editReceiverAccountNo = tx.receiverAccountNo
-                                                                editTxNotes = tx.notes
-                                                                editStatus = tx.status
-                                                                editSupplierId = tx.supplierId
-                                                                editSarCollected = tx.sarCollected.toString()
-                                                                editBdtDisbursed = tx.bdtDisbursed.toPlainString()
+                                                                selectedBatchId = tx.walletBatchId.takeIf { it > 0 }
+                                                                inputAmountSar = MoneyMath.amountString(tx.amountSar)
+                                                                inputCustomerRate = MoneyMath.rateDisplayString(tx.customerRate)
+                                                                inputSupplierRate = MoneyMath.rateDisplayString(tx.supplierRate)
+                                                                inputReceiverName = tx.receiverName
+                                                                inputReceiverPhone = tx.receiverPhone
+                                                                inputReceiverAccountType = tx.receiverAccountType
+                                                                inputReceiverAccountNo = tx.receiverAccountNo
+                                                                inputNotes = tx.notes
+                                                                inputSarCollected = MoneyMath.amountString(tx.sarCollected)
+                                                                inputBdtDisbursed = MoneyMath.amountString(tx.bdtDisbursed)
+                                                                inputDueSarCollected = ""
+                                                                inputTimestamp = tx.timestamp
+                                                                isAdvanceReturn = tx.receiverName == "Advance Return"
+                                                                isAddingTransaction = true
                                                             },
                                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                             modifier = Modifier.height(28.dp),

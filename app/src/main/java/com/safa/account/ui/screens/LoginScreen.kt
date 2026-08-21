@@ -53,7 +53,8 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
     val hasCompleteLocalSession = tokenManager?.let {
-        !it.getAccessToken().isNullOrBlank() &&
+        !it.isLogoutInProgress() &&
+            !it.getAccessToken().isNullOrBlank() &&
             !it.getRefreshToken().isNullOrBlank() &&
             !it.getSessionToken().isNullOrBlank()
     } == true
@@ -310,6 +311,10 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
 
                     Button(
                         onClick = {
+                            if (tokenManager?.isLogoutInProgress() == true) {
+                                loginError = if (currentLang == "BN") "লগআউট শেষ হচ্ছে। এক মুহূর্ত পরে আবার চেষ্টা করুন।" else "Finishing sign out. Try again in a moment."
+                                return@Button
+                            }
                             val normalizedMobile = com.safa.account.data.api.MobileNumberNormalizer.normalize(mobileInput)
                             val normalizedPin = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(pinInput)
                             if (normalizedMobile.isBlank()) {
