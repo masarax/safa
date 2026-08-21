@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\RateLimiter;
 
 class ReleaseUpdateController extends Controller
 {
-    public function show(Request $request): Response
+    public function show(Request $request): Response|RedirectResponse
     {
-        abort_unless(ReleaseUpdateState::required(), 404);
+        if (!ReleaseUpdateState::required()) {
+            return $this->normalEntry($request);
+        }
 
         return response()->view('release_update', [
             'language' => $this->language($request),
@@ -22,7 +24,9 @@ class ReleaseUpdateController extends Controller
 
     public function run(Request $request, DatabaseUpdateService $updates): RedirectResponse
     {
-        abort_unless(ReleaseUpdateState::required(), 404);
+        if (!ReleaseUpdateState::required()) {
+            return $this->normalEntry($request);
+        }
 
         $language = $this->language($request);
         $this->consumeAttempt('release-update|' . $request->ip(), 5);
@@ -30,7 +34,7 @@ class ReleaseUpdateController extends Controller
         try {
             $result = $updates->runReleaseUpdate();
             if ($result['busy']) {
-                return redirect()->route('release.update.show', ['lang' => $language])->with(
+                return redirect()->route('system.update.show', ['lang' => $language])->with(
                     'info',
                     $language === 'bn'
                         ? 'আপডেট ইতিমধ্যে চলছে। শেষ হলে আবার চেষ্টা করুন।'
@@ -45,13 +49,20 @@ class ReleaseUpdateController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            return redirect()->route('release.update.show', ['lang' => $language])->with(
+            return redirect()->route('system.update.show', ['lang' => $language])->with(
                 'error',
                 $language === 'bn'
                     ? 'আপডেট সম্পন্ন হয়নি। আবার চেষ্টা করুন বা সার্ভার লগ পরীক্ষা করুন।'
                     : 'The update did not complete. Try again or check the server logs.'
             );
         }
+    }
+
+    private function normalEntry(Request $request): RedirectResponse
+    {
+        return $request->user()
+            ? redirect()->route('safa.app')
+            : redirect()->route('safa.login');
     }
 
     private function consumeAttempt(string $key, int $maxAttempts): void
