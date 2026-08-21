@@ -30,7 +30,7 @@ class ReleaseUpdateController extends Controller
         try {
             $result = $updates->runReleaseUpdate();
             if ($result['busy']) {
-                return redirect()->route('release.update.show', ['lang' => $language])->with(
+                return redirect()->route('system.update.show', ['lang' => $language])->with(
                     'info',
                     $language === 'bn'
                         ? 'আপডেট ইতিমধ্যে চলছে। শেষ হলে আবার চেষ্টা করুন।'
@@ -45,7 +45,7 @@ class ReleaseUpdateController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            return redirect()->route('release.update.show', ['lang' => $language])->with(
+            return redirect()->route('system.update.show', ['lang' => $language])->with(
                 'error',
                 $language === 'bn'
                     ? 'আপডেট সম্পন্ন হয়নি। আবার চেষ্টা করুন বা সার্ভার লগ পরীক্ষা করুন।'
