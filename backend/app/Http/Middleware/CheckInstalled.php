@@ -2,9 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Http\Controllers\DatabaseUpdateController;
-use App\Support\FirstRunSetupState;
-use App\Support\OneTimeFrontendMigrationState;
+use App\Support\ReleaseUpdateState;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,76 +25,17 @@ class CheckInstalled
             return $next($request);
         }
 
-        // The owner's requested first visible production step is a one-time
-        // frontend migration action. Its availability is independent of whether
-        // identity/business tables already contain rows; only its dedicated
-        // durable completion marker can consume it.
-        if (OneTimeFrontendMigrationState::required()) {
-            if ($path === 'data-migration') {
+        $updateRequired = ReleaseUpdateState::required();
+        if ($updateRequired) {
+            if ($this->isReleaseUpdatePath($path)) {
                 return $next($request);
             }
 
-            if ($request->expectsJson() || $request->is('api/*') || $request->is('app/api/*')) {
-                return response()->json([
-                    'status' => 'data_migration_required',
-                    'message' => 'One-time data migration is required.',
-                    'migration_path' => '/data-migration',
-                ], 503);
-            }
-
-            return redirect()->route('frontend.migration.show');
-        }
-
-        // Once consumed, the one-time migration surface is permanently hard
-        // closed even when a later release introduces ordinary pending migrations.
-        if ($path === 'data-migration') {
-            return $this->notFound($request);
-        }
-
-        if ($path === 'api/setup/status') {
-            return $next($request);
-        }
-
-        if (FirstRunSetupState::databaseInitializationRequired()) {
-            if ($path === 'setup' || $path === 'setup/database') {
-                return $next($request);
-            }
-
-            return $this->setupRequired($request, 'database');
-        }
-
-        if (FirstRunSetupState::adminCompletionRequired()) {
-            if ($path === 'setup/database') {
-                return $this->notFound($request);
-            }
-            if ($path === 'setup' || $path === 'setup/admin') {
-                return $next($request);
-            }
-
-            return $this->setupRequired($request, 'admin');
-        }
-
-        if ($path === 'setup' || str_starts_with($path, 'setup/')) {
-            return $this->notFound($request);
-        }
-
-        if ($this->isUpdateExemptPath($path)) {
-            return $next($request);
-        }
-
-        try {
-            $pending = DatabaseUpdateController::pendingMigrations();
-        } catch (\Throwable $e) {
-            report($e);
-            $pending = [];
-        }
-
-        if ($pending !== []) {
             if ($request->expectsJson() || $request->is('api/*') || $request->is('app/api/*')) {
                 return response()->json([
                     'status' => 'update_required',
-                    'message' => 'Database update required.',
-                    'pending_count' => count($pending),
+                    'message' => 'System update required.',
+                    'update_path' => '/update',
                 ], 503);
             }
 
@@ -106,26 +45,9 @@ class CheckInstalled
         return $next($request);
     }
 
-    private function setupRequired(Request $request, string $phase): Response
+    private function isReleaseUpdatePath(string $path): bool
     {
-        if ($request->expectsJson() || $request->is('api/*') || $request->is('app/api/*')) {
-            return response()->json([
-                'status' => 'setup_required',
-                'message' => 'First-run setup is required.',
-                'phase' => $phase,
-                'setup_path' => '/setup',
-            ], 503);
-        }
-
-        return redirect()->route('setup.index');
-    }
-
-    private function isUpdateExemptPath(string $path): bool
-    {
-        return $path === 'login'
-            || $path === 'logout'
-            || $path === 'update'
-            || str_starts_with($path, 'update/');
+        return $path === 'update' || $path === 'update/run';
     }
 
     private function isPublicAssetPath(string $path): bool
@@ -139,7 +61,9 @@ class CheckInstalled
             'safa-web-events.js',
             'safa-web-product.js',
         ] as $asset) {
-            if ($path === $asset) return true;
+            if ($path === $asset) {
+                return true;
+            }
         }
 
         return str_starts_with($path, 'storage/logos/');
@@ -151,6 +75,11 @@ class CheckInstalled
             || $path === 'install'
             || str_starts_with($path, 'install/')
             || $path === 'update-db'
+            || $path === 'data-migration'
+            || str_starts_with($path, 'data-migration/')
+            || $path === 'setup'
+            || str_starts_with($path, 'setup/')
+            || $path === 'api/setup/status'
             || $path === 'system/update'
             || str_starts_with($path, 'system/update/');
     }

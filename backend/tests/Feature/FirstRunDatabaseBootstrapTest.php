@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\Support\FirstRunSetupCode;
-use App\Support\FirstRunSetupState;
+use App\Support\CredentialVerifier;
+use App\Support\ReleaseUpdateState;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -25,11 +25,13 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         $this->originalConnection = (string) config('database.default');
         $this->originalSessionDriver = (string) config('session.driver');
         $this->originalCacheStore = (string) config('cache.default');
-        $this->databasePath = storage_path('framework/first-run-test-' . bin2hex(random_bytes(8)) . '.sqlite');
-        if (!is_dir(dirname($this->databasePath))) mkdir(dirname($this->databasePath), 0775, true);
+        $this->databasePath = storage_path('framework/release-update-test-' . bin2hex(random_bytes(8)) . '.sqlite');
+        if (!is_dir(dirname($this->databasePath))) {
+            mkdir(dirname($this->databasePath), 0775, true);
+        }
         touch($this->databasePath);
 
-        Config::set('database.connections.first_run_test', [
+        Config::set('database.connections.release_update_test', [
             'driver' => 'sqlite',
             'url' => null,
             'database' => $this->databasePath,
@@ -39,17 +41,16 @@ class FirstRunDatabaseBootstrapTest extends TestCase
             'journal_mode' => null,
             'synchronous' => null,
         ]);
-        Config::set('database.default', 'first_run_test');
+        Config::set('database.default', 'release_update_test');
         Config::set('safa.enforce_update_checks_in_tests', true);
-        DB::purge('first_run_test');
-        FirstRunSetupCode::destroy();
+        Config::set('safa.enforce_release_update_in_tests', true);
+        DB::purge('release_update_test');
     }
 
     protected function tearDown(): void
     {
-        FirstRunSetupCode::destroy();
-        DB::disconnect('first_run_test');
-        DB::purge('first_run_test');
+        DB::disconnect('release_update_test');
+        DB::purge('release_update_test');
         Config::set('database.default', $this->originalConnection);
         Config::set('session.driver', $this->originalSessionDriver);
         Config::set('cache.default', $this->originalCacheStore);
@@ -58,177 +59,68 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_pristine_database_exposes_setup_gateway_and_can_be_initialized_once(): void
+    public function test_pristine_database_is_initialized_from_the_clean_release_update_page(): void
     {
         $this->assertFalse(Schema::hasTable('migrations'));
         $this->assertFalse(Schema::hasTable('users'));
 
-        $this->get('/')->assertRedirect(route('setup.index'));
-        $this->get('/setup')->assertRedirect(route('setup.database.show', ['lang' => 'en']));
-        $this->getJson('/api/setup/status')
+        $this->get('/')->assertRedirect(route('system.update.show'));
+        $this->get('/update')
             ->assertOk()
-            ->assertJson([
-                'status' => 'setup_required',
-                'phase' => 'database',
-                'setup_path' => '/setup',
-            ])
-            ->assertJsonMissingPath('setup_code');
+            ->assertSee('System Update Ready')
+            ->assertSee('Run Update')
+            ->assertDontSee('setup code')
+            ->assertDontSee('Pending migration');
 
-        $this->get('/setup/database?lang=bn')
-            ->assertOk()
-            ->assertSee('ডাটাবেজ প্রস্তুত করুন')
-            ->assertSee(FirstRunSetupCode::operatorPath())
-            ->assertSeeHtml('data-first-run-action="initialize-database"');
-
-        $this->assertFileExists(FirstRunSetupCode::path());
-        $setupCode = trim((string) file_get_contents(FirstRunSetupCode::path()));
-        $this->assertMatchesRegularExpression('/^[A-F0-9]{32}$/', $setupCode);
-
-        // A web visitor who cannot read the server-private deployment file cannot
-        // claim a fresh installation or create its first administrator.
-        $this->post('/setup/database', [
-            'language' => 'en',
-            'setup_code' => str_repeat('0', 32),
-        ])->assertRedirect();
-        $this->assertFalse(Schema::hasTable('migrations'));
-
-        $this->post('/setup/database', [
-            'language' => 'en',
-            'setup_code' => $setupCode,
-        ])->assertRedirect(route('setup.admin.show', ['lang' => 'en']));
+        $this->post('/update/run', ['language' => 'en'])
+            ->assertRedirect(route('safa.login', ['lang' => 'en']));
 
         $this->assertTrue(Schema::hasTable('migrations'));
-        $this->assertTrue(Schema::hasTable(FirstRunSetupState::TABLE));
-        $this->assertDatabaseHas(FirstRunSetupState::TABLE, ['id' => 1, 'completed_at' => null]);
-        $this->assertFileDoesNotExist(FirstRunSetupCode::path());
+        $this->assertTrue(Schema::hasTable(ReleaseUpdateState::TABLE));
+        $this->assertFalse(ReleaseUpdateState::required());
 
-        // The migration surface disappears immediately after the schema exists.
-        $this->get('/setup/database')->assertNotFound();
-        $this->post('/setup/database')->assertNotFound();
-        $this->getJson('/api/setup/status')
-            ->assertOk()
-            ->assertJson(['status' => 'setup_required', 'phase' => 'admin']);
+        $required = User::query()->where('email', 'sakib.masarax@gmail.com')->firstOrFail();
+        $this->assertSame('NAZMUS SAKIB', $required->name);
+        $this->assertTrue($required->isSuperAdmin());
+        $this->assertTrue(CredentialVerifier::verify('123456', [$required->pin_hash, $required->password]));
 
-        $this->get('/setup/admin?lang=bn')
-            ->assertOk()
-            ->assertSee('প্রথম SuperAdmin তৈরি করুন')
-            ->assertSeeHtml('data-first-run-action="create-superadmin"');
-
-        $this->post('/setup/admin', [
-            'language' => 'en',
-            'name' => 'Initial Owner',
-            'mobile' => '0536308965',
-            'email' => 'owner@safa.test',
-            'pin' => '123456',
-            'pin_confirmation' => '123456',
-        ])->assertRedirect(route('safa.login', ['lang' => 'en']));
-
-        $this->assertDatabaseHas('users', [
-            'email' => 'owner@safa.test',
-            'mobile' => '0536308965',
-            'role' => User::ROLE_SUPERADMIN,
-            'is_activated' => 1,
-        ]);
-        $ownerId = (int) User::query()->where('email', 'owner@safa.test')->value('id');
-        $this->assertDatabaseHas('accounts', ['owner_user_id' => $ownerId, 'name' => 'SAFA Account']);
-        $this->assertNotNull(DB::table(FirstRunSetupState::TABLE)->where('id', 1)->value('completed_at'));
-
-        // First-run endpoints can never be replayed after successful completion.
+        $this->get('/update')->assertRedirect(route('safa.login'));
+        $this->get('/data-migration')->assertNotFound();
         $this->get('/setup')->assertNotFound();
-        $this->get('/setup/database')->assertNotFound();
-        $this->post('/setup/database')->assertNotFound();
-        $this->get('/setup/admin')->assertNotFound();
-        $this->post('/setup/admin')->assertNotFound();
-        $this->getJson('/api/setup/status')
-            ->assertOk()
-            ->assertJson(['status' => 'ready', 'phase' => null, 'setup_path' => null]);
         $this->get('/login')->assertOk();
     }
 
-    public function test_empty_prepared_schema_still_exposes_first_run_setup_without_destructive_migration(): void
+    public function test_prepared_empty_schema_uses_same_release_update_without_resetting_schema(): void
     {
         $this->assertSame(0, Artisan::call('migrate', ['--force' => true]));
-        $this->assertTrue(Schema::hasTable('migrations'));
         $this->assertTrue(Schema::hasTable('users'));
-        $this->assertTrue(Schema::hasTable('accounts'));
         $this->assertSame(0, DB::table('users')->count());
-        $this->assertSame(0, DB::table('accounts')->count());
-        $this->assertNull(FirstRunSetupState::row());
-        $this->assertTrue(FirstRunSetupState::databaseInitializationRequired());
+        $this->assertTrue(ReleaseUpdateState::required());
 
-        $this->get('/')->assertRedirect(route('setup.index'));
-        $this->get('/setup')->assertRedirect(route('setup.database.show', ['lang' => 'en']));
-        $this->get('/setup/database')
-            ->assertOk()
-            ->assertSee('The schema is already prepared')
-            ->assertSeeHtml('data-first-run-state="prepared"')
-            ->assertSeeHtml('data-first-run-action="initialize-database"');
+        $this->get('/update')->assertOk()->assertSee('Run Update');
+        $this->post('/update/run', ['language' => 'en'])->assertRedirect(route('safa.login', ['lang' => 'en']));
 
-        $setupCode = trim((string) file_get_contents(FirstRunSetupCode::path()));
-        $this->post('/setup/database', [
-            'language' => 'en',
-            'setup_code' => $setupCode,
-        ])->assertRedirect(route('setup.admin.show', ['lang' => 'en']));
-
-        $this->assertDatabaseHas(FirstRunSetupState::TABLE, ['id' => 1, 'completed_at' => null]);
         $this->assertSame([], \App\Http\Controllers\DatabaseUpdateController::pendingMigrations());
-    }
-
-    public function test_any_existing_identity_or_business_data_blocks_public_first_run_claim(): void
-    {
-        $this->assertSame(0, Artisan::call('migrate', ['--force' => true]));
-        DB::table('accounts')->insert([
-            'owner_user_id' => null,
-            'name' => 'Existing Business Data',
-            'balance' => 0,
-            'hash' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
+        $this->assertDatabaseHas('users', [
+            'name' => 'NAZMUS SAKIB',
+            'email' => 'sakib.masarax@gmail.com',
+            'role' => User::ROLE_SUPERADMIN,
+            'is_activated' => 1,
         ]);
-
-        $this->assertFalse(FirstRunSetupState::databaseInitializationRequired());
-        $this->get('/setup')->assertNotFound();
-        $this->get('/setup/database')->assertNotFound();
-        $this->getJson('/api/setup/status')->assertOk()->assertJson(['status' => 'ready']);
+        $this->assertFalse(ReleaseUpdateState::required());
+        $this->get('/update')->assertRedirect(route('safa.login'));
     }
 
-    public function test_ordinary_future_pending_migration_never_reopens_public_first_run_setup(): void
-    {
-        $this->assertSame(0, Artisan::call('migrate', ['--force' => true]));
-        DB::table(FirstRunSetupState::TABLE)->insert([
-            'id' => 1,
-            'bootstrap_claim_hash' => hash('sha256', str_repeat('a', 64)),
-            'database_initialized_at' => now(),
-            'completed_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $latest = DB::table('migrations')->orderByDesc('batch')->orderByDesc('migration')->value('migration');
-        $this->assertNotNull($latest);
-        DB::table('migrations')->where('migration', $latest)->delete();
-
-        $this->assertFalse(FirstRunSetupState::databaseInitializationRequired());
-        $this->get('/setup')->assertNotFound();
-        $this->get('/setup/database')->assertNotFound();
-        $this->post('/setup/database')->assertNotFound();
-        $this->get('/setup/admin')->assertNotFound();
-        $this->get('/')->assertRedirect(route('system.update.show'));
-    }
-
-    public function test_api_reports_first_run_required_without_exposing_installer_routes(): void
+    public function test_api_reports_release_update_required_without_installer_metadata(): void
     {
         $this->getJson('/api/auth/health')
             ->assertStatus(503)
             ->assertJson([
-                'status' => 'setup_required',
-                'phase' => 'database',
-                'setup_path' => '/setup',
-            ]);
-
-        foreach (['/install', '/install/process', '/system/update', '/update-db'] as $path) {
-            $this->get($path)->assertNotFound();
-            $this->post($path)->assertNotFound();
-        }
+                'status' => 'update_required',
+                'update_path' => '/update',
+            ])
+            ->assertJsonMissingPath('setup_path')
+            ->assertJsonMissingPath('migration_path')
+            ->assertJsonMissingPath('pending_count');
     }
 }

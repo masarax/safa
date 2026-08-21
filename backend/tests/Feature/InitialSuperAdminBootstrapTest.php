@@ -3,21 +3,28 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\ReleaseUpdateState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class InitialSuperAdminBootstrapTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_web_superadmin_bootstrap_is_permanently_retired(): void
+    protected function setUp(): void
     {
-        foreach (['/install', '/install/super-admin', '/install/test-db', '/install/process', '/install/update', '/install/update-process', '/update-db'] as $path) {
+        parent::setUp();
+        Config::set('safa.enforce_update_checks_in_tests', true);
+        Config::set('safa.enforce_release_update_in_tests', true);
+    }
+
+    public function test_public_web_installer_surfaces_are_permanently_retired(): void
+    {
+        foreach (['/install', '/install/super-admin', '/install/test-db', '/install/process', '/install/update', '/install/update-process', '/update-db', '/data-migration', '/setup', '/setup/database', '/setup/admin'] as $path) {
             $this->get($path)->assertNotFound();
             $this->post($path)->assertNotFound();
         }
-
-        $this->assertFalse(User::query()->where('role', User::ROLE_SUPERADMIN)->exists());
     }
 
     public function test_bootstrap_secret_and_controller_contracts_are_absent(): void
@@ -41,32 +48,26 @@ class InitialSuperAdminBootstrapTest extends TestCase
         }
     }
 
-    public function test_database_update_surface_requires_an_authenticated_activated_superadmin(): void
+    public function test_release_update_gate_is_public_only_while_current_release_is_unapplied(): void
     {
-        $this->get('/update')->assertRedirect(route('safa.login'));
-        $this->post('/update/run')->assertRedirect(route('safa.login'));
-        $this->get('/system/update')->assertNotFound();
-        $this->post('/system/update/run')->assertNotFound();
+        $this->assertTrue(ReleaseUpdateState::required());
+
+        $this->get('/update')
+            ->assertOk()
+            ->assertSee('System Update Ready')
+            ->assertSee('Run Update')
+            ->assertDontSee('Maintenance key')
+            ->assertDontSee('Create Super Admin')
+            ->assertDontSee('Run Migration')
+            ->assertDontSee('Run Seed');
 
         $admin = User::factory()->create([
             'role' => User::ROLE_ADMIN,
             'is_activated' => true,
         ]);
-        $this->actingAs($admin)->get('/update')->assertForbidden();
-        $this->actingAs($admin)->post('/update/run')->assertForbidden();
+        $this->actingAs($admin)->get('/update')->assertOk();
 
-        $superAdmin = User::factory()->create([
-            'role' => User::ROLE_SUPERADMIN,
-            'is_activated' => true,
-        ]);
-        $this->actingAs($superAdmin)
-            ->get('/update')
-            ->assertOk()
-            ->assertSee('Database Update')
-            ->assertSee('Update Database')
-            ->assertDontSee('Maintenance key')
-            ->assertDontSee('Create Super Admin')
-            ->assertDontSee('Run Migration')
-            ->assertDontSee('Run Seed');
+        ReleaseUpdateState::markApplied();
+        $this->get('/update')->assertRedirect(route('safa.app'));
     }
 }
