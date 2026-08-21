@@ -6,11 +6,18 @@ use Tests\TestCase;
 
 class DeploymentContractTest extends TestCase
 {
-    public function test_cpanel_workflow_only_packages_dependencies_and_syncs_over_ftp(): void
+    public function test_cpanel_workflow_deploys_main_only_after_green_backend_ci_or_manual_dispatch(): void
     {
         $workflow = (string) file_get_contents(base_path('../.github/workflows/deploy.yml'));
 
         $this->assertStringContainsString("workflow_dispatch:\n", $workflow);
+        $this->assertStringContainsString("workflow_run:\n", $workflow);
+        $this->assertStringContainsString('workflows: ["Laravel Backend CI"]', $workflow);
+        $this->assertStringContainsString('types: [completed]', $workflow);
+        $this->assertStringContainsString('branches: [main]', $workflow);
+        $this->assertStringContainsString("github.event.workflow_run.conclusion == 'success'", $workflow);
+        $this->assertStringContainsString("github.event_name == 'workflow_dispatch'", $workflow);
+        $this->assertStringContainsString('ref: main', $workflow);
         $this->assertStringContainsString('composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress', $workflow);
         $this->assertStringContainsString('actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0', $workflow);
         $this->assertStringContainsString('shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2', $workflow);
