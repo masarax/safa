@@ -151,16 +151,16 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
         viewModel.tokenManager?.sessionInvalidated?.collect { viewModel.logout() }
     }
 
-    // The authenticated account is server-selected and persisted from the login
-    // token. This is only a silent compatibility bootstrap for older sessions;
-    // the dashboard is never blocked by an account chooser or account-list error.
+    // Fresh logins already persist the server-issued owned account ID. Only
+    // legacy/restored sessions that genuinely lack account context need this
+    // silent compatibility bootstrap; normal login never waits for /accounts.
     LaunchedEffect(currentOperator?.id) {
         val operator = currentOperator ?: return@LaunchedEffect
         if (!operator.isActive) return@LaunchedEffect
         val tm = viewModel.tokenManager ?: return@LaunchedEffect
-        if (tm.getActiveAccountId() == null) {
-            viewModel.repository.clearLocalPresentation()
-        }
+        if (tm.getActiveAccountId() != null) return@LaunchedEffect
+
+        viewModel.repository.clearLocalPresentation()
         viewModel.syncManager?.listAccounts()?.exceptionOrNull()?.let { error ->
             SafaLogger.error("ACCOUNT_BOOTSTRAP_FAILED", "Automatic account bootstrap failed", error)
         }
