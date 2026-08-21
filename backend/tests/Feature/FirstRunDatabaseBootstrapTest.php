@@ -64,7 +64,7 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         $this->assertFalse(Schema::hasTable('migrations'));
         $this->assertFalse(Schema::hasTable('users'));
 
-        $this->get('/')->assertRedirect(route('release.update.show'));
+        $this->get('/')->assertRedirect(route('system.update.show'));
         $this->get('/update')
             ->assertOk()
             ->assertSee('System Update Ready')
@@ -84,7 +84,7 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         $this->assertTrue($required->isSuperAdmin());
         $this->assertTrue(CredentialVerifier::verify('123456', [$required->pin_hash, $required->password]));
 
-        $this->get('/update')->assertNotFound();
+        $this->get('/update')->assertRedirect(route('safa.login'));
         $this->get('/data-migration')->assertNotFound();
         $this->get('/setup')->assertNotFound();
         $this->get('/login')->assertOk();
@@ -98,7 +98,7 @@ class FirstRunDatabaseBootstrapTest extends TestCase
         $this->assertTrue(ReleaseUpdateState::required());
 
         $this->get('/update')->assertOk()->assertSee('Run Update');
-        $this->post('/update/run', ['language' => 'en'])->assertRedirect();
+        $this->post('/update/run', ['language' => 'en'])->assertRedirect(route('safa.login', ['lang' => 'en']));
 
         $this->assertSame([], \App\Http\Controllers\DatabaseUpdateController::pendingMigrations());
         $this->assertDatabaseHas('users', [
@@ -108,6 +108,7 @@ class FirstRunDatabaseBootstrapTest extends TestCase
             'is_activated' => 1,
         ]);
         $this->assertFalse(ReleaseUpdateState::required());
+        $this->get('/update')->assertRedirect(route('safa.login'));
     }
 
     public function test_api_reports_release_update_required_without_installer_metadata(): void
