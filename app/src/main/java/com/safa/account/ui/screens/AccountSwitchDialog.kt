@@ -100,9 +100,9 @@ fun AccountSwitchDialog(
                             lang = lang,
                             enabled = !switching,
                             label = if (lang == "BN") "আমার অ্যাকাউন্ট" else "My account",
-                            onClick = {
-                                if (account.accountId == activeAccountId || switching) return@AccountChoiceButton
-                                val manager = viewModel.syncManager ?: return@AccountChoiceButton
+                            onClick = accountClick@{
+                                if (account.accountId == activeAccountId || switching) return@accountClick
+                                val manager = viewModel.syncManager ?: return@accountClick
                                 switching = true
                                 error = null
                                 scope.launch {
@@ -144,9 +144,9 @@ fun AccountSwitchDialog(
                                 label = account.ownerName.ifBlank {
                                     if (lang == "BN") "শেয়ার করা অ্যাকাউন্ট" else "Shared account"
                                 },
-                                onClick = {
-                                    if (account.accountId == activeAccountId || switching) return@AccountChoiceButton
-                                    val manager = viewModel.syncManager ?: return@AccountChoiceButton
+                                onClick = accountClick@{
+                                    if (account.accountId == activeAccountId || switching) return@accountClick
+                                    val manager = viewModel.syncManager ?: return@accountClick
                                     switching = true
                                     error = null
                                     scope.launch {
