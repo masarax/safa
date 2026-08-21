@@ -19,7 +19,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,30 +47,9 @@ fun AccountSharingDialog(
     var canViewTransactions by remember { mutableStateOf(true) }
     var canManageWallet by remember { mutableStateOf(false) }
     var canManageExpenses by remember { mutableStateOf(false) }
-    var ownedAccountId by remember { mutableStateOf<Int?>(null) }
-    var resolvingOwnedAccount by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var success by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
-
-    // The current active account can be another user's shared workspace. Sharing
-    // must always delegate the authenticated user's own account, never whichever
-    // account happens to be active when Settings is opened.
-    LaunchedEffect(Unit) {
-        val result = viewModel.syncManager?.listAccounts()
-        ownedAccountId = result
-            ?.getOrNull()
-            ?.firstOrNull { it.isOwner }
-            ?.accountId
-        resolvingOwnedAccount = false
-        if (ownedAccountId == null) {
-            error = if (lang == "BN") {
-                "আপনার নিজস্ব ব্যবসার অ্যাকাউন্ট যাচাই করা যায়নি। আবার চেষ্টা করুন।"
-            } else {
-                "Your owned business account could not be verified. Please try again."
-            }
-        }
-    }
 
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
@@ -86,14 +64,6 @@ fun AccountSharingDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (resolvingOwnedAccount) {
-                    CircularProgressIndicator(strokeWidth = 2.dp)
-                    Text(
-                        if (lang == "BN") "আপনার নিজস্ব অ্যাকাউন্ট যাচাই হচ্ছে…" else "Verifying your owned account…",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
                 Text(
                     if (lang == "BN") "যে SAFA ইউজারকে আপনার ব্যবসার অ্যাকাউন্টে এক্সেস দিতে চান তার মোবাইল দিন।" else "Enter the mobile number of the SAFA user you want to grant access to your business account.",
                     style = MaterialTheme.typography.bodySmall,
@@ -101,11 +71,11 @@ fun AccountSharingDialog(
                 )
                 OutlinedTextField(
                     value = mobile,
-                    onValueChange = { mobile = it; if (!resolvingOwnedAccount && ownedAccountId != null) error = null; success = null },
+                    onValueChange = { mobile = it; error = null; success = null },
                     label = { Text(if (lang == "BN") "মোবাইল নম্বর" else "Mobile number") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    enabled = !resolvingOwnedAccount && ownedAccountId != null && !saving,
+                    enabled = !saving,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
@@ -131,11 +101,6 @@ fun AccountSharingDialog(
                         error = if (lang == "BN") "মোবাইল নম্বর দিন" else "Enter a mobile number"
                         return@Button
                     }
-                    val accountId = ownedAccountId
-                    if (accountId == null) {
-                        error = if (lang == "BN") "আপনার নিজস্ব অ্যাকাউন্ট পাওয়া যায়নি" else "Your owned account is unavailable"
-                        return@Button
-                    }
                     saving = true
                     scope.launch {
                         try {
@@ -144,10 +109,12 @@ fun AccountSharingDialog(
                                 error = if (lang == "BN") "সার্ভার সংযোগ নেই" else "Server connection unavailable"
                                 return@launch
                             }
+                            // The server derives/provisions the authenticated
+                            // user's owned business account. The client never
+                            // chooses an account_id for delegation.
                             val response = api.shareAccount(
                                 mapOf(
                                     "mobile" to normalized,
-                                    "account_id" to accountId,
                                     "permissions_override" to mapOf(
                                         "can_view_customers" to canViewCustomers,
                                         "can_view_suppliers" to canViewSuppliers,
@@ -169,7 +136,7 @@ fun AccountSharingDialog(
                         }
                     }
                 },
-                enabled = !saving && !resolvingOwnedAccount && ownedAccountId != null
+                enabled = !saving
             ) {
                 if (saving) CircularProgressIndicator(modifier = Modifier.padding(2.dp), strokeWidth = 2.dp)
                 else Text(if (lang == "BN") "এক্সেস দিন" else "Grant access")
