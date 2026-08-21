@@ -2,6 +2,7 @@ package com.safa.account.data.money
 
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -29,6 +30,19 @@ class MoneyMathTest {
     @Test fun canonicalWireStringsMatchDatabaseScale() {
         assertEquals("12.35", MoneyMath.amountString("12.345"))
         assertEquals("32.1235", MoneyMath.rateString("32.12345"))
+    }
+
+    @Test fun displayRateUsesExactlyTwoDecimalsWithoutChangingWirePrecision() {
+        assertEquals("32.50", MoneyMath.rateDisplayString("32.5000"))
+        assertEquals("32.57", MoneyMath.rateDisplayString("32.5678"))
+        assertEquals("32.5000", MoneyMath.rateString("32.50"))
+    }
+
+    @Test fun blankCreateAmountIsNotTreatedAsExplicitZeroDueOnlyTransaction() {
+        assertFalse(MoneyMath.isZeroAmount(""))
+        assertFalse(MoneyMath.isZeroAmount("   "))
+        assertTrue(MoneyMath.isZeroAmount("0"))
+        assertTrue(MoneyMath.isZeroAmount("0.00"))
     }
 
     @Test fun legacyJsonNumberIsCanonicalizedAtTheIngestionBoundary() {
