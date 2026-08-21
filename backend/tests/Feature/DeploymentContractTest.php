@@ -70,25 +70,27 @@ class DeploymentContractTest extends TestCase
         }
     }
 
-    public function test_database_maintenance_is_owned_by_authenticated_superadmin_application_flow(): void
+    public function test_database_update_is_owned_by_one_click_release_gate_and_safe_update_service(): void
     {
-        $controller = (string) file_get_contents(app_path('Http/Controllers/DatabaseUpdateController.php'));
+        $controller = (string) file_get_contents(app_path('Http/Controllers/ReleaseUpdateController.php'));
         $service = (string) file_get_contents(app_path('Services/DatabaseUpdateService.php'));
         $middleware = (string) file_get_contents(app_path('Http/Middleware/CheckInstalled.php'));
-        $routes = (string) file_get_contents(base_path('routes/web.php'));
+        $webRoutes = (string) file_get_contents(base_path('routes/web.php'));
+        $setupRoutes = (string) file_get_contents(base_path('routes/setup.php'));
         $publicHtaccess = (string) file_get_contents(public_path('.htaccess'));
 
-        $this->assertStringContainsString("Route::get('/update'", $routes);
-        $this->assertStringContainsString("Route::post('/update/run'", $routes);
-        $this->assertStringContainsString("'/system/update'", $routes);
-        $this->assertStringContainsString("'/system/update/run'", $routes);
-        $this->assertStringNotContainsString("Route::get('/system/update'", $routes);
-        $this->assertStringNotContainsString("Route::post('/system/update/run'", $routes);
-        $this->assertStringNotContainsString("Route::post('/system/update/migrate'", $routes);
-        $this->assertStringNotContainsString("Route::post('/system/update/seed'", $routes);
+        $this->assertStringContainsString("Route::get('/update'", $setupRoutes);
+        $this->assertStringContainsString("Route::post('/update/run'", $setupRoutes);
+        $this->assertStringContainsString("name('system.update.show')", $setupRoutes);
+        $this->assertStringContainsString("name('system.update.run')", $setupRoutes);
+        $this->assertStringNotContainsString("Route::get('/update'", $webRoutes);
+        $this->assertStringContainsString("'/system/update'", $webRoutes);
+        $this->assertStringNotContainsString("Route::get('/system/update'", $webRoutes);
+        $this->assertStringNotContainsString("Route::post('/system/update/run'", $webRoutes);
 
-        $this->assertStringContainsString('$user->isSuperAdmin()', $controller);
-        $this->assertStringNotContainsString("config('safa.maintenance_token'", $controller);
+        $this->assertStringContainsString('ReleaseUpdateState::required()', $controller);
+        $this->assertStringContainsString("redirect()->route('safa.login'", $controller);
+        $this->assertStringNotContainsString('Maintenance key', $controller);
         $this->assertStringContainsString("Artisan::call('migrate', ['--force' => true])", $service);
         $this->assertStringContainsString('ReleaseDataUpdateSeeder::class', $service);
         $this->assertStringContainsString("Artisan::call('optimize:clear')", $service);
@@ -96,7 +98,7 @@ class DeploymentContractTest extends TestCase
         $this->assertStringContainsString("redirect()->route('system.update.show')", $middleware);
         $this->assertStringContainsString("'status' => 'update_required'", $middleware);
         $this->assertStringNotContainsString("config('safa.installed'", $middleware);
-        $this->assertStringNotContainsString('storage_path(\'installed\')', $middleware);
+        $this->assertStringNotContainsString("storage_path('installed')", $middleware);
 
         foreach (['migrate:fresh', 'migrate:reset', 'migrate:refresh', 'migrate:rollback', 'db:wipe', 'truncate'] as $destructiveCommand) {
             $this->assertStringNotContainsString($destructiveCommand, $service);
