@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AppVersion;
 use App\Models\User;
+use App\Support\CredentialVerifier;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -13,15 +14,22 @@ class DatabaseSeederInitialAdminTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_programmatic_database_seed_skips_identity_and_keeps_reference_updates(): void
+    public function test_programmatic_database_seed_creates_required_superadmin_and_reference_updates(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertSame(0, User::query()->where('role', User::ROLE_SUPERADMIN)->count());
+        $required = User::query()->where('email', 'sakib.masarax@gmail.com')->firstOrFail();
+        $this->assertSame('NAZMUS SAKIB', $required->name);
+        $this->assertSame(User::ROLE_SUPERADMIN, $required->role);
+        $this->assertTrue((bool) $required->is_activated);
+        $this->assertTrue(CredentialVerifier::verify('123456', [$required->pin_hash, $required->password]));
         $this->assertTrue(AppVersion::query()->where('platform', 'android')->exists());
+
+        $this->seed(DatabaseSeeder::class);
+        $this->assertSame(1, User::query()->where('email', 'sakib.masarax@gmail.com')->count());
     }
 
-    public function test_first_admin_credentials_are_not_part_of_application_or_env_configuration(): void
+    public function test_initial_admin_credentials_are_not_part_of_env_or_runtime_configuration(): void
     {
         $config = (string) file_get_contents(config_path('safa.php'));
         $envExample = (string) file_get_contents(base_path('.env.example'));
@@ -38,7 +46,7 @@ class DatabaseSeederInitialAdminTest extends TestCase
         }
     }
 
-    public function test_interactive_database_seeder_is_the_only_supported_first_superadmin_cli_path(): void
+    public function test_legacy_provision_command_and_initial_admin_env_contracts_remain_absent(): void
     {
         $this->assertFileDoesNotExist(app_path('Console/Commands/ProvisionSuperAdmin.php'));
 
