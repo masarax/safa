@@ -19,11 +19,12 @@ class RequiredInitialSuperAdminSeeder extends Seeder
         DB::transaction(function (): void {
             $existing = User::query()
                 ->whereRaw('LOWER(email) = ?', [self::EMAIL])
+                ->lockForUpdate()
                 ->first();
 
-            // This provisioning path is intentionally first-time only. Once the
-            // required identity exists, later releases must never reset its name,
-            // role, password/PIN, permissions, activation state, or workspace.
+            // First-time only: once this exact required identity exists, never
+            // reset its operator-managed profile, role, credentials, permissions,
+            // activation state, mobile number, or workspace on later releases.
             if ($existing) {
                 return;
             }
