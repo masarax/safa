@@ -90,7 +90,10 @@ fun AccountSwitchDialog(
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
                 if (!loading && error == null) {
-                    val owned = accounts.filter { it.isOwner }
+                    // Product model: one primary owned account is the user's
+                    // normal workspace. Additional switch choices are only
+                    // accounts explicitly shared by another user.
+                    val owned = accounts.filter { it.isOwner }.take(1)
                     val shared = accounts.filterNot { it.isOwner }
 
                     owned.forEach { account ->
