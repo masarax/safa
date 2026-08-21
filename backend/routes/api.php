@@ -26,6 +26,7 @@ use App\Http\Middleware\RequireBusinessPermission;
 use App\Http\Middleware\RequireGraphQLPermission;
 use App\Http\Middleware\ResolveGraphQLAccountContext;
 use App\Http\Middleware\RequireAdmin;
+use App\Http\Middleware\ThrottleMobileLoginAttempts;
 use App\Http\Middleware\ValidateLogoUpload;
 use App\Http\Middleware\ValidateSyncDependencies;
 
@@ -42,9 +43,9 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
 // Compatibility for already-installed Android builds whose Retrofit base URL
 // resolves auth/login beneath /api/v1. Authentication must never depend on the
 // generic nested-request proxy: dispatch it directly to the same canonical
-// controller and middleware used by /api/auth/login below.
+// controller and failure-aware login throttle used by /api/auth/login below.
 Route::post('/v1/auth/login', [MobileLoginController::class, 'login'])
-    ->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, 'throttle:5,1']);
+    ->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, ThrottleMobileLoginAttempts::class, 'throttle:60,1']);
 
 // All other v1 requests are transparently dispatched to the existing routes,
 // preserving their established authentication and business middleware.
@@ -52,7 +53,7 @@ Route::any('/v1/{path?}', VersionedApiProxyController::class)->where('path', '.*
 
 Route::prefix('auth')->group(function () {
     Route::get('/health', ServiceHealthController::class)->middleware('throttle:30,1');
-    Route::post('/login', [MobileLoginController::class, 'login'])->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, 'throttle:5,1']);
+    Route::post('/login', [MobileLoginController::class, 'login'])->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, ThrottleMobileLoginAttempts::class, 'throttle:60,1']);
     Route::post('/refresh', [SecureAuthController::class, 'refresh'])->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
     Route::get('/session', [SecureAuthController::class, 'session'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:api']);
     Route::post('/logout', [SecureAuthController::class, 'logout'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:20,1']);
@@ -74,11 +75,13 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
-// Account discovery is the bootstrap step for establishing tenant context.
-// Requiring an already-active business account here creates a circular dependency
-// and can strand a valid login before its authorized account can be resolved.
+// Account discovery/switch/share establish or change tenant context. These
+// routes cannot depend on the currently active business permission boundary:
+// their controllers perform the exact owner/share authorization themselves.
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:api'])->group(function () {
     Route::get('/accounts', [AccountContextController::class, 'index']);
+    Route::post('/accounts/switch', [AccountContextController::class, 'switch']);
+    Route::post('/accounts/share', [AccountContextController::class, 'share']);
 });
 
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:api'])->group(function () {
@@ -86,8 +89,6 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
     Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
-    Route::post('/accounts/switch', [AccountContextController::class, 'switch']);
-    Route::post('/accounts/share', [AccountContextController::class, 'share']);
     Route::get('/customers', [CustomerController::class, 'index']);
     Route::post('/customers', [CustomerController::class, 'store']);
     Route::put('/customers/{id}', [CustomerController::class, 'update']);
