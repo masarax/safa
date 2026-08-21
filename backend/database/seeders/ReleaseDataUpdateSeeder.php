@@ -8,9 +8,9 @@ use Illuminate\Database\Seeder;
 class ReleaseDataUpdateSeeder extends Seeder
 {
     /**
-     * Apply non-destructive, idempotent reference/workspace updates required by
-     * the current release. Authentication identities and credential hashes are
-     * intentionally outside this updater.
+     * Apply non-destructive, idempotent data required by the current release.
+     * The required initial SuperAdmin seeder creates its identity only when the
+     * configured email is absent; later release updates never reset its secret.
      */
     public function run(): void
     {
@@ -24,6 +24,7 @@ class ReleaseDataUpdateSeeder extends Seeder
             ]
         );
 
+        $this->call(RequiredInitialSuperAdminSeeder::class);
         $this->call(SuperAdminWorkspaceSeeder::class);
         $this->call(CoreReferenceSeeder::class);
     }
