@@ -2,6 +2,10 @@ name: Deploy Laravel Backend to cPanel
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Laravel Backend CI"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,6 +17,9 @@ concurrency:
 jobs:
   web-deploy:
     name: Deploy Laravel backend to cPanel
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
