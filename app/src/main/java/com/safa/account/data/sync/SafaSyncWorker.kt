@@ -31,6 +31,11 @@ class SafaSyncWorker(
             return Result.success()
         }
 
+        // Older builds could permanently mark business mutations FAILED after
+        // sending an empty mobile client id and receiving HTTP 401. Re-queue only
+        // those auth-blocked rows now that an authenticated client is available.
+        SyncFailureRecovery.recoverUnauthorized(applicationContext, tokenManager)
+
         val repository = AppRepository(applicationContext)
 
         return try {

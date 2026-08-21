@@ -9,23 +9,47 @@ use Illuminate\Support\Str;
 
 class RemoteConfigController extends Controller
 {
+    use AuthorizeAccountContext;
+
     private const MAX_LOGO_BYTES = 2_000_000;
     private const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
     private const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
-    private function setting(): SystemSetting
+    private function settingForAccount(int $accountId): SystemSetting
     {
-        return SystemSetting::first() ?: SystemSetting::create([
-            'account_id' => null,
-            'app_name' => 'SAFA',
-            'app_logo_url' => '/safa-logo.png',
-            'app_version' => '1.0.0',
-            'local_currency' => 'BDT',
-            'foreign_currency' => 'SAR',
-            'rate_based_mode' => true,
-            'supplier_rate_enabled' => true,
-            'wallet_rate_enabled' => true,
+        $existing = SystemSetting::query()
+            ->where('account_id', $accountId)
+            ->orderBy('id')
+            ->first();
+        if ($existing) return $existing;
+
+        // Preserve legacy/global branding as the seed for an account's first
+        // scoped settings row, then keep all future writes tenant-isolated.
+        $fallback = SystemSetting::query()
+            ->whereNull('account_id')
+            ->orderBy('id')
+            ->first();
+
+        return SystemSetting::create([
+            'account_id' => $accountId,
+            'app_name' => $fallback?->app_name ?: 'SAFA',
+            'app_logo_url' => $fallback?->app_logo_url ?: '/safa-logo.png',
+            'app_version' => $fallback?->app_version ?: '1.0.0',
+            'local_currency' => $fallback?->local_currency ?: 'BDT',
+            'foreign_currency' => $fallback?->foreign_currency ?: 'SAR',
+            'rate_based_mode' => $fallback?->rate_based_mode ?? true,
+            'supplier_rate_enabled' => $fallback?->supplier_rate_enabled ?? true,
+            'wallet_rate_enabled' => $fallback?->wallet_rate_enabled ?? true,
         ]);
+    }
+
+    /** @return array{user?: mixed, account_id?: int, setting?: SystemSetting, error?: mixed} */
+    private function authorizedSetting(Request $request): array
+    {
+        $context = $this->resolveAuthorizedAccountContext($request);
+        if (isset($context['error'])) return $context;
+        $context['setting'] = $this->settingForAccount((int) $context['account_id']);
+        return $context;
     }
 
     private function publicSettings(SystemSetting $setting, ?string $captainName = null): array
@@ -41,13 +65,16 @@ class RemoteConfigController extends Controller
 
     public function getRemoteConfig(Request $request)
     {
-        $setting = $this->setting();
-        $captainName = $request->user()?->name;
+        $context = $this->authorizedSetting($request);
+        if (isset($context['error'])) return $context['error'];
+        /** @var SystemSetting $setting */
+        $setting = $context['setting'];
+        $captainName = ($context['user'] ?? $request->user())?->name;
 
         return response()->json([
             'status' => 'success',
             'config' => [
-                'account_id' => $setting->account_id,
+                'account_id' => (int) $context['account_id'],
                 'app_name' => $setting->app_name,
                 'captain_name' => $captainName,
                 'app_logo_url' => $setting->publicLogoUrl(),
@@ -78,6 +105,9 @@ class RemoteConfigController extends Controller
 
     public function updateConfig(Request $request)
     {
+        $context = $this->authorizedSetting($request);
+        if (isset($context['error'])) return $context['error'];
+
         // User identity is never a brand/system setting. Reject legacy callers
         // explicitly instead of silently accepting and ignoring the field.
         if ($request->has('captain_name')) {
@@ -88,8 +118,9 @@ class RemoteConfigController extends Controller
             ], 422);
         }
 
+        // account_id is deliberately not client-writable. The authenticated
+        // account context is resolved from the signed session/header boundary.
         $validated = $request->validate([
-            'account_id' => 'nullable|integer',
             'app_name' => 'nullable|string|max:255',
             'app_logo_url' => 'nullable|url|max:2048',
             'app_version' => 'nullable|string|max:50',
@@ -100,7 +131,7 @@ class RemoteConfigController extends Controller
             'wallet_rate_enabled' => 'nullable|boolean',
         ]);
 
-        $user = $request->user();
+        $user = $context['user'] ?? $request->user();
         if (array_key_exists('app_version', $validated) && !$user?->isSuperAdmin()) {
             return response()->json([
                 'status' => 'error',
@@ -108,7 +139,8 @@ class RemoteConfigController extends Controller
             ], 403);
         }
 
-        $setting = $this->setting();
+        /** @var SystemSetting $setting */
+        $setting = $context['setting'];
         foreach ($validated as $field => $value) {
             if ($value === null) continue;
 
@@ -130,6 +162,7 @@ class RemoteConfigController extends Controller
             $setting->{$field} = $value;
         }
 
+        $setting->account_id = (int) $context['account_id'];
         $setting->app_name = $setting->app_name ?: 'SAFA';
         $setting->app_version = $setting->app_version ?: '1.0.0';
         $setting->local_currency = $setting->local_currency ?: 'BDT';
@@ -146,6 +179,11 @@ class RemoteConfigController extends Controller
     /** Store only raster images. SVG is deliberately rejected to prevent active-content XSS. */
     public function uploadLogo(Request $request)
     {
+        $context = $this->authorizedSetting($request);
+        if (isset($context['error'])) return $context['error'];
+        /** @var SystemSetting $setting */
+        $setting = $context['setting'];
+
         $destinationPath = public_path('storage/logos');
         if (!is_dir($destinationPath) && !mkdir($destinationPath, 0755, true) && !is_dir($destinationPath)) {
             return response()->json(['status' => 'error', 'message' => 'Unable to create logo storage directory.'], 500);
@@ -202,9 +240,14 @@ class RemoteConfigController extends Controller
         }
 
         $logoPath = '/storage/logos/' . $fileName;
-        $setting = $this->setting();
-        $setting->app_logo_url = $logoPath;
-        $setting->save();
+        try {
+            $setting->account_id = (int) $context['account_id'];
+            $setting->app_logo_url = $logoPath;
+            $setting->saveOrFail();
+        } catch (\Throwable $e) {
+            @unlink($destinationPath . '/' . $fileName);
+            throw $e;
+        }
 
         return response()->json([
             'status' => 'success',
@@ -212,7 +255,7 @@ class RemoteConfigController extends Controller
             'app_logo_path' => $logoPath,
             'app_logo_url' => $setting->publicLogoUrl(),
             'url' => $setting->publicLogoUrl(),
-            'settings' => $this->publicSettings($setting, $request->user()?->name),
+            'settings' => $this->publicSettings($setting, ($context['user'] ?? $request->user())?->name),
         ]);
     }
 
