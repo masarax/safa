@@ -147,11 +147,13 @@ class WebProfileSettingsTest extends TestCase
         $this->assertSame('/storage/logos/logo_legacy.png', $setting->webLogoSource());
 
         $admin = $this->user(User::ROLE_ADMIN, '0536309109', 'logo-admin@example.test');
+        $account = Account::where('owner_user_id', $admin->id)->firstOrFail();
         $png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
         $response = $this->actingAs($admin)->postJson('/app/api/logo', ['logo_base64' => $png])->assertOk();
         $path = (string) $response->json('app_logo_path');
         $this->assertMatchesRegularExpression('#^/storage/logos/logo_[A-Za-z0-9_-]+\.png$#', $path);
-        $this->assertSame($path, SystemSetting::firstOrFail()->fresh()->app_logo_url);
+        $this->assertSame($path, SystemSetting::where('account_id', $account->id)->firstOrFail()->fresh()->app_logo_url);
+        $this->assertSame('https://old.example.test/storage/logos/logo_legacy.png', $setting->fresh()->app_logo_url);
         $this->assertFileExists(public_path(ltrim($path, '/')));
         try {
             $html = (string) $this->actingAs($admin)->get('/app')->assertOk()->getContent();
