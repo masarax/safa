@@ -1,7 +1,6 @@
 name: Deploy Laravel Backend to cPanel
 
 on:
-  workflow_dispatch:
   workflow_run:
     workflows: ["Laravel Backend CI"]
     types: [completed]
@@ -16,18 +15,51 @@ concurrency:
 
 jobs:
   web-deploy:
-    name: Deploy Laravel backend to cPanel
+    name: Deploy exact CI-tested Laravel backend commit
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == github.event.repository.default_branch
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout repository
+      - name: Checkout exact CI-tested commit
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: main
-          fetch-depth: 1
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify deployment provenance and ordering
+        shell: bash
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE_REPOSITORY" = "$GITHUB_REPOSITORY" || { echo 'Refusing deployment from a different repository.'; exit 1; }
+          test "$SOURCE_BRANCH" = "$DEFAULT_BRANCH" || { echo 'Refusing deployment from a non-default branch.'; exit 1; }
+          [[ "$TESTED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'CI-tested SHA is invalid.'; exit 1; }
+
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          test "$CHECKED_OUT_SHA" = "$TESTED_SHA" || { echo 'Checked-out commit does not match the successful CI run.'; exit 1; }
+
+          git fetch --no-tags origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          CURRENT_DEFAULT_SHA="$(git rev-parse "refs/remotes/origin/$DEFAULT_BRANCH")"
+          test "$CURRENT_DEFAULT_SHA" = "$TESTED_SHA" || {
+            echo "Refusing stale deployment: tested $TESTED_SHA but current $DEFAULT_BRANCH is $CURRENT_DEFAULT_SHA."
+            exit 1
+          }
+
+          echo "DEPLOY_SHA=$TESTED_SHA" >> "$GITHUB_ENV"
+
+      - name: Verify immutable workflow action pins
+        run: bash scripts/check-workflow-action-pins.sh
+
+      - name: Verify deployment provenance contract
+        run: bash scripts/check-deploy-provenance.sh
 
       - name: Set up PHP for Composer
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
@@ -46,7 +78,25 @@ jobs:
 
       - name: Stamp deployed commit identity
         shell: bash
-        run: printf '{"commit":"%s"}\n' "$(git rev-parse HEAD)" > backend/bootstrap/safa-build.json
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+          printf '{"commit":"%s"}\n' "$DEPLOY_SHA" > backend/bootstrap/safa-build.json
+
+      - name: Reconfirm tested commit is still current main
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          CURRENT_DEFAULT_SHA="$(git rev-parse "refs/remotes/origin/$DEFAULT_BRANCH")"
+          test "$CURRENT_DEFAULT_SHA" = "$DEPLOY_SHA" || {
+            echo "Refusing stale deployment immediately before upload: tested $DEPLOY_SHA but current $DEFAULT_BRANCH is $CURRENT_DEFAULT_SHA."
+            exit 1
+          }
+          test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+          test "$(php -r '$m=json_decode(file_get_contents("backend/bootstrap/safa-build.json"), true); echo $m["commit"] ?? "";')" = "$DEPLOY_SHA"
 
       - name: Sync Laravel backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5

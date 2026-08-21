@@ -6,12 +6,14 @@ on:
       - 'backend/**'
       - '.github/workflows/**'
       - 'scripts/check-workflow-action-pins.sh'
+      - 'scripts/check-deploy-provenance.sh'
   push:
     branches: [main]
     paths:
       - 'backend/**'
       - '.github/workflows/**'
       - 'scripts/check-workflow-action-pins.sh'
+      - 'scripts/check-deploy-provenance.sh'
   workflow_dispatch:
 
 permissions:
@@ -32,6 +34,9 @@ jobs:
 
       - name: Verify immutable workflow action pins
         run: bash scripts/check-workflow-action-pins.sh
+
+      - name: Verify deployment provenance contract
+        run: bash scripts/check-deploy-provenance.sh
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
@@ -100,6 +105,9 @@ jobs:
 
       - name: Verify immutable workflow action pins
         run: bash scripts/check-workflow-action-pins.sh
+
+      - name: Verify deployment provenance contract
+        run: bash scripts/check-deploy-provenance.sh
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
