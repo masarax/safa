@@ -39,11 +39,7 @@ class CheckInstalled
                 ], 503);
             }
 
-            return redirect()->route('release.update.show');
-        }
-
-        if ($this->isReleaseUpdatePath($path)) {
-            return $this->notFound($request);
+            return redirect()->route('system.update.show');
         }
 
         return $next($request);
