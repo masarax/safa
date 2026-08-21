@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\DatabaseUpdateController;
+use App\Http\Controllers\ReleaseUpdateController;
 use App\Http\Controllers\RemoteBusinessController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\SupplierController;
@@ -36,8 +36,6 @@ Route::get('/storage/logos/{file}', function (string $file) {
     return response()->file($path, ['Cache-Control' => 'public, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
 })->where('file', 'logo_[A-Za-z0-9_-]+\\.(?:png|jpe?g|gif|webp)');
 
-// Retired installer/recovery endpoints are deliberately hard-closed for every
-// HTTP method. Explicit tombstones prevent method probing from exposing a 405.
 foreach ([
     '/index',
     '/install',
@@ -47,6 +45,11 @@ foreach ([
     '/install/update',
     '/install/update-process',
     '/update-db',
+    '/data-migration',
+    '/setup',
+    '/setup/database',
+    '/setup/admin',
+    '/api/setup/status',
     '/system/update',
     '/system/update/run',
     '/system/update/migrate',
@@ -61,19 +64,17 @@ foreach ([
     });
 }
 
+Route::middleware('throttle:20,1')->group(function () {
+    Route::get('/update', [ReleaseUpdateController::class, 'show'])->name('release.update.show');
+    Route::post('/update/run', [ReleaseUpdateController::class, 'run'])->middleware('throttle:5,1')->name('release.update.run');
+});
+
 Route::get('/', fn (Request $request) => $request->user() ? redirect()->route('safa.app') : redirect()->route('safa.login'));
 Route::middleware('guest')->group(function () {
     Route::get('/login', [WebAuthController::class, 'showLogin'])->name('safa.login');
     Route::post('/login', [WebAuthController::class, 'login'])->middleware('throttle:5,1')->name('safa.login.submit');
 });
 Route::post('/logout', [WebAuthController::class, 'logout'])->middleware('auth')->name('safa.logout');
-
-// Canonical production database maintenance surface. Route names are retained
-// for internal backward compatibility; the public URL contract is /update.
-Route::middleware(['auth', 'throttle:20,1'])->group(function () {
-    Route::get('/update', [DatabaseUpdateController::class, 'show'])->name('system.update.show');
-    Route::post('/update/run', [DatabaseUpdateController::class, 'run'])->middleware('throttle:5,1')->name('system.update.run');
-});
 
 Route::middleware(['auth', 'throttle:120,1'])->group(function () {
     Route::get('/app', [WebAppController::class, 'index'])->name('safa.app');
