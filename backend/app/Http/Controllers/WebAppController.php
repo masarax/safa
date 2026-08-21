@@ -26,7 +26,14 @@ class WebAppController extends Controller
             $request->session()->put('safa_active_account_id', $activeAccountId);
         }
 
-        $setting = SystemSetting::first();
+        // Branding belongs to the active business account. The legacy/global
+        // row remains a read-only fallback for accounts that have not yet saved
+        // their own branding settings.
+        $setting = $activeAccountId
+            ? SystemSetting::query()->where('account_id', $activeAccountId)->orderBy('id')->first()
+            : null;
+        $setting ??= SystemSetting::query()->whereNull('account_id')->orderBy('id')->first();
+
         $language = $request->session()->get('safa_web_language', 'en');
         if (!in_array($language, ['en', 'bn'], true)) $language = 'en';
         $permissions = BusinessPermissions::effective($user, (int) ($activeAccountId ?? 0));
