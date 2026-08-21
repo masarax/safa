@@ -22,22 +22,22 @@ class SystemUpdateFlowTest extends TestCase
         ReleaseUpdateState::markApplied();
     }
 
-    public function test_current_release_has_normal_site_flow_and_hidden_update_page(): void
+    public function test_current_release_has_normal_site_flow_and_update_url_redirects_normally(): void
     {
         $this->assertFalse(ReleaseUpdateState::required());
         $this->get('/')->assertRedirect(route('safa.login'));
         $this->get('/login')->assertOk();
         $this->getJson('/api/auth/health')->assertOk();
-        $this->get('/update')->assertNotFound();
-        $this->post('/update/run')->assertNotFound();
+        $this->get('/update')->assertRedirect(route('safa.login'));
+        $this->post('/update/run')->assertRedirect(route('safa.login'));
     }
 
     public function test_pending_migration_redirects_browser_traffic_to_clean_update_gate(): void
     {
         $this->markMigrationPending();
 
-        $this->get('/')->assertRedirect(route('release.update.show'));
-        $this->get('/login')->assertRedirect(route('release.update.show'));
+        $this->get('/')->assertRedirect(route('system.update.show'));
+        $this->get('/login')->assertRedirect(route('system.update.show'));
         $this->get('/update')
             ->assertOk()
             ->assertSee('System Update Ready')
@@ -60,7 +60,7 @@ class SystemUpdateFlowTest extends TestCase
             ->assertJsonMissingPath('pending_count');
     }
 
-    public function test_one_click_release_update_applies_pending_migration_and_hides_itself(): void
+    public function test_one_click_release_update_applies_pending_migration_and_returns_to_normal_login(): void
     {
         $this->markMigrationPending();
 
@@ -69,7 +69,7 @@ class SystemUpdateFlowTest extends TestCase
 
         $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
         $this->assertFalse(ReleaseUpdateState::required());
-        $this->get('/update')->assertNotFound();
+        $this->get('/update')->assertRedirect(route('safa.login'));
         $this->get('/login')->assertOk();
     }
 
@@ -81,7 +81,7 @@ class SystemUpdateFlowTest extends TestCase
         ]);
 
         $this->assertTrue(ReleaseUpdateState::required());
-        $this->get('/')->assertRedirect(route('release.update.show'));
+        $this->get('/')->assertRedirect(route('system.update.show'));
         $this->get('/update')->assertOk()->assertSee('Run Update');
     }
 
