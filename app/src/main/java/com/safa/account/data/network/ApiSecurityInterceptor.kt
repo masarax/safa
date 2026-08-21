@@ -22,7 +22,8 @@ import java.util.concurrent.TimeUnit
 class ApiSecurityInterceptor(
     private val apiKey: String,
     @Suppress("UNUSED_PARAMETER") private val legacyApiSecret: String = "",
-    private val tokenManager: TokenManager? = null
+    private val tokenManager: TokenManager? = null,
+    private val refreshOverride: ((String?) -> String?)? = null
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
@@ -52,9 +53,11 @@ class ApiSecurityInterceptor(
             )
         }
 
-        var response = chain.proceed(
-            buildSecuredRequest(originalRequest, includeAuthTokens = !isLoginRequest && !isRefreshRequest)
+        val securedRequest = buildSecuredRequest(
+            originalRequest,
+            includeAuthTokens = !isLoginRequest && !isRefreshRequest
         )
+        var response = chain.proceed(securedRequest)
 
         if (
             !isLoginRequest &&
@@ -65,12 +68,25 @@ class ApiSecurityInterceptor(
             originalRequest.header("X-SAFA-RETRY") != "true"
         ) {
             synchronized(tokenManager) {
-                val requestAccessToken = originalRequest.header("Authorization")?.removePrefix("Bearer ")
+                // Compare against the token that actually reached the server.
+                // Retrofit's original request normally has no Authorization header
+                // because this interceptor adds it immediately before proceed().
+                val requestAccessToken = securedRequest.header("Authorization")?.removePrefix("Bearer ")
                 val currentAccessToken = tokenManager.getAccessToken()
                 val newToken = if (!currentAccessToken.isNullOrBlank() && currentAccessToken != requestAccessToken) {
+                    // Another request already completed refresh rotation while this
+                    // request was in flight. Reuse the newer stored token set.
                     currentAccessToken
                 } else {
-                    performTokenRefresh(tokenManager.getRefreshToken())
+                    val refreshToken = tokenManager.getRefreshToken()
+                    // A test override returning null explicitly represents refresh
+                    // failure. Do not fall through into the real network refresh in
+                    // that case; production calls use performTokenRefresh directly.
+                    if (refreshOverride != null) {
+                        refreshOverride.invoke(refreshToken)
+                    } else {
+                        performTokenRefresh(refreshToken)
+                    }
                 }
 
                 if (!newToken.isNullOrBlank()) {

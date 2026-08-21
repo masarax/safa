@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.safa.account.data.api.TokenManager
+import com.safa.account.data.local.LocalFirstStore
 import com.safa.account.data.repository.AppRepository
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -44,9 +45,23 @@ class SafaSyncWorker(
                 retryOrFail()
             }
         } catch (t: CancellationException) {
+            // Cancellation can race an in-flight upload after rows were leased.
+            // Release the lease before propagating cancellation. If the server
+            // committed before cancellation, the stable mutation_id makes replay
+            // idempotent on the next reconciliation attempt.
+            runCatching { LocalFirstStore(applicationContext).resetProcessing() }
             throw t
         } catch (t: Throwable) {
-            if (isTransient(t)) retryOrFail() else Result.failure()
+            if (isTransient(t)) {
+                // processOutbox leases rows as PROCESSING before the network call.
+                // A thrown transport exception produces no HTTP response, so the
+                // repository cannot mark those rows retryable itself. Release the
+                // lease immediately instead of waiting for stale-processing recovery.
+                runCatching { LocalFirstStore(applicationContext).resetProcessing() }
+                retryOrFail()
+            } else {
+                Result.failure()
+            }
         }
     }
 

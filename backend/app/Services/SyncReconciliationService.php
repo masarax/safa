@@ -3,13 +3,17 @@
 namespace App\Services;
 
 use App\Models\SyncMutation;
+use App\Models\Transaction;
 use App\Support\MoneyDecimal;
+use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
 class SyncReconciliationService
 {
+    public function __construct(private readonly TransactionWalletAccounting $walletAccounting) {}
+
     public function apply(int $accountId, string $entity, string $modelClass, array $payload, callable $attributes, ?callable $validate = null, ?string $defaultOperation = null): array
     {
         $localId = (int) ($payload['local_id'] ?? 0);
@@ -33,46 +37,66 @@ class SyncReconciliationService
         if ($domainError = $this->validateDomainPayload($payload)) return $this->rejected($entity, $localId, $domainError, 'VALIDATION', $mutationId);
         if ($validate) { $validationError = $validate($payload); if ($validationError) return $this->rejected($entity, $localId, $validationError, 'VALIDATION', $mutationId); }
 
-        return DB::transaction(function () use ($accountId, $entity, $modelClass, $payload, $attributes, $operation, $mutationId, $baseVersion, $localId) {
-            $previousMutation = SyncMutation::where('account_id', $accountId)->where('mutation_id', $mutationId)->lockForUpdate()->first();
-            if ($previousMutation) {
-                $response = $previousMutation->response ?: ['local_id' => $localId, 'server_id' => $previousMutation->server_id, 'sync_version' => $previousMutation->sync_version, 'mutation_id' => $mutationId, 'operation' => $operation, 'server_deleted' => false];
-                $response['idempotent'] = true;
-                return ['status' => 'accepted', 'accepted' => $response];
-            }
-            $queryModel = new $modelClass();
-            $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($queryModel), true);
-            $query = $usesSoftDeletes ? $modelClass::withTrashed() : $modelClass::query();
-            $record = $query->where('account_id', $accountId)->where('local_id', $localId)->lockForUpdate()->first();
-            $incomingTimestamp = $this->normalizeTimestamp($payload['timestamp'] ?? null);
-            if ($record) {
-                $currentVersion = (int) ($record->sync_version ?? 0);
-                if ($baseVersion !== null && $baseVersion !== $currentVersion) return $this->conflict($entity, $localId, $record, $mutationId, $currentVersion, $operation);
-                if ($baseVersion === null && isset($payload['timestamp']) && (int) ($record->timestamp ?? 0) > (int) $incomingTimestamp) return $this->legacyStaleAck($entity, $localId, $record, $mutationId, $operation);
-            } elseif ($baseVersion !== null && $baseVersion > 0) return $this->rejected($entity, $localId, 'Referenced server version does not exist', 'STALE_BASE_VERSION', $mutationId);
+        try {
+            return DB::transaction(function () use ($accountId, $entity, $modelClass, $payload, $attributes, $operation, $mutationId, $baseVersion, $localId) {
+                $previousMutation = SyncMutation::where('account_id', $accountId)->where('mutation_id', $mutationId)->lockForUpdate()->first();
+                if ($previousMutation) {
+                    $response = $previousMutation->response ?: ['local_id' => $localId, 'server_id' => $previousMutation->server_id, 'sync_version' => $previousMutation->sync_version, 'mutation_id' => $mutationId, 'operation' => $operation, 'server_deleted' => false];
+                    $response['idempotent'] = true;
+                    return ['status' => 'accepted', 'accepted' => $response];
+                }
+                $queryModel = new $modelClass();
+                $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($queryModel), true);
+                $query = $usesSoftDeletes ? $modelClass::withTrashed() : $modelClass::query();
+                $record = $query->where('account_id', $accountId)->where('local_id', $localId)->lockForUpdate()->first();
+                $incomingTimestamp = $this->normalizeTimestamp($payload['timestamp'] ?? null);
+                if ($record) {
+                    $currentVersion = (int) ($record->sync_version ?? 0);
+                    if ($baseVersion !== null && $baseVersion !== $currentVersion) return $this->conflict($entity, $localId, $record, $mutationId, $currentVersion, $operation);
+                    if ($baseVersion === null && isset($payload['timestamp']) && (int) ($record->timestamp ?? 0) > (int) $incomingTimestamp) return $this->legacyStaleAck($entity, $localId, $record, $mutationId, $operation);
+                } elseif ($baseVersion !== null && $baseVersion > 0) return $this->rejected($entity, $localId, 'Referenced server version does not exist', 'STALE_BASE_VERSION', $mutationId);
 
-            $record ??= new $modelClass();
-            $record->account_id = $accountId;
-            $record->local_id = $localId;
-            try {
-                $data = $attributes($payload, $accountId, $record);
-            } catch (\RuntimeException) {
-                return $this->rejected($entity, $localId, 'A referenced record has not been synchronized yet.', 'DEPENDENCY', $mutationId);
-            } catch (\InvalidArgumentException) {
-                return $this->rejected($entity, $localId, 'The record contains invalid or unsupported values.', 'VALIDATION', $mutationId);
-            }
-            if ($data instanceof \Throwable) return $this->rejected($entity, $localId, 'A referenced record could not be synchronized.', 'DEPENDENCY', $mutationId);
-            foreach ($data as $key => $value) $record->{$key} = $value;
-            $record->timestamp = $incomingTimestamp;
-            $nextVersion = (int) ($record->sync_version ?? 0) + 1;
-            $record->sync_version = $nextVersion;
-            $record->last_mutation_id = $mutationId;
-            if ($operation === 'DELETE' || $this->isDeleted($payload)) $record->deleted_at = $this->parseDeletedAt($payload['deleted_at'] ?? null) ?? now(); else $record->deleted_at = null;
-            $record->save();
-            $accepted = ['local_id' => $localId, 'server_id' => (int) $record->id, 'sync_version' => $nextVersion, 'mutation_id' => $mutationId, 'operation' => $operation, 'server_deleted' => $record->deleted_at !== null];
-            SyncMutation::create(['account_id' => $accountId, 'mutation_id' => $mutationId, 'entity' => $entity, 'local_id' => $localId, 'server_id' => (int) $record->id, 'operation' => $operation, 'sync_version' => $nextVersion, 'response' => $accepted]);
-            return ['status' => 'accepted', 'accepted' => $accepted];
-        });
+                $record ??= new $modelClass();
+                $record->account_id = $accountId;
+                $record->local_id = $localId;
+                try {
+                    $data = $attributes($payload, $accountId, $record);
+                } catch (\RuntimeException) {
+                    return $this->rejected($entity, $localId, 'A referenced record has not been synchronized yet.', 'DEPENDENCY', $mutationId);
+                } catch (\InvalidArgumentException) {
+                    return $this->rejected($entity, $localId, 'The record contains invalid or unsupported values.', 'VALIDATION', $mutationId);
+                }
+                if ($data instanceof \Throwable) return $this->rejected($entity, $localId, 'A referenced record could not be synchronized.', 'DEPENDENCY', $mutationId);
+
+                if ($record instanceof Transaction && $record->exists) {
+                    $this->walletAccounting->restoreExisting($record, $accountId);
+                }
+
+                foreach ($data as $key => $value) $record->{$key} = $value;
+                $record->timestamp = $incomingTimestamp;
+                $nextVersion = (int) ($record->sync_version ?? 0) + 1;
+                $record->sync_version = $nextVersion;
+                $record->last_mutation_id = $mutationId;
+                $deleting = $operation === 'DELETE' || $this->isDeleted($payload);
+                $record->deleted_at = $deleting ? ($this->parseDeletedAt($payload['deleted_at'] ?? null) ?? now()) : null;
+
+                if ($record instanceof Transaction && !$deleting) {
+                    $this->walletAccounting->debitNew(
+                        $accountId,
+                        $record->wallet_batch_id ? (int) $record->wallet_batch_id : null,
+                        $record->amount_bdt ?? '0.00',
+                        (string) ($record->type ?? 'Pending'),
+                    );
+                }
+
+                $record->save();
+                $accepted = ['local_id' => $localId, 'server_id' => (int) $record->id, 'sync_version' => $nextVersion, 'mutation_id' => $mutationId, 'operation' => $operation, 'server_deleted' => $record->deleted_at !== null];
+                SyncMutation::create(['account_id' => $accountId, 'mutation_id' => $mutationId, 'entity' => $entity, 'local_id' => $localId, 'server_id' => (int) $record->id, 'operation' => $operation, 'sync_version' => $nextVersion, 'response' => $accepted]);
+                return ['status' => 'accepted', 'accepted' => $accepted];
+            });
+        } catch (DomainException $e) {
+            return $this->rejected($entity, $localId, $e->getMessage(), 'VALIDATION', $mutationId);
+        }
     }
 
     private function validateDomainPayload(array $payload): ?string

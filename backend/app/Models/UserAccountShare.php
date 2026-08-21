@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class UserAccountShare extends Model
 {
@@ -18,6 +19,21 @@ class UserAccountShare extends Model
     protected $casts = [
         'permissions_override' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $share): void {
+            $accountId = (int) $share->account_id;
+            $ownerUserId = (int) $share->owner_user_id;
+            $account = $accountId > 0 ? Account::query()->find($accountId) : null;
+
+            if (!$account || (int) $account->owner_user_id !== $ownerUserId) {
+                throw ValidationException::withMessages([
+                    'account_id' => ['Account shares must be created by the account owner context.'],
+                ]);
+            }
+        });
+    }
 
     public function owner()
     {
