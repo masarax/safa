@@ -15,32 +15,12 @@ final class FirstRunSetupCode
             return;
         }
 
-        $path = self::path();
-        File::ensureDirectoryExists(dirname($path));
-        if (is_file($path)) {
-            return;
-        }
+        self::ensureFile();
+    }
 
-        $code = strtoupper(bin2hex(random_bytes(16)));
-        $handle = @fopen($path, 'x');
-        if ($handle === false) {
-            // Another request may have created it between the existence check and
-            // exclusive create. Treat an existing private code as authoritative.
-            if (is_file($path)) {
-                return;
-            }
-            throw new RuntimeException('Unable to create the private first-run setup code.');
-        }
-
-        try {
-            if (fwrite($handle, $code . PHP_EOL) === false) {
-                throw new RuntimeException('Unable to write the private first-run setup code.');
-            }
-        } finally {
-            fclose($handle);
-        }
-
-        @chmod($path, 0600);
+    public static function ensureForFrontendMigration(): void
+    {
+        self::ensureFile();
     }
 
     public static function verify(string $candidate): bool
@@ -71,5 +51,35 @@ final class FirstRunSetupCode
     {
         // deploy.yml uploads backend/ directly into the cPanel server root.
         return 'storage/' . self::RELATIVE_PATH;
+    }
+
+    private static function ensureFile(): void
+    {
+        $path = self::path();
+        File::ensureDirectoryExists(dirname($path));
+        if (is_file($path)) {
+            return;
+        }
+
+        $code = strtoupper(bin2hex(random_bytes(16)));
+        $handle = @fopen($path, 'x');
+        if ($handle === false) {
+            // Another request may have created it between the existence check and
+            // exclusive create. Treat an existing private code as authoritative.
+            if (is_file($path)) {
+                return;
+            }
+            throw new RuntimeException('Unable to create the private first-run setup code.');
+        }
+
+        try {
+            if (fwrite($handle, $code . PHP_EOL) === false) {
+                throw new RuntimeException('Unable to write the private first-run setup code.');
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        @chmod($path, 0600);
     }
 }
