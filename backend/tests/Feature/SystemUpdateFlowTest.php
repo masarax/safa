@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\FirstRunSetupState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,20 @@ class SystemUpdateFlowTest extends TestCase
     {
         parent::setUp();
         Config::set('safa.enforce_update_checks_in_tests', true);
+
+        // This suite validates the ordinary post-install update flow. Mark the
+        // migrated fixture as durably installed so it cannot be mistaken for the
+        // intentionally supported empty/unclaimed first-run schema state.
+        DB::table(FirstRunSetupState::TABLE)->updateOrInsert(
+            ['id' => 1],
+            [
+                'bootstrap_claim_hash' => hash('sha256', str_repeat('f', 64)),
+                'database_initialized_at' => now(),
+                'completed_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
     }
 
     public function test_no_pending_migration_means_normal_site_flow_even_without_legacy_installed_marker(): void
