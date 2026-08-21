@@ -34,8 +34,8 @@
 
             <p>
                 {{ $language === 'bn'
-                    ? 'সফল হলে এই page এবং migration action স্থায়ীভাবে বন্ধ হয়ে যাবে। ভবিষ্যতের migration শুধু SuperAdmin /update থেকে চলবে।'
-                    : 'After a successful run, this page and migration action are permanently closed. Future migrations are available only from the SuperAdmin /update flow.' }}
+                    ? 'সফল হলে required first SuperAdmin নিশ্চিত করা হবে, এই page স্থায়ীভাবে বন্ধ হবে, এবং ভবিষ্যতের migration শুধু SuperAdmin /update থেকে চলবে।'
+                    : 'On success the required initial SuperAdmin is guaranteed, this page is permanently closed, and future migrations are available only from the SuperAdmin /update flow.' }}
             </p>
 
             @if (session('success'))
@@ -53,10 +53,10 @@
             </div>
 
             @if ($requiresSetupCode)
-                <div class="alert" role="note" data-testid="empty-database-ownership-proof">
+                <div class="alert" role="note" data-testid="required-superadmin-ownership-proof">
                     {{ $language === 'bn'
-                        ? 'ডাটাবেজ সম্পূর্ণ খালি, তাই প্রথম SuperAdmin takeover ঠেকাতে server-private one-time setup code দিতে হবে। cPanel/server থেকে এই file খুলুন:'
-                        : 'The database is completely empty, so the server-private one-time setup code is required to prevent first-SuperAdmin takeover. Read it from this cPanel/server file:' }}
+                        ? 'Required first SuperAdmin create বা reconcile করতে server-private one-time setup code দিতে হবে। cPanel/server থেকে এই file খুলুন:'
+                        : 'Creating or reconciling the required initial SuperAdmin requires the server-private one-time setup code. Read it from this cPanel/server file:' }}
                     <strong>{{ $setupCodePath }}</strong>
                 </div>
             @endif
@@ -66,7 +66,7 @@
                 <input type="hidden" name="language" value="{{ $language }}">
                 @if ($requiresSetupCode)
                     <label>
-                        <span>{{ $language === 'bn' ? 'One-time setup code' : 'One-time setup code' }}</span>
+                        <span>One-time setup code</span>
                         <input type="password" name="setup_code" maxlength="32" minlength="32" autocomplete="off" required data-testid="frontend-migration-setup-code">
                     </label>
                 @endif
