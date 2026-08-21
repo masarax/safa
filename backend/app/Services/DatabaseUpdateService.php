@@ -15,10 +15,20 @@ class DatabaseUpdateService
 {
     public const LOCK_FILE = 'framework/safa-database-update.lock';
 
-    /**
-     * @return array{busy: bool, migrated: int}
-     */
+    /** @return array{busy: bool, migrated: int} */
     public function run(User $actor): array
+    {
+        return $this->runInternal((int) $actor->id, 'superadmin_update');
+    }
+
+    /** @return array{busy: bool, migrated: int} */
+    public function runOneTimeFrontend(): array
+    {
+        return $this->runInternal(null, 'one_time_frontend');
+    }
+
+    /** @return array{busy: bool, migrated: int} */
+    private function runInternal(?int $actorId, string $trigger): array
     {
         $lockPath = storage_path(self::LOCK_FILE);
         File::ensureDirectoryExists(dirname($lockPath));
@@ -36,13 +46,14 @@ class DatabaseUpdateService
                 return ['busy' => true, 'migrated' => 0];
             }
 
-            // Legacy migration-record repair is intentionally privileged and may
-            // mutate metadata. It only runs inside this already-authorized update.
+            // Legacy migration-record repair may mutate migration metadata, so it
+            // stays inside the same reviewed migration boundary and filesystem lock.
             $pendingBefore = DatabaseUpdateController::pendingMigrations(true);
             ProductionMigrationSafety::assertPendingMigrationsAreSafe($pendingBefore);
 
             Log::info('SAFA database update started.', [
-                'user_id' => (int) $actor->id,
+                'user_id' => $actorId,
+                'trigger' => $trigger,
                 'pending_migrations' => count($pendingBefore),
             ]);
 
@@ -69,7 +80,8 @@ class DatabaseUpdateService
             }
 
             Log::info('SAFA database update completed.', [
-                'user_id' => (int) $actor->id,
+                'user_id' => $actorId,
+                'trigger' => $trigger,
                 'migrations_applied' => count($pendingBefore),
             ]);
 
@@ -79,7 +91,8 @@ class DatabaseUpdateService
             ];
         } catch (\Throwable $e) {
             Log::error('SAFA database update failed.', [
-                'user_id' => (int) $actor->id,
+                'user_id' => $actorId,
+                'trigger' => $trigger,
                 'exception' => $e::class,
             ]);
             report($e);
