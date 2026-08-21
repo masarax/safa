@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 class AuthLifecycleCoordinator(private val tokenManager: TokenManager) {
 
     suspend fun logout(): Result<Unit> = withContext(Dispatchers.IO) {
+        tokenManager.beginLogout()
         var serverResult: Result<Unit>? = null
         try {
             val api = RetrofitClient.getApiService(
@@ -57,6 +58,7 @@ class AuthLifecycleCoordinator(private val tokenManager: TokenManager) {
             // Extra cleanup after the transactional wipe. This may be a no-op if
             // another repository still owns an open SQLite handle, which is safe.
             runCatching { context.deleteDatabase("safa_local.db") }
+            tokenManager.finishLogout()
         }
         serverResult ?: Result.failure(IllegalStateException("Logout did not complete"))
     }

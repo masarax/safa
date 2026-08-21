@@ -118,7 +118,7 @@ class TransactionController extends Controller
                 $amountSar = $this->decimal($request->input('amount_sar') ?? $request->input('amount') ?? 0, 2, 13);
                 $localId = (int) ($request->input('local_id') ?: floor(microtime(true) * 1000));
                 $amountBdt = $this->decimal($request->input('amount_bdt') ?: 0, 2, 13);
-                $status = substr((string) $request->input('type', 'Pending'), 0, 20);
+                $status = substr((string) $request->input('type', 'Delivered'), 0, 20);
                 $batchId = $this->nullableForeignKey($request, 'wallet_batch_id');
                 $existing = Transaction::withTrashed()
                     ->where('account_id', $accountId)

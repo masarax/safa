@@ -103,7 +103,7 @@ data class RemittanceTransaction(
     val receiverPhone: String = "",
     val receiverAccountType: String = "",
     val receiverAccountNo: String = "",
-    val status: String = "Pending",
+    val status: String = "Delivered",
     val operatorId: Int = 0,
     val walletBatchId: Int = 0,
     val notes: String = "",
