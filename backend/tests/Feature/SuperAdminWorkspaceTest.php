@@ -6,6 +6,7 @@ use App\Http\Controllers\AccountContextController;
 use App\Models\Account;
 use App\Models\User;
 use App\Models\UserAccountShare;
+use App\Support\BusinessPermissions;
 use Database\Seeders\SuperAdminWorkspaceSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -50,7 +51,7 @@ class SuperAdminWorkspaceTest extends TestCase
         $this->assertSame(0, Account::query()->count());
     }
 
-    public function test_superadmin_account_chooser_lists_every_business_account_and_can_switch_to_any_of_them(): void
+    public function test_superadmin_only_sees_owned_and_explicitly_shared_business_accounts(): void
     {
         $superAdmin = User::factory()->create([
             'name' => 'Root Admin',
@@ -59,31 +60,46 @@ class SuperAdminWorkspaceTest extends TestCase
         ]);
         $ownerA = User::factory()->create(['role' => User::ROLE_BUSINESS_USER, 'is_activated' => true]);
         $ownerB = User::factory()->create(['role' => User::ROLE_BUSINESS_USER, 'is_activated' => true]);
-        $accountA = Account::create(['name' => 'Alpha', 'balance' => 0, 'owner_user_id' => $ownerA->id]);
+        $rootAccount = Account::create(['name' => 'Root Workspace', 'balance' => 0, 'owner_user_id' => $superAdmin->id]);
+        Account::create(['name' => 'Alpha', 'balance' => 0, 'owner_user_id' => $ownerA->id]);
         $accountB = Account::create(['name' => 'Beta', 'balance' => 0, 'owner_user_id' => $ownerB->id]);
 
         $controller = app(AccountContextController::class);
         $request = Request::create('/api/accounts', 'GET');
         $request->setUserResolver(fn () => $superAdmin);
-        $response = $controller->index($request);
-        $payload = $response->getData(true);
+        $payload = $controller->index($request)->getData(true);
 
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('success', $payload['status']);
-        $this->assertNull($payload['active_account_id']);
-        $this->assertSame([$accountA->id, $accountB->id], array_column($payload['accounts'], 'account_id'));
-        $this->assertSame(['SUPERADMIN', 'SUPERADMIN'], array_column($payload['accounts'], 'role'));
+        $this->assertSame($rootAccount->id, $payload['active_account_id']);
+        $this->assertSame($rootAccount->id, $payload['owned_account_id']);
+        $this->assertSame([$rootAccount->id], array_column($payload['accounts'], 'account_id'));
 
-        $switchRequest = Request::create('/api/accounts/switch', 'POST', ['account_id' => $accountB->id]);
-        $switchRequest->setUserResolver(fn () => $superAdmin);
-        $switchResponse = $controller->switch($switchRequest);
-        $switchPayload = $switchResponse->getData(true);
+        $unauthorizedSwitch = Request::create('/api/accounts/switch', 'POST', ['account_id' => $accountB->id]);
+        $unauthorizedSwitch->setUserResolver(fn () => $superAdmin);
+        $this->assertSame(403, $controller->switch($unauthorizedSwitch)->getStatusCode());
 
-        $this->assertSame(200, $switchResponse->getStatusCode());
+        UserAccountShare::create([
+            'owner_user_id' => $ownerB->id,
+            'shared_with_user_id' => $superAdmin->id,
+            'account_id' => $accountB->id,
+            'permissions_override' => ['can_view_customers' => true],
+        ]);
+
+        $sharedRequest = Request::create('/api/accounts', 'GET');
+        $sharedRequest->setUserResolver(fn () => $superAdmin);
+        $sharedPayload = $controller->index($sharedRequest)->getData(true);
+        $this->assertSame(
+            [$rootAccount->id, $accountB->id],
+            array_column($sharedPayload['accounts'], 'account_id')
+        );
+        $this->assertSame(['OWNER', 'MEMBER'], array_column($sharedPayload['accounts'], 'role'));
+
+        $authorizedSwitch = Request::create('/api/accounts/switch', 'POST', ['account_id' => $accountB->id]);
+        $authorizedSwitch->setUserResolver(fn () => $superAdmin);
+        $switchPayload = $controller->switch($authorizedSwitch)->getData(true);
         $this->assertSame($accountB->id, $switchPayload['active_account_id']);
     }
 
-    public function test_superadmin_share_preserves_real_owner_and_recipient_can_use_account(): void
+    public function test_only_real_owner_can_share_and_recipient_keeps_own_default_account(): void
     {
         $superAdmin = User::factory()->create([
             'role' => User::ROLE_SUPERADMIN,
@@ -105,25 +121,38 @@ class SuperAdminWorkspaceTest extends TestCase
         ]);
 
         $controller = app(AccountContextController::class);
-        $shareRequest = Request::create('/api/accounts/share', 'POST', [
+        $forbiddenShare = Request::create('/api/accounts/share', 'POST', [
             'account_id' => $account->id,
             'mobile' => $recipient->mobile,
         ]);
-        $shareRequest->setUserResolver(fn () => $superAdmin);
-        $shareResponse = $controller->share($shareRequest);
+        $forbiddenShare->setUserResolver(fn () => $superAdmin);
+        $this->assertSame(403, $controller->share($forbiddenShare)->getStatusCode());
 
-        $this->assertSame(200, $shareResponse->getStatusCode());
-        $share = UserAccountShare::query()->where('account_id', $account->id)->where('shared_with_user_id', $recipient->id)->firstOrFail();
+        $ownerShare = Request::create('/api/accounts/share', 'POST', [
+            'account_id' => $account->id,
+            'mobile' => $recipient->mobile,
+            'permissions_override' => ['can_view_customers' => true],
+        ]);
+        $ownerShare->setUserResolver(fn () => $owner);
+        $this->assertSame(200, $controller->share($ownerShare)->getStatusCode());
+
+        $share = UserAccountShare::query()
+            ->where('account_id', $account->id)
+            ->where('shared_with_user_id', $recipient->id)
+            ->firstOrFail();
         $this->assertSame((int) $owner->id, (int) $share->owner_user_id);
 
         $recipientRequest = Request::create('/api/accounts', 'GET');
         $recipientRequest->setUserResolver(fn () => $recipient);
-        $recipientResponse = $controller->index($recipientRequest);
-        $recipientPayload = $recipientResponse->getData(true);
+        $recipientPayload = $controller->index($recipientRequest)->getData(true);
+        $recipientOwnedId = (int) $recipientPayload['owned_account_id'];
 
-        $this->assertSame(200, $recipientResponse->getStatusCode());
-        $this->assertSame($account->id, $recipientPayload['active_account_id']);
-        $this->assertSame([$account->id], array_column($recipientPayload['accounts'], 'account_id'));
+        $this->assertNotSame((int) $account->id, $recipientOwnedId);
+        $this->assertSame($recipientOwnedId, (int) $recipientPayload['active_account_id']);
+        $this->assertSame(
+            [$recipientOwnedId, (int) $account->id],
+            array_map('intval', array_column($recipientPayload['accounts'], 'account_id'))
+        );
     }
 
     public function test_shared_member_cannot_delegate_account_to_another_user(): void
@@ -164,7 +193,37 @@ class SuperAdminWorkspaceTest extends TestCase
         $this->assertFalse(UserAccountShare::query()->where('account_id', $account->id)->where('shared_with_user_id', $recipient->id)->exists());
     }
 
-    public function test_lower_role_account_chooser_does_not_gain_superadmin_visibility(): void
+    public function test_shared_read_denial_also_disables_mutations_and_applies_to_superadmin_recipient(): void
+    {
+        $owner = User::factory()->create([
+            'role' => User::ROLE_BUSINESS_USER,
+            'is_activated' => true,
+        ]);
+        $recipient = User::factory()->create([
+            'role' => User::ROLE_SUPERADMIN,
+            'is_activated' => true,
+            'permissions' => User::defaultPermissions(true),
+        ]);
+        $account = Account::create([
+            'name' => 'Restricted Shared Workspace',
+            'balance' => 0,
+            'owner_user_id' => $owner->id,
+        ]);
+        UserAccountShare::create([
+            'owner_user_id' => $owner->id,
+            'shared_with_user_id' => $recipient->id,
+            'account_id' => $account->id,
+            'permissions_override' => ['can_view_customers' => false],
+        ]);
+
+        $permissions = BusinessPermissions::effective($recipient, $account->id);
+        $this->assertFalse($permissions['can_view_customers']);
+        $this->assertFalse($permissions['can_add_customers']);
+        $this->assertFalse($permissions['can_edit_customers']);
+        $this->assertFalse($permissions['can_delete_customers']);
+    }
+
+    public function test_unshared_accounts_remain_invisible_to_lower_roles(): void
     {
         $user = User::factory()->create([
             'role' => User::ROLE_BUSINESS_USER,
@@ -179,10 +238,8 @@ class SuperAdminWorkspaceTest extends TestCase
 
         $request = Request::create('/api/accounts', 'GET');
         $request->setUserResolver(fn () => $user);
-        $response = app(AccountContextController::class)->index($request);
-        $payload = $response->getData(true);
+        $payload = app(AccountContextController::class)->index($request)->getData(true);
 
-        $this->assertSame(200, $response->getStatusCode());
         $this->assertSame($owned->id, $payload['active_account_id']);
         $this->assertCount(1, $payload['accounts']);
         $this->assertSame($owned->id, $payload['accounts'][0]['account_id']);
