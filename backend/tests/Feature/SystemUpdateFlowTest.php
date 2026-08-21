@@ -2,8 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
-use App\Support\FirstRunSetupState;
+use App\Support\ReleaseUpdateState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -19,41 +18,36 @@ class SystemUpdateFlowTest extends TestCase
     {
         parent::setUp();
         Config::set('safa.enforce_update_checks_in_tests', true);
-
-        // This suite validates the ordinary post-install update flow. Mark the
-        // migrated fixture as durably installed so it cannot be mistaken for the
-        // intentionally supported empty/unclaimed first-run schema state.
-        DB::table(FirstRunSetupState::TABLE)->updateOrInsert(
-            ['id' => 1],
-            [
-                'bootstrap_claim_hash' => hash('sha256', str_repeat('f', 64)),
-                'database_initialized_at' => now(),
-                'completed_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]
-        );
+        Config::set('safa.enforce_release_update_in_tests', true);
+        ReleaseUpdateState::markApplied();
     }
 
-    public function test_no_pending_migration_means_normal_site_flow_even_without_legacy_installed_marker(): void
+    public function test_current_release_has_normal_site_flow_and_hidden_update_page(): void
     {
-        Config::set('safa.installed', false);
-
+        $this->assertFalse(ReleaseUpdateState::required());
         $this->get('/')->assertRedirect(route('safa.login'));
         $this->get('/login')->assertOk();
         $this->getJson('/api/auth/health')->assertOk();
+        $this->get('/update')->assertNotFound();
+        $this->post('/update/run')->assertNotFound();
     }
 
-    public function test_pending_migration_redirects_normal_browser_traffic_to_canonical_update_url_but_keeps_login_available(): void
+    public function test_pending_migration_redirects_browser_traffic_to_clean_update_gate(): void
     {
         $this->markMigrationPending();
 
-        $this->get('/')->assertRedirect(route('system.update.show'));
-        $this->assertSame(url('/update'), route('system.update.show'));
-        $this->get('/login')->assertOk();
+        $this->get('/')->assertRedirect(route('release.update.show'));
+        $this->get('/login')->assertRedirect(route('release.update.show'));
+        $this->get('/update')
+            ->assertOk()
+            ->assertSee('System Update Ready')
+            ->assertSee('Run Update')
+            ->assertDontSee(self::PENDING_MIGRATION)
+            ->assertDontSee('Pending migration')
+            ->assertDontSee('setup code');
     }
 
-    public function test_pending_migration_returns_machine_readable_503_for_api_requests(): void
+    public function test_pending_release_returns_machine_readable_503_for_api_requests(): void
     {
         $this->markMigrationPending();
 
@@ -61,93 +55,53 @@ class SystemUpdateFlowTest extends TestCase
             ->assertStatus(503)
             ->assertJson([
                 'status' => 'update_required',
-                'pending_count' => 1,
-            ]);
+                'update_path' => '/update',
+            ])
+            ->assertJsonMissingPath('pending_count');
     }
 
-    public function test_guest_is_sent_to_login_before_opening_database_update(): void
+    public function test_one_click_release_update_applies_pending_migration_and_hides_itself(): void
     {
-        $this->get('/update')->assertRedirect(route('safa.login'));
-        $this->post('/update/run')->assertRedirect(route('safa.login'));
+        $this->markMigrationPending();
+
+        $this->post('/update/run', ['language' => 'en'])
+            ->assertRedirect(route('safa.login', ['lang' => 'en']));
+
+        $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
+        $this->assertFalse(ReleaseUpdateState::required());
+        $this->get('/update')->assertNotFound();
+        $this->get('/login')->assertOk();
     }
 
-    public function test_non_superadmin_sees_restricted_maintenance_state_and_cannot_execute_update(): void
+    public function test_release_fingerprint_change_reopens_update_gate_without_exposing_internals(): void
     {
-        $user = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
-            'is_activated' => true,
+        DB::table(ReleaseUpdateState::TABLE)->where('id', 1)->update([
+            'release_fingerprint' => str_repeat('0', 64),
+            'updated_at' => now(),
         ]);
 
-        $this->actingAs($user)
-            ->get('/update')
-            ->assertForbidden()
-            ->assertSee('Database update required')
-            ->assertSee('Only an activated SuperAdmin')
-            ->assertDontSee('data-maintenance-action="database-update"', false);
-
-        $this->actingAs($user)->post('/update/run')->assertForbidden();
+        $this->assertTrue(ReleaseUpdateState::required());
+        $this->get('/')->assertRedirect(route('release.update.show'));
+        $this->get('/update')->assertOk()->assertSee('Run Update');
     }
 
-    public function test_legacy_installer_and_system_update_urls_are_hard_closed(): void
+    public function test_legacy_installer_urls_are_hard_closed(): void
     {
-        foreach (['/system/update', '/system/update/run', '/system/update/migrate', '/system/update/seed', '/install', '/index'] as $path) {
+        foreach ([
+            '/system/update',
+            '/system/update/run',
+            '/system/update/migrate',
+            '/system/update/seed',
+            '/install',
+            '/index',
+            '/data-migration',
+            '/setup',
+            '/setup/database',
+            '/setup/admin',
+        ] as $path) {
             $this->get($path)->assertNotFound();
             $this->post($path)->assertNotFound();
         }
-    }
-
-    public function test_superadmin_sees_one_click_update_and_applies_pending_migration(): void
-    {
-        $this->markMigrationPending();
-        $superAdmin = User::factory()->create([
-            'role' => User::ROLE_SUPERADMIN,
-            'is_activated' => true,
-        ]);
-
-        $this->actingAs($superAdmin)
-            ->get('/update')
-            ->assertOk()
-            ->assertSee('Database Update')
-            ->assertSee(self::PENDING_MIGRATION)
-            ->assertSee('Update Database')
-            ->assertDontSee('Run Migration')
-            ->assertDontSee('Run Seed')
-            ->assertDontSee('Maintenance key')
-            ->assertSeeHtml('data-database-update-state="pending"');
-
-        $this->actingAs($superAdmin)
-            ->post('/update/run')
-            ->assertRedirect(route('safa.app'));
-
-        $this->assertDatabaseHas('migrations', ['migration' => self::PENDING_MIGRATION]);
-    }
-
-    public function test_superadmin_can_open_idempotent_update_center_when_schema_is_current(): void
-    {
-        $superAdmin = User::factory()->create([
-            'role' => User::ROLE_SUPERADMIN,
-            'is_activated' => true,
-        ]);
-
-        $this->actingAs($superAdmin)
-            ->get('/update')
-            ->assertOk()
-            ->assertSee('Update Database')
-            ->assertSeeHtml('data-database-update-state="current"')
-            ->assertDontSee('Run Migration')
-            ->assertDontSee('Run Seed')
-            ->assertDontSee('Recovery mode');
-    }
-
-    public function test_pending_database_has_no_public_recovery_write_path(): void
-    {
-        $this->markMigrationPending();
-
-        $this->get('/update')->assertRedirect(route('safa.login'));
-        $this->post('/update/run')->assertRedirect(route('safa.login'));
-        $this->post('/system/update/migrate')->assertNotFound();
-        $this->post('/system/update/seed')->assertNotFound();
-        $this->assertDatabaseMissing('migrations', ['migration' => self::PENDING_MIGRATION]);
     }
 
     private function markMigrationPending(): void
