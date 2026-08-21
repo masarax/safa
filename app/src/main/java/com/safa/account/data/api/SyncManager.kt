@@ -104,9 +104,12 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
             val serverActive = ((body["active_account_id"] as? Number)?.toInt()
                 ?: body["active_account_id"]?.toString()?.toIntOrNull())
                 ?.takeIf { it > 0 && it in authorizedIds }
+
+            // Automatic/bootstrap activation is restricted to the server-selected
+            // context or the authenticated user's owned account. A shared account
+            // is activated only after the explicit Settings switch action.
             val automaticAccountId = serverActive
                 ?: accounts.firstOrNull { it.isOwner }?.accountId
-                ?: accounts.firstOrNull()?.accountId
             bootstrapAccount(automaticAccountId)
             accounts
         }
