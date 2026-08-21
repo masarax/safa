@@ -31,18 +31,23 @@ class FirstRunDatabaseBootstrapService
             }
 
             $pending = DatabaseUpdateController::pendingMigrations();
-            if ($pending === []) {
-                throw new RuntimeException('No initial database migrations were found.');
+            if ($pending !== []) {
+                ProductionMigrationSafety::assertPendingMigrationsAreSafe($pending);
+
+                if (Artisan::call('migrate', ['--force' => true]) !== 0) {
+                    throw new RuntimeException('Initial forward migration command failed.');
+                }
             }
 
-            ProductionMigrationSafety::assertPendingMigrationsAreSafe($pending);
-
-            if (Artisan::call('migrate', ['--force' => true]) !== 0) {
-                throw new RuntimeException('Initial forward migration command failed.');
-            }
-
+            // Some hosting/deployment flows pre-create an otherwise empty schema
+            // before the owner ever opens SAFA. That is still a valid unclaimed
+            // first run, so zero pending migrations are allowed only when the
+            // reviewed schema already contains the installation-state table.
             if (!Schema::hasTable(FirstRunSetupState::TABLE)) {
-                throw new RuntimeException('Installation state table was not created by the initial migrations.');
+                throw new RuntimeException('Installation state table is unavailable after initial migration.');
+            }
+            if (!Schema::hasTable('users') || !Schema::hasTable('accounts')) {
+                throw new RuntimeException('Core identity tables are unavailable after initial migration.');
             }
 
             DB::table(FirstRunSetupState::TABLE)->updateOrInsert(
