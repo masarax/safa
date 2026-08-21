@@ -1,0 +1,187 @@
+name: Issue 218 branch patcher
+
+on:
+  push:
+    branches:
+      - fix/218-android-transaction-auth-regressions
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+      - name: Apply deterministic source transformations
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one match, found {count}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          # Money/UI precision: keep rate storage/wire scale at 4, display at exactly 2.
+          replace_once(
+              'app/src/main/java/com/safa/account/data/money/MoneyMath.kt',
+              '    fun rateString(value: Any?): String = rate(value).toPlainString()\n',
+              '    fun rateString(value: Any?): String = rate(value).toPlainString()\n    fun rateDisplayString(value: Any?): String = rate(value).setScale(2, ROUNDING).toPlainString()\n'
+          )
+          replace_once(
+              'app/src/main/java/com/safa/account/data/money/MoneyMath.kt',
+              '    fun isZeroAmount(value: Any?): Boolean = amount(value).signum() == 0\n',
+              '    fun isZeroAmount(value: Any?): Boolean {\n        if (value is CharSequence && value.toString().trim().isEmpty()) return false\n        return amount(value).signum() == 0\n    }\n'
+          )
+
+          # Domain default: the existing canonical paid state is Delivered.
+          models = Path('app/src/main/java/com/safa/account/data/model/Models.kt')
+          model_text = models.read_text()
+          needle = '    val status: String = "Pending",\n'
+          if model_text.count(needle) < 1:
+              raise SystemExit('Models.kt: RemittanceTransaction Pending default not found')
+          models.write_text(model_text.replace(needle, '    val status: String = "Delivered",\n', 1))
+
+          # Biometric binding + deterministic logout/relogin barrier + reliable logo upload.
+          replace_once(
+              'app/src/main/java/com/safa/account/data/api/TokenManager.kt',
+              '    @Volatile\n    private var biometricUnlockApproved = false\n',
+              '    @Volatile\n    private var biometricUnlockApproved = false\n\n    @Volatile\n    private var logoutInProgress = false\n'
+          )
+          replace_once(
+              'app/src/main/java/com/safa/account/data/api/TokenManager.kt',
+              '    fun notifySessionInvalidated() {\n        clearAllTokens()\n        _sessionInvalidated.tryEmit(Unit)\n    }\n\n',
+              '    fun notifySessionInvalidated() {\n        clearAllTokens()\n        _sessionInvalidated.tryEmit(Unit)\n    }\n\n    fun beginLogout() {\n        logoutInProgress = true\n        revokeBiometricUnlockApproval()\n    }\n\n    fun finishLogout() { logoutInProgress = false }\n    fun isLogoutInProgress(): Boolean = logoutInProgress\n\n'
+          )
+
+          replace_once(
+              'app/src/main/java/com/safa/account/data/api/AuthLifecycleCoordinator.kt',
+              '    suspend fun logout(): Result<Unit> = withContext(Dispatchers.IO) {\n        var serverResult: Result<Unit>? = null\n',
+              '    suspend fun logout(): Result<Unit> = withContext(Dispatchers.IO) {\n        tokenManager.beginLogout()\n        var serverResult: Result<Unit>? = null\n'
+          )
+          replace_once(
+              'app/src/main/java/com/safa/account/data/api/AuthLifecycleCoordinator.kt',
+              '            runCatching { context.deleteDatabase("safa_local.db") }\n        }\n',
+              '            runCatching { context.deleteDatabase("safa_local.db") }\n            tokenManager.finishLogout()\n        }\n'
+          )
+
+          vm_path = Path('app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt')
+          vm = vm_path.read_text()
+          old = '''    fun setBiometricEnabled(enabled: Boolean) {\n        _isBiometricEnabled.value = enabled\n    }\n'''
+          new = '''    fun setBiometricEnabled(enabled: Boolean) {\n        val operator = _currentOperator.value\n        if (enabled && operator != null) {\n            tokenManager?.enableBiometricQuickUnlock(operator.id, operator.mobile)\n        } else if (!enabled) {\n            tokenManager?.disableBiometricQuickUnlock()\n        }\n        _isBiometricEnabled.value = enabled\n        if (operator != null && operator.isBiometricEnabled != enabled) {\n            val updated = operator.copy(isBiometricEnabled = enabled)\n            _currentOperator.value = updated\n            viewModelScope.launch { repository.updateOperator(updated) }\n        }\n    }\n'''
+          if vm.count(old) != 1: raise SystemExit('SafaViewModel: biometric setter anchor mismatch')
+          vm = vm.replace(old, new, 1)
+
+          start = vm.index('    fun uploadAppLogoToServer(context: android.content.Context, uri: Uri) {')
+          end = vm.index('    fun fetchRemoteConfig() {', start)
+          logo_fn = '''    fun uploadAppLogoToServer(\n        context: android.content.Context,\n        uri: Uri,\n        onResult: (Boolean, String?) -> Unit = { _, _ -> },\n    ) {\n        viewModelScope.launch {\n            try {\n                val prepared = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {\n                    com.safa.account.data.api.LogoUploadPreparer.prepare(context.applicationContext, uri)\n                }\n                val requestFile = RequestBody.create(prepared.mimeType.toMediaTypeOrNull(), prepared.bytes)\n                val part = MultipartBody.Part.createFormData("logo", prepared.fileName, requestFile)\n                val api = syncManager?.getApiService()\n                if (api == null) {\n                    onResult(false, safeConnectionFailure())\n                    return@launch\n                }\n\n                val response = api.uploadLogo(part)\n                if (!response.isSuccessful || response.body() == null) {\n                    onResult(false, safeServerFailure("Upload logo", response.code()))\n                    return@launch\n                }\n\n                val body = response.body()!!\n                val logoUrl = body["app_logo_url"]?.toString()\n                    ?: body["logo_url"]?.toString()\n                    ?: body["url"]?.toString()\n                    ?: body["app_logo_path"]?.toString()\n                    ?: body["path"]?.toString()\n                if (logoUrl.isNullOrBlank()) {\n                    onResult(false, if (_currentLanguage.value == "BN") "লোগো আপলোড হয়েছে, কিন্তু সার্ভার URL দেয়নি।" else "The logo uploaded but the server did not return its URL.")\n                    return@launch\n                }\n\n                val fullUrl = if (logoUrl.startsWith("http", ignoreCase = true)) {\n                    logoUrl\n                } else {\n                    runCatching {\n                        java.net.URI(tokenManager?.getBaseUrl() ?: "https://safa.masarax.com/api/").resolve(logoUrl).toString()\n                    }.getOrElse { "https://safa.masarax.com/${logoUrl.trimStart('/')}" }\n                }\n                updateCustomAppLogoUri(fullUrl)\n                onResult(true, null)\n            } catch (e: Exception) {\n                com.safa.account.utils.SafaLogger.error("LOGO_UPLOAD", "Logo upload failed", e)\n                onResult(\n                    false,\n                    if (_currentLanguage.value == "BN") "লোগো আপলোড করা যায়নি। ছবিটি যাচাই করে আবার চেষ্টা করুন।"\n                    else "The logo could not be uploaded. Check the image and try again."\n                )\n            }\n        }\n    }\n\n'''
+          vm = vm[:start] + logo_fn + vm[end:]
+
+          vm = vm.replace('        status: String = "Pending",\n', '        status: String = "Delivered",\n', 1)
+
+          login_anchor = '''    fun loginWithServer(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {\n        viewModelScope.launch {\n            if (mobile.isBlank() || pin.length < 6) {\n'''
+          login_repl = '''    fun loginWithServer(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {\n        viewModelScope.launch {\n            if (tokenManager?.isLogoutInProgress() == true) {\n                onResult(false, if (_currentLanguage.value == "BN") "লগআউট শেষ হচ্ছে। এক মুহূর্ত পরে আবার চেষ্টা করুন।" else "Finishing sign out. Try again in a moment.")\n                return@launch\n            }\n            if (mobile.isBlank() || pin.length < 6) {\n'''
+          if vm.count(login_anchor) != 1: raise SystemExit('SafaViewModel: login anchor mismatch')
+          vm = vm.replace(login_anchor, login_repl, 1)
+
+          logout_anchor = '''    fun logout() {\n        _currentOperator.value = null\n'''
+          logout_repl = '''    fun logout() {\n        tokenManager?.beginLogout()\n        _currentOperator.value = null\n'''
+          if vm.count(logout_anchor) != 1: raise SystemExit('SafaViewModel: logout anchor mismatch')
+          vm = vm.replace(logout_anchor, logout_repl, 1)
+
+          update_anchor = '    fun updateTransactionStatus(transaction: RemittanceTransaction, newStatus: String) {\n'
+          if vm.count(update_anchor) != 1: raise SystemExit('SafaViewModel: update transaction anchor mismatch')
+          update_fn = '''    fun updateRemittance(transaction: RemittanceTransaction, onComplete: () -> Unit = {}) {\n        viewModelScope.launch {\n            val previous = repository.getTransactionById(transaction.id)\n            if (previous != null && previous.status != "Cancelled" && previous.walletBatchId > 0) {\n                repository.getWalletBatchById(previous.walletBatchId)?.let { batch ->\n                    repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.add(batch.remainingBdt, previous.amountBdt)))\n                }\n            }\n            if (transaction.status != "Cancelled" && transaction.walletBatchId > 0) {\n                repository.getWalletBatchById(transaction.walletBatchId)?.let { batch ->\n                    repository.updateWalletBatch(\n                        batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, transaction.amountBdt)))\n                    )\n                }\n            }\n            repository.updateTransaction(transaction)\n            onComplete()\n            triggerFullSync()\n        }\n    }\n\n'''
+          vm = vm.replace(update_anchor, update_fn + update_anchor, 1)
+          vm_path.write_text(vm)
+
+          # Login preserves specific network classification and never starts while logout cleanup owns the session boundary.
+          replace_once(
+              'app/src/main/java/com/safa/account/data/network/ApiLoginError.kt',
+              '        val error = when (t) {\n            is SocketTimeoutException ->',
+              '        val error = when (t) {\n            is LoginNetworkException -> t.error\n            is SocketTimeoutException ->'
+          )
+          login_screen = Path('app/src/main/java/com/safa/account/ui/screens/LoginScreen.kt')
+          ls = login_screen.read_text()
+          ls = ls.replace(
+              '    val hasCompleteLocalSession = tokenManager?.let {\n        !it.getAccessToken().isNullOrBlank() &&',
+              '    val hasCompleteLocalSession = tokenManager?.let {\n        !it.isLogoutInProgress() &&\n            !it.getAccessToken().isNullOrBlank() &&',
+              1,
+          )
+          button_anchor = '''                        onClick = {\n                            val normalizedMobile = com.safa.account.data.api.MobileNumberNormalizer.normalize(mobileInput)\n'''
+          button_repl = '''                        onClick = {\n                            if (tokenManager?.isLogoutInProgress() == true) {\n                                loginError = if (currentLang == "BN") "লগআউট শেষ হচ্ছে। এক মুহূর্ত পরে আবার চেষ্টা করুন।" else "Finishing sign out. Try again in a moment."\n                                return@Button\n                            }\n                            val normalizedMobile = com.safa.account.data.api.MobileNumberNormalizer.normalize(mobileInput)\n'''
+          if ls.count(button_anchor) != 1: raise SystemExit('LoginScreen: login button anchor mismatch')
+          ls = ls.replace(button_anchor, button_repl, 1)
+          login_screen.write_text(ls)
+
+          # Branding: select locally, upload exactly once on Save, stay on screen and show failures.
+          settings = Path('app/src/main/java/com/safa/account/ui/screens/SettingsScreen.kt')
+          st = settings.read_text()
+          state_anchor = '''    var tempAppName by remember { mutableStateOf(customAppName) }\n    var tempAppLogo by remember { mutableStateOf(customAppLogoUri ?: customAppLogo) }\n\n'''
+          state_repl = '''    var tempAppName by remember { mutableStateOf(customAppName) }\n    var tempAppLogo by remember { mutableStateOf(customAppLogoUri ?: customAppLogo) }\n    var isSavingBranding by remember { mutableStateOf(false) }\n    var logoSaveError by remember { mutableStateOf<String?>(null) }\n\n'''
+          if st.count(state_anchor) != 1: raise SystemExit('SettingsScreen: branding state anchor mismatch')
+          st = st.replace(state_anchor, state_repl, 1)
+          picker_old = '''    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->\n        uri?.let {\n            tempAppLogo = it.toString()\n            viewModel.uploadAppLogoToServer(context, it)\n        }\n    }\n'''
+          picker_new = '''    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->\n        uri?.let {\n            tempAppLogo = it.toString()\n            logoSaveError = null\n        }\n    }\n'''
+          if st.count(picker_old) != 1: raise SystemExit('SettingsScreen: branding picker anchor mismatch')
+          st = st.replace(picker_old, picker_new, 1)
+          save_old = '''                Button(\n                    onClick = { \n                        viewModel.updateCustomAppNameOnServer(tempAppName)\n                        if (tempAppLogo.startsWith("content://") || tempAppLogo.startsWith("file://")) {\n                            viewModel.uploadAppLogoToServer(context, Uri.parse(tempAppLogo))\n                        } else if (tempAppLogo.startsWith("http")) {\n                            viewModel.updateCustomAppLogoUri(tempAppLogo)\n                            viewModel.updateConfigOnServer(mapOf("app_name" to tempAppName, "app_logo_url" to tempAppLogo))\n                        } else {\n                            viewModel.updateCustomAppLogo(tempAppLogo)\n                            viewModel.updateCustomAppLogoUri(null)\n                            viewModel.updateConfigOnServer(mapOf("app_name" to tempAppName, "app_logo" to tempAppLogo))\n                        }\n                        onBack()\n                    },\n                    modifier = Modifier.fillMaxWidth().height(48.dp),\n                    shape = RoundedCornerShape(12.dp)\n                ) {\n                    Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")\n                }\n'''
+          save_new = '''                logoSaveError?.let {\n                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)\n                }\n\n                Button(\n                    onClick = {\n                        if (isSavingBranding) return@Button\n                        logoSaveError = null\n                        if (tempAppLogo.startsWith("content://") || tempAppLogo.startsWith("file://")) {\n                            isSavingBranding = true\n                            viewModel.uploadAppLogoToServer(context, Uri.parse(tempAppLogo)) { success, message ->\n                                isSavingBranding = false\n                                if (success) {\n                                    viewModel.updateCustomAppNameOnServer(tempAppName)\n                                    onBack()\n                                } else {\n                                    logoSaveError = message ?: if (lang == "BN") "লোগো আপলোড করা যায়নি।" else "Logo upload failed."\n                                }\n                            }\n                        } else if (tempAppLogo.startsWith("http")) {\n                            viewModel.updateCustomAppLogoUri(tempAppLogo)\n                            viewModel.updateConfigOnServer(mapOf("app_name" to tempAppName, "app_logo_url" to tempAppLogo))\n                            viewModel.updateCustomAppName(tempAppName)\n                            onBack()\n                        } else {\n                            viewModel.updateCustomAppLogo(tempAppLogo)\n                            viewModel.updateCustomAppLogoUri(null)\n                            viewModel.updateCustomAppNameOnServer(tempAppName)\n                            onBack()\n                        }\n                    },\n                    enabled = !isSavingBranding,\n                    modifier = Modifier.fillMaxWidth().height(48.dp),\n                    shape = RoundedCornerShape(12.dp)\n                ) {\n                    if (isSavingBranding) {\n                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)\n                    } else {\n                        Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")\n                    }\n                }\n'''
+          if st.count(save_old) != 1: raise SystemExit('SettingsScreen: branding save anchor mismatch')
+          st = st.replace(save_old, save_new, 1)
+          settings.write_text(st)
+
+          # Customer create/edit: reuse one two-step form, prefill edit data and update the existing record.
+          customer = Path('app/src/main/java/com/safa/account/ui/screens/CustomerScreen.kt')
+          c = customer.read_text()
+          branch_start = c.index('        } else if (txToEdit != null) {')
+          branch_end_marker = '        } else if (isAddingTransaction) {'
+          branch_end = c.index(branch_end_marker, branch_start)
+          c = c[:branch_start] + branch_end_marker + c[branch_end + len(branch_end_marker):]
+
+          edit_old = '''                                                                txToEdit = tx\n                                                                editAmountSar = tx.amountSar.toString()\n                                                                editCustomerRate = tx.customerRate.toString()\n                                                                editSupplierRate = tx.supplierRate.toString()\n                                                                editReceiverName = tx.receiverName\n                                                                editReceiverPhone = tx.receiverPhone\n                                                                editReceiverAccountType = tx.receiverAccountType\n                                                                editReceiverAccountNo = tx.receiverAccountNo\n                                                                editTxNotes = tx.notes\n                                                                editStatus = tx.status\n                                                                editSupplierId = tx.supplierId\n                                                                editSarCollected = tx.sarCollected.toString()\n                                                                editBdtDisbursed = tx.bdtDisbursed.toPlainString()\n'''
+          edit_new = '''                                                                txToEdit = tx\n                                                                selectedBatchId = tx.walletBatchId.takeIf { it > 0 }\n                                                                inputAmountSar = MoneyMath.amountString(tx.amountSar)\n                                                                inputCustomerRate = MoneyMath.rateDisplayString(tx.customerRate)\n                                                                inputSupplierRate = MoneyMath.rateDisplayString(tx.supplierRate)\n                                                                inputReceiverName = tx.receiverName\n                                                                inputReceiverPhone = tx.receiverPhone\n                                                                inputReceiverAccountType = tx.receiverAccountType\n                                                                inputReceiverAccountNo = tx.receiverAccountNo\n                                                                inputNotes = tx.notes\n                                                                inputSarCollected = MoneyMath.amountString(tx.sarCollected)\n                                                                inputBdtDisbursed = MoneyMath.amountString(tx.bdtDisbursed)\n                                                                inputDueSarCollected = ""\n                                                                inputTimestamp = tx.timestamp\n                                                                isAdvanceReturn = tx.receiverName == "Advance Return"\n                                                                isAddingTransaction = true\n'''
+          if c.count(edit_old) != 1: raise SystemExit('CustomerScreen: edit prefill anchor mismatch')
+          c = c.replace(edit_old, edit_new, 1)
+          c = c.replace('                onCancel = { isAddingTransaction = false },', '                onCancel = { isAddingTransaction = false; txToEdit = null },', 1)
+          c = c.replace('                    inputSupplierRate = latestRate.toString()', '                    inputSupplierRate = MoneyMath.rateDisplayString(latestRate)', 1)
+          c = c.replace('                    inputCustomerRate = defaultCustRate.toString()', '                    inputCustomerRate = MoneyMath.rateDisplayString(defaultCustRate)', 1)
+          c = c.replace('Text(text = "Rate: ${tx.customerRate}",', 'Text(text = "Rate: ${MoneyMath.rateDisplayString(tx.customerRate)}",', 1)
+
+          submit_anchor = '''                    val dueAmt = inputDueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT\n                    val rcvStr = if (inputReceiverAccountType == "Cash") "Cash" else inputReceiverAccountNo\n\n                    confirmCustName = customer.name\n'''
+          submit_repl = '''                    val dueAmt = inputDueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT\n                    val rcvStr = if (inputReceiverAccountType == "Cash") "Cash" else inputReceiverAccountNo\n                    val editingTx = txToEdit\n\n                    if (editingTx != null) {\n                        val selectedBatch = walletBatches.find { it.id == batchId }\n                        val updated = editingTx.copy(\n                            supplierId = selectedBatch?.supplierId ?: editingTx.supplierId,\n                            amountSar = amt,\n                            customerRate = cRate,\n                            supplierRate = inputSupplierRate.toBigDecimalOrNull() ?: selectedBatch?.rate ?: editingTx.supplierRate,\n                            amountBdt = MoneyMath.multiply(amt, cRate),\n                            receiverName = editingTx.receiverName,\n                            receiverPhone = rcvStr,\n                            receiverAccountType = inputReceiverAccountType,\n                            receiverAccountNo = rcvStr,\n                            notes = inputNotes,\n                            sarCollected = col,\n                            bdtDisbursed = dis,\n                            timestamp = inputTimestamp,\n                            walletBatchId = batchId,\n                        )\n                        confirmCustName = customer.name\n                        confirmAmountSar = amt\n                        confirmCustomerRate = cRate\n                        confirmCollectedSar = col\n                        confirmDueCollectedSar = MoneyMath.ZERO_AMOUNT\n                        confirmNewDueSar = MoneyMath.subtract(amt, col)\n                        confirmTotalRemainingDueSar = totalUncollectedSar\n                        confirmPaymentMethod = inputReceiverAccountType\n                        confirmRecipientNo = rcvStr\n                        confirmTimestamp = inputTimestamp\n                        confirmIsAdvanceReturn = editingTx.receiverName == "Advance Return"\n                        viewModel.updateRemittance(updated) {\n                            txToEdit = null\n                            inputAmountSar = ""\n                            inputReceiverPhone = ""\n                            inputReceiverAccountNo = ""\n                            inputNotes = ""\n                            inputSarCollected = ""\n                            inputBdtDisbursed = ""\n                            inputDueSarCollected = ""\n                            inputTimestamp = System.currentTimeMillis()\n                            isAddingTransaction = false\n                            showConfirmationPage = true\n                        }\n                    } else {\n\n                    confirmCustName = customer.name\n'''
+          if c.count(submit_anchor) != 1: raise SystemExit('CustomerScreen: submit anchor mismatch')
+          c = c.replace(submit_anchor, submit_repl, 1)
+          close_anchor = '''                }\n            )\n        }\n\n        if (showAddTxChoiceDialog) {\n'''
+          if c.count(close_anchor) < 1: raise SystemExit('CustomerScreen: submit closing anchor not found')
+          c = c.replace(close_anchor, '''                    }\n                }\n            )\n        }\n\n        if (showAddTxChoiceDialog) {\n''', 1)
+          customer.write_text(c)
+
+          # Backend fallback default mirrors the Android canonical paid state.
+          replace_once(
+              'backend/app/Http/Controllers/TransactionController.php',
+              "$status = substr((string) $request->input('type', 'Pending'), 0, 20);",
+              "$status = substr((string) $request->input('type', 'Delivered'), 0, 20);"
+          )
+          PY
+      - name: Commit branch-only source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app backend
+          if git diff --cached --quiet; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git commit -m "fix: resolve issue 218 Android regressions"
+          git push origin HEAD:fix/218-android-transaction-auth-regressions
