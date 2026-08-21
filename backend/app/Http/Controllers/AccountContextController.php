@@ -31,13 +31,7 @@ class AccountContextController extends Controller
         // Every authenticated identity owns a default business account. Shared
         // access never replaces that ownership requirement.
         if ($owned->isEmpty()) {
-            $owned = collect([
-                Account::create([
-                    'name' => trim(($user->name ?: 'SAFA') . ' Account'),
-                    'balance' => 0,
-                    'owner_user_id' => $user->id,
-                ]),
-            ]);
+            $owned = collect([$this->resolveOwnedAccount($user)]);
         }
 
         $shares = UserAccountShare::with('owner')
@@ -161,7 +155,6 @@ class AccountContextController extends Controller
 
         $validator = Validator::make($request->all(), [
             'mobile' => 'required|string',
-            'account_id' => 'required|integer|min:1',
             'permissions_override' => 'nullable|array',
             'permissions_override.can_view_customers' => 'sometimes|boolean',
             'permissions_override.can_view_suppliers' => 'sometimes|boolean',
@@ -182,16 +175,13 @@ class AccountContextController extends Controller
             ], 422);
         }
 
-        $accountId = (int) $request->input('account_id');
-        $account = Account::query()->find($accountId);
-        if (!$account) {
-            return response()->json(['status' => 'error', 'message' => 'Account not found.'], 404);
-        }
-
-        // Only the real owner may delegate their business account. A role level
-        // (including SuperAdmin) and a previously received share are not enough.
-        $accountOwnerId = (int) ($account->owner_user_id ?? 0);
-        if ($accountOwnerId <= 0 || $accountOwnerId !== (int) $actor->id) {
+        // Sharing is always about the authenticated actor's own business
+        // account. Never trust the current shared context or a client-supplied
+        // account_id to decide which tenant can be delegated.
+        $account = $this->resolveOwnedAccount($actor);
+        $accountId = (int) $account->id;
+        $accountOwnerId = (int) $account->owner_user_id;
+        if ($accountOwnerId !== (int) $actor->id) {
             return response()->json(['status' => 'error', 'message' => 'You are not authorized to share this account.'], 403);
         }
 
@@ -223,5 +213,21 @@ class AccountContextController extends Controller
         );
 
         return response()->json(['status' => 'success', 'message' => 'Account access shared successfully.', 'share' => $share]);
+    }
+
+    /** Resolve or provision the authenticated user's primary owned account. */
+    private function resolveOwnedAccount(User $user): Account
+    {
+        $owned = Account::query()
+            ->where('owner_user_id', $user->id)
+            ->orderBy('id')
+            ->first();
+        if ($owned) return $owned;
+
+        return Account::create([
+            'name' => trim(($user->name ?: 'SAFA') . ' Account'),
+            'balance' => 0,
+            'owner_user_id' => $user->id,
+        ]);
     }
 }
