@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Http\Controllers\DatabaseUpdateController;
 use App\Support\FirstRunSetupState;
+use App\Support\OneTimeFrontendMigrationState;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,14 +19,41 @@ class CheckInstalled
 
         $path = ltrim($request->path(), '/');
 
-        // Legacy installer/recovery endpoints stay permanently retired. The new
-        // first-run surface uses a separate state-gated URL and cannot be reused
-        // for ordinary future migrations.
         if ($this->isRetiredInstallerPath($path)) {
             return $this->notFound($request);
         }
 
-        if ($this->isPublicAssetPath($path) || $path === 'api/setup/status') {
+        if ($this->isPublicAssetPath($path)) {
+            return $next($request);
+        }
+
+        // The owner's requested first visible production step is a one-time
+        // frontend migration action. Its availability is independent of whether
+        // identity/business tables already contain rows; only its dedicated
+        // durable completion marker can consume it.
+        if (OneTimeFrontendMigrationState::required()) {
+            if ($path === 'data-migration') {
+                return $next($request);
+            }
+
+            if ($request->expectsJson() || $request->is('api/*') || $request->is('app/api/*')) {
+                return response()->json([
+                    'status' => 'data_migration_required',
+                    'message' => 'One-time data migration is required.',
+                    'migration_path' => '/data-migration',
+                ], 503);
+            }
+
+            return redirect()->route('frontend.migration.show');
+        }
+
+        // Once consumed, the one-time migration surface is permanently hard
+        // closed even when a later release introduces ordinary pending migrations.
+        if ($path === 'data-migration') {
+            return $this->notFound($request);
+        }
+
+        if ($path === 'api/setup/status') {
             return $next($request);
         }
 
@@ -38,8 +66,6 @@ class CheckInstalled
         }
 
         if (FirstRunSetupState::adminCompletionRequired()) {
-            // The migration action is hard-closed immediately after migrations
-            // complete. Only the first-admin completion step remains available.
             if ($path === 'setup/database') {
                 return $this->notFound($request);
             }
@@ -50,15 +76,10 @@ class CheckInstalled
             return $this->setupRequired($request, 'admin');
         }
 
-        // Once installation is complete, first-run URLs are indistinguishable
-        // from routes that never existed and can never become public again merely
-        // because a future release has pending migrations.
         if ($path === 'setup' || str_starts_with($path, 'setup/')) {
             return $this->notFound($request);
         }
 
-        // Login/logout and the canonical authenticated update endpoint must remain
-        // reachable while a release has pending forward migrations.
         if ($this->isUpdateExemptPath($path)) {
             return $next($request);
         }

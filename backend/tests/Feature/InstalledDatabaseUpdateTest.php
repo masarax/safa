@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\DatabaseUpdateService;
+use App\Support\OneTimeFrontendMigrationState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class InstalledDatabaseUpdateTest extends TestCase
     {
         parent::setUp();
         Config::set('safa.enforce_update_checks_in_tests', true);
+        OneTimeFrontendMigrationState::markCompleted();
     }
 
     public function test_only_activated_superadmin_can_execute_database_update(): void
