@@ -8,6 +8,7 @@ use App\Support\CredentialVerifier;
 use App\Support\FirstRunSetupCode;
 use App\Support\FirstRunSetupState;
 use App\Support\OneTimeFrontendMigrationState;
+use App\Support\RequiredInitialSuperAdminState;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -66,7 +67,9 @@ class FirstRunDatabaseBootstrapMySqlTest extends TestCase
         $this->assertTrue(Schema::hasTable('migrations'));
         $this->assertTrue(Schema::hasTable(FirstRunSetupState::TABLE));
         $this->assertTrue(Schema::hasTable(OneTimeFrontendMigrationState::TABLE));
+        $this->assertTrue(Schema::hasTable(RequiredInitialSuperAdminState::TABLE));
         $this->assertNotNull(DB::table(OneTimeFrontendMigrationState::TABLE)->where('id', 1)->value('completed_at'));
+        $this->assertTrue(RequiredInitialSuperAdminState::completed());
         $this->assertNotNull(DB::table(FirstRunSetupState::TABLE)->where('id', 1)->value('completed_at'));
         $this->assertFileDoesNotExist(FirstRunSetupCode::path());
 
