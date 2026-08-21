@@ -3,12 +3,21 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\ReleaseUpdateState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class ProductionRecoveryTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Config::set('safa.enforce_update_checks_in_tests', true);
+        Config::set('safa.enforce_release_update_in_tests', true);
+    }
 
     public function test_project_root_product_assets_are_served_with_browser_content_types(): void
     {
@@ -32,7 +41,7 @@ class ProductionRecoveryTest extends TestCase
 
     public function test_index_and_installer_setup_surfaces_are_completely_removed(): void
     {
-        foreach (['/index', '/install', '/install/super-admin', '/install/test-db', '/install/process', '/install/update', '/install/update-process', '/update-db'] as $path) {
+        foreach (['/index', '/install', '/install/super-admin', '/install/test-db', '/install/process', '/install/update', '/install/update-process', '/update-db', '/data-migration', '/setup', '/setup/database', '/setup/admin'] as $path) {
             $this->get($path)->assertNotFound();
             $this->post($path)->assertNotFound();
         }
@@ -43,55 +52,36 @@ class ProductionRecoveryTest extends TestCase
         $this->assertStringNotContainsString('InitialSuperAdminController', $routes);
     }
 
-    public function test_login_remains_available_without_install_or_recovery_copy(): void
+    public function test_release_update_page_contains_no_recovery_or_database_secrets(): void
     {
-        $this->get('/login?lang=en')
+        $this->get('/update')
             ->assertOk()
-            ->assertSee('Sign in')
-            ->assertSee('Mobile number or email')
-            ->assertSee('PIN / password')
+            ->assertSee('System Update Ready')
+            ->assertSee('Run Update')
+            ->assertDontSee('Recovery mode')
             ->assertDontSee('Maintenance key')
-            ->assertDontSee('Create the first Super Admin');
-
-        $this->get('/login?lang=bn')
-            ->assertOk()
-            ->assertDontSee('Maintenance key')
-            ->assertDontSee('Create Super Admin');
+            ->assertDontSee('Run Migration')
+            ->assertDontSee('Run Seed')
+            ->assertDontSee('Create Super Admin')
+            ->assertDontSee('setup code')
+            ->assertDontSee('database password');
     }
 
-    public function test_guest_and_non_superadmin_cannot_reach_database_update_writes(): void
+    public function test_completed_release_returns_guest_and_authenticated_users_to_normal_site_flow(): void
     {
+        ReleaseUpdateState::markApplied();
+
         $this->get('/update')->assertRedirect(route('safa.login'));
         $this->post('/update/run')->assertRedirect(route('safa.login'));
         $this->get('/system/update')->assertNotFound();
         $this->post('/system/update/run')->assertNotFound();
-        $this->post('/system/update/migrate')->assertNotFound();
-        $this->post('/system/update/seed')->assertNotFound();
 
         $admin = User::factory()->create([
             'role' => User::ROLE_ADMIN,
             'is_activated' => true,
         ]);
 
-        $this->actingAs($admin)->get('/update')->assertForbidden();
-        $this->actingAs($admin)->post('/update/run')->assertForbidden();
-    }
-
-    public function test_superadmin_update_page_contains_no_guest_recovery_controls(): void
-    {
-        $superAdmin = User::factory()->create([
-            'role' => User::ROLE_SUPERADMIN,
-            'is_activated' => true,
-        ]);
-
-        $this->actingAs($superAdmin)
-            ->get('/update')
-            ->assertOk()
-            ->assertSee('Update Database')
-            ->assertDontSee('Recovery mode')
-            ->assertDontSee('Maintenance key')
-            ->assertDontSee('Run Migration')
-            ->assertDontSee('Run Seed')
-            ->assertDontSee('Create Super Admin');
+        $this->actingAs($admin)->get('/update')->assertRedirect(route('safa.app'));
+        $this->actingAs($admin)->post('/update/run')->assertRedirect(route('safa.app'));
     }
 }
