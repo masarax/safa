@@ -21,6 +21,7 @@ class OneTimeFrontendDataMigrationTest extends TestCase
     {
         parent::setUp();
         Config::set('safa.enforce_update_checks_in_tests', true);
+        Config::set('safa.enforce_frontend_migration_in_tests', true);
     }
 
     public function test_existing_database_data_still_sees_the_one_time_frontend_migration_and_is_preserved(): void
