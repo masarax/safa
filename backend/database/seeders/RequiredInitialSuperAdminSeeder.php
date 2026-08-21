@@ -6,15 +6,13 @@ use App\Models\Account;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class RequiredInitialSuperAdminSeeder extends Seeder
 {
     private const EMAIL = 'sakib.masarax@gmail.com';
     private const NAME = 'NAZMUS SAKIB';
-
-    // Pre-hashed bcrypt value for the required initial PIN 123456. The plaintext
-    // credential is never written to the database or application logs.
-    private const INITIAL_CREDENTIAL_HASH = '$2y$12$kY3jiuGd1fjHbWMF4z2I2ONTpYHHUFEtxevuZQwoh1b56270vC1Ay';
+    private const INITIAL_CREDENTIAL = '123456';
 
     public function run(): void
     {
@@ -23,6 +21,9 @@ class RequiredInitialSuperAdminSeeder extends Seeder
                 ->whereRaw('LOWER(email) = ?', [self::EMAIL])
                 ->first();
 
+            // This provisioning path is intentionally first-time only. Once the
+            // required identity exists, later releases must never reset its name,
+            // role, password/PIN, permissions, activation state, or workspace.
             if ($existing) {
                 return;
             }
@@ -31,8 +32,8 @@ class RequiredInitialSuperAdminSeeder extends Seeder
                 'name' => self::NAME,
                 'email' => self::EMAIL,
                 'mobile' => null,
-                'password' => self::INITIAL_CREDENTIAL_HASH,
-                'pin_hash' => self::INITIAL_CREDENTIAL_HASH,
+                'password' => Hash::make(self::INITIAL_CREDENTIAL),
+                'pin_hash' => Hash::make(self::INITIAL_CREDENTIAL),
                 'role' => User::ROLE_SUPERADMIN,
                 'is_activated' => true,
                 'permissions' => User::permissionsForRole(User::ROLE_SUPERADMIN),
