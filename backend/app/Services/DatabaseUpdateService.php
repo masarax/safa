@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Http\Controllers\DatabaseUpdateController;
 use App\Models\User;
 use App\Support\ProductionMigrationSafety;
+use App\Support\ReleaseUpdateState;
 use Database\Seeders\ReleaseDataUpdateSeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -22,9 +23,9 @@ class DatabaseUpdateService
     }
 
     /** @return array{busy: bool, migrated: int} */
-    public function runOneTimeFrontend(): array
+    public function runReleaseUpdate(): array
     {
-        return $this->runInternal(null, 'one_time_frontend');
+        return $this->runInternal(null, 'release_update');
     }
 
     /** @return array{busy: bool, migrated: int} */
@@ -46,21 +47,17 @@ class DatabaseUpdateService
                 return ['busy' => true, 'migrated' => 0];
             }
 
-            // Legacy migration-record repair may mutate migration metadata, so it
-            // stays inside the same reviewed migration boundary and filesystem lock.
             $pendingBefore = DatabaseUpdateController::pendingMigrations(true);
             ProductionMigrationSafety::assertPendingMigrationsAreSafe($pendingBefore);
 
-            Log::info('SAFA database update started.', [
+            Log::info('SAFA release update started.', [
                 'user_id' => $actorId,
                 'trigger' => $trigger,
                 'pending_migrations' => count($pendingBefore),
             ]);
 
-            if ($pendingBefore) {
-                if (Artisan::call('migrate', ['--force' => true]) !== 0) {
-                    throw new RuntimeException('Forward migration command failed.');
-                }
+            if ($pendingBefore && Artisan::call('migrate', ['--force' => true]) !== 0) {
+                throw new RuntimeException('Forward migration command failed.');
             }
 
             if (Artisan::call('db:seed', [
@@ -79,10 +76,13 @@ class DatabaseUpdateService
                 throw new RuntimeException('Database update completed with pending migrations remaining.');
             }
 
-            Log::info('SAFA database update completed.', [
+            ReleaseUpdateState::markApplied();
+
+            Log::info('SAFA release update completed.', [
                 'user_id' => $actorId,
                 'trigger' => $trigger,
                 'migrations_applied' => count($pendingBefore),
+                'release_fingerprint' => ReleaseUpdateState::fingerprint(),
             ]);
 
             return [
@@ -90,7 +90,7 @@ class DatabaseUpdateService
                 'migrated' => count($pendingBefore),
             ];
         } catch (\Throwable $e) {
-            Log::error('SAFA database update failed.', [
+            Log::error('SAFA release update failed.', [
                 'user_id' => $actorId,
                 'trigger' => $trigger,
                 'exception' => $e::class,
