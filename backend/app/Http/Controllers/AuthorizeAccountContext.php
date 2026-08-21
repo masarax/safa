@@ -30,9 +30,8 @@ trait AuthorizeAccountContext
             return ['error' => response()->json(['status' => 'error', 'message' => 'Unauthorized: user account not found or deactivated.'], 401)];
         }
 
-        // Account switching must survive a JWT that was minted while another
-        // account was active. Explicit client context and the server session are
-        // therefore evaluated before the token's backward-compatible account_id.
+        // Explicit Android context must win over the account embedded in the JWT
+        // so a user can switch from their own account to an explicitly shared one.
         $requestedAccountId = 0;
         $headerAccountId = $request->header('X-SAFA-ACCOUNT-ID');
         if ($headerAccountId !== null && ctype_digit((string) $headerAccountId)) {
@@ -67,23 +66,14 @@ trait AuthorizeAccountContext
                     return ['error' => response()->json(['status' => 'error', 'message' => 'Forbidden: requested account does not exist.'], 403)];
                 }
             } else {
-                // SuperAdmin is the unrestricted tier: when no explicit context is
-                // supplied, its chooser set is every account. Lower roles retain
-                // the original owner-only implicit selection boundary.
-                $availableAccounts = $user->isSuperAdmin()
-                    ? Account::query()->orderBy('id')->get()
-                    : Account::query()->where('owner_user_id', $user->id)->orderBy('id')->get();
+                // No chooser is required for the implicit/default context: every
+                // authenticated user enters their own primary account.
+                $targetAccount = Account::query()
+                    ->where('owner_user_id', $user->id)
+                    ->orderBy('id')
+                    ->first();
 
-                if ($availableAccounts->count() === 1) {
-                    $targetAccount = $availableAccounts->first();
-                } elseif ($availableAccounts->count() > 1) {
-                    return ['error' => response()->json([
-                        'status' => 'error',
-                        'code' => 'ACCOUNT_CONTEXT_REQUIRED',
-                        'message' => 'An explicit account context is required for this user.',
-                        'accounts' => $availableAccounts->map(fn ($account) => ['id' => (int) $account->id, 'name' => $account->name])->values(),
-                    ], 409)];
-                } else {
+                if (!$targetAccount) {
                     $targetAccount = Account::create([
                         'name' => trim(($user->name ?: 'SAFA') . ' Account'),
                         'balance' => 0,
@@ -92,11 +82,13 @@ trait AuthorizeAccountContext
                 }
             }
 
-            if ($user->isSuperAdmin() || (int) $targetAccount->owner_user_id === (int) $user->id) {
+            if ((int) $targetAccount->owner_user_id === (int) $user->id) {
                 $request->attributes->set('active_account_id', (int) $targetAccount->id);
                 return ['user' => $user, 'account_id' => (int) $targetAccount->id];
             }
 
+            // Cross-account access is explicit delegation only. Role level,
+            // including SuperAdmin, never grants implicit tenant visibility.
             $shareExists = UserAccountShare::query()
                 ->where('shared_with_user_id', $user->id)
                 ->where('account_id', (int) $targetAccount->id)

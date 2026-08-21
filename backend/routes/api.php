@@ -74,12 +74,18 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
     Route::post('/graphql', [GraphQLController::class, 'handle']);
 });
 
+// Account discovery is the bootstrap step for establishing tenant context.
+// Requiring an already-active business account here creates a circular dependency
+// and can strand a valid login before its authorized account can be resolved.
+Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, 'throttle:api'])->group(function () {
+    Route::get('/accounts', [AccountContextController::class, 'index']);
+});
+
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:api'])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
     Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
-    Route::get('/accounts', [AccountContextController::class, 'index']);
     Route::post('/accounts/switch', [AccountContextController::class, 'switch']);
     Route::post('/accounts/share', [AccountContextController::class, 'share']);
     Route::get('/customers', [CustomerController::class, 'index']);

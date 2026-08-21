@@ -56,7 +56,8 @@ class AccountContextIsolationTest extends TestCase
         $payload = $response->getData(true);
 
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertNull($payload['active_account_id']);
+        $this->assertSame($accountA->id, $payload['active_account_id']);
+        $this->assertSame($accountA->id, $payload['owned_account_id']);
         $this->assertSame(
             [$accountA->id, $accountB->id],
             collect($payload['accounts'])->pluck('account_id')->sort()->values()->all()

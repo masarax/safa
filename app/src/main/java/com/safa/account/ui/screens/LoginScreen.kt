@@ -63,11 +63,12 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
     var loginError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var setupPhase by remember(apiBaseUrl) { mutableStateOf<String?>(null) }
-    var setupChecking by remember(apiBaseUrl) { mutableStateOf(true) }
     var setupProbeGeneration by remember(apiBaseUrl) { mutableIntStateOf(0) }
 
+    // First-run setup detection stays active, but the routine health probe is
+    // silent. A normal installation shows the login form immediately and only
+    // a real setup-required response replaces it with the setup action.
     LaunchedEffect(apiBaseUrl, setupProbeGeneration) {
-        setupChecking = true
         setupPhase = runCatching {
             val response = RetrofitClient.getHealthApiService(apiBaseUrl).checkServerHealth()
             if (response.isSuccessful) {
@@ -79,7 +80,6 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                 )
             }
         }.getOrNull()
-        setupChecking = false
     }
 
     val matchingOp = remember(mobileInput, operators) {
@@ -134,24 +134,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis
             )
 
-            if (setupChecking) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().testTag("first_run_setup_checking"),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                        Text(
-                            if (currentLang == "BN") "সার্ভার সেটআপ অবস্থা যাচাই হচ্ছে…" else "Checking server setup status…",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            } else if (setupPhase != null) {
+            if (setupPhase != null) {
                 val databasePhase = setupPhase == "database"
                 Card(
                     modifier = Modifier.fillMaxWidth().testTag("first_run_setup_card"),

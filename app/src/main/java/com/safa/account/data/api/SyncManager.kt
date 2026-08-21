@@ -104,7 +104,13 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
             val serverActive = ((body["active_account_id"] as? Number)?.toInt()
                 ?: body["active_account_id"]?.toString()?.toIntOrNull())
                 ?.takeIf { it > 0 && it in authorizedIds }
-            bootstrapAccount(serverActive ?: accounts.singleOrNull()?.accountId)
+
+            // Automatic/bootstrap activation is restricted to the server-selected
+            // context or the authenticated user's owned account. A shared account
+            // is activated only after the explicit Settings switch action.
+            val automaticAccountId = serverActive
+                ?: accounts.firstOrNull { it.isOwner }?.accountId
+            bootstrapAccount(automaticAccountId)
             accounts
         }
     }
@@ -156,9 +162,8 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
             }
         }
 
-        val accounts = listAccounts().getOrThrow()
+        listAccounts().getOrThrow()
         tokenManager.getActiveAccountId()?.let { return it }
-        if (accounts.size > 1) error("Select an account before synchronization")
         error("No authorized account is available")
     }
 

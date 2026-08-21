@@ -1,27 +1,70 @@
 package com.safa.account
 
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AccountSelectionContractTest {
     @Test
-    fun singleAccountIsBootstrappedBeforeDialogDecision() {
+    fun ownedAccountIsResolvedAutomaticallyWithoutSharedFallback() {
         val syncSource = File("src/main/java/com/safa/account/data/api/SyncManager.kt").readText()
-        val activitySource = File("src/main/java/com/safa/account/MainActivity.kt").readText()
+        val tokenSource = File("src/main/java/com/safa/account/data/api/TokenManager.kt").readText()
 
-        assertTrue(syncSource.contains("bootstrapAccount(serverActive ?: accounts.singleOrNull()?.accountId)"))
-        assertTrue(activitySource.contains("activeAccountId = tm.getActiveAccountId()"))
-        assertTrue(activitySource.contains("showAccountDialog = activeAccountId == null"))
+        assertTrue(syncSource.contains("accounts.firstOrNull { it.isOwner }?.accountId"))
+        assertFalse(syncSource.contains("?: accounts.firstOrNull()?.accountId"))
+        assertFalse(syncSource.contains("Select an account before synchronization"))
+        assertTrue(tokenSource.contains("accountIdFromAccessToken"))
+        assertTrue(tokenSource.contains("putInt(KEY_ACTIVE_ACCOUNT_ID, automaticAccountId)"))
     }
 
     @Test
-    fun multiAccountDialogRendersEveryAuthorizedChoiceAndHasAnExplicitEmptyState() {
+    fun normalAuthenticatedStartupDoesNotLoadOrExposeAccountChooser() {
         val activitySource = File("src/main/java/com/safa/account/MainActivity.kt").readText()
 
-        assertTrue(activitySource.contains("accountChoices.forEach { account ->"))
-        assertTrue(activitySource.contains("business_account_${'$'}{account.accountId}"))
-        assertTrue(activitySource.contains("No authorized account is available."))
-        assertTrue(activitySource.contains("Could not load your accounts. Please retry."))
+        assertFalse(activitySource.contains("showAccountDialog"))
+        assertFalse(activitySource.contains("Select business account"))
+        assertFalse(activitySource.contains("ব্যবসার অ্যাকাউন্ট নির্বাচন"))
+        assertFalse(activitySource.contains("appbar_account_switch"))
+        assertFalse(activitySource.contains("business_account_${'$'}{account.accountId}"))
+        assertTrue(activitySource.contains("if (tm.getActiveAccountId() != null) return@LaunchedEffect"))
+        assertTrue(activitySource.contains("Automatic account bootstrap failed"))
+    }
+
+    @Test
+    fun settingsKeepsExplicitOwnedAndSharedAccountSwitching() {
+        val settingsSource = File("src/main/java/com/safa/account/ui/screens/RoleAwareSettingsScreen.kt").readText()
+        val switchSource = File("src/main/java/com/safa/account/ui/screens/AccountSwitchDialog.kt").readText()
+
+        assertTrue(settingsSource.contains("AccountSwitchDialog(viewModel = viewModel"))
+        assertTrue(settingsSource.contains("AccountSharingDialog(viewModel = viewModel"))
+        assertTrue(settingsSource.contains("Change account"))
+        assertTrue(settingsSource.contains("Share my account access"))
+        assertTrue(switchSource.contains("viewModel.syncManager?.listAccounts()"))
+        assertTrue(switchSource.contains("accounts.filter { it.isOwner }"))
+        assertTrue(switchSource.contains("accounts.filterNot { it.isOwner }"))
+        assertTrue(switchSource.contains("manager.switchAccount(account.accountId)"))
+        assertTrue(switchSource.contains("No other user has shared an account with you yet."))
+    }
+
+    @Test
+    fun accountSharingAlwaysTargetsOwnedAccountNotCurrentSharedContext() {
+        val sharingSource = File("src/main/java/com/safa/account/ui/screens/AccountSharingDialog.kt").readText()
+
+        assertTrue(sharingSource.contains("firstOrNull { it.isOwner }"))
+        assertTrue(sharingSource.contains("val accountId = ownedAccountId"))
+        assertFalse(sharingSource.contains("val accountId = viewModel.tokenManager?.getActiveAccountId()"))
+        assertTrue(sharingSource.contains("Share my account access"))
+    }
+
+    @Test
+    fun routineSetupProbeDoesNotReplaceLoginWithLoadingCard() {
+        val loginSource = File("src/main/java/com/safa/account/ui/screens/LoginScreen.kt").readText()
+
+        assertFalse(loginSource.contains("first_run_setup_checking"))
+        assertFalse(loginSource.contains("Checking server setup status"))
+        assertFalse(loginSource.contains("সার্ভার সেটআপ অবস্থা যাচাই হচ্ছে"))
+        assertTrue(loginSource.contains("if (setupPhase != null)"))
+        assertTrue(loginSource.contains("first_run_setup_card"))
     }
 }

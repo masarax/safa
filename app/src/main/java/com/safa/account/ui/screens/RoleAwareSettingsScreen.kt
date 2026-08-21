@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -63,9 +65,17 @@ fun RoleAwareSettingsScreen(viewModel: SafaViewModel) {
     val isAdmin = normalizedRole == "admin" || normalizedRole == "superadmin"
     var page by remember { mutableStateOf(SafeSettingsPage.MAIN) }
     var showUsers by remember { mutableStateOf(false) }
+    var showAccountSwitch by remember { mutableStateOf(false) }
+    var showAccountSharing by remember { mutableStateOf(false) }
 
     if (showUsers) {
         UserManagementDialog(viewModel = viewModel, onDismiss = { showUsers = false })
+    }
+    if (showAccountSwitch) {
+        AccountSwitchDialog(viewModel = viewModel, onDismiss = { showAccountSwitch = false })
+    }
+    if (showAccountSharing) {
+        AccountSharingDialog(viewModel = viewModel, onDismiss = { showAccountSharing = false })
     }
 
     when (page) {
@@ -107,6 +117,27 @@ fun RoleAwareSettingsScreen(viewModel: SafaViewModel) {
                         androidx.compose.material3.Icon(Icons.Default.Badge, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
                     }
                 }
+            }
+
+            item {
+                Text(
+                    if (lang == "BN") "ব্যবসার অ্যাকাউন্ট" else "Business account",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+            item {
+                SettingsMenuItem(
+                    Icons.Default.SwitchAccount,
+                    if (lang == "BN") "অ্যাকাউন্ট পরিবর্তন" else "Change account"
+                ) { showAccountSwitch = true }
+            }
+            item {
+                SettingsMenuItem(
+                    Icons.Default.Share,
+                    if (lang == "BN") "আমার অ্যাকাউন্টে এক্সেস দিন" else "Share my account access"
+                ) { showAccountSharing = true }
             }
 
             if (isAdmin) {
