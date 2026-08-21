@@ -14,8 +14,8 @@
     <div class="auth-shell">
         <div class="auth-toolbar">
             <nav class="language-switch" aria-label="{{ $language === 'bn' ? 'ভাষা নির্বাচন' : 'Language selection' }}">
-                <a class="{{ $language === 'en' ? 'active' : '' }}" href="{{ route('system.update.show', ['lang' => 'en']) }}" lang="en">English</a>
-                <a class="{{ $language === 'bn' ? 'active' : '' }}" href="{{ route('system.update.show', ['lang' => 'bn']) }}" lang="bn">বাংলা</a>
+                <a class="{{ $language === 'en' ? 'active' : '' }}" href="{{ route('release.update.show', ['lang' => 'en']) }}" lang="en">English</a>
+                <a class="{{ $language === 'bn' ? 'active' : '' }}" href="{{ route('release.update.show', ['lang' => 'bn']) }}" lang="bn">বাংলা</a>
             </nav>
         </div>
 
@@ -35,7 +35,7 @@
                 <div class="alert alert-error" role="alert">{{ session('error') }}</div>
             @endif
 
-            <form method="post" action="{{ route('system.update.run') }}" class="stack-form">
+            <form method="post" action="{{ route('release.update.run') }}" class="stack-form">
                 @csrf
                 <input type="hidden" name="language" value="{{ $language }}">
                 <button class="primary-button wide" type="submit" data-testid="run-release-update">
