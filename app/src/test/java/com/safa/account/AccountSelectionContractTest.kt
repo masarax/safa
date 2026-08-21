@@ -7,19 +7,19 @@ import org.junit.Test
 
 class AccountSelectionContractTest {
     @Test
-    fun authorizedAccountIsResolvedAutomaticallyWithoutChooser() {
+    fun ownedAccountIsResolvedAutomaticallyWithoutSharedFallback() {
         val syncSource = File("src/main/java/com/safa/account/data/api/SyncManager.kt").readText()
         val tokenSource = File("src/main/java/com/safa/account/data/api/TokenManager.kt").readText()
 
         assertTrue(syncSource.contains("accounts.firstOrNull { it.isOwner }?.accountId"))
-        assertTrue(syncSource.contains("?: accounts.firstOrNull()?.accountId"))
+        assertFalse(syncSource.contains("?: accounts.firstOrNull()?.accountId"))
         assertFalse(syncSource.contains("Select an account before synchronization"))
         assertTrue(tokenSource.contains("accountIdFromAccessToken"))
         assertTrue(tokenSource.contains("putInt(KEY_ACTIVE_ACCOUNT_ID, automaticAccountId)"))
     }
 
     @Test
-    fun authenticatedUiDoesNotExposeBusinessAccountSelection() {
+    fun normalAuthenticatedStartupDoesNotLoadOrExposeAccountChooser() {
         val activitySource = File("src/main/java/com/safa/account/MainActivity.kt").readText()
 
         assertFalse(activitySource.contains("showAccountDialog"))
@@ -27,7 +27,34 @@ class AccountSelectionContractTest {
         assertFalse(activitySource.contains("ব্যবসার অ্যাকাউন্ট নির্বাচন"))
         assertFalse(activitySource.contains("appbar_account_switch"))
         assertFalse(activitySource.contains("business_account_${'$'}{account.accountId}"))
+        assertTrue(activitySource.contains("if (tm.getActiveAccountId() != null) return@LaunchedEffect"))
         assertTrue(activitySource.contains("Automatic account bootstrap failed"))
+    }
+
+    @Test
+    fun settingsKeepsExplicitOwnedAndSharedAccountSwitching() {
+        val settingsSource = File("src/main/java/com/safa/account/ui/screens/RoleAwareSettingsScreen.kt").readText()
+        val switchSource = File("src/main/java/com/safa/account/ui/screens/AccountSwitchDialog.kt").readText()
+
+        assertTrue(settingsSource.contains("AccountSwitchDialog(viewModel = viewModel"))
+        assertTrue(settingsSource.contains("AccountSharingDialog(viewModel = viewModel"))
+        assertTrue(settingsSource.contains("Change account"))
+        assertTrue(settingsSource.contains("Share my account access"))
+        assertTrue(switchSource.contains("viewModel.syncManager?.listAccounts()"))
+        assertTrue(switchSource.contains("accounts.filter { it.isOwner }"))
+        assertTrue(switchSource.contains("accounts.filterNot { it.isOwner }"))
+        assertTrue(switchSource.contains("manager.switchAccount(account.accountId)"))
+        assertTrue(switchSource.contains("No other user has shared an account with you yet."))
+    }
+
+    @Test
+    fun accountSharingAlwaysTargetsOwnedAccountNotCurrentSharedContext() {
+        val sharingSource = File("src/main/java/com/safa/account/ui/screens/AccountSharingDialog.kt").readText()
+
+        assertTrue(sharingSource.contains("firstOrNull { it.isOwner }"))
+        assertTrue(sharingSource.contains("val accountId = ownedAccountId"))
+        assertFalse(sharingSource.contains("val accountId = viewModel.tokenManager?.getActiveAccountId()"))
+        assertTrue(sharingSource.contains("Share my account access"))
     }
 
     @Test
