@@ -27,18 +27,22 @@ object SyncFailureRecovery {
         if (RetrofitClientIdentity.effectiveApiKey(tokenManager.getApiKey()).isBlank()) return 0
 
         val store = LocalFirstStore(context.applicationContext)
-        var recovered = 0
-        entities.forEach { entity ->
-            store.getRecordPayloads(entity)
-                .asSequence()
-                .filter { it.syncStatus == LocalFirstStore.FAILED }
-                .filter { it.error?.trim()?.equals("HTTP 401", ignoreCase = true) == true }
-                .forEach { record ->
-                    store.retry(entity, record.localId)
-                    recovered++
-                }
+        return try {
+            var recovered = 0
+            entities.forEach { entity ->
+                store.getRecordPayloads(entity)
+                    .asSequence()
+                    .filter { it.syncStatus == LocalFirstStore.FAILED }
+                    .filter { it.error?.trim()?.equals("HTTP 401", ignoreCase = true) == true }
+                    .forEach { record ->
+                        store.retry(entity, record.localId)
+                        recovered++
+                    }
+            }
+            recovered
+        } finally {
+            store.close()
         }
-        return recovered
     }
 }
 
