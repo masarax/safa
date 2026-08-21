@@ -19,9 +19,14 @@ object RetrofitClient {
     @Volatile private var healthInstance: Retrofit? = null
     @Volatile private var healthInstanceConfig: String? = null
 
+    internal fun effectiveApiKey(apiKey: String): String =
+        apiKey.trim().ifBlank { BuildConfig.SAFA_API_KEY.trim() }
+
     fun getInstance(baseUrl: String, apiKey: String, apiSecret: String, tokenManager: TokenManager? = null): Retrofit {
         val normalizedUrl = versionedApiBaseUrl(baseUrl)
-        val configKey = "$normalizedUrl\u0000$apiKey\u0000$apiSecret"
+        val clientApiKey = effectiveApiKey(apiKey)
+        require(clientApiKey.isNotBlank()) { "SAFA mobile API client identifier is not configured." }
+        val configKey = "$normalizedUrl\u0000$clientApiKey\u0000$apiSecret"
         val current = instance
         if (current != null && instanceConfig == configKey) return current
         return synchronized(this) {
@@ -36,7 +41,7 @@ object RetrofitClient {
                 val client = clientBuilder
                     .addInterceptor(MoneyPayloadNormalizer())
                     .addInterceptor(CanonicalAuthEndpointInterceptor())
-                    .addInterceptor(ApiSecurityInterceptor(apiKey, apiSecret, tokenManager))
+                    .addInterceptor(ApiSecurityInterceptor(clientApiKey, apiSecret, tokenManager))
                     .addInterceptor(LoginErrorResponseInterceptor())
                     .addInterceptor(logging)
                     .connectTimeout(30, TimeUnit.SECONDS)
