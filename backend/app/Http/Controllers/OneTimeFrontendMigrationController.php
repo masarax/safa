@@ -8,6 +8,7 @@ use App\Services\RequiredInitialSuperAdminService;
 use App\Support\FirstRunSetupCode;
 use App\Support\FirstRunSetupState;
 use App\Support\OneTimeFrontendMigrationState;
+use App\Support\RequiredInitialSuperAdminState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -83,14 +84,12 @@ class OneTimeFrontendMigrationController extends Controller
                 );
             }
 
-            // Provision only while the one-time migration is still unconsumed.
-            // A successful marker write below permanently removes this path, so
-            // later deploys and /update runs can never reset this credential.
             if ($requiresSetupCode || $requiredAdmin->needsProvisioning()) {
                 $requiredAdmin->provisionOnce();
             }
 
             OneTimeFrontendMigrationState::markCompleted();
+            RequiredInitialSuperAdminState::markCompleted();
             FirstRunSetupCode::destroy();
             $request->session()->forget(FirstRunSetupState::SESSION_CLAIM);
 
