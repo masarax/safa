@@ -48,12 +48,14 @@ class AccountSelectionContractTest {
     }
 
     @Test
-    fun accountSharingAlwaysTargetsOwnedAccountNotCurrentSharedContext() {
+    fun accountSharingIsServerAuthoritativeAndNeverLoadsOrChoosesOwnedAccount() {
         val sharingSource = File("src/main/java/com/safa/account/ui/screens/AccountSharingDialog.kt").readText()
 
-        assertTrue(sharingSource.contains("firstOrNull { it.isOwner }"))
-        assertTrue(sharingSource.contains("val accountId = ownedAccountId"))
-        assertFalse(sharingSource.contains("val accountId = viewModel.tokenManager?.getActiveAccountId()"))
+        assertFalse(sharingSource.contains("listAccounts()"))
+        assertFalse(sharingSource.contains("ownedAccountId"))
+        assertFalse(sharingSource.contains("Verifying your owned account"))
+        assertFalse(sharingSource.contains("\"account_id\" to"))
+        assertTrue(sharingSource.contains("server derives/provisions the authenticated"))
         assertTrue(sharingSource.contains("Share my account access"))
     }
 

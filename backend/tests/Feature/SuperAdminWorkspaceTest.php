@@ -99,7 +99,7 @@ class SuperAdminWorkspaceTest extends TestCase
         $this->assertSame($accountB->id, $switchPayload['active_account_id']);
     }
 
-    public function test_only_real_owner_can_share_and_recipient_keeps_own_default_account(): void
+    public function test_sharing_always_uses_real_actors_owned_account_and_recipient_keeps_own_default_account(): void
     {
         $superAdmin = User::factory()->create([
             'role' => User::ROLE_SUPERADMIN,
@@ -114,6 +114,11 @@ class SuperAdminWorkspaceTest extends TestCase
             'role' => User::ROLE_USER,
             'is_activated' => true,
         ]);
+        $superAdminRecipient = User::factory()->create([
+            'mobile' => '966500000011',
+            'role' => User::ROLE_USER,
+            'is_activated' => true,
+        ]);
         $account = Account::create([
             'name' => 'Owner Workspace',
             'balance' => 0,
@@ -121,12 +126,27 @@ class SuperAdminWorkspaceTest extends TestCase
         ]);
 
         $controller = app(AccountContextController::class);
-        $forbiddenShare = Request::create('/api/accounts/share', 'POST', [
+
+        // A caller-supplied foreign account id is never delegated. It is ignored
+        // and the authenticated actor's own account is provisioned/used instead.
+        $foreignInjection = Request::create('/api/accounts/share', 'POST', [
             'account_id' => $account->id,
-            'mobile' => $recipient->mobile,
+            'mobile' => $superAdminRecipient->mobile,
         ]);
-        $forbiddenShare->setUserResolver(fn () => $superAdmin);
-        $this->assertSame(403, $controller->share($forbiddenShare)->getStatusCode());
+        $foreignInjection->setUserResolver(fn () => $superAdmin);
+        $this->assertSame(200, $controller->share($foreignInjection)->getStatusCode());
+
+        $superAdminOwned = Account::query()->where('owner_user_id', $superAdmin->id)->sole();
+        $this->assertDatabaseHas('user_account_shares', [
+            'owner_user_id' => $superAdmin->id,
+            'account_id' => $superAdminOwned->id,
+            'shared_with_user_id' => $superAdminRecipient->id,
+        ]);
+        $this->assertDatabaseMissing('user_account_shares', [
+            'owner_user_id' => $owner->id,
+            'account_id' => $account->id,
+            'shared_with_user_id' => $superAdminRecipient->id,
+        ]);
 
         $ownerShare = Request::create('/api/accounts/share', 'POST', [
             'account_id' => $account->id,
@@ -155,7 +175,7 @@ class SuperAdminWorkspaceTest extends TestCase
         );
     }
 
-    public function test_shared_member_cannot_delegate_account_to_another_user(): void
+    public function test_shared_member_cannot_delegate_foreign_account_but_can_share_own_account(): void
     {
         $owner = User::factory()->create([
             'role' => User::ROLE_BUSINESS_USER,
@@ -189,8 +209,21 @@ class SuperAdminWorkspaceTest extends TestCase
         $request->setUserResolver(fn () => $member);
         $response = app(AccountContextController::class)->share($request);
 
-        $this->assertSame(403, $response->getStatusCode());
-        $this->assertFalse(UserAccountShare::query()->where('account_id', $account->id)->where('shared_with_user_id', $recipient->id)->exists());
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertFalse(
+            UserAccountShare::query()
+                ->where('owner_user_id', $owner->id)
+                ->where('account_id', $account->id)
+                ->where('shared_with_user_id', $recipient->id)
+                ->exists()
+        );
+
+        $memberOwned = Account::query()->where('owner_user_id', $member->id)->sole();
+        $this->assertDatabaseHas('user_account_shares', [
+            'owner_user_id' => $member->id,
+            'account_id' => $memberOwned->id,
+            'shared_with_user_id' => $recipient->id,
+        ]);
     }
 
     public function test_shared_read_denial_also_disables_mutations_and_applies_to_superadmin_recipient(): void
