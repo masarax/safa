@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\Support\FirstRunSetupCode;
 use App\Support\FirstRunSetupState;
+use App\Support\OneTimeFrontendMigrationState;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -22,42 +22,31 @@ class FirstRunDatabaseBootstrapMySqlTest extends TestCase
 
         $this->assertSame('mysql', DB::connection()->getDriverName());
         Config::set('safa.enforce_update_checks_in_tests', true);
-        FirstRunSetupCode::destroy();
+        Config::set('safa.enforce_frontend_migration_in_tests', true);
     }
 
-    protected function tearDown(): void
-    {
-        FirstRunSetupCode::destroy();
-        parent::tearDown();
-    }
-
-    public function test_empty_strict_mysql_database_completes_the_real_browser_bootstrap(): void
+    public function test_empty_strict_mysql_database_completes_the_real_frontend_migration_and_bootstrap(): void
     {
         $this->assertFalse(Schema::hasTable('migrations'));
         $this->assertFalse(Schema::hasTable('users'));
 
-        $this->get('/')->assertRedirect(route('setup.index'));
-        $this->get('/setup')->assertRedirect(route('setup.database.show', ['lang' => 'en']));
-        $this->getJson('/api/setup/status')
+        $this->get('/')->assertRedirect(route('frontend.migration.show'));
+        $this->get('/data-migration')
             ->assertOk()
-            ->assertJson(['status' => 'setup_required', 'phase' => 'database', 'setup_path' => '/setup']);
+            ->assertSee('First-time Data Migration')
+            ->assertSee('Run Data Migration');
 
-        $this->get('/setup/database')
-            ->assertOk()
-            ->assertSee('Initialize Database');
-
-        $setupCode = trim((string) file_get_contents(FirstRunSetupCode::path()));
-        $this->assertMatchesRegularExpression('/^[A-F0-9]{32}$/', $setupCode);
-
-        $this->post('/setup/database', [
-            'language' => 'en',
-            'setup_code' => $setupCode,
-        ])->assertRedirect(route('setup.admin.show', ['lang' => 'en']));
+        $this->post('/data-migration', ['language' => 'en'])
+            ->assertRedirect(route('setup.admin.show', ['lang' => 'en']));
 
         $this->assertTrue(Schema::hasTable('migrations'));
         $this->assertTrue(Schema::hasTable(FirstRunSetupState::TABLE));
-        $this->assertFileDoesNotExist(FirstRunSetupCode::path());
-        $this->get('/setup/database')->assertNotFound();
+        $this->assertTrue(Schema::hasTable(OneTimeFrontendMigrationState::TABLE));
+        $this->assertNotNull(DB::table(OneTimeFrontendMigrationState::TABLE)->where('id', 1)->value('completed_at'));
+        $this->assertDatabaseHas(FirstRunSetupState::TABLE, ['id' => 1, 'completed_at' => null]);
+
+        $this->get('/data-migration')->assertNotFound();
+        $this->post('/data-migration')->assertNotFound();
 
         $this->get('/setup/admin')->assertOk();
         $this->post('/setup/admin', [
@@ -75,6 +64,7 @@ class FirstRunDatabaseBootstrapMySqlTest extends TestCase
             'is_activated' => 1,
         ]);
         $this->assertNotNull(DB::table(FirstRunSetupState::TABLE)->where('id', 1)->value('completed_at'));
+        $this->get('/data-migration')->assertNotFound();
         $this->get('/setup')->assertNotFound();
         $this->get('/setup/database')->assertNotFound();
         $this->get('/setup/admin')->assertNotFound();
