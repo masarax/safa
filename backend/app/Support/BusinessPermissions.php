@@ -14,7 +14,7 @@ final class BusinessPermissions
         }
 
         $permissions = $user->getFormattedPermissions();
-        if ($accountId <= 0 || $user->isSuperAdmin()) {
+        if ($accountId <= 0) {
             return $permissions;
         }
 
@@ -28,9 +28,31 @@ final class BusinessPermissions
             return $permissions;
         }
 
+        // A share may only reduce the recipient's base role permissions; it can
+        // never elevate them. This applies to every role, including SuperAdmin.
         foreach ($share->permissions_override as $key => $allowed) {
             if (array_key_exists($key, $permissions)) {
                 $permissions[$key] = (bool) $permissions[$key] && (bool) $allowed;
+            }
+        }
+
+        // The Android sharing UI grants coarse entity access. If an owner turns
+        // off a category's read access, mutation permissions for that category
+        // must also be disabled even when the recipient's base role allows them.
+        $readToMutations = [
+            'can_view_customers' => ['can_add_customers', 'can_edit_customers', 'can_delete_customers'],
+            'can_view_suppliers' => ['can_add_suppliers', 'can_edit_suppliers', 'can_delete_suppliers'],
+            'can_view_transactions' => ['can_add_transactions', 'can_edit_transactions', 'can_delete_transactions'],
+        ];
+
+        foreach ($readToMutations as $readPermission => $mutationPermissions) {
+            if (array_key_exists($readPermission, $share->permissions_override)
+                && !(bool) $share->permissions_override[$readPermission]) {
+                foreach ($mutationPermissions as $permission) {
+                    if (array_key_exists($permission, $permissions)) {
+                        $permissions[$permission] = false;
+                    }
+                }
             }
         }
 
