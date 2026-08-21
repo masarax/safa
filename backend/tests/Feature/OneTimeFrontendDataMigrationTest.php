@@ -10,10 +10,12 @@ use App\Support\CredentialVerifier;
 use App\Support\FirstRunSetupCode;
 use App\Support\FirstRunSetupState;
 use App\Support\OneTimeFrontendMigrationState;
+use App\Support\RequiredInitialSuperAdminState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class OneTimeFrontendDataMigrationTest extends TestCase
@@ -92,6 +94,7 @@ class OneTimeFrontendDataMigrationTest extends TestCase
             $required->password,
         ]));
         $this->assertSame(1, User::query()->where('email', RequiredInitialSuperAdminService::EMAIL)->count());
+        $this->assertTrue(RequiredInitialSuperAdminState::completed());
 
         $this->assertDatabaseHas('accounts', [
             'id' => $account->id,
@@ -116,6 +119,62 @@ class OneTimeFrontendDataMigrationTest extends TestCase
 
         $this->assertFalse(OneTimeFrontendMigrationState::required());
         $this->assertFileDoesNotExist(FirstRunSetupCode::path());
+        $this->get('/data-migration')->assertNotFound();
+        $this->post('/data-migration')->assertNotFound();
+    }
+
+    public function test_legacy_consumed_install_without_required_superadmin_reopens_exactly_once_for_repair(): void
+    {
+        $existingUser = User::factory()->create([
+            'name' => 'Legacy Owner',
+            'email' => 'legacy-owner@safa.test',
+            'role' => User::ROLE_SUPERADMIN,
+            'is_activated' => true,
+        ]);
+        $account = Account::create([
+            'owner_user_id' => $existingUser->id,
+            'name' => 'Legacy Business',
+            'balance' => '500.00',
+        ]);
+
+        OneTimeFrontendMigrationState::markCompleted();
+        Schema::dropIfExists(RequiredInitialSuperAdminState::TABLE);
+        DB::table('migrations')
+            ->where('migration', '2026_08_21_020000_create_required_superadmin_state')
+            ->delete();
+
+        $this->assertTrue(OneTimeFrontendMigrationState::required());
+        $this->get('/')->assertRedirect(route('frontend.migration.show'));
+        $this->get('/data-migration')
+            ->assertOk()
+            ->assertSee(FirstRunSetupCode::operatorPath())
+            ->assertSeeHtml('data-testid="frontend-migration-setup-code"');
+
+        $setupCode = trim((string) file_get_contents(FirstRunSetupCode::path()));
+        $this->post('/data-migration', [
+            'language' => 'en',
+            'setup_code' => $setupCode,
+        ])->assertRedirect(route('safa.login', ['lang' => 'en']));
+
+        $this->assertTrue(Schema::hasTable(RequiredInitialSuperAdminState::TABLE));
+        $this->assertTrue(RequiredInitialSuperAdminState::completed());
+        $this->assertDatabaseHas('migrations', [
+            'migration' => '2026_08_21_020000_create_required_superadmin_state',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'name' => RequiredInitialSuperAdminService::NAME,
+            'email' => RequiredInitialSuperAdminService::EMAIL,
+            'role' => User::ROLE_SUPERADMIN,
+            'is_activated' => 1,
+        ]);
+        $this->assertDatabaseHas('accounts', [
+            'id' => $account->id,
+            'name' => 'Legacy Business',
+            'balance' => '500.00',
+        ]);
+
+        User::query()->where('email', RequiredInitialSuperAdminService::EMAIL)->delete();
+        $this->assertTrue(RequiredInitialSuperAdminState::completed());
         $this->get('/data-migration')->assertNotFound();
         $this->post('/data-migration')->assertNotFound();
     }
@@ -149,6 +208,7 @@ class OneTimeFrontendDataMigrationTest extends TestCase
             $existing->password,
         ]));
         $this->assertSame(1, User::query()->where('email', RequiredInitialSuperAdminService::EMAIL)->count());
+        $this->assertTrue(RequiredInitialSuperAdminState::completed());
     }
 
     public function test_already_correct_required_superadmin_is_not_reset_during_first_migration(): void
@@ -175,6 +235,7 @@ class OneTimeFrontendDataMigrationTest extends TestCase
         $this->assertSame($hash, $required->password);
         $this->assertSame($hash, $required->pin_hash);
         $this->assertSame(1, User::query()->where('email', RequiredInitialSuperAdminService::EMAIL)->count());
+        $this->assertTrue(RequiredInitialSuperAdminState::completed());
     }
 
     public function test_consumed_frontend_migration_never_reopens_or_resets_required_superadmin(): void
@@ -189,6 +250,7 @@ class OneTimeFrontendDataMigrationTest extends TestCase
             'is_activated' => true,
         ]);
         OneTimeFrontendMigrationState::markCompleted();
+        RequiredInitialSuperAdminState::markCompleted();
         DB::table(FirstRunSetupState::TABLE)->updateOrInsert(
             ['id' => 1],
             [
@@ -201,7 +263,10 @@ class OneTimeFrontendDataMigrationTest extends TestCase
         );
 
         $migration = DB::table('migrations')
-            ->where('migration', '!=', '2026_08_21_010000_create_frontend_migration_state')
+            ->whereNotIn('migration', [
+                '2026_08_21_010000_create_frontend_migration_state',
+                '2026_08_21_020000_create_required_superadmin_state',
+            ])
             ->orderByDesc('migration')
             ->value('migration');
         $this->assertNotNull($migration);
