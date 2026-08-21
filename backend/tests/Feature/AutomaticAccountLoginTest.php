@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\SafaApiKey;
 use App\Models\User;
+use App\Models\UserAccountShare;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -78,6 +79,7 @@ class AutomaticAccountLoginTest extends TestCase
             ->get('/api/accounts')
             ->assertOk()
             ->assertJsonPath('active_account_id', $account->id)
+            ->assertJsonPath('owned_account_id', $account->id)
             ->assertJsonPath('accounts.0.account_id', $account->id);
     }
 
@@ -108,5 +110,67 @@ class AutomaticAccountLoginTest extends TestCase
             'owner_user_id' => $user->id,
         ]);
         $this->assertSame(1, Account::query()->where('owner_user_id', $user->id)->count());
+    }
+
+    public function test_shared_account_never_replaces_users_owned_login_account(): void
+    {
+        $owner = User::create([
+            'name' => 'Sharing Owner',
+            'email' => 'sharing-owner@safa.local',
+            'mobile' => '01700000012',
+            'pin_hash' => Hash::make('111111'),
+            'password' => Hash::make('111111'),
+            'role' => 'admin',
+            'is_activated' => true,
+            'permissions' => User::defaultPermissions(false),
+        ]);
+        $recipient = User::create([
+            'name' => 'Shared Recipient',
+            'email' => 'shared-recipient@safa.local',
+            'mobile' => '01700000013',
+            'pin_hash' => Hash::make('222222'),
+            'password' => Hash::make('222222'),
+            'role' => 'staff',
+            'is_activated' => true,
+            'permissions' => User::defaultPermissions(false),
+        ]);
+        $sharedAccount = Account::create([
+            'name' => 'Owner Shared Business',
+            'owner_user_id' => $owner->id,
+            'balance' => 0,
+        ]);
+        UserAccountShare::create([
+            'owner_user_id' => $owner->id,
+            'account_id' => $sharedAccount->id,
+            'shared_with_user_id' => $recipient->id,
+            'permissions_override' => ['can_view_customers' => true],
+        ]);
+
+        $login = $this->postJson('/api/auth/login', [
+            'mobile' => $recipient->mobile,
+            'pin' => '222222',
+            'device_uuid' => 'shared-recipient-device',
+            'fingerprint_hash' => 'shared-recipient-fingerprint',
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        $ownedAccountId = (int) $login->json('active_account_id');
+        $this->assertNotSame((int) $sharedAccount->id, $ownedAccountId);
+        $this->assertDatabaseHas('accounts', [
+            'id' => $ownedAccountId,
+            'owner_user_id' => $recipient->id,
+        ]);
+
+        $accountRequest = \Illuminate\Http\Request::create('/api/accounts', 'GET');
+        $accountRequest->setUserResolver(fn () => $recipient);
+        $payload = app(\App\Http\Controllers\AccountContextController::class)
+            ->index($accountRequest)
+            ->getData(true);
+
+        $this->assertSame($ownedAccountId, (int) $payload['active_account_id']);
+        $this->assertSame($ownedAccountId, (int) $payload['owned_account_id']);
+        $this->assertSame(
+            [$ownedAccountId, (int) $sharedAccount->id],
+            array_map('intval', array_column($payload['accounts'], 'account_id'))
+        );
     }
 }
