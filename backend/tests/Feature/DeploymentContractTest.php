@@ -6,18 +6,29 @@ use Tests\TestCase;
 
 class DeploymentContractTest extends TestCase
 {
-    public function test_cpanel_workflow_deploys_main_only_after_green_backend_ci_or_manual_dispatch(): void
+    public function test_cpanel_workflow_deploys_exact_green_backend_ci_sha_only(): void
     {
         $workflow = (string) file_get_contents(base_path('../.github/workflows/deploy.yml'));
 
-        $this->assertStringContainsString("workflow_dispatch:\n", $workflow);
+        $this->assertStringNotContainsString("workflow_dispatch:\n", $workflow);
         $this->assertStringContainsString("workflow_run:\n", $workflow);
         $this->assertStringContainsString('workflows: ["Laravel Backend CI"]', $workflow);
         $this->assertStringContainsString('types: [completed]', $workflow);
         $this->assertStringContainsString('branches: [main]', $workflow);
         $this->assertStringContainsString("github.event.workflow_run.conclusion == 'success'", $workflow);
-        $this->assertStringContainsString("github.event_name == 'workflow_dispatch'", $workflow);
-        $this->assertStringContainsString('ref: main', $workflow);
+        $this->assertStringContainsString("github.event.workflow_run.event == 'push'", $workflow);
+        $this->assertStringContainsString('github.event.workflow_run.head_repository.full_name == github.repository', $workflow);
+        $this->assertStringContainsString('github.event.workflow_run.head_branch == github.event.repository.default_branch', $workflow);
+        $this->assertStringContainsString('ref: ${{ github.event.workflow_run.head_sha }}', $workflow);
+        $this->assertStringContainsString('TESTED_SHA: ${{ github.event.workflow_run.head_sha }}', $workflow);
+        $this->assertStringContainsString('test "$CHECKED_OUT_SHA" = "$TESTED_SHA"', $workflow);
+        $this->assertStringContainsString('test "$CURRENT_DEFAULT_SHA" = "$TESTED_SHA"', $workflow);
+        $this->assertStringContainsString('test "$CURRENT_DEFAULT_SHA" = "$DEPLOY_SHA"', $workflow);
+        $this->assertStringContainsString('test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"', $workflow);
+        $this->assertStringContainsString('printf \'{"commit":"%s"}\\n\' "$DEPLOY_SHA" > backend/bootstrap/safa-build.json', $workflow);
+        $this->assertStringNotContainsString('ref: main', $workflow);
+        $this->assertStringContainsString('cancel-in-progress: false', $workflow);
+        $this->assertStringContainsString('bash scripts/check-deploy-provenance.sh', $workflow);
         $this->assertStringContainsString('composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress', $workflow);
         $this->assertStringContainsString('actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0', $workflow);
         $this->assertStringContainsString('shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2', $workflow);
