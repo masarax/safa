@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\DatabaseUpdateService;
 use App\Services\FirstRunDatabaseBootstrapService;
+use App\Services\RequiredInitialSuperAdminService;
 use App\Support\FirstRunSetupCode;
 use App\Support\FirstRunSetupState;
 use App\Support\OneTimeFrontendMigrationState;
@@ -14,13 +15,13 @@ use Illuminate\Support\Facades\RateLimiter;
 
 class OneTimeFrontendMigrationController extends Controller
 {
-    public function show(Request $request): Response
+    public function show(Request $request, RequiredInitialSuperAdminService $requiredAdmin): Response
     {
         abort_unless(OneTimeFrontendMigrationState::required(), 404);
 
-        $requiresSetupCode = FirstRunSetupState::databaseInitializationRequired();
+        $requiresSetupCode = $requiredAdmin->needsProvisioning();
         if ($requiresSetupCode) {
-            FirstRunSetupCode::ensure();
+            FirstRunSetupCode::ensureForFrontendMigration();
         }
 
         return response()->view('frontend_data_migration', [
@@ -34,7 +35,8 @@ class OneTimeFrontendMigrationController extends Controller
     public function run(
         Request $request,
         DatabaseUpdateService $updates,
-        FirstRunDatabaseBootstrapService $bootstrap
+        FirstRunDatabaseBootstrapService $bootstrap,
+        RequiredInitialSuperAdminService $requiredAdmin
     ): RedirectResponse {
         // Check the durable one-time state before rate limiting so a consumed URL
         // is permanently indistinguishable from a route that does not exist.
@@ -44,21 +46,21 @@ class OneTimeFrontendMigrationController extends Controller
         $this->consumeAttempt('frontend-data-migration|' . $request->ip(), 5);
 
         $firstDatabaseInitialization = FirstRunSetupState::databaseInitializationRequired();
+        $requiresSetupCode = $requiredAdmin->needsProvisioning();
         $claim = null;
 
-        // A completely empty database would otherwise let the first random web
-        // visitor become the first SuperAdmin after migration. Preserve the
-        // deployment-owner proof for that one case while keeping existing-data
-        // migrations as a single frontend click.
-        if ($firstDatabaseInitialization) {
-            FirstRunSetupCode::ensure();
+        // Creating, promoting or resetting the required owner account is a
+        // privileged first-run action. The public migration button cannot do it
+        // unless the operator proves access to the server-private setup code.
+        if ($requiresSetupCode) {
+            FirstRunSetupCode::ensureForFrontendMigration();
             $setupCode = (string) $request->input('setup_code', '');
             if (!FirstRunSetupCode::verify($setupCode)) {
                 return redirect()->route('frontend.migration.show', ['lang' => $language])->with(
                     'error',
                     $language === 'bn'
-                        ? 'খালি ডাটাবেজের প্রথম সেটআপের জন্য server-private setup code সঠিক নয়।'
-                        : 'The server-private setup code is invalid for first setup on an empty database.'
+                        ? 'প্রথম SuperAdmin নিশ্চিত করার জন্য server-private setup code সঠিক নয়।'
+                        : 'The server-private setup code is invalid for required SuperAdmin provisioning.'
                 );
             }
         }
@@ -81,36 +83,22 @@ class OneTimeFrontendMigrationController extends Controller
                 );
             }
 
+            // Provision only while the one-time migration is still unconsumed.
+            // A successful marker write below permanently removes this path, so
+            // later deploys and /update runs can never reset this credential.
+            if ($requiresSetupCode || $requiredAdmin->needsProvisioning()) {
+                $requiredAdmin->provisionOnce();
+            }
+
             OneTimeFrontendMigrationState::markCompleted();
             FirstRunSetupCode::destroy();
+            $request->session()->forget(FirstRunSetupState::SESSION_CLAIM);
 
-            if (
-                $claim !== null
-                && FirstRunSetupState::adminCompletionRequired()
-                && FirstRunSetupState::claimMatches($claim)
-            ) {
-                return redirect()->route('setup.admin.show', ['lang' => $language])->with(
-                    'success',
-                    $language === 'bn'
-                        ? 'ডাটা মাইগ্রেশন সফল হয়েছে। এখন প্রথম SuperAdmin তৈরি করুন।'
-                        : 'Data migration completed. Create the first SuperAdmin to finish setup.'
-                );
-            }
-
-            if (FirstRunSetupState::adminCompletionRequired()) {
-                return redirect()->route('setup.index', ['lang' => $language])->with(
-                    'success',
-                    $language === 'bn'
-                        ? 'ডাটা মাইগ্রেশন সফল হয়েছে। এখন SuperAdmin সেটআপ শেষ করুন।'
-                        : 'Data migration completed. Finish the SuperAdmin setup.'
-                );
-            }
-
-            return redirect('/')->with(
+            return redirect()->route('safa.login', ['lang' => $language])->with(
                 'success',
                 $language === 'bn'
-                    ? 'ডাটা মাইগ্রেশন সফল হয়েছে। একবারের migration option স্থায়ীভাবে বন্ধ হয়েছে।'
-                    : 'Data migration completed. The one-time migration option is now permanently closed.'
+                    ? 'ডাটা মাইগ্রেশন এবং প্রথম SuperAdmin সেটআপ সফল হয়েছে। এখন লগইন করুন।'
+                    : 'Data migration and required SuperAdmin setup completed successfully. Sign in now.'
             );
         } catch (\Throwable $e) {
             report($e);
