@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
 use App\Models\AuthSession;
 use App\Models\DeviceBinding;
 use App\Models\User;
+use App\Models\UserAccountShare;
 use App\Support\CredentialVerifier;
 use App\Support\MobileNumber;
 use Illuminate\Http\JsonResponse;
@@ -51,22 +53,45 @@ class MobileLoginController extends Controller
         if ($fingerprintHash === '') return $this->error('FINGERPRINT_REQUIRED', 'Device fingerprint is required.', 400);
 
         $result = DB::transaction(function () use ($user, $deviceUuid, $fingerprintHash, $deviceModel) {
-            $binding = DeviceBinding::query()->where('user_id', $user->id)->where('device_uuid', $deviceUuid)->lockForUpdate()->first();
+            // Serialize first-login account provisioning for this identity so two
+            // concurrent logins cannot create competing default account contexts.
+            $authenticatedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            $binding = DeviceBinding::query()->where('user_id', $authenticatedUser->id)->where('device_uuid', $deviceUuid)->lockForUpdate()->first();
             if ($binding && !$binding->is_active) {
                 return ['error' => $this->error('DEVICE_REVOKED', 'Device is inactive or revoked for this account.', 403)];
             }
             if (!$binding) {
-                DeviceBinding::create(['user_id' => $user->id, 'device_uuid' => $deviceUuid, 'device_model' => $deviceModel, 'fingerprint_hash' => $fingerprintHash, 'is_active' => true, 'bound_at' => now()]);
+                DeviceBinding::create(['user_id' => $authenticatedUser->id, 'device_uuid' => $deviceUuid, 'device_model' => $deviceModel, 'fingerprint_hash' => $fingerprintHash, 'is_active' => true, 'bound_at' => now()]);
             } else {
                 $binding->update(['device_model' => $deviceModel, 'fingerprint_hash' => $fingerprintHash, 'is_active' => true]);
             }
 
-            AuthSession::query()->where('user_id', $user->id)->where('device_uuid', $deviceUuid)->where('is_revoked', false)->update(['is_revoked' => true]);
+            $activeAccountId = $this->resolveAutomaticAccountId($authenticatedUser);
+
+            AuthSession::query()->where('user_id', $authenticatedUser->id)->where('device_uuid', $deviceUuid)->where('is_revoked', false)->update(['is_revoked' => true]);
             $sessionToken = AuthSession::newOpaqueToken();
             $refreshToken = AuthSession::newOpaqueToken();
-            $accessToken = AuthJWTController::generateJwt(['iss' => config('app.url', 'safa-backend'), 'sub' => $user->id, 'user_id' => $user->id, 'device_uuid' => $deviceUuid, 'session_token' => $sessionToken, 'iat' => time(), 'exp' => time() + (24 * 3600)]);
-            AuthSession::create(['user_id' => $user->id, 'device_uuid' => $deviceUuid, 'access_token' => $accessToken, 'refresh_token' => $refreshToken, 'session_token' => $sessionToken, 'expires_at' => now()->addDays(30), 'is_revoked' => false]);
-            return ['user' => $user, 'access_token' => $accessToken, 'refresh_token' => $refreshToken, 'device_token' => $deviceUuid, 'session_token' => $sessionToken, 'fingerprint_token' => $fingerprintHash];
+            $accessToken = AuthJWTController::generateJwt([
+                'iss' => config('app.url', 'safa-backend'),
+                'sub' => $authenticatedUser->id,
+                'user_id' => $authenticatedUser->id,
+                'account_id' => $activeAccountId,
+                'device_uuid' => $deviceUuid,
+                'session_token' => $sessionToken,
+                'iat' => time(),
+                'exp' => time() + (24 * 3600),
+            ]);
+            AuthSession::create(['user_id' => $authenticatedUser->id, 'device_uuid' => $deviceUuid, 'access_token' => $accessToken, 'refresh_token' => $refreshToken, 'session_token' => $sessionToken, 'expires_at' => now()->addDays(30), 'is_revoked' => false]);
+            return [
+                'user' => $authenticatedUser,
+                'active_account_id' => $activeAccountId,
+                'access_token' => $accessToken,
+                'refresh_token' => $refreshToken,
+                'device_token' => $deviceUuid,
+                'session_token' => $sessionToken,
+                'fingerprint_token' => $fingerprintHash,
+            ];
         });
 
         if (isset($result['error'])) return $result['error'];
@@ -83,6 +108,7 @@ class MobileLoginController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Login successful.',
+            'active_account_id' => $result['active_account_id'],
             'user' => [
                 'id' => $authenticatedUser->id,
                 'name' => $authenticatedUser->name,
@@ -100,6 +126,37 @@ class MobileLoginController extends Controller
             'session_token' => $tokens['session_token'],
             'fingerprint_token' => $tokens['fingerprint_token'],
         ], 200);
+    }
+
+    /** Resolve one server-authorized account without any interactive chooser. */
+    private function resolveAutomaticAccountId(User $user): int
+    {
+        $owned = Account::query()
+            ->where('owner_user_id', $user->id)
+            ->orderBy('id')
+            ->first();
+        if ($owned) return (int) $owned->id;
+
+        if (strtolower(trim((string) $user->role)) === 'superadmin') {
+            $firstAuthorized = Account::query()->orderBy('id')->first();
+            if ($firstAuthorized) return (int) $firstAuthorized->id;
+        } else {
+            $sharedAccountId = UserAccountShare::query()
+                ->where('shared_with_user_id', $user->id)
+                ->orderBy('account_id')
+                ->value('account_id');
+            if ($sharedAccountId && Account::query()->whereKey($sharedAccountId)->exists()) {
+                return (int) $sharedAccountId;
+            }
+        }
+
+        $account = Account::create([
+            'name' => trim(((string) $user->name ?: 'SAFA') . ' Account'),
+            'owner_user_id' => $user->id,
+            'balance' => 0,
+        ]);
+
+        return (int) $account->id;
     }
 
     private function findUserByMobile(string $mobile): ?User
