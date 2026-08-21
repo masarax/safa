@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\AccountContextController;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\ReleaseUpdateController;
 use App\Http\Controllers\RemoteBusinessController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\SupplierController;
@@ -63,11 +62,6 @@ foreach ([
         abort(404);
     });
 }
-
-Route::middleware('throttle:20,1')->group(function () {
-    Route::get('/update', [ReleaseUpdateController::class, 'show'])->name('release.update.show');
-    Route::post('/update/run', [ReleaseUpdateController::class, 'run'])->middleware('throttle:5,1')->name('release.update.run');
-});
 
 Route::get('/', fn (Request $request) => $request->user() ? redirect()->route('safa.app') : redirect()->route('safa.login'));
 Route::middleware('guest')->group(function () {
