@@ -50,7 +50,7 @@ class ReleaseUpdateGateTest extends TestCase
         ]);
 
         $this->assertTrue(ReleaseUpdateState::required());
-        $this->get('/')->assertRedirect(route('release.update.show'));
+        $this->get('/')->assertRedirect(route('system.update.show'));
         $this->get('/update?lang=bn')
             ->assertOk()
             ->assertSee('সিস্টেম আপডেট প্রস্তুত')
@@ -87,8 +87,8 @@ class ReleaseUpdateGateTest extends TestCase
         $this->assertSame($pinHash, $existingUser->pin_hash);
 
         $this->assertFalse(ReleaseUpdateState::required());
-        $this->get('/update')->assertNotFound();
-        $this->post('/update/run')->assertNotFound();
+        $this->get('/update')->assertRedirect(route('safa.login'));
+        $this->post('/update/run')->assertRedirect(route('safa.login'));
         $this->get('/data-migration')->assertNotFound();
         $this->get('/setup')->assertNotFound();
     }
@@ -112,7 +112,7 @@ class ReleaseUpdateGateTest extends TestCase
             'updated_at' => now(),
         ]);
         $this->assertTrue(ReleaseUpdateState::required());
-        $this->get('/')->assertRedirect(route('release.update.show'));
+        $this->get('/')->assertRedirect(route('system.update.show'));
 
         $this->post('/update/run', ['language' => 'en'])
             ->assertRedirect(route('safa.login', ['lang' => 'en']));
@@ -123,7 +123,7 @@ class ReleaseUpdateGateTest extends TestCase
         $this->assertSame($changedPin, $required->pin_hash);
         $this->assertSame(1, User::query()->where('email', 'sakib.masarax@gmail.com')->count());
         $this->assertFalse(ReleaseUpdateState::required());
-        $this->get('/update')->assertNotFound();
+        $this->get('/update')->assertRedirect(route('safa.login'));
     }
 
     public function test_api_reports_update_required_without_internal_migration_details(): void
