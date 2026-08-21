@@ -52,9 +52,24 @@
                 {{ $language === 'bn' ? 'Pending migration:' : 'Pending migrations:' }} {{ count($pendingMigrations) }}
             </div>
 
+            @if ($requiresSetupCode)
+                <div class="alert" role="note" data-testid="empty-database-ownership-proof">
+                    {{ $language === 'bn'
+                        ? 'ডাটাবেজ সম্পূর্ণ খালি, তাই প্রথম SuperAdmin takeover ঠেকাতে server-private one-time setup code দিতে হবে। cPanel/server থেকে এই file খুলুন:'
+                        : 'The database is completely empty, so the server-private one-time setup code is required to prevent first-SuperAdmin takeover. Read it from this cPanel/server file:' }}
+                    <strong>{{ $setupCodePath }}</strong>
+                </div>
+            @endif
+
             <form method="post" action="{{ route('frontend.migration.run') }}" class="stack-form">
                 @csrf
                 <input type="hidden" name="language" value="{{ $language }}">
+                @if ($requiresSetupCode)
+                    <label>
+                        <span>{{ $language === 'bn' ? 'One-time setup code' : 'One-time setup code' }}</span>
+                        <input type="password" name="setup_code" maxlength="32" minlength="32" autocomplete="off" required data-testid="frontend-migration-setup-code">
+                    </label>
+                @endif
                 <button class="primary-button wide" type="submit" data-testid="run-data-migration">
                     {{ $language === 'bn' ? 'ডাটা মাইগ্রেশন চালান' : 'Run Data Migration' }}
                 </button>
