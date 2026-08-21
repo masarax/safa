@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Http\Controllers\DatabaseUpdateController;
+use App\Support\FirstRunSetupState;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,9 +18,42 @@ class CheckInstalled
 
         $path = ltrim($request->path(), '/');
 
-        // First installation is CLI-owned. Public installer/recovery surfaces are
-        // permanently retired and must remain indistinguishable from missing URLs.
+        // Legacy installer/recovery endpoints stay permanently retired. The new
+        // first-run surface uses a separate state-gated URL and cannot be reused
+        // for ordinary future migrations.
         if ($this->isRetiredInstallerPath($path)) {
+            return $this->notFound($request);
+        }
+
+        if ($this->isPublicAssetPath($path)) {
+            return $next($request);
+        }
+
+        if (FirstRunSetupState::databaseInitializationRequired()) {
+            if ($path === 'setup/database') {
+                return $next($request);
+            }
+
+            return $this->setupRequired($request, 'database');
+        }
+
+        if (FirstRunSetupState::adminCompletionRequired()) {
+            // The migration action is hard-closed immediately after migrations
+            // complete. Only the first-admin completion step remains available.
+            if ($path === 'setup/database') {
+                return $this->notFound($request);
+            }
+            if ($path === 'setup/admin') {
+                return $next($request);
+            }
+
+            return $this->setupRequired($request, 'admin');
+        }
+
+        // Once installation is complete, first-run URLs are indistinguishable
+        // from routes that never existed and can never become public again merely
+        // because a future release has pending migrations.
+        if ($path === 'setup/database' || $path === 'setup/admin' || str_starts_with($path, 'setup/')) {
             return $this->notFound($request);
         }
 
@@ -51,12 +85,29 @@ class CheckInstalled
         return $next($request);
     }
 
-    private function isUpdateExemptPath(string $path): bool
+    private function setupRequired(Request $request, string $phase): Response
     {
-        if ($path === 'login' || $path === 'logout' || $path === 'update' || str_starts_with($path, 'update/')) {
-            return true;
+        if ($request->expectsJson() || $request->is('api/*') || $request->is('app/api/*')) {
+            return response()->json([
+                'status' => 'setup_required',
+                'message' => 'First-run setup is required.',
+                'phase' => $phase,
+            ], 503);
         }
 
+        return redirect()->route($phase === 'database' ? 'setup.database.show' : 'setup.admin.show');
+    }
+
+    private function isUpdateExemptPath(string $path): bool
+    {
+        return $path === 'login'
+            || $path === 'logout'
+            || $path === 'update'
+            || str_starts_with($path, 'update/');
+    }
+
+    private function isPublicAssetPath(string $path): bool
+    {
         foreach ([
             'safa-logo.png',
             'favicon.svg',

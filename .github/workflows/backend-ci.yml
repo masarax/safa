@@ -122,9 +122,15 @@ jobs:
         working-directory: backend
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Migrate clean MySQL database
+      - name: Smoke first-run browser bootstrap on empty MySQL
         working-directory: backend
-        run: php artisan migrate --force --no-interaction
+        env:
+          SAFA_MYSQL_FIRST_RUN_SMOKE: '1'
+        run: php -d memory_limit=1G -d max_execution_time=0 artisan test --no-coverage --do-not-cache-result --filter=FirstRunDatabaseBootstrapMySqlTest
+
+      - name: Reset and migrate clean MySQL database
+        working-directory: backend
+        run: php artisan migrate:fresh --force --no-interaction
 
       - name: Run full test suite on MySQL
         working-directory: backend
