@@ -25,16 +25,23 @@ class CheckApiSecurityKey
             return response()->json(['message' => 'Unauthorized. Missing API client key.'], 401);
         }
 
-        $keyRecord = SafaApiKey::where('api_key', $apiKey)
-            ->where('is_active', true)
-            ->first();
+        $configuredKey = trim((string) config('safa.mobile_client_key', ''));
+        $canonicalKey = trim((string) config('safa.canonical_mobile_client_key', 'safa_key_public_client_id'));
+        $isConfiguredMobileClient = ($configuredKey !== '' && hash_equals($configuredKey, $apiKey))
+            || ($canonicalKey !== '' && hash_equals($canonicalKey, $apiKey));
 
-        if (!$keyRecord) {
-            Log::warning('SAFA API client rejected.', [
-                'ip' => $request->ip(),
-                'client' => $request->header('X-SAFA-CLIENT'),
-            ]);
-            return response()->json(['message' => 'Unauthorized. Invalid API client key.'], 401);
+        if (!$isConfiguredMobileClient) {
+            $keyRecord = SafaApiKey::where('api_key', $apiKey)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$keyRecord) {
+                Log::warning('SAFA API client rejected.', [
+                    'ip' => $request->ip(),
+                    'client' => $request->header('X-SAFA-CLIENT'),
+                ]);
+                return response()->json(['message' => 'Unauthorized. Invalid API client key.'], 401);
+            }
         }
 
         return $next($request);
