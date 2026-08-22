@@ -57,6 +57,8 @@ class SyncCursorPaginationTest extends TestCase
         $first->assertJsonPath('protocol', 'cursor-v1');
         $first->assertJsonPath('cursor', 0);
         $first->assertJsonPath('has_more', true);
+        $permissionScope = (string) $first->json('permission_scope');
+        $this->assertSame(64, strlen($permissionScope));
         $this->assertCount(2, $first->json('customers'));
         $cursor = (int) $first->json('next_cursor');
         $this->assertGreaterThan(0, $cursor);
@@ -65,6 +67,7 @@ class SyncCursorPaginationTest extends TestCase
         $replay = $this->getSync('cursor=0&per_page=2')->assertOk();
         $this->assertSame($first->json('customers'), $replay->json('customers'));
         $this->assertSame($first->json('next_cursor'), $replay->json('next_cursor'));
+        $this->assertSame($permissionScope, $replay->json('permission_scope'));
 
         $second = $this->getSync("cursor={$cursor}&per_page=2")->assertOk();
         $second->assertJsonPath('has_more', false);
@@ -76,6 +79,7 @@ class SyncCursorPaginationTest extends TestCase
         $idle = $this->getSync("cursor={$finalCursor}&per_page=2")->assertOk();
         $idle->assertJsonPath('next_cursor', $finalCursor);
         $idle->assertJsonPath('has_more', false);
+        $this->assertSame($permissionScope, $idle->json('permission_scope'));
         $this->assertSame([], $idle->json('customers'));
         $this->assertSame([], $idle->json('transactions'));
         $this->assertSame([], $idle->json('suppliers'));
