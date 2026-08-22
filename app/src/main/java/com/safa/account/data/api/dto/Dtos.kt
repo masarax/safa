@@ -34,7 +34,28 @@ data class SyncDownResponse(
     @Json(name = "page") val page: Int = 1,
     @Json(name = "per_page") val perPage: Int = 100,
     @Json(name = "has_more") val hasMore: Boolean = false,
+    @Json(name = "snapshot_cursor") val snapshotCursor: Long = 0L,
     @Json(name = "meta") val meta: Map<String, Any?> = emptyMap()
+)
+@JsonClass(generateAdapter = true)
+data class SyncChange(
+    @Json(name = "cursor") val cursor: Long,
+    @Json(name = "entity") val entity: String,
+    @Json(name = "row") val row: Map<String, Any?>
+)
+@JsonClass(generateAdapter = true)
+data class SyncDeltaResponse(
+    @Json(name = "status") val status: String = "success",
+    @Json(name = "account_id") val accountId: Int? = null,
+    @Json(name = "server_time") val serverTime: Long? = null,
+    @Json(name = "cursor") val cursor: Long = 0L,
+    @Json(name = "floor_cursor") val floorCursor: Long = 0L,
+    @Json(name = "next_cursor") val nextCursor: Long = 0L,
+    @Json(name = "has_more") val hasMore: Boolean = false,
+    @Json(name = "reset_required") val resetRequired: Boolean = false,
+    @Json(name = "changes") val changes: List<SyncChange> = emptyList(),
+    @Json(name = "permissions") val permissions: Map<String, Any?> = emptyMap(),
+    @Json(name = "user_permissions") val userPermissions: Map<String, Any?> = emptyMap()
 )
 @JsonClass(generateAdapter = true)
 data class GraphQlRequest(@Json(name = "query") val query: String, @Json(name = "variables") val variables: Map<String, Any?>? = null, @Json(name = "operationName") val operationName: String? = null)
