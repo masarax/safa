@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <!-- Benchmark-only local shell. It renders production screens with
+             synthetic local identity and is absent from debug/release APKs. -->
+        <activity
+            android:name="com.safa.account.benchmark.BenchmarkHostActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MyApplication" />
+
         <!-- Benchmark-only IPC surface. This source set is absent from debug and
              production release APKs; it lets the separate Macrobenchmark process
              ask the target app process to seed its own encrypted LocalFirstStore. -->
