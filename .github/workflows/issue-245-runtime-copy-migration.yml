@@ -58,21 +58,21 @@ jobs:
               return f"t('{key}')"
 
           migrated, count = pair.subn(replacement, source)
-          if count == 0:
-              if 'text(' in source:
-                  raise SystemExit('No supported literal pairs migrated but text(...) remains.')
-              print('Runtime copy already migrated.')
-              raise SystemExit(0)
-
           old = "  const bn = app.dataset.language === 'bn';\n  const text = (en, bengali) => bn ? bengali : en;"
           new = "  let copy = {};\n  try { copy = JSON.parse(app.dataset.webCopy || '{}'); } catch (_) { copy = {}; }\n  const t = key => String(copy[key] ?? key);"
-          if old not in migrated:
-              raise SystemExit('Expected bilingual helper declaration not found.')
+          if count == 0 or old not in migrated:
+              raise SystemExit('Expected literal pairs/helper declaration not found.')
           migrated = migrated.replace(old, new, 1)
 
-          if 'text(' in migrated:
+          leftovers = [line.strip() for line in migrated.splitlines() if 'text(' in line]
+          if leftovers:
+              print('Unsupported text(...) forms:', flush=True)
+              print('\n'.join(leftovers[:80]), flush=True)
               raise SystemExit('Unmigrated text(...) calls remain.')
-          if re.search(r'[\u0980-\u09FF]', migrated):
+          bangla = [line.strip() for line in migrated.splitlines() if re.search(r'[\u0980-\u09FF]', line)]
+          if bangla:
+              print('Bangla literals outside migrated text(...) pairs:', flush=True)
+              print('\n'.join(bangla[:80]), flush=True)
               raise SystemExit('Bangla literals remain in safa-web.js.')
 
           def php_quote(value: str) -> str:
