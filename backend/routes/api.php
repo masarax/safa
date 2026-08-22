@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\SyncPageController;
 use App\Http\Controllers\SyncDeltaController;
+use App\Http\Controllers\LegacySyncDownController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\AuthJWTController;
 use App\Http\Controllers\SecureAuthController;
@@ -89,7 +90,7 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
 });
 
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:api'])->group(function () {
-    Route::get('/sync/down', [SyncController::class, 'syncDown']);
+    Route::get('/sync/down', LegacySyncDownController::class);
     Route::get('/sync/changes', SyncDeltaController::class);
     Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
