@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class SyncReconciliationService
 {
+    private const DB_TRANSACTION_ATTEMPTS = 3;
+
     public function __construct(private readonly TransactionWalletAccounting $walletAccounting) {}
 
     public function apply(int $accountId, string $entity, string $modelClass, array $payload, callable $attributes, ?callable $validate = null, ?string $defaultOperation = null): array
@@ -56,6 +58,11 @@ class SyncReconciliationService
                     if ($baseVersion === null && isset($payload['timestamp']) && (int) ($record->timestamp ?? 0) > (int) $incomingTimestamp) return $this->legacyStaleAck($entity, $localId, $record, $mutationId, $operation);
                 } elseif ($baseVersion !== null && $baseVersion > 0) return $this->rejected($entity, $localId, 'Referenced server version does not exist', 'STALE_BASE_VERSION', $mutationId);
 
+                // Snapshot the old transaction before applying prospective data.
+                // The accounting service uses only persisted wallet/status/amount
+                // attributes from this immutable transition side.
+                $existingTransaction = $record instanceof Transaction && $record->exists ? clone $record : null;
+
                 $record ??= new $modelClass();
                 $record->account_id = $accountId;
                 $record->local_id = $localId;
@@ -68,10 +75,6 @@ class SyncReconciliationService
                 }
                 if ($data instanceof \Throwable) return $this->rejected($entity, $localId, 'A referenced record could not be synchronized.', 'DEPENDENCY', $mutationId);
 
-                if ($record instanceof Transaction && $record->exists) {
-                    $this->walletAccounting->restoreExisting($record, $accountId);
-                }
-
                 foreach ($data as $key => $value) $record->{$key} = $value;
                 $record->timestamp = $incomingTimestamp;
                 $nextVersion = (int) ($record->sync_version ?? 0) + 1;
@@ -80,12 +83,13 @@ class SyncReconciliationService
                 $deleting = $operation === 'DELETE' || $this->isDeleted($payload);
                 $record->deleted_at = $deleting ? ($this->parseDeletedAt($payload['deleted_at'] ?? null) ?? now()) : null;
 
-                if ($record instanceof Transaction && !$deleting) {
-                    $this->walletAccounting->debitNew(
+                if ($record instanceof Transaction) {
+                    $this->walletAccounting->applyTransition(
+                        $existingTransaction,
                         $accountId,
-                        $record->wallet_batch_id ? (int) $record->wallet_batch_id : null,
-                        $record->amount_bdt ?? '0.00',
-                        (string) ($record->type ?? 'Pending'),
+                        $deleting ? null : ($record->wallet_batch_id ? (int) $record->wallet_batch_id : null),
+                        $deleting ? '0.00' : ($record->amount_bdt ?? '0.00'),
+                        $deleting ? 'Cancelled' : (string) ($record->type ?? 'Delivered'),
                     );
                 }
 
@@ -93,7 +97,7 @@ class SyncReconciliationService
                 $accepted = ['local_id' => $localId, 'server_id' => (int) $record->id, 'sync_version' => $nextVersion, 'mutation_id' => $mutationId, 'operation' => $operation, 'server_deleted' => $record->deleted_at !== null];
                 SyncMutation::create(['account_id' => $accountId, 'mutation_id' => $mutationId, 'entity' => $entity, 'local_id' => $localId, 'server_id' => (int) $record->id, 'operation' => $operation, 'sync_version' => $nextVersion, 'response' => $accepted]);
                 return ['status' => 'accepted', 'accepted' => $accepted];
-            });
+            }, self::DB_TRANSACTION_ATTEMPTS);
         } catch (DomainException $e) {
             return $this->rejected($entity, $localId, $e->getMessage(), 'VALIDATION', $mutationId);
         }
