@@ -53,6 +53,20 @@ class FeatureArchitectureContractTest {
     @Test
     fun `customer use case stays infrastructure independent`() {
         val source = rootFile("app/src/main/java/com/safa/account/domain/feature/customer/CustomerUseCase.kt").readText()
+        assertFeatureUseCaseIsInfrastructureIndependent("Customer", source)
+        assertTrue(source.contains("class CustomerUseCase("))
+        assertTrue(source.contains("private val repository: CustomerRepository"))
+    }
+
+    @Test
+    fun `supplier use case stays infrastructure independent`() {
+        val source = rootFile("app/src/main/java/com/safa/account/domain/feature/supplier/SupplierUseCase.kt").readText()
+        assertFeatureUseCaseIsInfrastructureIndependent("Supplier", source)
+        assertTrue(source.contains("class SupplierUseCase("))
+        assertTrue(source.contains("private val repository: SupplierRepository"))
+    }
+
+    private fun assertFeatureUseCaseIsInfrastructureIndependent(feature: String, source: String) {
         listOf(
             "android.",
             "androidx.",
@@ -63,10 +77,8 @@ class FeatureArchitectureContractTest {
             "LocalFirstStore",
             "org.json",
         ).forEach { forbidden ->
-            assertFalse("Customer use case must not depend on $forbidden", source.contains(forbidden))
+            assertFalse("$feature use case must not depend on $forbidden", source.contains(forbidden))
         }
-        assertTrue(source.contains("class CustomerUseCase("))
-        assertTrue(source.contains("private val repository: CustomerRepository"))
     }
 
     @Test
@@ -93,6 +105,36 @@ class FeatureArchitectureContractTest {
         ).forEach { forbidden ->
             assertFalse("Customer flow escaped the feature boundary through $forbidden", customerBusiness.contains(forbidden))
         }
+    }
+
+    @Test
+    fun `SafaViewModel delegates supplier CRUD to supplier feature boundary`() {
+        val source = rootFile("app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt").readText()
+        assertTrue(source.contains("private val supplierUseCase: SupplierUseCase"))
+        assertTrue(source.contains("featureRepositories.suppliers.items"))
+
+        val updateBlock = source.substringAfter("fun updateSupplier(").substringBefore("// Lists representing reactive Flows")
+        assertTrue(updateBlock.contains("supplierUseCase.update(supplier)"))
+        assertFalse(updateBlock.contains("repository.updateSupplier"))
+
+        val supplierBusiness = source.substringAfter("// 2. Save Supplier").substringBefore("// 3. Purchase / Deposit SAR")
+        assertTrue(supplierBusiness.contains("supplierUseCase.create("))
+        assertTrue(supplierBusiness.contains("supplierUseCase.delete("))
+        listOf(
+            "repository.insertSupplier",
+            "repository.getSupplierById",
+            "repository.softDeleteSupplierById",
+            "repository.deleteSupplierById",
+            "repository.enqueueOutbox",
+            "syncManager.getApiService().createSupplier",
+            "syncManager.getApiService().deleteSupplierApi",
+        ).forEach { forbidden ->
+            assertFalse("Supplier CRUD escaped the feature boundary through $forbidden", supplierBusiness.contains(forbidden))
+        }
+
+        val supplierFunding = source.substringAfter("// 3. Purchase / Deposit SAR").substringBefore("// --- Wallet Manual Operations ---")
+        assertTrue("Supplier funding remains a separate follow-up slice", supplierFunding.contains("repository.insertSupplierDeposit"))
+        assertTrue("Supplier funding-wallet coupling remains unchanged in this slice", supplierFunding.contains("repository.insertWalletBatch"))
     }
 
     @Test
