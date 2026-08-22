@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Account;
 use App\Models\User;
+use App\Support\ReleaseUpdateState;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Hash;
 
@@ -28,3 +29,10 @@ Account::query()->updateOrCreate(
     ['owner_user_id' => $user->id],
     ['name' => 'Accessibility Workspace', 'balance' => 0]
 );
+
+// The browser accessibility suite intentionally exercises the normal login and
+// authenticated workspace, not the release-update gate. migrate:fresh creates
+// the release-state table but does not mark the current application fingerprint
+// as applied, so make that fixture boundary explicit after all migrations and
+// deterministic seed data are in place.
+ReleaseUpdateState::markApplied();
