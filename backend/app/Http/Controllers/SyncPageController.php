@@ -49,14 +49,13 @@ class SyncPageController extends Controller
     private function cursorResponse(Request $request, int $accountId, array $permissions, int $perPage)
     {
         $cursor = max(0, (int) $request->query('cursor', 0));
-        $readable = array_keys(array_filter(
-            $this->collections,
-            function (string $model, string $entity) use ($permissions): bool {
-                $required = BusinessPermissions::readPermissionForEntity($entity);
-                return $required === null || !empty($permissions[$required]);
-            },
-            ARRAY_FILTER_USE_BOTH,
-        ));
+        $readScope = [];
+        foreach (array_keys($this->collections) as $entity) {
+            $required = BusinessPermissions::readPermissionForEntity($entity);
+            $readScope[$entity] = $required === null || !empty($permissions[$required]);
+        }
+        $readable = array_keys(array_filter($readScope));
+        $permissionScope = hash('sha256', json_encode($readScope, JSON_UNESCAPED_SLASHES));
 
         $changes = SyncChange::query()
             ->where('account_id', $accountId)
@@ -91,6 +90,7 @@ class SyncPageController extends Controller
             'cursor' => $cursor,
             'next_cursor' => $nextCursor,
             'high_water' => max($cursor, $highWater),
+            'permission_scope' => $permissionScope,
             'per_page' => $perPage,
             'has_more' => $hasMore,
             'permissions' => $permissions,
