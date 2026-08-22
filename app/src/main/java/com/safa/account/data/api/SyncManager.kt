@@ -7,6 +7,7 @@ import com.safa.account.data.local.LocalAccountBoundary
 import com.safa.account.data.repository.AppRepository
 import com.safa.account.data.sync.SyncCoordinator
 import com.safa.account.data.sync.SyncWorkScheduler
+import com.safa.account.telemetry.MobileTelemetryReporter
 import com.safa.account.utils.SafaLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,9 +94,6 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
             val authorizedIds = accounts.mapTo(HashSet()) { it.accountId }
             val savedActive = tokenManager.getActiveAccountId()
             if (savedActive != null && savedActive !in authorizedIds) {
-                // Access may have been revoked while the app was offline. Never
-                // continue showing or replaying the revoked account's cache.
-                // Security wins over preserving now-unauthorized pending data.
                 LocalAccountBoundary.destroyAccountState(tokenManager.getContext().applicationContext)
                 repository.clearLocalPresentation()
                 tokenManager.saveActiveAccountId(null)
@@ -105,9 +103,6 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
                 ?: body["active_account_id"]?.toString()?.toIntOrNull())
                 ?.takeIf { it > 0 && it in authorizedIds }
 
-            // Automatic/bootstrap activation is restricted to the server-selected
-            // context or the authenticated user's owned account. A shared account
-            // is activated only after the explicit Settings switch action.
             val automaticAccountId = serverActive
                 ?: accounts.firstOrNull { it.isOwner }?.accountId
             bootstrapAccount(automaticAccountId)
@@ -135,10 +130,6 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
                 else -> Unit
             }
             tokenManager.saveActiveAccountId(accountId)
-
-            // The old account presentation was cleared by bindAccount() before
-            // this request. If download fails, the UI remains empty rather than
-            // leaking the prior account's cached business data.
             repository.refreshAll().getOrThrow()
             accountId
         }
@@ -176,12 +167,8 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
         }
     }
 
-    /**
-     * Manual/foreground reconciliation using the same gate as WorkManager.
-     * Sync failures are returned as Result.failure instead of escaping from the
-     * facade, so the UI can never be left permanently in the Syncing state.
-     */
     suspend fun syncAll(): Result<String> {
+        val telemetryStarted = System.nanoTime()
         _syncState.value = SyncState.Syncing
         return try {
             ensureActiveAccount()
@@ -194,14 +181,17 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
                 val error = IllegalStateException("Another synchronization is active; retry shortly")
                 _syncState.value = SyncState.Error("Synchronization is already in progress")
                 SafaLogger.error("SYNC_GATE_BUSY", "Synchronization gate is already active", error)
+                MobileTelemetryReporter.recordSync(false, elapsedMs(telemetryStarted), "gate_busy")
                 Result.failure(error)
             } else {
                 _syncState.value = SyncState.Idle
+                MobileTelemetryReporter.recordSync(true, elapsedMs(telemetryStarted))
                 Result.success("Local data synchronized")
             }
         } catch (t: Throwable) {
             _syncState.value = SyncState.Error("Synchronization failed")
             SafaLogger.error("SYNC_FOREGROUND_FAILED", "Foreground synchronization failed", t)
+            MobileTelemetryReporter.recordSync(false, elapsedMs(telemetryStarted), "foreground_failed")
             Result.failure(IllegalStateException("Synchronization failed"))
         }
     }
@@ -209,9 +199,13 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
     suspend fun processOutbox(): Result<Int> = try {
         ensureActiveAccount()
         SyncCoordinator.run { repository.processOutbox() }
-            ?: Result.failure(IllegalStateException("Another synchronization is active; retry shortly"))
+            ?: run {
+                MobileTelemetryReporter.recordRetry("gate_busy")
+                Result.failure(IllegalStateException("Another synchronization is active; retry shortly"))
+            }
     } catch (t: Throwable) {
         SafaLogger.error("SYNC_OUTBOX_FAILED", "Outbox processing failed", t)
+        MobileTelemetryReporter.recordRetry("outbox_failed")
         Result.failure(IllegalStateException("Outbox processing failed"))
     }
 
@@ -224,4 +218,7 @@ class SyncManager(private val repository: AppRepository, private val tokenManage
         if (!r.isSuccessful || r.body() == null) error("GraphQL failed: ${r.code()}")
         r.body()!!
     }
+
+    private fun elapsedMs(started: Long): Long =
+        ((System.nanoTime() - started) / 1_000_000).coerceAtLeast(0)
 }

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Middleware\CheckInstalled;
+use App\Http\Middleware\ObserveRequestMiddleware;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\UseFirstRunRuntimeStores;
 use App\Http\Middleware\VerifyMultiLevelToken;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         then: function (): void {
             Route::middleware('web')->group(base_path('routes/setup.php'));
+            Route::middleware('api')->prefix('api')->group(base_path('routes/observability.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -39,6 +41,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToGroup('api', UseFirstRunRuntimeStores::class);
         $middleware->appendToGroup('web', CheckInstalled::class);
         $middleware->appendToGroup('api', CheckInstalled::class);
+        // Metrics run after installation checks and never inspect request bodies.
+        $middleware->appendToGroup('api', ObserveRequestMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
