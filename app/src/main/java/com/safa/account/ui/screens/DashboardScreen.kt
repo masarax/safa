@@ -1,4 +1,5 @@
 package com.safa.account.ui.screens
+import com.safa.account.ui.localization.AndroidStringCatalog
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -73,7 +74,7 @@ sealed class UnifiedLedgerEntry {
         override val notes: String = tx.notes
     ) : UnifiedLedgerEntry() {
         override fun getTypeLabel(lang: String): String =
-            if (lang == "BN") "কাস্টমার বিক্রয়" else "Customer Remittance"
+            AndroidStringCatalog.get(lang, "inline_dashboardscreen_cc2b773055")
     }
 
     data class SupplierTx(
@@ -347,14 +348,14 @@ fun DashboardScreen(
                     Column(modifier = Modifier.padding(12.dp)) {
                         val gridItems = listOf(
                             // Title, Icon, IconColor, Circle/Background tint color
-                            ShortcutIconItem(if (lang == "BN") "লেনদেন সমূহ" else "Transactions", Icons.Default.Send, Color(0xFFE53935), Color(0xFFFFEBEE)),
-                            ShortcutIconItem(if (lang == "BN") "আয়/ব্যায়" else "Income/Expense", Icons.Default.AccountBalanceWallet, Color(0xFFFB8C00), Color(0xFFFFF3E0)),
-                            ShortcutIconItem(if (lang == "BN") "সাপ্লায়ার" else "Supplier", Icons.Default.CompareArrows, Color(0xFF43A047), Color(0xFFE8F5E9)),
-                            ShortcutIconItem(if (lang == "BN") "আজকের রেট" else "Exchange Rates", Icons.Default.TrendingUp, Color(0xFFE91E63), Color(0xFFFCE4EC)),
-                            ShortcutIconItem(if (lang == "BN") "রিয়াল স্টক" else "Riyal Stock", Icons.Default.MonetizationOn, Color(0xFFFBC02D), Color(0xFFFFFDE7)),
-                            ShortcutIconItem(if (lang == "BN") "লাভ-ক্ষতি" else "Profit/Loss", Icons.Default.Assessment, Color(0xFF00796B), Color(0xFFE0F2F1)),
-                            ShortcutIconItem(if (lang == "BN") "সকল লেনদেন" else "All Trans.", Icons.Default.Receipt, Color(0xFF3F51B5), Color(0xFFE8EAF6)),
-                            ShortcutIconItem(if (lang == "BN") "গ্রাহকগণ" else "Customers", Icons.Default.People, Color(0xFF8D6E63), Color(0xFFEFEBE9))
+                            ShortcutIconItem(AndroidStringCatalog.get(lang, "inline_dashboardscreen_e46b1a712e"), Icons.Default.Send, Color(0xFFE53935), Color(0xFFFFEBEE)),
+                            ShortcutIconItem(AndroidStringCatalog.get(lang, "inline_dashboardscreen_4f678be02e"), Icons.Default.AccountBalanceWallet, Color(0xFFFB8C00), Color(0xFFFFF3E0)),
+                            ShortcutIconItem(AndroidStringCatalog.get(lang, "inline_dashboardscreen_dcd7c6762f"), Icons.Default.CompareArrows, Color(0xFF43A047), Color(0xFFE8F5E9)),
+                            ShortcutIconItem(AndroidStringCatalog.get(lang, "inline_dashboardscreen_41dbd04eba"), Icons.Default.TrendingUp, Color(0xFFE91E63), Color(0xFFFCE4EC)),
+                            ShortcutIconItem(AndroidStringCatalog.get(lang, "inline_dashboardscreen_b0116f6418"), Icons.Default.MonetizationOn, Color(0xFFFBC02D), Color(0xFFFFFDE7)),
+                            ShortcutIconItem(AndroidStringCatalog.get(lang, "inline_dashboardscreen_37133257c6"), Icons.Default.Assessment, Color(0xFF00796B), Color(0xFFE0F2F1)),
+                            ShortcutIconItem(AndroidStringCatalog.get(lang, "inline_dashboardscreen_8c9785fbb3"), Icons.Default.Receipt, Color(0xFF3F51B5), Color(0xFFE8EAF6)),
+                            ShortcutIconItem(AndroidStringCatalog.get(lang, "inline_dashboardscreen_534118eb79"), Icons.Default.People, Color(0xFF8D6E63), Color(0xFFEFEBE9))
                         )
 
                         val rows = gridItems.chunked(4)
@@ -456,7 +457,7 @@ fun DashboardScreen(
                                 decorationBox = { innerTextField ->
                                     if (searchQuery.isEmpty()) {
                                         Text(
-                                            text = if (lang == "BN") "লেনদেন খুঁজুন..." else "Search transactions...",
+                                            text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_ac8ecfa8ef"),
                                             style = textStyle,
                                             color = Color.Gray
                                         )
@@ -517,7 +518,7 @@ fun DashboardScreen(
             // --- UNIFIED RECENT TRANSACTION HISTORY LIST ---
             item {
                 Text(
-                    text = if (lang == "BN") "রিসেন্ট লেনদেন খাতা" else "Recent Transaction History",
+                    text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_85e2dfe329"),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = if (isDarkMode) Color.White else Color(0xFF222222)
@@ -540,7 +541,7 @@ fun DashboardScreen(
                         Icon(Icons.Default.ReceiptLong, contentDescription = "", tint = Color.Gray.copy(alpha = 0.5f), modifier = Modifier.size(40.dp))
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (lang == "BN") "কোনো লেনদেন পাওয়া যায়নি।" else "No transactions found.",
+                            text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_24c99c2141"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
                             maxLines = 1,
@@ -638,14 +639,14 @@ fun DashboardScreen(
                                                 
                                                 val rateText = when (unifiedEntry) {
                                                     is UnifiedLedgerEntry.CustomerTx -> {
-                                                        if (lang == "BN") "রেট: ${unifiedEntry.tx.customerRate}" else "Rate: ${unifiedEntry.tx.customerRate}"
+                                                        AndroidStringCatalog.get(lang, "inline_dashboardscreen_3ac9ff7d33")
                                                     }
                                                     is UnifiedLedgerEntry.SupplierTx -> {
                                                         val dep = unifiedEntry.dep
                                                         if (dep.transactionType == "BDT_SETTLEMENT") {
-                                                            if (lang == "BN") "বকেয়া পরিশোধ" else "Settle Dues"
+                                                            AndroidStringCatalog.get(lang, "inline_dashboardscreen_67979a94eb")
                                                         } else {
-                                                            if (lang == "BN") "রেট: ${dep.rate}" else "Rate: ${dep.rate}"
+                                                            AndroidStringCatalog.get(lang, "inline_dashboardscreen_2140b2a729")
                                                         }
                                                     }
                                                 }
@@ -723,7 +724,7 @@ fun DashboardScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            text = if (lang == "BN") "ব্যালেন্স শিট ও সাপ্লায়ার রিজার্ভ" else "Ledger Reserves Details",
+                            text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_4e48563aeb"),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
@@ -766,7 +767,7 @@ fun DashboardScreen(
         if (showFilterDialog) {
             AlertDialog(
                 onDismissRequest = { showFilterDialog = false },
-                title = { Text(if (lang == "BN") "কাস্টমার ফিল্টার" else "Customer List Filter", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(AndroidStringCatalog.get(lang, "inline_dashboardscreen_747578b72b"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
@@ -780,7 +781,7 @@ fun DashboardScreen(
                                 .padding(vertical = 4.dp)
                         ) {
                             RadioButton(selected = currentFilterType == "ALL", onClick = { currentFilterType = "ALL"; showFilterDialog = false })
-                            Text(if (lang == "BN") "সব কাস্টমার" else "All Customers", modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(AndroidStringCatalog.get(lang, "inline_dashboardscreen_38661b16fc"), modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -793,7 +794,7 @@ fun DashboardScreen(
                                 .padding(vertical = 4.dp)
                         ) {
                             RadioButton(selected = currentFilterType == "HAS_BALANCE", onClick = { currentFilterType = "HAS_BALANCE"; showFilterDialog = false })
-                            Text(if (lang == "BN") "বকেয়া ব্যালেন্সধারী" else "With Active Balance", modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(AndroidStringCatalog.get(lang, "inline_dashboardscreen_75fc5120d2"), modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -806,13 +807,13 @@ fun DashboardScreen(
                                 .padding(vertical = 4.dp)
                         ) {
                             RadioButton(selected = currentFilterType == "A_Z", onClick = { currentFilterType = "A_Z"; showFilterDialog = false })
-                            Text(if (lang == "BN") "বর্ণানুক্রমিক (A-Z)" else "Sort Alphabetically (A-Z)", modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(AndroidStringCatalog.get(lang, "inline_dashboardscreen_ac41617c2c"), modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = { showFilterDialog = false }) {
-                        Text(if (lang == "BN") "বন্ধ করুন" else "Close", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(AndroidStringCatalog.get(lang, "inline_dashboardscreen_715bdc02ba"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             )
@@ -824,7 +825,7 @@ fun DashboardScreen(
                 onDismissRequest = { showReportsDialog = false },
                 title = { 
                     Text(
-                        text = if (lang == "BN") "বিস্তারিত রিপোর্ট ডাউনলোড" else "Detailed Reports Center",
+                        text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_6af182cb17"),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -836,8 +837,7 @@ fun DashboardScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = if (lang == "BN") "লেনদেন খতিয়ান, লাভ-ক্ষতির হিসেব এবং ব্যবসার বিস্তারিত রিপোর্ট ডাউনলোড ও শেয়ার করুন।" 
-                                   else "Generate and download professional business ledgers, statements and P&L breakdown files.",
+                            text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_fa7c7072f9"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -845,7 +845,7 @@ fun DashboardScreen(
                         
                         // Range selection
                         Text(
-                            text = if (lang == "BN") "১. সময়সীমা নির্বাচন করুন:" else "1. Select Period Range:",
+                            text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_e03fc5482b"),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
@@ -857,9 +857,9 @@ fun DashboardScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                                 listOf("TODAY", "WEEKLY", "MONTHLY").forEach { period ->
                                     val label = when (period) {
-                                        "TODAY" -> if (lang == "BN") "আজকের" else "Today"
-                                        "WEEKLY" -> if (lang == "BN") "সাপ্তাহিক" else "Weekly"
-                                        else -> if (lang == "BN") "মাসিক" else "Monthly"
+                                        "TODAY" -> AndroidStringCatalog.get(lang, "inline_dashboardscreen_96704a4214")
+                                        "WEEKLY" -> AndroidStringCatalog.get(lang, "inline_dashboardscreen_ff0dcbd8da")
+                                        else -> AndroidStringCatalog.get(lang, "inline_dashboardscreen_2855417ce1")
                                     }
                                     val active = selectedReportPeriod == period
                                     OutlinedButton(
@@ -879,8 +879,8 @@ fun DashboardScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                                 listOf("YEARLY", "ALL").forEach { period ->
                                     val label = when (period) {
-                                        "YEARLY" -> if (lang == "BN") "বাৎসরিক" else "Yearly"
-                                        else -> if (lang == "BN") "সব সময়ের" else "All Time"
+                                        "YEARLY" -> AndroidStringCatalog.get(lang, "inline_dashboardscreen_b736f27d7f")
+                                        else -> AndroidStringCatalog.get(lang, "inline_dashboardscreen_0c6daf1df1")
                                     }
                                     val active = selectedReportPeriod == period
                                     OutlinedButton(
@@ -903,7 +903,7 @@ fun DashboardScreen(
 
                         // Format selection
                         Text(
-                            text = if (lang == "BN") "২. পিডিএফ / এক্সেল / ইমেজ ফরম্যাট:" else "2. Select File Format:",
+                            text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_cbd1524ae7"),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
@@ -1024,12 +1024,12 @@ fun DashboardScreen(
                         },
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(if (lang == "BN") "রিপোর্ট তৈরি করুন" else "Generate Statement", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(AndroidStringCatalog.get(lang, "inline_dashboardscreen_bae5e49479"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showReportsDialog = false }) {
-                        Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(AndroidStringCatalog.get(lang, "inline_dashboardscreen_56fc780ef6"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             )
@@ -1063,7 +1063,7 @@ fun DashboardScreen(
                                     Icon(Icons.Default.Check, contentDescription = "", tint = Color(0xFF2E7D32))
                                 }
                                 Text(
-                                    text = if (lang == "BN") "রিপোর্ট ডাউনলোড সফল!" else "Download Complete!",
+                                    text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_55d73b3749"),
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
@@ -1071,8 +1071,7 @@ fun DashboardScreen(
                                 )
                             }
                             Text(
-                                text = if (lang == "BN") "ফাইলটি সফলভাবে সেভ করা হয়েছে এবং প্রিন্ট করার জন্য প্রস্তুত:" 
-                                       else "Report compiled successfully. Saved to cache path:",
+                                text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_cb37085c3f"),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -1119,7 +1118,7 @@ fun DashboardScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text(if (lang == "BN") "ঠিক আছে" else "Close Viewer", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(AndroidStringCatalog.get(lang, "inline_dashboardscreen_0a940e18e2"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -1166,37 +1165,37 @@ fun ServiceShortcutGrid(
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val services = listOf(
         ShortcutItem(
-            title = if (lang == "BN") "গ্রাহকগণ" else "Customers",
+            title = AndroidStringCatalog.get(lang, "inline_dashboardscreen_534118eb79"),
             icon = Icons.Default.People,
             color = Color(0xFFF26722),
             onClick = { viewModel.navigateTo(AppScreen.CUSTOMERS) }
         ),
         ShortcutItem(
-            title = if (lang == "BN") "সাপ্লায়ার" else "Suppliers",
+            title = AndroidStringCatalog.get(lang, "inline_dashboardscreen_cc900043e7"),
             icon = Icons.Default.AccountBalance,
             color = Color(0xFF1E88E5),
             onClick = { viewModel.navigateTo(AppScreen.SUPPLIERS) }
         ),
         ShortcutItem(
-            title = if (lang == "BN") "লেনদেন সমূহ" else "All Transactions",
+            title = AndroidStringCatalog.get(lang, "inline_dashboardscreen_3af1aa3f73"),
             icon = Icons.Default.ReceiptLong,
             color = Color(0xFF43A047),
             onClick = { viewModel.navigateTo(AppScreen.TRANSACTIONS) }
         ),
         ShortcutItem(
-            title = if (lang == "BN") "খরচ ও আয়" else "Bills & Exp",
+            title = AndroidStringCatalog.get(lang, "inline_dashboardscreen_239eff0825"),
             icon = Icons.Default.LocalCafe,
             color = Color(0xFFE67E22),
             onClick = { viewModel.navigateTo(AppScreen.EXPENSES) }
         ),
         ShortcutItem(
-            title = if (lang == "BN") "রেট আপডেট" else "Update Rates",
+            title = AndroidStringCatalog.get(lang, "inline_dashboardscreen_2c88f565f2"),
             icon = Icons.Default.ShowChart,
             color = Color(0xFF8E44AD),
             onClick = onEditRatesClick
         ),
         ShortcutItem(
-            title = if (lang == "BN") "সেটিংস" else "Settings",
+            title = AndroidStringCatalog.get(lang, "inline_dashboardscreen_4624e4c22c"),
             icon = Icons.Default.Settings,
             color = Color(0xFF607D8B),
             onClick = { viewModel.navigateTo(AppScreen.SETTINGS) }
@@ -1211,7 +1210,7 @@ fun ServiceShortcutGrid(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = if (lang == "BN") "আমাদের সেবাসমূহ" else "SAFA Quick Services",
+                text = AndroidStringCatalog.get(lang, "inline_dashboardscreen_3f2399ad79"),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 12.dp),

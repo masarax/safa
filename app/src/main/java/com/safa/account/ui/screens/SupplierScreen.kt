@@ -1,4 +1,5 @@
 package com.safa.account.ui.screens
+import com.safa.account.ui.localization.AndroidStringCatalog
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -296,7 +297,7 @@ fun SupplierScreen(
                         Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (lang == "BN") "নতুন" else "Add",
+                            text = AndroidStringCatalog.get(lang, "inline_supplierscreen_ef81a9abb6"),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -309,7 +310,7 @@ fun SupplierScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        placeholder = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_05de0a5d74"), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "", modifier = Modifier.size(20.dp)) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -354,7 +355,7 @@ fun SupplierScreen(
                     ) {
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(
-                                text = if (lang == "BN") "⚙️ ফিল্টার ও সেটিংস" else "⚙️ Filter & Settings",
+                                text = AndroidStringCatalog.get(lang, "inline_supplierscreen_c536aa9e37"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
@@ -367,7 +368,7 @@ fun SupplierScreen(
                                 // Sort Option Dropdown
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (lang == "BN") "বাছাই করুন" else "Sort By",
+                                        text = AndroidStringCatalog.get(lang, "inline_supplierscreen_2e5ccb86a1"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
                                         modifier = Modifier.padding(bottom = 2.dp),
@@ -384,10 +385,10 @@ fun SupplierScreen(
                                         ) {
                                             Text(
                                                 text = when (selectedSortOption) {
-                                                    "Oldest" -> if (lang == "BN") "পুরাতন প্রথম" else "Oldest First"
-                                                    "A-Z" -> if (lang == "BN") "নাম A-Z" else "Name A-Z"
-                                                    "Balance" -> if (lang == "BN") "সর্বোচ্চ ব্যালেন্স" else "Highest Balance"
-                                                    else -> if (lang == "BN") "নতুন প্রথম" else "Newest First"
+                                                    "Oldest" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_4826fcae74")
+                                                    "A-Z" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_c2fbef9c22")
+                                                    "Balance" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_1c4720b4ca")
+                                                    else -> AndroidStringCatalog.get(lang, "inline_supplierscreen_f93797f985")
                                                 },
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
@@ -404,10 +405,10 @@ fun SupplierScreen(
                                                     text = {
                                                         Text(
                                                             when (option) {
-                                                                "Oldest" -> if (lang == "BN") "পুরাতন প্রথম" else "Oldest First"
-                                                                "A-Z" -> if (lang == "BN") "নাম A-Z" else "Name A-Z"
-                                                                "Balance" -> if (lang == "BN") "সর্বোচ্চ ব্যালেন্স" else "Highest Balance"
-                                                                else -> if (lang == "BN") "নতুন প্রথম" else "Newest First"
+                                                                "Oldest" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_4826fcae74")
+                                                                "A-Z" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_c2fbef9c22")
+                                                                "Balance" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_1c4720b4ca")
+                                                                else -> AndroidStringCatalog.get(lang, "inline_supplierscreen_f93797f985")
                                                             },
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
@@ -426,7 +427,7 @@ fun SupplierScreen(
                                 // Filter Status Option Dropdown
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (lang == "BN") "ফিল্টার ক্যাটাগরি" else "Filter Balance",
+                                        text = AndroidStringCatalog.get(lang, "inline_supplierscreen_b9f7414f68"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
                                         modifier = Modifier.padding(bottom = 2.dp),
@@ -443,9 +444,9 @@ fun SupplierScreen(
                                         ) {
                                             Text(
                                                 text = when (selectedFilterStatus) {
-                                                    "Has Balance" -> if (lang == "BN") "শুধু ব্যালেন্স জমা" else "Has Active Deposit"
-                                                    "Owing" -> if (lang == "BN") "শুধু বাকি/পাওনা" else "Owing Liability"
-                                                    else -> if (lang == "BN") "সব সাপ্লায়ার" else "All Suppliers"
+                                                    "Has Balance" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_63c0e8ec71")
+                                                    "Owing" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_f1811a120c")
+                                                    else -> AndroidStringCatalog.get(lang, "inline_supplierscreen_e5bf76fd01")
                                                 },
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
@@ -462,9 +463,9 @@ fun SupplierScreen(
                                                     text = {
                                                         Text(
                                                             when (option) {
-                                                                "Has Balance" -> if (lang == "BN") "শুধু ব্যালেন্স জমা" else "Has Active Deposit"
-                                                                "Owing" -> if (lang == "BN") "শুধু বাকি/পাওনা" else "Owing Liability"
-                                                                else -> if (lang == "BN") "সব সাপ্লায়ার" else "All Suppliers"
+                                                                "Has Balance" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_63c0e8ec71")
+                                                                "Owing" -> AndroidStringCatalog.get(lang, "inline_supplierscreen_f1811a120c")
+                                                                else -> AndroidStringCatalog.get(lang, "inline_supplierscreen_e5bf76fd01")
                                                             },
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
@@ -494,7 +495,7 @@ fun SupplierScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Default.CorporateFare, contentDescription = "", modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.outline)
                             Text(
-                                text = if (lang == "BN") "কোনো সাপ্লায়ার প্রোফাইল নেই।" else "No suppliers registered.",
+                                text = AndroidStringCatalog.get(lang, "inline_supplierscreen_43495a73fa"),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.outline,
                                 maxLines = 1,
@@ -589,11 +590,11 @@ fun SupplierScreen(
                                             val isReceivable = currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD
                                             Text(
                                                 text = if (isDue) {
-                                                    if (lang == "BN") "বকেয়া" else "Due"
+                                                    AndroidStringCatalog.get(lang, "inline_supplierscreen_f6fecd5981")
                                                 } else if (isReceivable) {
-                                                    if (lang == "BN") "পাওনা" else "Receivable"
+                                                    AndroidStringCatalog.get(lang, "inline_supplierscreen_f24d0fcd08")
                                                 } else {
-                                                    if (lang == "BN") "কোনো বকেয়া নেই" else "No Due"
+                                                    AndroidStringCatalog.get(lang, "inline_supplierscreen_9c9bcc517c")
                                                 },
                                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                                 color = if (isDue) Color(0xFFD32F2F) else if (isReceivable) Color(0xFF1565C0) else Color(0xFF2E7D32),
@@ -625,7 +626,7 @@ fun SupplierScreen(
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = if (lang == "BN") "সর্বমোট রিয়াল জমা" else "Total Riyal Deposited",
+                                                text = AndroidStringCatalog.get(lang, "inline_supplierscreen_2a988aeadb"),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.outline,
                                                 maxLines = 1,
@@ -641,7 +642,7 @@ fun SupplierScreen(
                                         }
                                         Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = if (lang == "BN") "সর্বমোট টাকা ক্রয়" else "Total Taka Buy",
+                                                text = AndroidStringCatalog.get(lang, "inline_supplierscreen_0512afd425"),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.outline,
                                                 maxLines = 1,
@@ -790,7 +791,7 @@ fun SupplierProfileView(
 
     val ledgerByDate = remember(unifiedLedger, lang) {
         unifiedLedger.groupBy {
-            val sdf = SimpleDateFormat(if (lang == "BN") "d MMMM, yyyy" else "MMMM d, yyyy", Locale.US)
+            val sdf = SimpleDateFormat(AndroidStringCatalog.get(lang, "inline_supplierscreen_d306b6ced4"), Locale.US)
             sdf.format(Date(it.timestamp))
         }
     }
@@ -884,7 +885,7 @@ fun SupplierProfileView(
                 }
                 Column {
                     Text(
-                        text = if (lang == "BN") "সাপ্লায়ার খাতা প্রোফাইল" else "Supplier Pool Profile",
+                        text = AndroidStringCatalog.get(lang, "inline_supplierscreen_ed1269c465"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
@@ -895,7 +896,7 @@ fun SupplierProfileView(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (lang == "BN") "পিছনে ফিরে যেতে এখানে চাপুন" else "Tap here to go back",
+                        text = AndroidStringCatalog.get(lang, "inline_supplierscreen_2f88198b4e"),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -989,7 +990,7 @@ fun SupplierProfileView(
                                     )
                                 } else {
                                     Text(
-                                        text = if (lang == "BN") "লোগো কাস্টমাইজ করুন:" else "Customize logo:",
+                                        text = AndroidStringCatalog.get(lang, "inline_supplierscreen_75ac1c1202"),
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -1006,7 +1007,7 @@ fun SupplierProfileView(
                                 ) {
                                     Icon(Icons.Filled.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (lang == "BN") "নতুন লেনদেন" else "New Transaction", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_4de7f1d1cc"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1037,11 +1038,11 @@ fun SupplierProfileView(
                                     )
                                     Text(
                                         text = if (currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD) {
-                                            if (lang == "BN") "আমি পাবো / পাওনা (BDT)" else "Receivable (BDT)"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_dc891852e7")
                                         } else if (currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()) {
-                                            if (lang == "BN") "আমি দেবো / বকেয়া (BDT)" else "Payable (BDT)"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_b0900dd70c")
                                         } else {
-                                            if (lang == "BN") "কোনো বকেয়া নেই" else "No Due"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_9c9bcc517c")
                                         },
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                         color = if (currentSupplierBdtDue < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFC62828) else if (currentSupplierBdtDue > MONEY_VISIBILITY_THRESHOLD) Color(0xFF1565C0) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -1121,7 +1122,7 @@ fun SupplierProfileView(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (lang == "BN") "লেনদেন সমূহ" else "Transactions",
+                                text = AndroidStringCatalog.get(lang, "inline_supplierscreen_3ed233d7d2"),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
                                 color = tab1Text,
                                 maxLines = 1
@@ -1139,7 +1140,7 @@ fun SupplierProfileView(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (lang == "BN") "প্রোফাইল তথ্য" else "Profile Info",
+                                text = AndroidStringCatalog.get(lang, "inline_supplierscreen_8988bfe173"),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
                                 color = tab3Text,
                                 maxLines = 1
@@ -1165,7 +1166,7 @@ fun SupplierProfileView(
                             OutlinedTextField(
                                 value = editName,
                                 onValueChange = { editName = it },
-                                label = { Text(if (lang == "BN") "সাপ্লায়ার নাম" else "Supplier Name") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_5141b71288")) },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
@@ -1174,7 +1175,7 @@ fun SupplierProfileView(
                             OutlinedTextField(
                                 value = editPhone,
                                 onValueChange = { editPhone = it },
-                                label = { Text(if (lang == "BN") "ফোন" else "Phone Number") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_f2bbe60951")) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 shape = RoundedCornerShape(12.dp),
@@ -1184,7 +1185,7 @@ fun SupplierProfileView(
                             OutlinedTextField(
                                 value = editAddress,
                                 onValueChange = { editAddress = it },
-                                label = { Text(if (lang == "BN") "ঠিকানা" else "Office Address") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_10da88c485")) },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
@@ -1193,7 +1194,7 @@ fun SupplierProfileView(
                             OutlinedTextField(
                                 value = editLicense,
                                 onValueChange = { editLicense = it },
-                                label = { Text(if (lang == "BN") "ট্রেড লাইসেন্স / রেজিঃ" else "Trade License / Tax ID") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_602f6d2b8b")) },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
@@ -1202,7 +1203,7 @@ fun SupplierProfileView(
                             OutlinedTextField(
                                 value = editNotes,
                                 onValueChange = { editNotes = it },
-                                label = { Text(if (lang == "BN") "অভ্যন্তরীণ খাতা নোটস" else "Secure Ledger Notes") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_103e46851d")) },
                                 minLines = 2,
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
@@ -1225,7 +1226,7 @@ fun SupplierProfileView(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "ব্যবসা ও সিকিউরিটি প্রোফাইল" else "Business & Security Coordinates",
+                                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_b568fb019a"),
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -1250,12 +1251,12 @@ fun SupplierProfileView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (lang == "BN") "লেনদেন ও হিসাব খাতা" else "Supplier Fund Registry Audit",
+                            text = AndroidStringCatalog.get(lang, "inline_supplierscreen_ddf2b3c1cd"),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.secondary
                         )
                         Text(
-                            text = if (lang == "BN") "ডিপোজিট: ${deposits.size} টি" else "Records: ${deposits.size}",
+                            text = AndroidStringCatalog.get(lang, "inline_supplierscreen_1ecd7cf635"),
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -1266,7 +1267,7 @@ fun SupplierProfileView(
                     item {
                         Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
                             Text(
-                                text = if (lang == "BN") "কোনো ডিপোজিট রেকর্ড পাওয়া যায়নি।" else "No deposits or fund records found.",
+                                text = AndroidStringCatalog.get(lang, "inline_supplierscreen_2e6091ffc9"),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -1309,9 +1310,9 @@ fun SupplierProfileView(
                                         val isReceived = ledgerItem.transactionType == "SAR_RECEIVED" || ledgerItem.transactionType == "SAR_SETTLEMENT"
                                         val isSettlement = ledgerItem.transactionType == "BDT_SETTLEMENT"
                                         val labelText = if (isSettlement) {
-                                            if (lang == "BN") "বকেয়া পরিশোধ" else "Dues Settled"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_20f7ff3a94")
                                         } else {
-                                            if (lang == "BN") "রিয়াল ক্রয় (Deposit)" else "Riyal Purchase"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_38c07c0400")
                                         }
                                         val labelColor = if (isSettlement) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                                         val amountSign = if (isSettlement) "-" else "+"
@@ -1375,11 +1376,11 @@ fun SupplierProfileView(
                                                     val dueBdt = MoneyMath.subtract(ledgerItem.amountBdt, ledgerItem.paidBdt)
                                                     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                            Text(text = if (lang == "BN") "সর্বমোট (BDT):" else "Total (BDT):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                            Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_bc2880aab4"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                             Text(text = "৳${currencyFormatter.format(ledgerItem.amountBdt)}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                         }
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                            Text(text = if (lang == "BN") "পরিশোধিত (BDT):" else "Paid (BDT):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                            Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_0c5f5eb77b"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                             Text(text = "৳${currencyFormatter.format(ledgerItem.paidBdt)}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                                         }
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1408,7 +1409,7 @@ fun SupplierProfileView(
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Text(
-                                                        text = if (lang == "BN") "ফান্ড হিসাব সংশোধন / ডিলিট" else "Fund adjustment / Delete",
+                                                        text = AndroidStringCatalog.get(lang, "inline_supplierscreen_b9d74e5b2c"),
                                                         fontSize = 11.sp,
                                                         color = MaterialTheme.colorScheme.outline,
                                                         fontWeight = FontWeight.Bold
@@ -1455,7 +1456,7 @@ fun SupplierProfileView(
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Column(modifier = Modifier.weight(1f)) {
-                                                        Text(text = if (lang == "BN") "বিতরণ (লেনদেন)" else "Routed Transfer", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFFC62828))
+                                                        Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_d303cb3757"), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFFC62828))
                                                         Text(text = "Rcv: ${ledgerItem.receiverName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                         Text(text = "Status: ${ledgerItem.status} | Time: ${SimpleDateFormat("hh:mm a", Locale.US).format(Date(ledgerItem.timestamp))}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                         
@@ -1519,15 +1520,15 @@ fun SupplierProfileView(
                                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                                     ) {
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                            Text(text = if (lang == "BN") "একাউন্ট নম্বর:" else "Account Number:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                            Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_067fa2529a"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                             Text(text = "${tx.receiverAccountNo} (${tx.receiverAccountType})", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                         }
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                            Text(text = if (lang == "BN") "সাপ্লায়ার রেট:" else "Supplier Rate:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                            Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_5642bd2e18"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                             Text(text = "${tx.supplierRate}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                         }
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                            Text(text = if (lang == "BN") "গ্রাহক রেট:" else "Customer Rate:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                            Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_e64b77d09a"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                         }
 
                                                         Spacer(modifier = Modifier.height(4.dp))
@@ -1538,7 +1539,7 @@ fun SupplierProfileView(
                                                         
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                             Column {
-                                                                Text(text = if (lang == "BN") "রিয়াল গ্রহণ (SAR):" else "Riyal Collected (SAR):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                                Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_4823b7177d"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                                 Text(text = "${tx.sarCollected} / ${tx.amountSar} ${foreignCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= MONEY_VISIBILITY_THRESHOLD) Color(0xFF2E7D32) else Color(0xFFE65100))
                                                             }
                                                             if (sarDue > MONEY_VISIBILITY_THRESHOLD) {
@@ -1550,14 +1551,14 @@ fun SupplierProfileView(
                                                                     contentPadding = PaddingValues(horizontal = 10.dp),
                                                                     modifier = Modifier.height(24.dp)
                                                                 ) {
-                                                                    Text(if (lang == "BN") "আদায় সম্পন্ন" else "Collect All", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                                    Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_4a3088e0bf"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                                                 }
                                                             }
                                                         }
                                                         
                                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                             Column {
-                                                                Text(text = if (lang == "BN") "বিতরণ (BDT):" else "Disbursed BDT:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                                Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_a8096459f7"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                                 Text(text = "৳ ${DecimalFormat("#,##0").format(tx.bdtDisbursed)} / ৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} ${localCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (bdtDue <= MONEY_VISIBILITY_THRESHOLD) Color(0xFF2E7D32) else Color(0xFF254B8C))
                                                             }
                                                             if (bdtDue > MONEY_VISIBILITY_THRESHOLD) {
@@ -1569,7 +1570,7 @@ fun SupplierProfileView(
                                                                     contentPadding = PaddingValues(horizontal = 10.dp),
                                                                     modifier = Modifier.height(24.dp)
                                                                 ) {
-                                                                    Text(if (lang == "BN") "বিতরণ সম্পন্ন" else "Disburse All", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                                    Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_a540a0f782"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                                                 }
                                                             }
                                                         }
@@ -1579,7 +1580,7 @@ fun SupplierProfileView(
                                                         }
                                                         if (tx.notes.isNotBlank()) {
                                                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                                Text(text = if (lang == "BN") "মন্তব্য:" else "Notes:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                                Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_245a59cc71"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                                 Text(text = tx.notes, fontSize = 11.sp)
                                                             }
                                                         }
@@ -1629,7 +1630,7 @@ fun SupplierProfileView(
                                                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                         modifier = Modifier.height(28.dp)
                                                                     ) {
-                                                                        Text(if (lang == "BN") "ডেলিভারি" else "Deliver", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                                        Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_687918a84a"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                                                     }
                                                                 }
 
@@ -1641,7 +1642,7 @@ fun SupplierProfileView(
                                                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                         modifier = Modifier.height(28.dp)
                                                                     ) {
-                                                                        Text(if (lang == "BN") "বাতিল" else "Cancel", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                                                        Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_68b2c9a8e8"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                                                                     }
                                                                 } else if (tx.status == "Cancelled") {
                                                                     OutlinedButton(
@@ -1651,7 +1652,7 @@ fun SupplierProfileView(
                                                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                         modifier = Modifier.height(28.dp)
                                                                     ) {
-                                                                        Text(if (lang == "BN") "পেন্ডিং করুন" else "Pending", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                                        Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_67b48a844b"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                                                     }
                                                                 }
                                                             }
@@ -1662,7 +1663,7 @@ fun SupplierProfileView(
                                         } else {
                                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                 Column {
-                                                    Text(text = if (lang == "BN") "বিতরণ (লেনদেন)" else "Routed Transfer", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFFC62828))
+                                                    Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_d303cb3757"), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFFC62828))
                                                     Text(text = "Rcv: ${ledgerItem.receiverName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                     Text(text = "Status: ${ledgerItem.status} | Time: ${SimpleDateFormat("hh:mm a", Locale.US).format(Date(ledgerItem.timestamp))}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                 }
@@ -1699,7 +1700,7 @@ fun SupplierProfileView(
             onDismissRequest = { txToEdit = null },
             title = {
                 Text(
-                    text = if (lang == "BN") "লেনদেন সংশোধন" else "Edit Remittance Ledger",
+                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_35e95659c0"),
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -1709,7 +1710,7 @@ fun SupplierProfileView(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)
                 ) {
                     item {
-                        Text(text = if (lang == "BN") "সাপ্লায়ার ফান্ড নির্বাচন" else "Select Supplier Fund", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_6694b5db45"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                         var expanded by remember { mutableStateOf(false) }
                         val activeSupplier = suppliersList.find { it.id == editSupplierId }
                         Box(modifier = Modifier.fillMaxWidth()) {
@@ -1717,7 +1718,7 @@ fun SupplierProfileView(
                                 onClick = { expanded = true },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(activeSupplier?.name ?: (if (lang == "BN") "সাপ্লায়ার সিলেক্ট করুন" else "Select Supplier Account"))
+                                Text(activeSupplier?.name ?: (AndroidStringCatalog.get(lang, "inline_supplierscreen_42cfef2b1a")))
                             }
                             DropdownMenu(
                                 expanded = expanded,
@@ -1742,7 +1743,7 @@ fun SupplierProfileView(
                             value = editAmountSar,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text(if (lang == "BN") "রিয়াল পরিমাণ (SAR)" else "Riyal Amount (SAR)") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_b0ecfd5034")) },
                             trailingIcon = {
                                 Icon(Icons.Default.Calculate, contentDescription = "Calculate", modifier = Modifier.clickable { isEditAmountCalCOpen = true })
                             },
@@ -1755,14 +1756,14 @@ fun SupplierProfileView(
                             OutlinedTextField(
                                 value = editCustomerRate,
                                 onValueChange = { editCustomerRate = it },
-                                label = { Text(if (lang == "BN") "গ্রাহক রেট" else "Cust. Rate") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_04cd5d49fc")) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f)
                             )
                             OutlinedTextField(
                                 value = editSupplierRate,
                                 onValueChange = { editSupplierRate = it },
-                                label = { Text(if (lang == "BN") "ক্রয় রেট" else "Supp. Rate") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_329acafa2c")) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f)
                             )
@@ -1773,7 +1774,7 @@ fun SupplierProfileView(
                         OutlinedTextField(
                             value = editReceiverName,
                             onValueChange = { editReceiverName = it },
-                            label = { Text(if (lang == "BN") "প্রাপকের নাম" else "Receiver Name") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_2173e7e448")) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1782,14 +1783,14 @@ fun SupplierProfileView(
                         OutlinedTextField(
                             value = editPhoneNum,
                             onValueChange = { editPhoneNum = it },
-                            label = { Text(if (lang == "BN") "প্রাপকের ফোন" else "Receiver Phone") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_54c8f85923")) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
 
                     item {
-                        Text(text = if (lang == "BN") "টাকা পরিশোধের ক্ষেত্র" else "Payment Channel", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_1641f455c5"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                         val methods = listOf("Bkash", "Nagad", "Rocket", "Bank Transfer", "Cash")
                         FlowRow(modifier = Modifier.fillMaxWidth()) {
                             methods.forEach { m ->
@@ -1807,7 +1808,7 @@ fun SupplierProfileView(
                         OutlinedTextField(
                             value = editReceiverAccountNo,
                             onValueChange = { editReceiverAccountNo = it },
-                            label = { Text(if (lang == "BN") "হিসাব নম্বর" else "Account Number") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_9927799207")) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1817,14 +1818,14 @@ fun SupplierProfileView(
                             OutlinedTextField(
                                 value = editSarCollected,
                                 onValueChange = { editSarCollected = it },
-                                label = { Text(if (lang == "BN") "রিয়াল গ্রহণ (SAR)" else "Riyal Received") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_d67ab65ccc")) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f)
                             )
                             OutlinedTextField(
                                 value = editBdtDisbursed,
                                 onValueChange = { editBdtDisbursed = it },
-                                label = { Text(if (lang == "BN") "টাকা পাঠানো (BDT)" else "BDT Paid") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_49e5d9354a")) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f)
                             )
@@ -1835,13 +1836,13 @@ fun SupplierProfileView(
                         OutlinedTextField(
                             value = editTxNotes,
                             onValueChange = { editTxNotes = it },
-                            label = { Text(if (lang == "BN") "অতিরিক্ত মন্তব্য" else "Notes / Description") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_9efba04467")) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
 
                     item {
-                        Text(text = if (lang == "BN") "স্ট্যাটাস পরিবর্তন" else "Transaction Status", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_374c3b9623"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf("Pending", "Delivered", "Cancelled").forEach { statusLabel ->
                                 FilterChip(
@@ -1885,12 +1886,12 @@ fun SupplierProfileView(
                         txToEdit = null
                     }
                 ) {
-                    Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")
+                    Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_0aadd123dc"))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { txToEdit = null }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
+                    Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_68b2c9a8e8"))
                 }
             }
         )
@@ -1899,7 +1900,7 @@ fun SupplierProfileView(
     if (isEditAmountCalCOpen) {
         CalculatorDialog(
             initialValue = editAmountSar,
-            title = if (lang == "BN") "রিয়াল পরিমাণ (SAR)" else "Riyal Amount (SAR)",
+            title = AndroidStringCatalog.get(lang, "inline_supplierscreen_b0ecfd5034"),
             lang = lang,
             onDismiss = { isEditAmountCalCOpen = false },
             onConfirm = { result ->
@@ -1914,13 +1915,13 @@ fun SupplierProfileView(
             onDismissRequest = { depositToEdit = null },
             title = {
                 Text(
-                    text = if (lang == "BN") "ফান্ড হিসাব সংশোধন" else "Edit Supplier Fund / Deposit",
+                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_cefdba16cb"),
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(text = if (lang == "BN") "ফান্ড ধরন" else "Fund Type", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_1b63e310d4"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         listOf("SAR_GIVEN" to "Buy / Deposit", "SAR_RECEIVED" to "Received / Settlement").forEach { (typeKey, typeLabel) ->
                             FilterChip(
@@ -1936,7 +1937,7 @@ fun SupplierProfileView(
                         value = editDepAmountSar,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text(if (lang == "BN") "রিয়াল পরিমাণ (SAR)" else "Riyal Amount (SAR)") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_b0ecfd5034")) },
                         trailingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Calculate,
@@ -1951,7 +1952,7 @@ fun SupplierProfileView(
                         OutlinedTextField(
                             value = editDepRate,
                             onValueChange = { editDepRate = it },
-                            label = { Text(if (lang == "BN") "রেট ${localCur}" else "Exchange Rate ${localCur}") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_697952c187")) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1962,7 +1963,7 @@ fun SupplierProfileView(
                     OutlinedTextField(
                         value = editDepNotes,
                         onValueChange = { editDepNotes = it },
-                        label = { Text(if (lang == "BN") "অতিরিক্ত মন্তব্য" else "Notes / Remarks") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_32f071ea0d")) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -1988,12 +1989,12 @@ fun SupplierProfileView(
                         depositToEdit = null
                     }
                 ) {
-                    Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")
+                    Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_0aadd123dc"))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { depositToEdit = null }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel")
+                    Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_68b2c9a8e8"))
                 }
             }
         )
@@ -2002,7 +2003,7 @@ fun SupplierProfileView(
     if (isEditDepCalCOpen) {
         CalculatorDialog(
             initialValue = editDepAmountSar,
-            title = if (lang == "BN") "রিয়াল পরিমাণ (SAR)" else "Riyal Amount (SAR)",
+            title = AndroidStringCatalog.get(lang, "inline_supplierscreen_b0ecfd5034"),
             lang = lang,
             onDismiss = { isEditDepCalCOpen = false },
             onConfirm = { result ->
@@ -2017,7 +2018,7 @@ fun SupplierProfileView(
             onDismissRequest = { showAddChoiceDialog = false },
             title = {
                 Text(
-                    text = if (lang == "BN") "লেনদেনের ধরণ নির্বাচন করুন" else "Select Transaction Type",
+                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_b770e658d1"),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             },
@@ -2057,11 +2058,11 @@ fun SupplierProfileView(
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (lang == "BN") "নতুন ফান্ড ক্রয়" else "New ${foreignCur}Purchase",
+                                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_c3941b1f8d"),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                                 Text(
-                                    text = if (lang == "BN") "সাপ্লায়ার থেকে নতুন রিয়াল বা ফান্ড ক্রয় করুন।" else "Purchase new ${foreignCur}funds from this supplier.",
+                                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_a4beefb913"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -2108,18 +2109,18 @@ fun SupplierProfileView(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = if (isDue) {
-                                            if (lang == "BN") "বকেয়া মূল্য পরিশোধ" else "Clear Supplier Due"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_1faca4a15f")
                                         } else {
-                                            if (lang == "BN") "পাওনা আদায়" else "Collect Receivable"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_e98335264f")
                                         },
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                         color = if (isDue) Color(0xFFC62828) else Color(0xFF2E7D32)
                                     )
                                     Text(
                                         text = if (isDue) {
-                                            if (lang == "BN") "সাপ্লায়ারের পূর্বের বকেয়া পরিশোধ বা ক্যাশ পেমেন্ট করুন।" else "Clear outstanding ${localCur}payables to this supplier."
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_667dc17276")
                                         } else {
-                                            if (lang == "BN") "সাপ্লায়ার থেকে আপনার পাওনা টাকা বুঝে নিন বা ক্যাশ গ্রহণ করুন।" else "Collect or settle your receivable from this supplier."
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_21d30e38de")
                                         },
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline
@@ -2132,7 +2133,7 @@ fun SupplierProfileView(
             },
             confirmButton = {
                 TextButton(onClick = { showAddChoiceDialog = false }) {
-                    Text(if (lang == "BN") "বন্ধ করুন" else "Cancel")
+                    Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_2b9f353c46"))
                 }
             }
         )
@@ -2264,7 +2265,7 @@ fun AddFundPage(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(
-                                    text = if (lang == "BN") "পরিমাণ (SAR)" else "Amount (SAR)",
+                                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_9d9f5c7e4e"),
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -2338,7 +2339,7 @@ fun AddFundPage(
                             OutlinedTextField(
                                 value = buyNotesInput,
                                 onValueChange = onNotesChange,
-                                label = { Text(if (lang == "BN") "অতিরিক্ত মন্তব্য (নোট)" else "Notes / Description") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_3e56cfb78a")) },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = "") },
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
@@ -2370,11 +2371,11 @@ fun AddFundPage(
                                         )
                                         Column {
                                             Text(
-                                                text = if (lang == "BN") "ডকুমেন্ট আপলোড" else "Upload Document",
+                                                text = AndroidStringCatalog.get(lang, "inline_supplierscreen_818fd5e6ae"),
                                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                             )
                                             Text(
-                                                text = selectedDocumentName ?: (if (lang == "BN") "রিসিট বা কোনো ছবি যুক্ত করুন..." else "No attachment file selected"),
+                                                text = selectedDocumentName ?: (AndroidStringCatalog.get(lang, "inline_supplierscreen_a1ecb80ee6")),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = if (selectedDocumentName != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                                                 maxLines = 1
@@ -2385,7 +2386,7 @@ fun AddFundPage(
                                         TextButton(onClick = { documentPickerLauncher.launch("*/*") }) {
                                             Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text(if (lang == "BN") "যুক্ত করুন" else "Add File")
+                                            Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_4271a57e62"))
                                         }
                                     } else {
                                         IconButton(onClick = { selectedDocumentName = null }) {
@@ -2404,7 +2405,7 @@ fun AddFundPage(
                         shape = RoundedCornerShape(12.dp),
                         enabled = sarVal.signum() > 0
                     ) {
-                        Text(if (lang == "BN") "পরবর্তী ধাপ" else "Next Step", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_0247f236db"), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(Icons.Default.ArrowForward, contentDescription = "", modifier = Modifier.size(16.dp))
                     }
@@ -2425,7 +2426,7 @@ fun AddFundPage(
                                 OutlinedTextField(
                                     value = buyRateInput,
                                     onValueChange = onRateChange,
-                                    label = { Text(if (lang == "BN") "বিনিময় রেট (BDT/SAR)" else "Exchange Rate") },
+                                    label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_5e549b17c8")) },
                                     leadingIcon = { Icon(Icons.Default.PriceChange, contentDescription = "") },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -2442,7 +2443,7 @@ fun AddFundPage(
                                 OutlinedTextField(
                                     value = buyPaidBdtInput,
                                     onValueChange = onPaidBdtChange,
-                                    label = { Text(if (lang == "BN") "গ্রহণ (BDT)" else "Received Amount (BDT)") },
+                                    label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_558d5301df")) },
                                     leadingIcon = { Icon(Icons.Default.Money, contentDescription = "") },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -2462,9 +2463,9 @@ fun AddFundPage(
                                 ) {
                                     Text(
                                         text = if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) {
-                                            if (lang == "BN") "বকেয়া (BDT):" else "Payable (BDT):"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_65a548656a")
                                         } else {
-                                            if (lang == "BN") "পাওনা (BDT):" else "Receivable (BDT):"
+                                            AndroidStringCatalog.get(lang, "inline_supplierscreen_a67983e47c")
                                         },
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                         color = if (dueBdt < MONEY_VISIBILITY_THRESHOLD.negate()) Color(0xFFC62828) else Color(0xFF1565C0)
@@ -2479,7 +2480,7 @@ fun AddFundPage(
                             
                             Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             
-                            Text(text = if (lang == "BN") "ওয়ালেট" else "Wallet", style = MaterialTheme.typography.labelSmall)
+                            Text(text = AndroidStringCatalog.get(lang, "inline_supplierscreen_8546259e38"), style = MaterialTheme.typography.labelSmall)
                             var expandedSupDropdown by remember { mutableStateOf(false) }
                             val activeLedger = walletLedgers.find { it.id == selectedLedgerId }
                             
@@ -2495,7 +2496,7 @@ fun AddFundPage(
                                             Icon(Icons.Default.AccountBalanceWallet, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text(
-                                                text = if (activeLedger != null) activeLedger.name else (if (lang == "BN") "ওয়ালেট নির্বাচন করুন" else "Select Wallet"),
+                                                text = if (activeLedger != null) activeLedger.name else (AndroidStringCatalog.get(lang, "inline_supplierscreen_89967f3635")),
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -2542,7 +2543,7 @@ fun AddFundPage(
                         shape = RoundedCornerShape(12.dp),
                         enabled = sarVal.signum() > 0 && rateVal.signum() > 0 && selectedLedgerId != 0
                     ) {
-                        Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Record", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_6c817a069a"), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -2552,7 +2553,7 @@ fun AddFundPage(
     if (showAmountCalc) {
         CalculatorDialog(
             initialValue = buyAmountSarInput,
-            title = if (lang == "BN") "পরিমাণ (SAR)" else "Amount (SAR)",
+            title = AndroidStringCatalog.get(lang, "inline_supplierscreen_9d9f5c7e4e"),
             lang = lang,
             onDismiss = { showAmountCalc = false },
             onConfirm = { result -> 
@@ -2602,7 +2603,7 @@ fun AddSupplierPage(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                 }
                 Text(
-                    text = if (lang == "BN") "নতুন সাপ্লায়ার যোগ" else "Add New Supplier Profile",
+                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_46d835234c"),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 6.dp)
@@ -2611,7 +2612,7 @@ fun AddSupplierPage(
             TextButton(onClick = onContactPicker) {
                 Icon(Icons.Default.Contacts, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(if (lang == "BN") "কন্টাক্টস" else "Contacts", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_dc8401f5a4"), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
             }
         }
 
@@ -2643,7 +2644,7 @@ fun AddSupplierPage(
             ) {
                 item {
                     Text(
-                        text = if (lang == "BN") "সাপ্লায়ার বা মহাজন খাতা বিবরণ" else "Supplier Accounting Information",
+                        text = AndroidStringCatalog.get(lang, "inline_supplierscreen_5f8e334d44"),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -2654,7 +2655,7 @@ fun AddSupplierPage(
                     OutlinedTextField(
                         value = nameInput,
                         onValueChange = onNameChange,
-                        label = { Text(if (lang == "BN") "সাপ্লায়ার বা প্রতিষ্ঠানের নাম" else "Supplier or Business Name") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_fd478db4ac")) },
                         placeholder = { Text("e.g. Robin Exchange") },
                         leadingIcon = { Icon(Icons.Default.CorporateFare, contentDescription = "", tint = MaterialTheme.colorScheme.primary) },
                         singleLine = true,
@@ -2667,7 +2668,7 @@ fun AddSupplierPage(
                     OutlinedTextField(
                         value = phoneInput,
                         onValueChange = onPhoneChange,
-                        label = { Text(if (lang == "BN") "মোবাইল নম্বর" else "Contact Phone Number") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_4dd223758c")) },
                         placeholder = { Text("e.g. +88017xxxxxxxx / +966xxxxx") },
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "", tint = MaterialTheme.colorScheme.primary) },
                         singleLine = true,
@@ -2681,7 +2682,7 @@ fun AddSupplierPage(
                     OutlinedTextField(
                         value = addressInput,
                         onValueChange = onAddressChange,
-                        label = { Text(if (lang == "BN") "বর্তমান ঠিকানা (শাখা / অফিস)" else "Address (Branch / Office)") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_supplierscreen_5490d713ad")) },
                         placeholder = { Text("e.g. Dhaka, Bangladesh / Riyadh, KSA") },
                         leadingIcon = { Icon(Icons.Default.Home, contentDescription = "", tint = MaterialTheme.colorScheme.primary) },
                         singleLine = true,
@@ -2707,7 +2708,7 @@ fun AddSupplierPage(
                     .height(36.dp)
             ) {
                 Text(
-                    text = if (lang == "BN") "বাতিল" else "Cancel",
+                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_68b2c9a8e8"),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
             }
@@ -2724,7 +2725,7 @@ fun AddSupplierPage(
                 Icon(Icons.Default.Check, contentDescription = "")
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (lang == "BN") "সংরক্ষণ করুন" else "Save",
+                    text = AndroidStringCatalog.get(lang, "inline_supplierscreen_f48a4becd8"),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
             }

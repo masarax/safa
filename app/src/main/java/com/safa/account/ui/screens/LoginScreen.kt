@@ -1,4 +1,5 @@
 package com.safa.account.ui.screens
+import com.safa.account.ui.localization.AndroidStringCatalog
 
 import android.content.Intent
 import android.net.Uri
@@ -101,10 +102,10 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                 onClick = { viewModel.toggleLanguage() },
                 shape = RoundedCornerShape(20.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                modifier = Modifier.height(36.dp).testTag("auth_lang_toggle")
+                modifier = Modifier.heightIn(min = 48.dp).testTag("auth_lang_toggle")
             ) {
                 Text(
-                    text = if (currentLang == "BN") "English" else "বাংলা",
+                    text = AndroidStringCatalog.get(currentLang, "inline_loginscreen_5b8bea740d"),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -120,14 +121,14 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
             Box(modifier = Modifier.size(88.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
                 Image(
                     painter = painterResource(id = com.safa.account.R.drawable.safa_logo),
-                    contentDescription = "SAFA Logo",
+                    contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
                 )
             }
 
             Text(
-                text = if (currentLang == "BN") "SAFA - সাফা" else "SAFA",
+                text = AndroidStringCatalog.get(currentLang, "inline_loginscreen_c3b058ac5d"),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 22.sp),
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
@@ -154,28 +155,18 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                             tint = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Text(
-                            text = if (currentLang == "BN") {
-                                if (databasePhase) "প্রথমবার ডাটাবেজ সেটআপ দরকার" else "প্রথম SuperAdmin সেটআপ শেষ করুন"
-                            } else {
-                                if (databasePhase) "First-time database setup required" else "Finish first SuperAdmin setup"
-                            },
+                            text = AndroidStringCatalog.get(
+                                currentLang,
+                                if (databasePhase) "setup_database_required" else "setup_superadmin_required"
+                            ),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = if (currentLang == "BN") {
-                                if (databasePhase) {
-                                    "লগইনের আগে server database initialize করতে হবে। নিচের button cPanel-protected setup page খুলবে; private setup code অ্যাপের মধ্যে দেখানো বা সংরক্ষণ করা হয় না।"
-                                } else {
-                                    "ডাটাবেজ প্রস্তুত হয়েছে। যে browser session দিয়ে migration চালানো হয়েছে, সেই session-এ প্রথম SuperAdmin তৈরি করে সেটআপ সম্পন্ন করুন।"
-                                }
-                            } else {
-                                if (databasePhase) {
-                                    "The server database must be initialized before sign-in. The button opens the protected setup page; the private setup code is never shown or stored in the Android app."
-                                } else {
-                                    "The database is prepared. Finish creating the first SuperAdmin in the same browser session that ran the migration."
-                                }
-                            },
+                            text = AndroidStringCatalog.get(
+                                currentLang,
+                                if (databasePhase) "setup_database_explanation" else "setup_superadmin_explanation"
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center
                         )
@@ -183,12 +174,12 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                             onClick = {
                                 val setupUrl = runCatching { FirstRunSetupClient.webSetupUrl(apiBaseUrl) }.getOrNull()
                                 if (setupUrl == null) {
-                                    loginError = if (currentLang == "BN") "সেটআপ URL তৈরি করা যায়নি।" else "Could not create the setup URL."
+                                    loginError = AndroidStringCatalog.get(currentLang, "inline_loginscreen_ef5009f2d8")
                                 } else {
                                     runCatching {
                                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(setupUrl)))
                                     }.onFailure {
-                                        loginError = if (currentLang == "BN") "সেটআপ পেইজ খোলা যায়নি।" else "Could not open the setup page."
+                                        loginError = AndroidStringCatalog.get(currentLang, "inline_loginscreen_173357f030")
                                     }
                                 }
                             },
@@ -196,11 +187,10 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                if (currentLang == "BN") {
-                                    if (databasePhase) "ডাটাবেজ সেটআপ খুলুন" else "SuperAdmin সেটআপ খুলুন"
-                                } else {
-                                    if (databasePhase) "Open Database Setup" else "Open SuperAdmin Setup"
-                                },
+                                AndroidStringCatalog.get(
+                                    currentLang,
+                                    if (databasePhase) "setup_database_action" else "setup_superadmin_action"
+                                ),
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -210,7 +200,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(if (currentLang == "BN") "সেটআপ অবস্থা আবার যাচাই করুন" else "Check setup status again")
+                            Text(AndroidStringCatalog.get(currentLang, "inline_loginscreen_fff0eecd17"))
                         }
                     }
                 }
@@ -228,9 +218,9 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                     OutlinedTextField(
                         value = mobileInput,
                         onValueChange = { mobileInput = it; loginError = null },
-                        label = { Text(if (currentLang == "BN") "মোবাইল" else "Mobile") },
+                        label = { Text(AndroidStringCatalog.get(currentLang, "inline_loginscreen_bc6288dec7")) },
                         placeholder = { Text("01700000000") },
-                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "Mobile") },
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth().testTag("login_mobile_input"),
@@ -246,8 +236,8 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                                 loginError = null
                             }
                         },
-                        label = { Text(if (currentLang == "BN") "পিন" else "PIN") },
-                        leadingIcon = { Icon(Icons.Default.Security, contentDescription = "PIN") },
+                        label = { Text(AndroidStringCatalog.get(currentLang, "inline_loginscreen_dd561d689f")) },
+                        leadingIcon = { Icon(Icons.Default.Security, contentDescription = null) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -278,7 +268,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                                 coroutineScope.launch {
                                     val tm = tokenManager
                                     if (tm == null || !hasCompleteLocalSession) {
-                                        loginError = if (currentLang == "BN") "সেশন পাওয়া যায়নি" else "Session unavailable"
+                                        loginError = AndroidStringCatalog.get(currentLang, "inline_loginscreen_9d00c1fa78")
                                         return@launch
                                     }
 
@@ -297,11 +287,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
 
                                     if (!sessionReady) {
                                         tm.revokeBiometricUnlockApproval()
-                                        loginError = if (currentLang == "BN") {
-                                            "সেশন যাচাই করা যায়নি। আবার মোবাইল ও পিন দিয়ে লগইন করুন।"
-                                        } else {
-                                            "The session could not be verified. Sign in again with mobile and PIN."
-                                        }
+                                        loginError = AndroidStringCatalog.get(currentLang, "session_verification_failed")
                                     }
                                 }
                             },
@@ -312,17 +298,17 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                     Button(
                         onClick = {
                             if (tokenManager?.isLogoutInProgress() == true) {
-                                loginError = if (currentLang == "BN") "লগআউট শেষ হচ্ছে। এক মুহূর্ত পরে আবার চেষ্টা করুন।" else "Finishing sign out. Try again in a moment."
+                                loginError = AndroidStringCatalog.get(currentLang, "inline_loginscreen_48d93b1c66")
                                 return@Button
                             }
                             val normalizedMobile = com.safa.account.data.api.MobileNumberNormalizer.normalize(mobileInput)
                             val normalizedPin = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(pinInput)
                             if (normalizedMobile.isBlank()) {
-                                loginError = if (currentLang == "BN") "মোবাইল দিন" else "Enter mobile"
+                                loginError = AndroidStringCatalog.get(currentLang, "inline_loginscreen_4ca0f0ec8e")
                                 return@Button
                             }
                             if (normalizedPin.length != 6) {
-                                loginError = if (currentLang == "BN") "৬ ডিজিটের পিন দিন" else "Enter 6-digit PIN"
+                                loginError = AndroidStringCatalog.get(currentLang, "inline_loginscreen_7320bb2444")
                                 return@Button
                             }
                             isLoading = true
@@ -344,7 +330,7 @@ fun LoginScreen(viewModel: SafaViewModel, modifier: Modifier = Modifier) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                         } else {
                             Text(
-                                text = if (currentLang == "BN") "লগইন" else "Login",
+                                text = AndroidStringCatalog.get(currentLang, "inline_loginscreen_0e6bed32c2"),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis

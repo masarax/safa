@@ -1,0 +1,606 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_access_denied" formatted="false">Access Denied</string>
+    <string name="ui_acquired_bdt" formatted="false">BDT Acquired Local Funds</string>
+    <string name="ui_activate_super_admin" formatted="false">Activate SuperAdmin</string>
+    <string name="ui_activation_desc" formatted="false">Set up your initial administrator account</string>
+    <string name="ui_activation_title" formatted="false">SuperAdmin 1-Time Activation</string>
+    <string name="ui_add_customer" formatted="false">Add New Customer Profile</string>
+    <string name="ui_add_customers" formatted="false">Add Customers</string>
+    <string name="ui_add_expense_income" formatted="false">Log Operating Expense/Income</string>
+    <string name="ui_add_supplier" formatted="false">Add Local Supplier Forex</string>
+    <string name="ui_add_suppliers" formatted="false">Add Suppliers</string>
+    <string name="ui_add_transactions" formatted="false">Add Transactions</string>
+    <string name="ui_address" formatted="false">Address/Workplace</string>
+    <string name="ui_amount" formatted="false">Amount</string>
+    <string name="ui_amount_sar" formatted="false">Debit Foreign Amount</string>
+    <string name="ui_app_title" formatted="false">SAFA</string>
+    <string name="ui_buy_bdt_pool" formatted="false">Acquire Local Deal</string>
+    <string name="ui_category" formatted="false">Category</string>
+    <string name="ui_change_role" formatted="false">Change Role</string>
+    <string name="ui_complete_activation" formatted="false">Complete Activation</string>
+    <string name="ui_create_new_operator" formatted="false">Provision New Staff Account</string>
+    <string name="ui_customer_assigned_rate" formatted="false">Customer Exchange Rate</string>
+    <string name="ui_customer_mgmt" formatted="false">Customer Directory</string>
+    <string name="ui_customer_name" formatted="false">Customer Full Name</string>
+    <string name="ui_customer_sale_rate" formatted="false">Customer Exchange Rate</string>
+    <string name="ui_customers" formatted="false">Customers</string>
+    <string name="ui_daily_operating_rates" formatted="false">Live Daily Exchange Rates</string>
+    <string name="ui_dashboard" formatted="false">Dashboard</string>
+    <string name="ui_delete_customers" formatted="false">Delete Customers</string>
+    <string name="ui_delete_suppliers" formatted="false">Delete Suppliers</string>
+    <string name="ui_delete_transactions" formatted="false">Delete Transactions</string>
+    <string name="ui_edit_customers" formatted="false">Edit Customers</string>
+    <string name="ui_edit_suppliers" formatted="false">Edit Suppliers</string>
+    <string name="ui_edit_transactions" formatted="false">Edit Transactions</string>
+    <string name="ui_email" formatted="false">Email Address</string>
+    <string name="ui_enter_mobile_ph" formatted="false">e.g. 01700000000</string>
+    <string name="ui_enter_pin" formatted="false">Enter 6-Digit Security PIN</string>
+    <string name="ui_estimated_profit" formatted="false">Total Estimated Profit Today</string>
+    <string name="ui_expense" formatted="false">Operating Expense</string>
+    <string name="ui_expenses" formatted="false">Expenses &amp; Inc.</string>
+    <string name="ui_expenses_overhead" formatted="false">Operating overhead &amp; Miscellaneous</string>
+    <string name="ui_full_name" formatted="false">Full Name</string>
+    <string name="ui_income" formatted="false">Operating Credit</string>
+    <string name="ui_inline_customerscreen_02f013d7f6" formatted="false">Address</string>
+    <string name="ui_inline_customerscreen_045944a2b1" formatted="false">Zero Outstanding Dues</string>
+    <string name="ui_inline_customerscreen_0498e7cd29" formatted="false">Riyal Collected ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_07385a0989" formatted="false">Deliver</string>
+    <string name="ui_inline_customerscreen_07a4e2bb0a" formatted="false">Transactions List</string>
+    <string name="ui_inline_customerscreen_0a720dc7f2" formatted="false">Share PDF Receipt</string>
+    <string name="ui_inline_customerscreen_0b151be1cc" formatted="false">Compiled securely in client database.</string>
+    <string name="ui_inline_customerscreen_0d3658f984" formatted="false">Cancel</string>
+    <string name="ui_inline_customerscreen_0d8cdf29ff" formatted="false">Receipt automatically compiled using secure ledger algorithms.</string>
+    <string name="ui_inline_customerscreen_0ebb5518a2" formatted="false">Your Surplus Balance:</string>
+    <string name="ui_inline_customerscreen_0edb739064" formatted="false">Newest First</string>
+    <string name="ui_inline_customerscreen_0f99c363b6" formatted="false">Sales Price &amp; Riyal Summary</string>
+    <string name="ui_inline_customerscreen_0fee4d639d" formatted="false">Notes / Description</string>
+    <string name="ui_inline_customerscreen_106cf9feae" formatted="false">Total Due ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_11cd60c23c" formatted="false">Due Customers</string>
+    <string name="ui_inline_customerscreen_168b24e627" formatted="false">Workflow Status &amp; Remarks</string>
+    <string name="ui_inline_customerscreen_16c5328a35" formatted="false">Riyal Received</string>
+    <string name="ui_inline_customerscreen_17d0811674" formatted="false">Safa Audit Logs</string>
+    <string name="ui_inline_customerscreen_1981827092" formatted="false">Return to Ledger</string>
+    <string name="ui_inline_customerscreen_1e43775e1e" formatted="false">Enter how many Riyals of previous outstanding dues are being collected/settled today.</string>
+    <string name="ui_inline_customerscreen_1f3d8f2dbd" formatted="false">Total Outstanding Due:</string>
+    <string name="ui_inline_customerscreen_20ccc5dca0" formatted="false">Due Collected Amount ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_22320b7621" formatted="false">Contacts</string>
+    <string name="ui_inline_customerscreen_2340e0c8d8" formatted="false">Select Wallet Ledger Account ▾</string>
+    <string name="ui_inline_customerscreen_23886d7cf0" formatted="false">Pending</string>
+    <string name="ui_inline_customerscreen_26e8941ff1" formatted="false">Delete</string>
+    <string name="ui_inline_customerscreen_2ca9cf5aad" formatted="false">Name A-Z</string>
+    <string name="ui_inline_customerscreen_2d9be001aa" formatted="false">Save Transaction Updates</string>
+    <string name="ui_inline_customerscreen_2e1008cee2" formatted="false">Advance Return</string>
+    <string name="ui_inline_customerscreen_349b576bb0" formatted="false">PDF</string>
+    <string name="ui_inline_customerscreen_3759ad6328" formatted="false">Amount ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_39457d1dd6" formatted="false">Contact Phone Number</string>
+    <string name="ui_inline_customerscreen_3982854841" formatted="false">Trans. Count</string>
+    <string name="ui_inline_customerscreen_3be0d774e8" formatted="false">All Customers</string>
+    <string name="ui_inline_customerscreen_3c3889dd0d" formatted="false">No outstanding dues</string>
+    <string name="ui_inline_customerscreen_3d0eda7bfb" formatted="false">Total Beneficiary Payout:</string>
+    <string name="ui_inline_customerscreen_3f1bbaecc3" formatted="false">Previous Due Paid:</string>
+    <string name="ui_inline_customerscreen_408ffc9247" formatted="false">Wallet/Pool Ledger:</string>
+    <string name="ui_inline_customerscreen_430e6d35e5" formatted="false">Failed to compile image asset</string>
+    <string name="ui_inline_customerscreen_44790f9f7e" formatted="false">Add New Customer Profile</string>
+    <string name="ui_inline_customerscreen_457da6122b" formatted="false">No transactions recorded for this customer.</string>
+    <string name="ui_inline_customerscreen_45f489d950" formatted="false">Notes:</string>
+    <string name="ui_inline_customerscreen_46699e3019" formatted="false">Disbursed ${localCur}</string>
+    <string name="ui_inline_customerscreen_468765c3b2" formatted="false">Full Name</string>
+    <string name="ui_inline_customerscreen_48ffd594a2" formatted="false">Secure Security Notes</string>
+    <string name="ui_inline_customerscreen_4b8ea35973" formatted="false">Outstanding Due Collected</string>
+    <string name="ui_inline_customerscreen_4c776e39d3" formatted="false">Advance Return Paid: </string>
+    <string name="ui_inline_customerscreen_4ce6ccf57c" formatted="false">Phone Number</string>
+    <string name="ui_inline_customerscreen_4f46a2660b" formatted="false">Customer Owed</string>
+    <string name="ui_inline_customerscreen_52a4485823" formatted="false">Paid Out ${localCur}</string>
+    <string name="ui_inline_customerscreen_53b8d1aa04" formatted="false">Review Details</string>
+    <string name="ui_inline_customerscreen_54e1eeccf5" formatted="false">Account No:</string>
+    <string name="ui_inline_customerscreen_5630bce913" formatted="false">Received ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_5645acea96" formatted="false">Customer Name:</string>
+    <string name="ui_inline_customerscreen_591a96d516" formatted="false">Supplier details and buying rates are omitted for privacy.</string>
+    <string name="ui_inline_customerscreen_594a8f6ed9" formatted="false">Select Payout Method</string>
+    <string name="ui_inline_customerscreen_59bf1dc769" formatted="false">Customer Rate</string>
+    <string name="ui_inline_customerscreen_5b125d2d0e" formatted="false">Ex. Rate:</string>
+    <string name="ui_inline_customerscreen_5f002413bb" formatted="false">Advance Returned:</string>
+    <string name="ui_inline_customerscreen_5fdc35b4dd" formatted="false">Return Advanced Balance</string>
+    <string name="ui_inline_customerscreen_6605ed4861" formatted="false">Transaction Added!</string>
+    <string name="ui_inline_customerscreen_68563b492c" formatted="false">Recipient Output (Total):</string>
+    <string name="ui_inline_customerscreen_6c40219b13" formatted="false">Customer due refund:</string>
+    <string name="ui_inline_customerscreen_6defdcf615" formatted="false">Select Wallet Ledger Account</string>
+    <string name="ui_inline_customerscreen_6e2b5a4908" formatted="false">Payout Provider Channel</string>
+    <string name="ui_inline_customerscreen_6ef987f556" formatted="false">MMMM d, yyyy</string>
+    <string name="ui_inline_customerscreen_704f504756" formatted="false">Riyal Amount ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_70daa7fb2c" formatted="false">Customer Total Due:</string>
+    <string name="ui_inline_customerscreen_7167f05872" formatted="false">Enter how many Riyals of advance balance are being returned.</string>
+    <string name="ui_inline_customerscreen_73bb2ca55d" formatted="false">Return Amount ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_73d90a8f75" formatted="false">Address (Branch / Office)</string>
+    <string name="ui_inline_customerscreen_7424cd3ff8" formatted="false">New Outstanding Due ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_75213bad55" formatted="false">New Remittance ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_755d9d96ac" formatted="false">Previous Due Payment / Recovery</string>
+    <string name="ui_inline_customerscreen_75601aa3c1" formatted="false">Selling Rate ${localCur}</string>
+    <string name="ui_inline_customerscreen_75c0728e42" formatted="false">Customer or Business Name</string>
+    <string name="ui_inline_customerscreen_7617323277" formatted="false">Total Remaining Dues:</string>
+    <string name="ui_inline_customerscreen_765ab7aa3c" formatted="false">Wallet Cost Rate (Auto):</string>
+    <string name="ui_inline_customerscreen_766975bb5b" formatted="false">No attachment file selected</string>
+    <string name="ui_inline_customerscreen_7b1bdbed32" formatted="false">Customer Rate:</string>
+    <string name="ui_inline_customerscreen_7e0cff546e" formatted="false">Due on this receipt:</string>
+    <string name="ui_inline_customerscreen_7e68c4389b" formatted="false">N/A (Due Collected)</string>
+    <string name="ui_inline_customerscreen_7fae42c59f" formatted="false">Advance Returned ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_7fceb532b9" formatted="false">Due Collected ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_84af4f8f16" formatted="false">Payout Channel:</string>
+    <string name="ui_inline_customerscreen_851e3f5dc1" formatted="false">Customer Information</string>
+    <string name="ui_inline_customerscreen_87fa7ba614" formatted="false">Disbursed BDT:</string>
+    <string name="ui_inline_customerscreen_8aa03a6e91" formatted="false">Filter Balance</string>
+    <string name="ui_inline_customerscreen_8c3c780098" formatted="false">New Transaction</string>
+    <string name="ui_inline_customerscreen_8c4e311c44" formatted="false">Share Receipt</string>
+    <string name="ui_inline_customerscreen_901fcf2e6b" formatted="false">Conversion Rate:</string>
+    <string name="ui_inline_customerscreen_94923f5a72" formatted="false">Disbursed ${localCur}:</string>
+    <string name="ui_inline_customerscreen_973d56a2ea" formatted="false">Total Amount ${localCur}:</string>
+    <string name="ui_inline_customerscreen_979e3f4016" formatted="false">Select Wallet Account</string>
+    <string name="ui_inline_customerscreen_98bfb45d9d" formatted="false">Select Transaction Type</string>
+    <string name="ui_inline_customerscreen_998e2982bc" formatted="false">Share Image Receipt</string>
+    <string name="ui_inline_customerscreen_9ac66d7220" formatted="false">Highest Advance</string>
+    <string name="ui_inline_customerscreen_9d6e8cb361" formatted="false">Sell new currency. Collect old dues in Step 2.</string>
+    <string name="ui_inline_customerscreen_9f0f35249b" formatted="false">Account Number</string>
+    <string name="ui_inline_customerscreen_a0292a457f" formatted="false">Total Sent ${localCur}</string>
+    <string name="ui_inline_customerscreen_a126cd34a4" formatted="false">New Sale</string>
+    <string name="ui_inline_customerscreen_a275e13aef" formatted="false">BDT Disbursed</string>
+    <string name="ui_inline_customerscreen_a386945d13" formatted="false">Failed to compile PDF document</string>
+    <string name="ui_inline_customerscreen_a4985ef8ae" formatted="false">$paymentMethod Number (Mobile)</string>
+    <string name="ui_inline_customerscreen_a6ba94f36b" formatted="false">Due Paid</string>
+    <string name="ui_inline_customerscreen_a736edcf1a" formatted="false">Transaction Complete</string>
+    <string name="ui_inline_customerscreen_a841a640d4" formatted="false">Add File</string>
+    <string name="ui_inline_customerscreen_aa32889e82" formatted="false">Advance Returned</string>
+    <string name="ui_inline_customerscreen_abe29fbe0f" formatted="false">Notes / Description</string>
+    <string name="ui_inline_customerscreen_af4a1cc0fc" formatted="false">Advance Customers</string>
+    <string name="ui_inline_customerscreen_b00533264d" formatted="false">Customer Surplus Credit:</string>
+    <string name="ui_inline_customerscreen_b20c9b4631" formatted="false">Customize avatar:</string>
+    <string name="ui_inline_customerscreen_b5aac5b451" formatted="false">No active wallet ledger stock available!</string>
+    <string name="ui_inline_customerscreen_b894e5f946" formatted="false">No customer profiles found.</string>
+    <string name="ui_inline_customerscreen_bb8290ecab" formatted="false">Customer refund credit:</string>
+    <string name="ui_inline_customerscreen_bdc99ef7ee" formatted="false">Total Txs: ${transactions.size}</string>
+    <string name="ui_inline_customerscreen_bf895dc046" formatted="false">Digital Transaction Receipt</string>
+    <string name="ui_inline_customerscreen_c1b6465c33" formatted="false">Total Volume</string>
+    <string name="ui_inline_customerscreen_c526442d66" formatted="false">Contact &amp; Privacy Details</string>
+    <string name="ui_inline_customerscreen_c7e56806e4" formatted="false">Refunded</string>
+    <string name="ui_inline_customerscreen_ccc0085f03" formatted="false">Exchange Rates &amp; Amount</string>
+    <string name="ui_inline_customerscreen_cd1e0b92ff" formatted="false">Account Number:</string>
+    <string name="ui_inline_customerscreen_cd4ccd465f" formatted="false">Search...</string>
+    <string name="ui_inline_customerscreen_d1e717904c" formatted="false">Highest Due</string>
+    <string name="ui_inline_customerscreen_d6801dd174" formatted="false">Image</string>
+    <string name="ui_inline_customerscreen_dd15dada89" formatted="false">Create Transaction</string>
+    <string name="ui_inline_customerscreen_deae734bb4" formatted="false">Customer Credit Due:</string>
+    <string name="ui_inline_customerscreen_def73680df" formatted="false">Sort By</string>
+    <string name="ui_inline_customerscreen_dffe3c0716" formatted="false">Add</string>
+    <string name="ui_inline_customerscreen_e09a5cd027" formatted="false">Date &amp; Time:</string>
+    <string name="ui_inline_customerscreen_e0e188a0c3" formatted="false">Oldest First</string>
+    <string name="ui_inline_customerscreen_e128aff38f" formatted="false">Text</string>
+    <string name="ui_inline_customerscreen_e1554f0d9c" formatted="false">Receiver Details</string>
+    <string name="ui_inline_customerscreen_e3952b8349" formatted="false">Cancel</string>
+    <string name="ui_inline_customerscreen_e3aab99a49" formatted="false">Total Trans. ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_e6de184d2e" formatted="false">Total Amount ${localCur}:</string>
+    <string name="ui_inline_customerscreen_e80930b66f" formatted="false">Save</string>
+    <string name="ui_inline_customerscreen_e9bb06d8b8" formatted="false">Total Due</string>
+    <string name="ui_inline_customerscreen_e9edee9585" formatted="false">Customer Profile</string>
+    <string name="ui_inline_customerscreen_ea02bdbfb9" formatted="false">Enter comments...</string>
+    <string name="ui_inline_customerscreen_eb4a0c28fa" formatted="false">Pay Previous Outstanding Dues</string>
+    <string name="ui_inline_customerscreen_eb59ec36d0" formatted="false">Next Step</string>
+    <string name="ui_inline_customerscreen_ec1ab45050" formatted="false">Payout Amount BDT:</string>
+    <string name="ui_inline_customerscreen_ec44b6a55e" formatted="false">Surplus Balance:</string>
+    <string name="ui_inline_customerscreen_ed2f3bd877" formatted="false">⚙️ Filter &amp; Settings</string>
+    <string name="ui_inline_customerscreen_ef70a6b821" formatted="false">Edit</string>
+    <string name="ui_inline_customerscreen_f0d6009e5c" formatted="false">Payment Method:</string>
+    <string name="ui_inline_customerscreen_f132f0087b" formatted="false">Due Collection</string>
+    <string name="ui_inline_customerscreen_f2aec4b443" formatted="false">Upload Document</string>
+    <string name="ui_inline_customerscreen_f44683f2d9" formatted="false">Receiver Name</string>
+    <string name="ui_inline_customerscreen_f4e373cfe9" formatted="false">Modify Transaction Ledger</string>
+    <string name="ui_inline_customerscreen_f5199a75a0" formatted="false">Due Payment</string>
+    <string name="ui_inline_customerscreen_f592fbed68" formatted="false">Receiver Phone</string>
+    <string name="ui_inline_customerscreen_f650e3479e" formatted="false">Delete Customer Profile</string>
+    <string name="ui_inline_customerscreen_f8f07fea86" formatted="false">Customer Owed ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_f8f7088737" formatted="false">Bank Account Number</string>
+    <string name="ui_inline_customerscreen_f989466287" formatted="false">SAR Amount:</string>
+    <string name="ui_inline_customerscreen_fa09237958" formatted="false">Customer Info</string>
+    <string name="ui_inline_customerscreen_fa577a01c0" formatted="false">Previous Due Paid: </string>
+    <string name="ui_inline_customerscreen_fc6320ee85" formatted="false">Share</string>
+    <string name="ui_inline_customerscreen_fd7518647f" formatted="false">Alter Transaction Status State?</string>
+    <string name="ui_inline_dashboardscreen_0a940e18e2" formatted="false">Close Viewer</string>
+    <string name="ui_inline_dashboardscreen_0c6daf1df1" formatted="false">All Time</string>
+    <string name="ui_inline_dashboardscreen_2140b2a729" formatted="false">Rate: ${dep.rate}</string>
+    <string name="ui_inline_dashboardscreen_239eff0825" formatted="false">Bills &amp; Exp</string>
+    <string name="ui_inline_dashboardscreen_24c99c2141" formatted="false">No transactions found.</string>
+    <string name="ui_inline_dashboardscreen_2855417ce1" formatted="false">Monthly</string>
+    <string name="ui_inline_dashboardscreen_2c88f565f2" formatted="false">Update Rates</string>
+    <string name="ui_inline_dashboardscreen_37133257c6" formatted="false">Profit/Loss</string>
+    <string name="ui_inline_dashboardscreen_38661b16fc" formatted="false">All Customers</string>
+    <string name="ui_inline_dashboardscreen_3ac9ff7d33" formatted="false">Rate: ${unifiedEntry.tx.customerRate}</string>
+    <string name="ui_inline_dashboardscreen_3af1aa3f73" formatted="false">All Transactions</string>
+    <string name="ui_inline_dashboardscreen_3f2399ad79" formatted="false">SAFA Quick Services</string>
+    <string name="ui_inline_dashboardscreen_41dbd04eba" formatted="false">Exchange Rates</string>
+    <string name="ui_inline_dashboardscreen_4624e4c22c" formatted="false">Settings</string>
+    <string name="ui_inline_dashboardscreen_4e48563aeb" formatted="false">Ledger Reserves Details</string>
+    <string name="ui_inline_dashboardscreen_4f678be02e" formatted="false">Income/Expense</string>
+    <string name="ui_inline_dashboardscreen_534118eb79" formatted="false">Customers</string>
+    <string name="ui_inline_dashboardscreen_55d73b3749" formatted="false">Download Complete!</string>
+    <string name="ui_inline_dashboardscreen_56fc780ef6" formatted="false">Cancel</string>
+    <string name="ui_inline_dashboardscreen_67979a94eb" formatted="false">Settle Dues</string>
+    <string name="ui_inline_dashboardscreen_6af182cb17" formatted="false">Detailed Reports Center</string>
+    <string name="ui_inline_dashboardscreen_715bdc02ba" formatted="false">Close</string>
+    <string name="ui_inline_dashboardscreen_747578b72b" formatted="false">Customer List Filter</string>
+    <string name="ui_inline_dashboardscreen_75fc5120d2" formatted="false">With Active Balance</string>
+    <string name="ui_inline_dashboardscreen_85e2dfe329" formatted="false">Recent Transaction History</string>
+    <string name="ui_inline_dashboardscreen_8c9785fbb3" formatted="false">All Trans.</string>
+    <string name="ui_inline_dashboardscreen_96704a4214" formatted="false">Today</string>
+    <string name="ui_inline_dashboardscreen_ac41617c2c" formatted="false">Sort Alphabetically (A-Z)</string>
+    <string name="ui_inline_dashboardscreen_ac8ecfa8ef" formatted="false">Search transactions...</string>
+    <string name="ui_inline_dashboardscreen_b0116f6418" formatted="false">Riyal Stock</string>
+    <string name="ui_inline_dashboardscreen_b736f27d7f" formatted="false">Yearly</string>
+    <string name="ui_inline_dashboardscreen_bae5e49479" formatted="false">Generate Statement</string>
+    <string name="ui_inline_dashboardscreen_cb37085c3f" formatted="false">Report compiled successfully. Saved to cache path:</string>
+    <string name="ui_inline_dashboardscreen_cbd1524ae7" formatted="false">2. Select File Format:</string>
+    <string name="ui_inline_dashboardscreen_cc2b773055" formatted="false">Customer Remittance</string>
+    <string name="ui_inline_dashboardscreen_cc900043e7" formatted="false">Suppliers</string>
+    <string name="ui_inline_dashboardscreen_dcd7c6762f" formatted="false">Supplier</string>
+    <string name="ui_inline_dashboardscreen_e03fc5482b" formatted="false">1. Select Period Range:</string>
+    <string name="ui_inline_dashboardscreen_e46b1a712e" formatted="false">Transactions</string>
+    <string name="ui_inline_dashboardscreen_fa7c7072f9" formatted="false">Generate and download professional business ledgers, statements and P&amp;L breakdown files.</string>
+    <string name="ui_inline_dashboardscreen_ff0dcbd8da" formatted="false">Weekly</string>
+    <string name="ui_inline_loginscreen_0e6bed32c2" formatted="false">Login</string>
+    <string name="ui_inline_loginscreen_173357f030" formatted="false">Could not open the setup page.</string>
+    <string name="ui_inline_loginscreen_48d93b1c66" formatted="false">Finishing sign out. Try again in a moment.</string>
+    <string name="ui_inline_loginscreen_4ca0f0ec8e" formatted="false">Enter mobile</string>
+    <string name="ui_inline_loginscreen_5b8bea740d" formatted="false">বাংলা</string>
+    <string name="ui_inline_loginscreen_7320bb2444" formatted="false">Enter 6-digit PIN</string>
+    <string name="ui_inline_loginscreen_9d00c1fa78" formatted="false">Session unavailable</string>
+    <string name="ui_inline_loginscreen_bc6288dec7" formatted="false">Mobile</string>
+    <string name="ui_inline_loginscreen_c3b058ac5d" formatted="false">SAFA</string>
+    <string name="ui_inline_loginscreen_dd561d689f" formatted="false">PIN</string>
+    <string name="ui_inline_loginscreen_ef5009f2d8" formatted="false">Could not create the setup URL.</string>
+    <string name="ui_inline_loginscreen_fff0eecd17" formatted="false">Check setup status again</string>
+    <string name="ui_inline_mainactivity_08cc868b45" formatted="false">Switch Theme</string>
+    <string name="ui_inline_mainactivity_0df4700dea" formatted="false">Switch Language</string>
+    <string name="ui_inline_mainactivity_23cb748919" formatted="false">Yes, Exit</string>
+    <string name="ui_inline_mainactivity_408a03a0f0" formatted="false">Logout</string>
+    <string name="ui_inline_mainactivity_4755950621" formatted="false">Cancel</string>
+    <string name="ui_inline_mainactivity_5eb55a54e9" formatted="false">Exit Application</string>
+    <string name="ui_inline_mainactivity_64a08dc8e8" formatted="false">User: $operatorName</string>
+    <string name="ui_inline_mainactivity_e4e921c93d" formatted="false">No</string>
+    <string name="ui_inline_mainactivity_f530537e68" formatted="false">Are you sure you want to exit the application?</string>
+    <string name="ui_inline_mainactivity_f737c0b14e" formatted="false">Delete</string>
+    <string name="ui_inline_settingsscreen_03ef14b8ec" formatted="false">15 Granular RBAC Permissions</string>
+    <string name="ui_inline_settingsscreen_050c0143b5" formatted="false">Switch Account</string>
+    <string name="ui_inline_settingsscreen_0a8760117e" formatted="false">Enable supplier custom rates</string>
+    <string name="ui_inline_settingsscreen_1524caf983" formatted="false">Change PIN</string>
+    <string name="ui_inline_settingsscreen_164f1cdc71" formatted="false">Use mobile lock screen fingerprint to verify actions</string>
+    <string name="ui_inline_settingsscreen_29a9eddf16" formatted="false">Delete User Account?</string>
+    <string name="ui_inline_settingsscreen_2c452450af" formatted="false">Enable wallet custom rates</string>
+    <string name="ui_inline_settingsscreen_315ec29116" formatted="false">Foreign Currency (e.g. SAR)</string>
+    <string name="ui_inline_settingsscreen_3376a822e8" formatted="false">Cancel</string>
+    <string name="ui_inline_settingsscreen_5104a1f5e2" formatted="false">Edit Operator Details &amp; RBAC</string>
+    <string name="ui_inline_settingsscreen_56190d1a6d" formatted="false">Supplier Rate</string>
+    <string name="ui_inline_settingsscreen_578d84f85c" formatted="false">Calculate supplier buying rates &amp; profit margins</string>
+    <string name="ui_inline_settingsscreen_5c4f895f83" formatted="false">Change Language</string>
+    <string name="ui_inline_settingsscreen_5c8795ae1a" formatted="false">System Configuration</string>
+    <string name="ui_inline_settingsscreen_5ce537ffe1" formatted="false">New PIN</string>
+    <string name="ui_inline_settingsscreen_5d6402d7b1" formatted="false">Rate-Based Mode</string>
+    <string name="ui_inline_settingsscreen_6785197873" formatted="false">Logo upload failed.</string>
+    <string name="ui_inline_settingsscreen_683e6f845d" formatted="false">Branding</string>
+    <string name="ui_inline_settingsscreen_6dfb5e9cc1" formatted="false">Yes, Delete</string>
+    <string name="ui_inline_settingsscreen_6e177714cc" formatted="false">Save Changes</string>
+    <string name="ui_inline_settingsscreen_8252500e53" formatted="false">Role</string>
+    <string name="ui_inline_settingsscreen_912dac5254" formatted="false">Add New Operator</string>
+    <string name="ui_inline_settingsscreen_943c4b578a" formatted="false">Current and new PIN must be different six-digit PINs</string>
+    <string name="ui_inline_settingsscreen_9be292c01b" formatted="false">App Name</string>
+    <string name="ui_inline_settingsscreen_a1c22ebe6e" formatted="false">Create New Operator</string>
+    <string name="ui_inline_settingsscreen_a242c88f27" formatted="false">15 RBAC Permissions</string>
+    <string name="ui_inline_settingsscreen_aa2bf1c2ae" formatted="false">Currency &amp; Symbols</string>
+    <string name="ui_inline_settingsscreen_acbe979931" formatted="false">Local Currency (e.g. BDT)</string>
+    <string name="ui_inline_settingsscreen_aed7797043" formatted="false">Language</string>
+    <string name="ui_inline_settingsscreen_af3189500d" formatted="false">PIN changed successfully!</string>
+    <string name="ui_inline_settingsscreen_b0f6cf676f" formatted="false">Emoji Logo</string>
+    <string name="ui_inline_settingsscreen_b168301089" formatted="false">Update</string>
+    <string name="ui_inline_settingsscreen_b7a2df780e" formatted="false">Current PIN</string>
+    <string name="ui_inline_settingsscreen_bcf76e6ee3" formatted="false">Logout Account</string>
+    <string name="ui_inline_settingsscreen_c0d666827c" formatted="false">Updating…</string>
+    <string name="ui_inline_settingsscreen_c159b22e57" formatted="false">Fingerprint Lock</string>
+    <string name="ui_inline_settingsscreen_c2af3165aa" formatted="false">Are you sure you want to permanently delete user \'${showDeleteConfirmByOp!!.username}\'? This action is irreversible.</string>
+    <string name="ui_inline_settingsscreen_c6c50a3d01" formatted="false">Fill name, mobile, and 6-digit PIN</string>
+    <string name="ui_inline_settingsscreen_cd6570bd8a" formatted="false">New 6-digit PIN (Optional)</string>
+    <string name="ui_inline_settingsscreen_ce6a481583" formatted="false">Operator &amp; Security</string>
+    <string name="ui_inline_settingsscreen_d588218cc7" formatted="false">Wallet Rate</string>
+    <string name="ui_inline_settingsscreen_dfcbe45f34" formatted="false">Upload Picture Logo</string>
+    <string name="ui_inline_settingsscreen_e2072e86cc" formatted="false">Granular RBAC Permissions</string>
+    <string name="ui_inline_settingsscreen_e47e3c3caa" formatted="false">Settings</string>
+    <string name="ui_inline_settingsscreen_e83999a27d" formatted="false">Version $appVersion</string>
+    <string name="ui_inline_settingsscreen_e919f0cf03" formatted="false">Add Another Language</string>
+    <string name="ui_inline_settingsscreen_e93a5d774b" formatted="false">App Logo &amp; Name</string>
+    <string name="ui_inline_settingsscreen_f1c89007f9" formatted="false">Save</string>
+    <string name="ui_inline_settingsscreen_fa43114985" formatted="false">Only a SuperAdmin can manage operators.</string>
+    <string name="ui_inline_settingsscreen_ffd90b5bdb" formatted="false">Update PIN</string>
+    <string name="ui_inline_supplierscreen_0247f236db" formatted="false">Next Step</string>
+    <string name="ui_inline_supplierscreen_04cd5d49fc" formatted="false">Cust. Rate</string>
+    <string name="ui_inline_supplierscreen_0512afd425" formatted="false">Total Taka Buy</string>
+    <string name="ui_inline_supplierscreen_05de0a5d74" formatted="false">Search...</string>
+    <string name="ui_inline_supplierscreen_067fa2529a" formatted="false">Account Number:</string>
+    <string name="ui_inline_supplierscreen_0aadd123dc" formatted="false">Save Changes</string>
+    <string name="ui_inline_supplierscreen_0c5f5eb77b" formatted="false">Paid (BDT):</string>
+    <string name="ui_inline_supplierscreen_103e46851d" formatted="false">Secure Ledger Notes</string>
+    <string name="ui_inline_supplierscreen_10da88c485" formatted="false">Office Address</string>
+    <string name="ui_inline_supplierscreen_1641f455c5" formatted="false">Payment Channel</string>
+    <string name="ui_inline_supplierscreen_1b63e310d4" formatted="false">Fund Type</string>
+    <string name="ui_inline_supplierscreen_1c4720b4ca" formatted="false">Highest Balance</string>
+    <string name="ui_inline_supplierscreen_1ecd7cf635" formatted="false">Records: ${deposits.size}</string>
+    <string name="ui_inline_supplierscreen_1faca4a15f" formatted="false">Clear Supplier Due</string>
+    <string name="ui_inline_supplierscreen_20f7ff3a94" formatted="false">Dues Settled</string>
+    <string name="ui_inline_supplierscreen_2173e7e448" formatted="false">Receiver Name</string>
+    <string name="ui_inline_supplierscreen_21d30e38de" formatted="false">Collect or settle your receivable from this supplier.</string>
+    <string name="ui_inline_supplierscreen_245a59cc71" formatted="false">Notes:</string>
+    <string name="ui_inline_supplierscreen_2a988aeadb" formatted="false">Total Riyal Deposited</string>
+    <string name="ui_inline_supplierscreen_2b9f353c46" formatted="false">Cancel</string>
+    <string name="ui_inline_supplierscreen_2e5ccb86a1" formatted="false">Sort By</string>
+    <string name="ui_inline_supplierscreen_2e6091ffc9" formatted="false">No deposits or fund records found.</string>
+    <string name="ui_inline_supplierscreen_2f88198b4e" formatted="false">Tap here to go back</string>
+    <string name="ui_inline_supplierscreen_329acafa2c" formatted="false">Supp. Rate</string>
+    <string name="ui_inline_supplierscreen_32f071ea0d" formatted="false">Notes / Remarks</string>
+    <string name="ui_inline_supplierscreen_35e95659c0" formatted="false">Edit Remittance Ledger</string>
+    <string name="ui_inline_supplierscreen_374c3b9623" formatted="false">Transaction Status</string>
+    <string name="ui_inline_supplierscreen_38c07c0400" formatted="false">Riyal Purchase</string>
+    <string name="ui_inline_supplierscreen_3e56cfb78a" formatted="false">Notes / Description</string>
+    <string name="ui_inline_supplierscreen_3ed233d7d2" formatted="false">Transactions</string>
+    <string name="ui_inline_supplierscreen_4271a57e62" formatted="false">Add File</string>
+    <string name="ui_inline_supplierscreen_42cfef2b1a" formatted="false">Select Supplier Account</string>
+    <string name="ui_inline_supplierscreen_43495a73fa" formatted="false">No suppliers registered.</string>
+    <string name="ui_inline_supplierscreen_46d835234c" formatted="false">Add New Supplier Profile</string>
+    <string name="ui_inline_supplierscreen_4823b7177d" formatted="false">Riyal Collected (SAR):</string>
+    <string name="ui_inline_supplierscreen_4826fcae74" formatted="false">Oldest First</string>
+    <string name="ui_inline_supplierscreen_49e5d9354a" formatted="false">BDT Paid</string>
+    <string name="ui_inline_supplierscreen_4a3088e0bf" formatted="false">Collect All</string>
+    <string name="ui_inline_supplierscreen_4dd223758c" formatted="false">Contact Phone Number</string>
+    <string name="ui_inline_supplierscreen_4de7f1d1cc" formatted="false">New Transaction</string>
+    <string name="ui_inline_supplierscreen_5141b71288" formatted="false">Supplier Name</string>
+    <string name="ui_inline_supplierscreen_5490d713ad" formatted="false">Address (Branch / Office)</string>
+    <string name="ui_inline_supplierscreen_54c8f85923" formatted="false">Receiver Phone</string>
+    <string name="ui_inline_supplierscreen_558d5301df" formatted="false">Received Amount (BDT)</string>
+    <string name="ui_inline_supplierscreen_5642bd2e18" formatted="false">Supplier Rate:</string>
+    <string name="ui_inline_supplierscreen_5e549b17c8" formatted="false">Exchange Rate</string>
+    <string name="ui_inline_supplierscreen_5f8e334d44" formatted="false">Supplier Accounting Information</string>
+    <string name="ui_inline_supplierscreen_602f6d2b8b" formatted="false">Trade License / Tax ID</string>
+    <string name="ui_inline_supplierscreen_63c0e8ec71" formatted="false">Has Active Deposit</string>
+    <string name="ui_inline_supplierscreen_65a548656a" formatted="false">Payable (BDT):</string>
+    <string name="ui_inline_supplierscreen_667dc17276" formatted="false">Clear outstanding ${localCur}payables to this supplier.</string>
+    <string name="ui_inline_supplierscreen_6694b5db45" formatted="false">Select Supplier Fund</string>
+    <string name="ui_inline_supplierscreen_67b48a844b" formatted="false">Pending</string>
+    <string name="ui_inline_supplierscreen_687918a84a" formatted="false">Deliver</string>
+    <string name="ui_inline_supplierscreen_68b2c9a8e8" formatted="false">Cancel</string>
+    <string name="ui_inline_supplierscreen_697952c187" formatted="false">Exchange Rate ${localCur}</string>
+    <string name="ui_inline_supplierscreen_6c817a069a" formatted="false">Save Record</string>
+    <string name="ui_inline_supplierscreen_75ac1c1202" formatted="false">Customize logo:</string>
+    <string name="ui_inline_supplierscreen_818fd5e6ae" formatted="false">Upload Document</string>
+    <string name="ui_inline_supplierscreen_8546259e38" formatted="false">Wallet</string>
+    <string name="ui_inline_supplierscreen_8988bfe173" formatted="false">Profile Info</string>
+    <string name="ui_inline_supplierscreen_89967f3635" formatted="false">Select Wallet</string>
+    <string name="ui_inline_supplierscreen_9927799207" formatted="false">Account Number</string>
+    <string name="ui_inline_supplierscreen_9c9bcc517c" formatted="false">No Due</string>
+    <string name="ui_inline_supplierscreen_9d9f5c7e4e" formatted="false">Amount (SAR)</string>
+    <string name="ui_inline_supplierscreen_9efba04467" formatted="false">Notes / Description</string>
+    <string name="ui_inline_supplierscreen_a1ecb80ee6" formatted="false">No attachment file selected</string>
+    <string name="ui_inline_supplierscreen_a4beefb913" formatted="false">Purchase new ${foreignCur}funds from this supplier.</string>
+    <string name="ui_inline_supplierscreen_a540a0f782" formatted="false">Disburse All</string>
+    <string name="ui_inline_supplierscreen_a67983e47c" formatted="false">Receivable (BDT):</string>
+    <string name="ui_inline_supplierscreen_a8096459f7" formatted="false">Disbursed BDT:</string>
+    <string name="ui_inline_supplierscreen_b0900dd70c" formatted="false">Payable (BDT)</string>
+    <string name="ui_inline_supplierscreen_b0ecfd5034" formatted="false">Riyal Amount (SAR)</string>
+    <string name="ui_inline_supplierscreen_b568fb019a" formatted="false">Business &amp; Security Coordinates</string>
+    <string name="ui_inline_supplierscreen_b770e658d1" formatted="false">Select Transaction Type</string>
+    <string name="ui_inline_supplierscreen_b9d74e5b2c" formatted="false">Fund adjustment / Delete</string>
+    <string name="ui_inline_supplierscreen_b9f7414f68" formatted="false">Filter Balance</string>
+    <string name="ui_inline_supplierscreen_bc2880aab4" formatted="false">Total (BDT):</string>
+    <string name="ui_inline_supplierscreen_c2fbef9c22" formatted="false">Name A-Z</string>
+    <string name="ui_inline_supplierscreen_c3941b1f8d" formatted="false">New ${foreignCur}Purchase</string>
+    <string name="ui_inline_supplierscreen_c536aa9e37" formatted="false">⚙️ Filter &amp; Settings</string>
+    <string name="ui_inline_supplierscreen_cefdba16cb" formatted="false">Edit Supplier Fund / Deposit</string>
+    <string name="ui_inline_supplierscreen_d303cb3757" formatted="false">Routed Transfer</string>
+    <string name="ui_inline_supplierscreen_d306b6ced4" formatted="false">MMMM d, yyyy</string>
+    <string name="ui_inline_supplierscreen_d67ab65ccc" formatted="false">Riyal Received</string>
+    <string name="ui_inline_supplierscreen_dc8401f5a4" formatted="false">Contacts</string>
+    <string name="ui_inline_supplierscreen_dc891852e7" formatted="false">Receivable (BDT)</string>
+    <string name="ui_inline_supplierscreen_ddf2b3c1cd" formatted="false">Supplier Fund Registry Audit</string>
+    <string name="ui_inline_supplierscreen_e5bf76fd01" formatted="false">All Suppliers</string>
+    <string name="ui_inline_supplierscreen_e64b77d09a" formatted="false">Customer Rate:</string>
+    <string name="ui_inline_supplierscreen_e98335264f" formatted="false">Collect Receivable</string>
+    <string name="ui_inline_supplierscreen_ed1269c465" formatted="false">Supplier Pool Profile</string>
+    <string name="ui_inline_supplierscreen_ef81a9abb6" formatted="false">Add</string>
+    <string name="ui_inline_supplierscreen_f1811a120c" formatted="false">Owing Liability</string>
+    <string name="ui_inline_supplierscreen_f24d0fcd08" formatted="false">Receivable</string>
+    <string name="ui_inline_supplierscreen_f2bbe60951" formatted="false">Phone Number</string>
+    <string name="ui_inline_supplierscreen_f48a4becd8" formatted="false">Save</string>
+    <string name="ui_inline_supplierscreen_f6fecd5981" formatted="false">Due</string>
+    <string name="ui_inline_supplierscreen_f93797f985" formatted="false">Newest First</string>
+    <string name="ui_inline_supplierscreen_fd478db4ac" formatted="false">Supplier or Business Name</string>
+    <string name="ui_inline_transactionscreen_00b193f024" formatted="false">SAR Amount Sent:</string>
+    <string name="ui_inline_transactionscreen_05c09dddeb" formatted="false">Today</string>
+    <string name="ui_inline_transactionscreen_05d7a7b29c" formatted="false">Delivered vs Pending</string>
+    <string name="ui_inline_transactionscreen_0b3043f05d" formatted="false">Change Customer</string>
+    <string name="ui_inline_transactionscreen_0fe39592a2" formatted="false">Supplier Rate</string>
+    <string name="ui_inline_transactionscreen_10785ab6e1" formatted="false">Recipient Phone</string>
+    <string name="ui_inline_transactionscreen_17db0cacff" formatted="false">Min ${foreignCur}</string>
+    <string name="ui_inline_transactionscreen_1fbd70a6e7" formatted="false">WhatsApp Voucher</string>
+    <string name="ui_inline_transactionscreen_218d809a21" formatted="false">Net Estimated Yield:</string>
+    <string name="ui_inline_transactionscreen_2523e9785e" formatted="false">Yes, Confirm Delete</string>
+    <string name="ui_inline_transactionscreen_2672f0b970" formatted="false">Status Tracking</string>
+    <string name="ui_inline_transactionscreen_2c78b4b47b" formatted="false">Search...</string>
+    <string name="ui_inline_transactionscreen_2c947591d6" formatted="false">Customer Exchange Rate:</string>
+    <string name="ui_inline_transactionscreen_33f13eac89" formatted="false">Account / Transfer Number</string>
+    <string name="ui_inline_transactionscreen_349e3b6fdc" formatted="false">Last 30 Days</string>
+    <string name="ui_inline_transactionscreen_3554cbaee5" formatted="false">Newest First</string>
+    <string name="ui_inline_transactionscreen_392b19d30f" formatted="false">Highest Riyal</string>
+    <string name="ui_inline_transactionscreen_3a36a926ad" formatted="false">Ledger payout</string>
+    <string name="ui_inline_transactionscreen_3a4ae591b6" formatted="false">Payout Channel</string>
+    <string name="ui_inline_transactionscreen_3e93c88ff2" formatted="false">Account / Transfer Number (${receiverAccountTypeInput})</string>
+    <string name="ui_inline_transactionscreen_3f89da3610" formatted="false">Digitally Verified Ledger Slip. No Physical Stamp Required.</string>
+    <string name="ui_inline_transactionscreen_3fdd2f0d73" formatted="false">Confirm 6-digit Security PIN</string>
+    <string name="ui_inline_transactionscreen_42b800bae4" formatted="false">Arbitrage margin</string>
+    <string name="ui_inline_transactionscreen_432a292c45" formatted="false">Recipient Payout Details</string>
+    <string name="ui_inline_transactionscreen_44b156bccc" formatted="false">Payout Channel:</string>
+    <string name="ui_inline_transactionscreen_4563426f35" formatted="false">Or verify using PIN:</string>
+    <string name="ui_inline_transactionscreen_4c4947e1ac" formatted="false">Receipt</string>
+    <string name="ui_inline_transactionscreen_54082e09d8" formatted="false">All Time</string>
+    <string name="ui_inline_transactionscreen_54a404adaa" formatted="false">Expected Profit</string>
+    <string name="ui_inline_transactionscreen_5c804a4b33" formatted="false">Payable BDT:</string>
+    <string name="ui_inline_transactionscreen_5fe7af6b2c" formatted="false">Notes / Operational Instructions</string>
+    <string name="ui_inline_transactionscreen_63e2626685" formatted="false">Oldest First</string>
+    <string name="ui_inline_transactionscreen_6d5f0785e7" formatted="false">Transaction Deletion</string>
+    <string name="ui_inline_transactionscreen_705de569dd" formatted="false">Last 7 Days</string>
+    <string name="ui_inline_transactionscreen_726802e23c" formatted="false">Exchange Calculations Matrix</string>
+    <string name="ui_inline_transactionscreen_7442be1ba6" formatted="false">Account/Number:</string>
+    <string name="ui_inline_transactionscreen_7614cab6f5" formatted="false">No transactions matching your selection.</string>
+    <string name="ui_inline_transactionscreen_7807695c2c" formatted="false">⚠️ No active funds in any wallet ledger! Configure a wallet deposit first.</string>
+    <string name="ui_inline_transactionscreen_78177a2115" formatted="false">Sort By</string>
+    <string name="ui_inline_transactionscreen_785b3b93da" formatted="false">All Remits</string>
+    <string name="ui_inline_transactionscreen_7b2995e282" formatted="false">Register new transaction record</string>
+    <string name="ui_inline_transactionscreen_83151ceb5e" formatted="false">Note:</string>
+    <string name="ui_inline_transactionscreen_8398f7e59f" formatted="false">Saudi Amount (SAR)</string>
+    <string name="ui_inline_transactionscreen_8477da0b5f" formatted="false">Date Filter</string>
+    <string name="ui_inline_transactionscreen_868e42c10a" formatted="false">Issue Remittance</string>
+    <string name="ui_inline_transactionscreen_8d4374a172" formatted="false">Delivered</string>
+    <string name="ui_inline_transactionscreen_97969b2dbf" formatted="false">Phone:</string>
+    <string name="ui_inline_transactionscreen_99cb19dacd" formatted="false">Remittance Ledger</string>
+    <string name="ui_inline_transactionscreen_9eb332d63b" formatted="false">Fuzzy matches</string>
+    <string name="ui_inline_transactionscreen_9ff3f5bf5e" formatted="false">⚙️ Filter &amp; Settings</string>
+    <string name="ui_inline_transactionscreen_a43aa8b0e7" formatted="false">Cancelled</string>
+    <string name="ui_inline_transactionscreen_a5d308c590" formatted="false">Total Received</string>
+    <string name="ui_inline_transactionscreen_a64ae276e0" formatted="false">Deliver</string>
+    <string name="ui_inline_transactionscreen_b121f7fc07" formatted="false">Highest Profit</string>
+    <string name="ui_inline_transactionscreen_b173d86347" formatted="false">Max ${foreignCur}</string>
+    <string name="ui_inline_transactionscreen_b3f5ca8d55" formatted="false">Show KPI Stats:</string>
+    <string name="ui_inline_transactionscreen_b4a48a02f3" formatted="false">Bangladesh Receiver Particulars:</string>
+    <string name="ui_inline_transactionscreen_b5e20bedf0" formatted="false">Estimated Arbitrage Profit:</string>
+    <string name="ui_inline_transactionscreen_ba489679d6" formatted="false">Pending</string>
+    <string name="ui_inline_transactionscreen_bad78af4d6" formatted="false">Transaction Delivered</string>
+    <string name="ui_inline_transactionscreen_bb32984be0" formatted="false">Are you sure you want to delete this transaction record?</string>
+    <string name="ui_inline_transactionscreen_bf5779d0f1" formatted="false">Name:</string>
+    <string name="ui_inline_transactionscreen_bf66ee6e4d" formatted="false">Close Receipt</string>
+    <string name="ui_inline_transactionscreen_c182ecd62c" formatted="false">Transactions</string>
+    <string name="ui_inline_transactionscreen_d55321ef68" formatted="false">📊 Arbitrage Exchange Matrix:</string>
+    <string name="ui_inline_transactionscreen_d639c488a0" formatted="false">⚙️ Quick Status Actions:</string>
+    <string name="ui_inline_transactionscreen_d67bad03f6" formatted="false">Recipient Name</string>
+    <string name="ui_inline_transactionscreen_da89cf23a9" formatted="false">Pending Processing</string>
+    <string name="ui_inline_transactionscreen_dc24b0524b" formatted="false">SAFA LEDGER RECEIPT</string>
+    <string name="ui_inline_transactionscreen_df3f33aa9b" formatted="false">Cancel</string>
+    <string name="ui_inline_transactionscreen_e09cc2736f" formatted="false">Compact View:</string>
+    <string name="ui_inline_transactionscreen_e1a952da61" formatted="false">Recipient Payout Details</string>
+    <string name="ui_inline_transactionscreen_e82177bc54" formatted="false">Save</string>
+    <string name="ui_inline_transactionscreen_eb9da5ad9f" formatted="false">Edit Remittance Data</string>
+    <string name="ui_inline_transactionscreen_ebfe052e12" formatted="false">Cancelled Record</string>
+    <string name="ui_inline_transactionscreen_ec6998d371" formatted="false">Change Supplier Account</string>
+    <string name="ui_inline_transactionscreen_f014b99eb3" formatted="false">Total Disbursed</string>
+    <string name="ui_inline_transactionscreen_f1fe15da93" formatted="false">Sender Customer Details</string>
+    <string name="ui_inline_transactionscreen_faf00f8937" formatted="false">Lowest Riyal</string>
+    <string name="ui_inline_transactionscreen_fc0fd694b9" formatted="false">Select Wallet Ledger Source</string>
+    <string name="ui_inline_transactionscreen_fd154673ac" formatted="false">Customer Rate</string>
+    <string name="ui_inline_transactionscreen_fe1292315b" formatted="false">Max Profit</string>
+    <string name="ui_inline_walletscreen_0c4742773c" formatted="false">Enter deposit details</string>
+    <string name="ui_inline_walletscreen_208d3d52c0" formatted="false">Reduce Funds - ${ledger.name}</string>
+    <string name="ui_inline_walletscreen_2af5044c9b" formatted="false">No active sub-ledger batches registered.</string>
+    <string name="ui_inline_walletscreen_3dcb44550e" formatted="false">Create</string>
+    <string name="ui_inline_walletscreen_471077bea8" formatted="false">Withdraw</string>
+    <string name="ui_inline_walletscreen_4b235f4c63" formatted="false">OK</string>
+    <string name="ui_inline_walletscreen_4b86f62f55" formatted="false">The wallet \'${ledger.name}\' currently has a non-zero balance. You cannot delete a wallet with active funds.</string>
+    <string name="ui_inline_walletscreen_4fa00bf998" formatted="false">Create Wallet Ledger Account</string>
+    <string name="ui_inline_walletscreen_4fde26e3dc" formatted="false">Sub-Khata cost base stock registers (By Date &amp; Rate):</string>
+    <string name="ui_inline_walletscreen_5604ce2844" formatted="false">Notes (Optional)</string>
+    <string name="ui_inline_walletscreen_56586ca2eb" formatted="false">Amount ${localCur}</string>
+    <string name="ui_inline_walletscreen_5c1ca5db47" formatted="false">Add</string>
+    <string name="ui_inline_walletscreen_6ff16c3060" formatted="false">Deduct money manually out of this register. This directly decreases BDT stock.</string>
+    <string name="ui_inline_walletscreen_71847e6397" formatted="false">Amount (${localCur})</string>
+    <string name="ui_inline_walletscreen_7364501e9b" formatted="false">Confirm Wallet Deletion</string>
+    <string name="ui_inline_walletscreen_7b7df83518" formatted="false">Ledger Account Name</string>
+    <string name="ui_inline_walletscreen_8468393758" formatted="false">Delete</string>
+    <string name="ui_inline_walletscreen_9d204ef604" formatted="false">Deposit Funds - ${ledger.name}</string>
+    <string name="ui_inline_walletscreen_9ee6510bfc" formatted="false">Are you sure you want to permanently delete inside the wallet ledger \'${ledger.name}\'? This action cannot be undone.</string>
+    <string name="ui_inline_walletscreen_a324f6b630" formatted="false">Deposit</string>
+    <string name="ui_inline_walletscreen_aad15554bf" formatted="false">No wallet register books found!</string>
+    <string name="ui_inline_walletscreen_acc97d70c8" formatted="false">Yes, Delete</string>
+    <string name="ui_inline_walletscreen_b59787da20" formatted="false">New Display Name</string>
+    <string name="ui_inline_walletscreen_b7426e830b" formatted="false">Wallet Cannot Be Deleted</string>
+    <string name="ui_inline_walletscreen_b957c429f8" formatted="false">Confirm</string>
+    <string name="ui_inline_walletscreen_bb077162a5" formatted="false">Sub-accounts: ${batches.count { it.remainingBdt.signum() &gt; 0 }}</string>
+    <string name="ui_inline_walletscreen_c74fa9cbbd" formatted="false">Cancel</string>
+    <string name="ui_inline_walletscreen_ce9658bee0" formatted="false">Save</string>
+    <string name="ui_inline_walletscreen_da5c044421" formatted="false">Rename Wallet Registrar</string>
+    <string name="ui_inline_walletscreen_db67bec88e" formatted="false">Confirm</string>
+    <string name="ui_inline_walletscreen_e7c71289c5" formatted="false">Wallet Ledger Registers</string>
+    <string name="ui_inline_walletscreen_ebb5bce5b0" formatted="false">Enter the new display name of this wallet book below:</string>
+    <string name="ui_inline_walletscreen_f2a34e8824" formatted="false">Cost Rate (Optional)</string>
+    <string name="ui_invalid_credentials" formatted="false">Invalid mobile or PIN</string>
+    <string name="ui_is_expense" formatted="false">Transaction Class</string>
+    <string name="ui_login_button" formatted="false">Log In</string>
+    <string name="ui_login_title" formatted="false">SAFA Security Lock</string>
+    <string name="ui_logout" formatted="false">Log Out</string>
+    <string name="ui_manage_expenses" formatted="false">Manage Expenses</string>
+    <string name="ui_manage_operators" formatted="false">Operator &amp; Staff User Management</string>
+    <string name="ui_manage_wallet" formatted="false">Manage Wallet</string>
+    <string name="ui_mobile_number" formatted="false">Mobile Number</string>
+    <string name="ui_net_profit_bdt" formatted="false">Net Profit (Local)</string>
+    <string name="ui_net_profit_sar" formatted="false">Net Profit (Foreign)</string>
+    <string name="ui_new_remittance" formatted="false">New Transaction</string>
+    <string name="ui_no_account_found" formatted="false">No account found with this mobile number</string>
+    <string name="ui_notes" formatted="false">Additional Instructions / Delivery Address</string>
+    <string name="ui_operator_blocked" formatted="false">Account is currently suspended.</string>
+    <string name="ui_operator_list" formatted="false">Authorized Operators &amp; Personnel</string>
+    <string name="ui_operator_management_desc" formatted="false">Control 15 granular RBAC permissions for server users</string>
+    <string name="ui_payment_method" formatted="false">Payout Channel</string>
+    <string name="ui_permission_required" formatted="false">You do not have permission to access this feature.</string>
+    <string name="ui_phone_number" formatted="false">Saudi Mobile Number</string>
+    <string name="ui_pin_incorrect" formatted="false">Incorrect PIN! Please try again.</string>
+    <string name="ui_pincode" formatted="false">6-Digit PIN Access</string>
+    <string name="ui_pool_balance" formatted="false">Supplier Outstanding Funds</string>
+    <string name="ui_purchase_success" formatted="false">Local Pool successfully processed</string>
+    <string name="ui_rate_applied" formatted="false">Exchange Rate (e.g., 32.50)</string>
+    <string name="ui_rate_saved" formatted="false">Rates published successfully!</string>
+    <string name="ui_receiver_account_no" formatted="false">Account No (bKash/Nagad/Bank)</string>
+    <string name="ui_receiver_bdt_amount" formatted="false">Local Payout</string>
+    <string name="ui_receiver_name" formatted="false">Receiver Full Name</string>
+    <string name="ui_receiver_phone" formatted="false">Receiver Mobile No</string>
+    <string name="ui_role" formatted="false">User Authorization Role</string>
+    <string name="ui_role_owner" formatted="false">Owner / Admin</string>
+    <string name="ui_role_staff" formatted="false">Staff / Operator</string>
+    <string name="ui_saudi_amount" formatted="false">Received Foreign Amount</string>
+    <string name="ui_save_customer" formatted="false">Register Customer</string>
+    <string name="ui_save_record" formatted="false">Log Item</string>
+    <string name="ui_save_supplier" formatted="false">Save Supplier Detail</string>
+    <string name="ui_save_transaction" formatted="false">Commit &amp; Save Transaction</string>
+    <string name="ui_select_customer" formatted="false">Search/Select Customer</string>
+    <string name="ui_select_operator" formatted="false">Select Registered Operator</string>
+    <string name="ui_select_supplier" formatted="false">Select Active Local Supplier</string>
+    <string name="ui_settings" formatted="false">Settings</string>
+    <string name="ui_status" formatted="false">Delivery Status</string>
+    <string name="ui_status_cancelled" formatted="false">Cancelled Transmit</string>
+    <string name="ui_status_delivered" formatted="false">Delivered to Target</string>
+    <string name="ui_status_pending" formatted="false">Pending Transmit</string>
+    <string name="ui_supplier_buy_rate" formatted="false">Supplier Exchange Rate (Cost)</string>
+    <string name="ui_supplier_mgmt" formatted="false">Suppliers</string>
+    <string name="ui_supplier_name" formatted="false">Supplier Forex Group Name</string>
+    <string name="ui_supplier_rate_tx" formatted="false">Supplier Rate Applied</string>
+    <string name="ui_suppliers" formatted="false">Suppliers</string>
+    <string name="ui_title" formatted="false">Description (e.g. Office Rent, Coffee bills)</string>
+    <string name="ui_total_bdt_delivered" formatted="false">Total Local Disbursed</string>
+    <string name="ui_total_bdt_pending" formatted="false">Total Local Pending</string>
+    <string name="ui_total_customers" formatted="false">Total Registered Customers</string>
+    <string name="ui_total_deposited_sar" formatted="false">Total Deposited Foreign</string>
+    <string name="ui_total_sar_received" formatted="false">Total Received Foreign</string>
+    <string name="ui_transactions" formatted="false">Transactions</string>
+    <string name="ui_unsettled_supp" formatted="false">Net Supplier Credit Obligations</string>
+    <string name="ui_update_daily_rates" formatted="false">Publish Live Exchange Rates</string>
+    <string name="ui_view_customers" formatted="false">View Customers</string>
+    <string name="ui_view_reports" formatted="false">View Reports</string>
+    <string name="ui_view_suppliers" formatted="false">View Suppliers</string>
+    <string name="ui_view_transactions" formatted="false">View Transactions</string>
+    <string name="ui_wallet" formatted="false">Wallet</string>
+    <string name="setup_database_required" formatted="false">First-time database setup required</string>
+    <string name="setup_superadmin_required" formatted="false">Finish first SuperAdmin setup</string>
+    <string name="setup_database_explanation" formatted="false">The server database must be initialized before sign-in. The button opens the protected setup page; the private setup code is never shown or stored in the Android app.</string>
+    <string name="setup_superadmin_explanation" formatted="false">The database is prepared. Finish creating the first SuperAdmin in the same browser session that ran the migration.</string>
+    <string name="setup_database_action" formatted="false">Open Database Setup</string>
+    <string name="setup_superadmin_action" formatted="false">Open SuperAdmin Setup</string>
+    <string name="session_verification_failed" formatted="false">The session could not be verified. Sign in again with mobile and PIN.</string>
+</resources>

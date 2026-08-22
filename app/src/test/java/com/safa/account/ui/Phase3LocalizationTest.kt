@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.safa.account.data.api.TokenManager
 import com.safa.account.data.repository.AppRepository
+import com.safa.account.ui.localization.AndroidStringCatalog
 import com.safa.account.ui.viewmodel.SafaViewModel
 import org.junit.Assert.*
 import org.junit.Before
@@ -23,6 +24,7 @@ class Phase3LocalizationTest {
     @Before
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        AndroidStringCatalog.initialize(context)
         tokenManager = TokenManager(context)
         val repository = mock(AppRepository::class.java)
         viewModel = SafaViewModel(repository, tokenManager)

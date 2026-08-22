@@ -1,4 +1,5 @@
 package com.safa.account.ui.screens
+import com.safa.account.ui.localization.AndroidStringCatalog
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -79,7 +80,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
     ) {
         item {
             Text(
-                text = if (lang == "BN") "সেটিংস" else "Settings",
+                text = AndroidStringCatalog.get(lang, "inline_settingsscreen_e47e3c3caa"),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
@@ -201,7 +202,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                         ) {
                             Text(
-                                text = if (lang == "BN") "অ্যাকাউন্ট সুইচার (১-ট্যাপ)" else "Switch Account",
+                                text = AndroidStringCatalog.get(lang, "inline_settingsscreen_050c0143b5"),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
@@ -255,7 +256,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
         // Section 1: System Settings Category
         item {
             Text(
-                text = if (lang == "BN") "সিস্টেম কনফিগারেশন" else "System Configuration",
+                text = AndroidStringCatalog.get(lang, "inline_settingsscreen_5c8795ae1a"),
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
@@ -294,13 +295,13 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
                         )
                         Column {
                             Text(
-                                text = if (lang == "BN") "রেট ভিত্তিক হিসাব মোড" else "Rate-Based Mode",
+                                text = AndroidStringCatalog.get(lang, "inline_settingsscreen_5d6402d7b1"),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = if (lang == "BN") "সাপ্লায়ার ক্রয় রেট ও প্রফিট মার্জিন গণনাকারী মোড" else "Calculate supplier buying rates & profit margins",
+                                text = AndroidStringCatalog.get(lang, "inline_settingsscreen_578d84f85c"),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                 color = MaterialTheme.colorScheme.outline,
                                 maxLines = 1,
@@ -345,13 +346,13 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
                             )
                             Column {
                                 Text(
-                                    text = if (lang == "BN") "সাপ্লায়ার রেট" else "Supplier Rate",
+                                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_56190d1a6d"),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = if (lang == "BN") "সাপ্লায়ারদের জন্য কাস্টম রেট" else "Enable supplier custom rates",
+                                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_0a8760117e"),
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                     color = MaterialTheme.colorScheme.outline,
                                     maxLines = 1,
@@ -397,13 +398,13 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
                             )
                             Column {
                                 Text(
-                                    text = if (lang == "BN") "ওয়ালেট রেট" else "Wallet Rate",
+                                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_d588218cc7"),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = if (lang == "BN") "ওয়ালেট রিচার্জের জন্য কাস্টম রেট" else "Enable wallet custom rates",
+                                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_2c452450af"),
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                     color = MaterialTheme.colorScheme.outline,
                                     maxLines = 1,
@@ -423,7 +424,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
         item {
             SettingsMenuItem(
                 icon = Icons.Default.MonetizationOn,
-                title = if (lang == "BN") "কারেন্সি ও প্রতীক" else "Currency & Symbols",
+                title = AndroidStringCatalog.get(lang, "inline_settingsscreen_aa2bf1c2ae"),
                 onClick = { onNavigate(SettingsSubpage.CURRENCY) }
             )
         }
@@ -431,7 +432,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
         item {
             SettingsMenuItem(
                 icon = Icons.Default.Image,
-                title = if (lang == "BN") "লোগো ও নাম" else "App Logo & Name",
+                title = AndroidStringCatalog.get(lang, "inline_settingsscreen_e93a5d774b"),
                 onClick = { onNavigate(SettingsSubpage.BRANDING) }
             )
         }
@@ -439,7 +440,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
         item {
             SettingsMenuItem(
                 icon = Icons.Default.Language,
-                title = if (lang == "BN") "ভাষা" else "Language",
+                title = AndroidStringCatalog.get(lang, "inline_settingsscreen_aed7797043"),
                 onClick = { onNavigate(SettingsSubpage.LANGUAGE) }
             )
         }
@@ -447,7 +448,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
         // Section 2: Security and Accounts Category
         item {
             Text(
-                text = if (lang == "BN") "অপারেটর ও নিরাপত্তা" else "Operator & Security",
+                text = AndroidStringCatalog.get(lang, "inline_settingsscreen_ce6a481583"),
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
@@ -472,7 +473,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
         item {
             SettingsMenuItem(
                 icon = Icons.Default.Lock,
-                title = if (lang == "BN") "পিন পরিবর্তন" else "Change PIN",
+                title = AndroidStringCatalog.get(lang, "inline_settingsscreen_1524caf983"),
                 onClick = { onNavigate(SettingsSubpage.PIN_CHANGE) }
             )
         }
@@ -532,13 +533,13 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
                         )
                         Column {
                             Text(
-                                text = if (lang == "BN") "ফিঙ্গর প্রিন্ট লাগাও" else "Fingerprint Lock",
+                                text = AndroidStringCatalog.get(lang, "inline_settingsscreen_c159b22e57"),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = if (lang == "BN") "অপেরেশন সফল করতে মোবাইল এর লকস্ক্রিন লক ব্যবহার করি" else "Use mobile lock screen fingerprint to verify actions",
+                                text = AndroidStringCatalog.get(lang, "inline_settingsscreen_164f1cdc71"),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                 color = MaterialTheme.colorScheme.outline,
                                 maxLines = 1,
@@ -579,7 +580,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (lang == "BN") "লগআউট" else "Logout Account",
+                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_bcf76e6ee3"),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
@@ -634,7 +635,7 @@ fun SettingsMainPage(viewModel: SafaViewModel, onNavigate: (SettingsSubpage) -> 
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (lang == "BN") "ভার্সন $appVersion" else "Version $appVersion",
+                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_e83999a27d"),
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                     color = MaterialTheme.colorScheme.outline,
                     maxLines = 1,
@@ -694,7 +695,7 @@ fun CurrencyPage(viewModel: SafaViewModel, onBack: () -> Unit) {
     var selectedLocalCurrency by remember { mutableStateOf(baseLocalCurrency) }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
-        PageHeader(title = if (lang == "BN") "কারেন্সি ও প্রতীক" else "Currency & Symbols", icon = Icons.Default.MonetizationOn, onBack = onBack)
+        PageHeader(title = AndroidStringCatalog.get(lang, "inline_settingsscreen_aa2bf1c2ae"), icon = Icons.Default.MonetizationOn, onBack = onBack)
 
         Card(
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -705,13 +706,13 @@ fun CurrencyPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                 OutlinedTextField(
                     value = selectedForeignCurrency,
                     onValueChange = { selectedForeignCurrency = it },
-                    label = { Text(if (lang == "BN") "বৈদেশিক কারেন্সি (যেমন: SAR)" else "Foreign Currency (e.g. SAR)") },
+                    label = { Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_315ec29116")) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = selectedLocalCurrency,
                     onValueChange = { selectedLocalCurrency = it },
-                    label = { Text(if (lang == "BN") "লোকাল কারেন্সি (যেমন: BDT)" else "Local Currency (e.g. BDT)") },
+                    label = { Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_acbe979931")) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Button(
@@ -722,7 +723,7 @@ fun CurrencyPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_6e177714cc"))
                 }
             }
         }
@@ -751,7 +752,7 @@ fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
-        PageHeader(title = if (lang == "BN") "ব্র্যান্ডিং" else "Branding", icon = Icons.Default.Palette, onBack = onBack)
+        PageHeader(title = AndroidStringCatalog.get(lang, "inline_settingsscreen_683e6f845d"), icon = Icons.Default.Palette, onBack = onBack)
 
         Card(
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -762,7 +763,7 @@ fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                 OutlinedTextField(
                     value = tempAppName,
                     onValueChange = { tempAppName = it },
-                    label = { Text(if (lang == "BN") "অ্যাপের নাম" else "App Name") },
+                    label = { Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_9be292c01b")) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -795,7 +796,7 @@ fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                         OutlinedTextField(
                             value = tempAppLogo,
                             onValueChange = { tempAppLogo = it },
-                            label = { Text(if (lang == "BN") "ইমোজি লোগো" else "Emoji Logo") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_b0f6cf676f")) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -809,7 +810,7 @@ fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                 ) {
                     Icon(Icons.Default.ImageSearch, contentDescription = "")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (lang == "BN") "ছবি আপলোড করুন" else "Upload Picture Logo")
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_dfcbe45f34"))
                 }
 
                 logoSaveError?.let {
@@ -828,7 +829,7 @@ fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                                     viewModel.updateCustomAppNameOnServer(tempAppName)
                                     onBack()
                                 } else {
-                                    logoSaveError = message ?: if (lang == "BN") "লোগো আপলোড করা যায়নি।" else "Logo upload failed."
+                                    logoSaveError = message ?: AndroidStringCatalog.get(lang, "inline_settingsscreen_6785197873")
                                 }
                             }
                         } else if (tempAppLogo.startsWith("http")) {
@@ -850,7 +851,7 @@ fun BrandingPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                     if (isSavingBranding) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
-                        Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save Changes")
+                        Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_6e177714cc"))
                     }
                 }
             }
@@ -863,7 +864,7 @@ fun LanguagePage(viewModel: SafaViewModel, onBack: () -> Unit) {
     val lang by viewModel.currentLanguage.collectAsStateWithLifecycle()
     
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
-        PageHeader(title = if (lang == "BN") "ভাষা পরিবর্তন" else "Change Language", icon = Icons.Default.Language, onBack = onBack)
+        PageHeader(title = AndroidStringCatalog.get(lang, "inline_settingsscreen_5c4f895f83"), icon = Icons.Default.Language, onBack = onBack)
 
         Card(
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -901,7 +902,7 @@ fun LanguagePage(viewModel: SafaViewModel, onBack: () -> Unit) {
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (lang == "BN") "নতুন ভাষা যুক্ত করুন" else "Add Another Language")
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_e919f0cf03"))
                 }
             }
         }
@@ -969,7 +970,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
             PageHeader(title = viewModel.t("manage_operators"), icon = Icons.Default.People, onBack = onBack)
             Text(
-                if (lang == "BN") "শুধু SuperAdmin অপারেটর ব্যবস্থাপনা করতে পারবেন।" else "Only a SuperAdmin can manage operators.",
+                AndroidStringCatalog.get(lang, "inline_settingsscreen_fa43114985"),
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 16.dp)
             )
@@ -1021,7 +1022,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        if (lang == "BN") "নতুন অপারেটর তৈরি করুন" else "Create New Operator",
+                        AndroidStringCatalog.get(lang, "inline_settingsscreen_a1c22ebe6e"),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -1065,14 +1066,14 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Text(if (lang == "BN") "রোল" else "Role", style = MaterialTheme.typography.labelMedium)
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_8252500e53"), style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = newRole == "Manager", onClick = { newRole = "Manager" }, label = { Text("Manager") })
                         FilterChip(selected = newRole == "Staff", onClick = { newRole = "Staff" }, label = { Text("Staff") })
                     }
 
                     Text(
-                        if (lang == "BN") "১৫টি দানাদার RBAC অনুমতিসমূহ" else "15 Granular RBAC Permissions",
+                        AndroidStringCatalog.get(lang, "inline_settingsscreen_03ef14b8ec"),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.secondary
@@ -1102,12 +1103,12 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
                         OutlinedButton(onClick = { isAddingOperator = false }, modifier = Modifier.weight(1f)) {
-                            Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_3376a822e8"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Button(
                             onClick = {
                                 if (newName.isBlank() || newMobile.isBlank() || newPin.length != 6) {
-                                    errorMsg = if (lang == "BN") "সব তথ্য দিন এবং পিন ৬ সংখ্যার হতে হবে" else "Fill name, mobile, and 6-digit PIN"
+                                    errorMsg = AndroidStringCatalog.get(lang, "inline_settingsscreen_c6c50a3d01")
                                     return@Button
                                 }
                                 val permsMap = mapOf(
@@ -1140,7 +1141,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(if (lang == "BN") "সংরক্ষণ" else "Save", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_f1c89007f9"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -1153,7 +1154,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
             ) {
                 Icon(Icons.Default.PersonAdd, contentDescription = "")
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(if (lang == "BN") "নতুন অপারেটর যুক্ত করুন" else "Add New Operator")
+                Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_912dac5254"))
             }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1195,7 +1196,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(if (lang == "BN") "১৫টি দানাদার RBAC অনুমতিসমূহ" else "15 RBAC Permissions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_a242c88f27"), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                         IconButton(onClick = { editingOperator = op }) {
                                             Icon(Icons.Default.Edit, contentDescription = "Edit Operator", tint = MaterialTheme.colorScheme.primary)
@@ -1260,7 +1261,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
             onDismissRequest = { editingOperator = null },
             title = {
                 Text(
-                    text = if (lang == "BN") "ইউজার তথ্য ও অনুমতি পরিবর্তন" else "Edit Operator Details & RBAC",
+                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_5104a1f5e2"),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             },
@@ -1288,7 +1289,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                             val normalized = com.safa.account.data.api.MobileNumberNormalizer.normalizePin(it)
                             if (normalized.length <= 6) pinInput = normalized
                         },
-                        label = { Text(if (lang == "BN") "নতুন ৬-ডিজিটের পিন (ঐচ্ছিক)" else "New 6-digit PIN (Optional)") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_cd6570bd8a")) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1298,7 +1299,7 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                         FilterChip(selected = roleInput == "Staff", onClick = { roleInput = "Staff" }, label = { Text("Staff") })
                     }
 
-                    Text(if (lang == "BN") "দানাদার অনুমতিসমূহ (Granular RBAC)" else "Granular RBAC Permissions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_e2072e86cc"), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
 
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         FilterChip(selected = canViewCustomers, onClick = { canViewCustomers = !canViewCustomers }, label = { Text("View Cust", fontSize = 11.sp) })
@@ -1351,12 +1352,12 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                         }
                     }
                 ) {
-                    Text(if (lang == "BN") "আপডেট করুন" else "Update", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_b168301089"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { editingOperator = null }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_3376a822e8"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -1367,17 +1368,14 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
             onDismissRequest = { showDeleteConfirmByOp = null },
             title = {
                 Text(
-                    text = if (lang == "BN") "ইউজার মুছে ফেলতে চান?" else "Delete User Account?",
+                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_29a9eddf16"),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             },
             text = {
                 Text(
-                    text = if (lang == "BN")
-                        "আপনি কি নিশ্চিতভাবে '${showDeleteConfirmByOp!!.username}' ইউজারটি মুছে ফেলতে চান? এই অ্যাকশনটি রিভার্স করা যাবে না।"
-                        else
-                        "Are you sure you want to permanently delete user '${showDeleteConfirmByOp!!.username}'? This action is irreversible."
+                    text = AndroidStringCatalog.get(lang, "inline_settingsscreen_c2af3165aa")
                 )
             },
             confirmButton = {
@@ -1392,12 +1390,12 @@ fun UserManagementPage(viewModel: SafaViewModel, onBack: () -> Unit) {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(if (lang == "BN") "হ্যাঁ, মুছে ফেলুন" else "Yes, Delete", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_6dfb5e9cc1"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmByOp = null }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_3376a822e8"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -1416,7 +1414,7 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
     var isSubmitting by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
-        PageHeader(title = if (lang == "BN") "পিন পরিবর্তন" else "Change PIN", icon = Icons.Default.Lock, onBack = onBack)
+        PageHeader(title = AndroidStringCatalog.get(lang, "inline_settingsscreen_1524caf983"), icon = Icons.Default.Lock, onBack = onBack)
 
         Card(
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -1431,7 +1429,7 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
                         if (normalized.length <= 6) oldPin = normalized
                         errorMsg = null; successMsg = null
                     },
-                    label = { Text(if (lang == "BN") "বর্তমান পিন" else "Current PIN") },
+                    label = { Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_b7a2df780e")) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1442,7 +1440,7 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
                         if (normalized.length <= 6) newPin = normalized
                         errorMsg = null; successMsg = null
                     },
-                    label = { Text(if (lang == "BN") "নতুন পিন" else "New PIN") },
+                    label = { Text(AndroidStringCatalog.get(lang, "inline_settingsscreen_5ce537ffe1")) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1461,7 +1459,7 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
                             viewModel.updateOperatorPin(oldPin, newPin) { success, message ->
                                 isSubmitting = false
                                 if (success) {
-                                    successMsg = if (lang == "BN") "পিন সফলভাবে পরিবর্তন করা হয়েছে!" else "PIN changed successfully!"
+                                    successMsg = AndroidStringCatalog.get(lang, "inline_settingsscreen_af3189500d")
                                     oldPin = ""
                                     newPin = ""
                                 } else {
@@ -1469,7 +1467,7 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
                                 }
                             }
                         } else {
-                            errorMsg = if (lang == "BN") "বর্তমান ও নতুন পিন আলাদা ৬ সংখ্যার হতে হবে" else "Current and new PIN must be different six-digit PINs"
+                            errorMsg = AndroidStringCatalog.get(lang, "inline_settingsscreen_943c4b578a")
                         }
                     },
                     enabled = !isSubmitting,
@@ -1478,8 +1476,8 @@ fun PinChangePage(viewModel: SafaViewModel, onBack: () -> Unit) {
                 ) {
                     Text(
                         if (isSubmitting) {
-                            if (lang == "BN") "আপডেট হচ্ছে…" else "Updating…"
-                        } else if (lang == "BN") "পিন আপডেট করুন" else "Update PIN",
+                            AndroidStringCatalog.get(lang, "inline_settingsscreen_c0d666827c")
+                        } else AndroidStringCatalog.get(lang, "inline_settingsscreen_ffd90b5bdb"),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
