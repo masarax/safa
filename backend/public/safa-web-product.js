@@ -168,4 +168,83 @@
     }).observe(stats, {childList:true});
   }
   new MutationObserver(refreshPresentation).observe(app, {attributes:true, attributeFilter:['data-active-account']});
+
+  // Modal accessibility contract: dynamically rendered dialogs must receive
+  // focus, trap keyboard navigation, close on Escape, and restore focus to the
+  // control that opened them. The primary runtime remains the owner of modal
+  // content and successful form-close behavior.
+  const modal = document.getElementById('modal');
+  const modalCard = document.getElementById('modal-card');
+  let modalTrigger = null;
+  const focusableSelector = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled]):not([type="hidden"])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(',');
+
+  function modalFocusables() {
+    if (!modalCard) return [];
+    return Array.from(modalCard.querySelectorAll(focusableSelector))
+      .filter(element => element instanceof HTMLElement && !element.hidden && element.getClientRects().length > 0);
+  }
+
+  function focusModal() {
+    if (!modal || !modalCard || modal.classList.contains('hidden')) return;
+    const target = modalCard.querySelector('[autofocus]') || modalFocusables()[0];
+    if (target instanceof HTMLElement) target.focus();
+    else {
+      modal.setAttribute('tabindex', '-1');
+      modal.focus();
+    }
+  }
+
+  function restoreModalFocus() {
+    const target = modalTrigger;
+    modalTrigger = null;
+    if (target instanceof HTMLElement && target.isConnected) target.focus();
+  }
+
+  if (modal && modalCard) {
+    new MutationObserver(() => {
+      if (modal.classList.contains('hidden')) {
+        restoreModalFocus();
+        return;
+      }
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && !modal.contains(active) && active !== document.body) modalTrigger = active;
+      requestAnimationFrame(focusModal);
+    }).observe(modal, {attributes:true, attributeFilter:['class']});
+
+    document.addEventListener('keydown', event => {
+      if (modal.classList.contains('hidden')) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        modal.classList.add('hidden');
+        modalCard.innerHTML = '';
+        restoreModalFocus();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusables = modalFocusables();
+      if (!focusables.length) {
+        event.preventDefault();
+        focusModal();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !modal.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !modal.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }, true);
+  }
 })();
