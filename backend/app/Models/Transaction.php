@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsSyncChanges;
 use App\Models\Concerns\UsesCollisionSafeLocalId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Transaction extends Model
 {
-    use SoftDeletes, UsesCollisionSafeLocalId;
+    use SoftDeletes, UsesCollisionSafeLocalId, RecordsSyncChanges;
 
     protected $fillable = [
         'account_id', 'local_id', 'type', 'amount', 'timestamp', 'hash',
