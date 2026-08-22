@@ -15,6 +15,7 @@ class AndroidReleaseProvenanceTest extends TestCase
         $this->assertStringContainsString('fetch-depth: 0', $workflow);
         $this->assertStringContainsString('scripts/verify-android-release-eligibility.sh', $workflow);
         $this->assertStringContainsString('validated_android_ci_run=', $script);
+        $this->assertStringContainsString('validated_sha=', $script);
         $this->assertStringContainsString('head_sha=${GITHUB_SHA}', $script);
         $this->assertStringContainsString('Android Production CI', $script);
         $this->assertStringContainsString('Unit, lint and release build', $script);
@@ -28,7 +29,10 @@ class AndroidReleaseProvenanceTest extends TestCase
         $this->assertIsInt($secretPosition);
         $this->assertLessThan($secretPosition, $provenancePosition);
 
-        $this->assertStringContainsString('validated_android_ci_run', $workflow);
+        // The validator's stdout is captured verbatim and then embedded into
+        // the retained build identity, preserving the exact CI run/SHA proof.
+        $this->assertStringContainsString('release-validation.txt', $workflow);
+        $this->assertStringContainsString('cat "$RUNNER_TEMP/release-validation.txt"', $workflow);
         $this->assertStringContainsString('build-identity.txt', $workflow);
     }
 }
