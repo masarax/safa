@@ -32,13 +32,22 @@ class SyncCursorStoreTest {
     }
 
     @Test
-    fun permissionScopeResetForcesNextBootstrapFromZero() {
+    fun permissionScopeResetForcesUnscopedBootstrapFromZero() {
         val store = SyncCursorStore(context)
         store.commit(7, 42L, "scope-a")
 
         store.resetForPermissionScope(7, "scope-b")
 
-        assertEquals(SyncCursorStore.State(0L, "scope-b"), store.read(7))
+        assertEquals(SyncCursorStore.State(0L, null), store.read(7))
+    }
+
+    @Test
+    fun zeroCursorNeverReusesStalePermissionScope() {
+        val store = SyncCursorStore(context)
+
+        store.commit(7, 0L, "scope-old")
+
+        assertEquals(SyncCursorStore.State(0L, null), SyncCursorStore(context).read(7))
     }
 
     @Test(expected = IllegalArgumentException::class)
