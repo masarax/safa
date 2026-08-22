@@ -32,9 +32,11 @@ Cursor IDs may contain gaps because the database sequence is shared across accou
 
 ## Permission checkpoints
 
-A persisted cursor is valid only for the `permission_scope` returned with it. Android persists the account cursor and permission scope together.
+A persisted non-zero cursor is valid only for the `permission_scope` returned with it. Android persists the account cursor and permission scope together.
 
-If the server returns a different permission scope while the client has a non-zero cursor, Android discards that checkpoint, persists the new scope with cursor `0`, and rebuilds the authorized baseline from the beginning of the retained change feed. This prevents a user from permanently missing historical rows that become readable after a later permission grant.
+Cursor `0` is intentionally treated as an unscoped bootstrap position. Even if a previous reset stored a scope beside cursor `0`, Android does not reuse that scope on restart; the next `cursor=0` response supplies the current authoritative permission scope before the checkpoint can advance.
+
+If the server returns a different permission scope while the client has a non-zero cursor, Android discards that checkpoint, resets to cursor `0`, and rebuilds the authorized baseline from the beginning of the retained change feed. This prevents a user from permanently missing historical rows that become readable after a later permission grant.
 
 The server still applies entity permission filtering before returning snapshots. Permission-scope changes never allow the client to request data outside its current authorization.
 
@@ -42,10 +44,10 @@ The server still applies entity permission filtering before returning snapshots.
 
 Android must process one chunk at a time:
 
-1. Read the persisted cursor and permission scope for the active account.
+1. Read the persisted cursor and, for non-zero checkpoints, its permission scope for the active account.
 2. Request one bounded chunk.
 3. Validate that the returned account, cursor and permission scope match the active checkpoint.
-4. If the permission scope changed, reset the checkpoint to cursor `0` and restart the authorized baseline.
+4. If a non-zero checkpoint's permission scope changed, reset the checkpoint to cursor `0` and restart the authorized baseline.
 5. Merge every row through the existing `sync_version` and pending-mutation conflict guard.
 6. Persist the new cursor only after all rows in the chunk have been durably written.
 7. Request another chunk only when `has_more` is true.
@@ -56,9 +58,9 @@ Cursor persistence is isolated by account. A cursor must never be reused for ano
 
 ## Server mutation capture
 
-All seven syncable Eloquent models are observed. Direct server/web writes that do not explicitly manage `sync_version` advance the version automatically and append a change snapshot. The mobile `SyncReconciliationService` continues to own its existing idempotent mutation and stale-version logic; because it explicitly advances `sync_version`, the observer does not increment it a second time.
+All seven syncable Eloquent models are observed. Direct server/web updates that do not explicitly manage `sync_version` advance the version automatically and append a change snapshot. Fresh direct-created rows preserve the existing version `0` baseline; mobile reconciliation continues to create its first authoritative mutation at version `1`.
 
-Soft deletes append a tombstone snapshot with a newer `sync_version` and non-null `deleted_at`.
+The mobile `SyncReconciliationService` continues to own its existing idempotent mutation and stale-version logic; because it explicitly advances `sync_version`, the observer does not increment it a second time. Soft deletes append a tombstone snapshot with a newer `sync_version` and non-null `deleted_at`.
 
 ## Bootstrap and memory bounds
 
@@ -86,9 +88,10 @@ The legacy route must not be extended with new sync features. New clients use `c
 ## Operational invariants
 
 - Cursor values never regress within one account/permission checkpoint.
+- Cursor `0` never reuses a stale permission scope.
 - `has_more=true` requires `next_cursor > cursor`.
 - Account context cannot change during a download loop.
-- A permission-scope change resets the cursor before any new-scope chunk is merged.
+- A permission-scope change resets a non-zero cursor before any new-scope chunk is merged.
 - Permission filtering remains enforced before change snapshots are returned.
 - Existing pending local mutations and stale-version conflict handling remain authoritative.
 - An unchanged account returns bounded metadata with empty entity arrays rather than historical business rows.
