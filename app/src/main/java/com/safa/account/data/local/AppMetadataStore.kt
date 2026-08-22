@@ -32,9 +32,9 @@ class AppMetadataStore(private val context: Context) {
     suspend fun setAppVersion(value: String) = context.safaMetadataDataStore.edit { it[Keys.appVersion] = value }
     suspend fun setOnboardingComplete(value: Boolean) = context.safaMetadataDataStore.edit { it[Keys.onboardingComplete] = value }
 
-    suspend fun getSyncCursor(accountId: Int): Long {
-        if (accountId <= 0) return 0L
-        return context.safaMetadataDataStore.data.first()[Keys.syncCursor(accountId)] ?: 0L
+    suspend fun getSyncCursor(accountId: Int): Long? {
+        if (accountId <= 0) return null
+        return context.safaMetadataDataStore.data.first()[Keys.syncCursor(accountId)]
     }
 
     suspend fun setSyncCursor(accountId: Int, cursor: Long) {
