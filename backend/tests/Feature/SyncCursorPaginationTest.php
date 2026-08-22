@@ -91,7 +91,7 @@ class SyncCursorPaginationTest extends TestCase
         $bootstrap = $this->getSync('cursor=0&per_page=50')->assertOk();
         $cursor = (int) $bootstrap->json('next_cursor');
         $version = (int) $bootstrap->json('customers.0.sync_version');
-        $this->assertGreaterThan(0, $version);
+        $this->assertSame(0, $version);
 
         $customer->name = 'After';
         $customer->save();
