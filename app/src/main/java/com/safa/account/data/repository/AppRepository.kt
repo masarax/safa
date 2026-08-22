@@ -288,18 +288,37 @@ class AppRepository private constructor(
         if (expected == null) tokenManager.saveActiveAccountId(accountId)
     }
 
+    private data class LocalRecordState(val localId: Int, val syncStatus: Int, val syncVersion: Int)
+
+    private fun findLocalRecordState(store: LocalFirstStore, entity: String, serverId: Int, requestedLocalId: Int?): LocalRecordState? {
+        fun byServerId(): LocalRecordState? = store.readableDatabase.rawQuery(
+            "SELECT local_id,sync_status,sync_version FROM records WHERE entity=? AND server_id=? LIMIT 1",
+            arrayOf(entity, serverId.toString())
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else LocalRecordState(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2))
+        }
+
+        fun byLocalId(localId: Int): LocalRecordState? = store.readableDatabase.rawQuery(
+            "SELECT local_id,sync_status,sync_version FROM records WHERE entity=? AND local_id=? LIMIT 1",
+            arrayOf(entity, localId.toString())
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else LocalRecordState(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2))
+        }
+
+        return byServerId() ?: requestedLocalId?.let(::byLocalId)
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun <T : Any> mergeServerRows(entity: String, serverRows: List<Map<String, Any?>>, mapper: (Map<String, Any?>) -> T, payload: (T) -> Map<String, Any?>) {
         val store = localStore ?: return
         serverRows.forEach { raw ->
             val serverId = raw.v("id", "server_id").i()
             if (serverId <= 0) return@forEach
-            val records = store.getRecordPayloads(entity)
             val requestedLocalId = raw.v("local_id").i().takeIf { it > 0 }
-            val existing = records.firstOrNull { it.serverId == serverId } ?: requestedLocalId?.let { requested -> records.firstOrNull { it.localId == requested } }
+            val existing = findLocalRecordState(store, entity, serverId, requestedLocalId)
             val localId = existing?.localId ?: requestedLocalId ?: store.nextLocalId()
             val incomingVersion = raw.v("sync_version", "version").i().coerceAtLeast(0)
-            val localVersion = maxOf(store.serverVersion(entity, localId), existing?.let { runCatching { JSONObject(it.payload).optInt("sync_version", 0) }.getOrDefault(0) } ?: 0)
+            val localVersion = maxOf(store.serverVersion(entity, localId), existing?.syncVersion ?: 0)
             val hasLocalMutation = store.hasPending(entity, localId) || (existing != null && existing.syncStatus != LocalFirstStore.SYNCED)
             if (SyncSnapshotGuard.decide(incomingVersion.toLong(), localVersion.toLong(), hasLocalMutation) == SyncSnapshotGuard.Decision.IGNORE) return@forEach
             if (existing != null && incomingVersion == localVersion) return@forEach
