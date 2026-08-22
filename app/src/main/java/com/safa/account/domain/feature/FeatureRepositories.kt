@@ -30,6 +30,7 @@ interface SupplierRepository {
     suspend fun update(item: Supplier)
     suspend fun find(id: Int): Supplier?
     suspend fun delete(id: Int)
+    suspend fun removeAccepted(id: Int)
 }
 
 interface TransactionRepository {
