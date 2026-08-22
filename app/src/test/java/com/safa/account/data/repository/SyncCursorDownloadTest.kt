@@ -5,6 +5,8 @@ import com.safa.account.data.api.dto.SyncDownResponse
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -48,6 +50,43 @@ class SyncCursorDownloadTest {
         assertTrue(result.isSuccess)
         verify(api, times(1)).syncDownPage(0L, 100)
         verify(api, times(1)).syncDownPage(2L, 100)
+    }
+
+    @Test
+    fun largeFeedIsConsumedAsBoundedChunksInsteadOfOneAccountSnapshot() = runBlocking {
+        val api: ApiService = mock()
+        val totalRows = 5_000L
+        val chunkSize = 100
+        val expectedPages = (totalRows / chunkSize).toInt()
+
+        whenever(api.syncDownPage(any(), eq(chunkSize))).thenAnswer { invocation ->
+            val cursor = invocation.getArgument<Long>(0)
+            val nextCursor = (cursor + chunkSize).coerceAtMost(totalRows)
+            val rows = (cursor until nextCursor).map { offset ->
+                mapOf<String, Any?>(
+                    "id" to (100_000L + offset),
+                    "local_id" to (200_000L + offset),
+                    "name" to "Load Customer $offset",
+                    "sync_version" to 0
+                )
+            }
+            Response.success(
+                SyncDownResponse(
+                    protocol = "cursor-v1",
+                    cursor = cursor,
+                    nextCursor = nextCursor,
+                    highWater = totalRows,
+                    permissionScope = "scope-load",
+                    hasMore = nextCursor < totalRows,
+                    customers = rows
+                )
+            )
+        }
+
+        val result = AppRepository(api).refreshAll()
+
+        assertTrue(result.isSuccess)
+        verify(api, times(expectedPages)).syncDownPage(any(), eq(chunkSize))
     }
 
     @Test
