@@ -1,4 +1,5 @@
 package com.safa.account.ui.screens
+import com.safa.account.ui.localization.AndroidStringCatalog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -127,7 +128,7 @@ fun WalletScreen(
                         )
                     }
                     Text(
-                        text = if (lang == "BN") "লেজার খাতা সমূহ" else "Wallet Ledger Registers",
+                        text = AndroidStringCatalog.get(lang, "inline_walletscreen_e7c71289c5"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 17.sp,
@@ -148,7 +149,7 @@ fun WalletScreen(
                     Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (lang == "BN") "নতুন" else "Add",
+                        text = AndroidStringCatalog.get(lang, "inline_walletscreen_5c1ca5db47"),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -164,7 +165,7 @@ fun WalletScreen(
                 if (walletLedgers.isEmpty()) {
                     item {
                     Text(
-                        text = if (lang == "BN") "কোনো ওয়ালেট লেজার খাতা খুঁজে পাওয়া যায়নি!" else "No wallet register books found!",
+                        text = AndroidStringCatalog.get(lang, "inline_walletscreen_aad15554bf"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.padding(vertical = 12.dp)
@@ -236,7 +237,7 @@ fun WalletScreen(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Text(
-                                        text = if (lang == "BN") "সক্রিয় উপ-হিসাব: ${batches.count { it.remainingBdt.signum() > 0 }}টি" else "Sub-accounts: ${batches.count { it.remainingBdt.signum() > 0 }}",
+                                        text = AndroidStringCatalog.get(lang, "inline_walletscreen_bb077162a5"),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.outline,
                                         maxLines = 1,
@@ -282,7 +283,7 @@ fun WalletScreen(
                                      Icon(Icons.Default.AddCircle, contentDescription = "", modifier = Modifier.size(14.dp))
                                      Spacer(modifier = Modifier.width(3.dp))
                                      Text(
-                                         text = if (lang == "BN") "ডিপোজিট" else "Deposit", 
+                                         text = AndroidStringCatalog.get(lang, "inline_walletscreen_a324f6b630"), 
                                          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
                                          maxLines = 1,
                                          overflow = TextOverflow.Ellipsis
@@ -299,7 +300,7 @@ fun WalletScreen(
                                      Icon(Icons.Default.RemoveCircle, contentDescription = "", modifier = Modifier.size(14.dp))
                                      Spacer(modifier = Modifier.width(3.dp))
                                      Text(
-                                         text = if (lang == "BN") "উত্তোলন" else "Withdraw", 
+                                         text = AndroidStringCatalog.get(lang, "inline_walletscreen_471077bea8"), 
                                          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
                                          maxLines = 1,
                                          overflow = TextOverflow.Ellipsis
@@ -326,7 +327,7 @@ fun WalletScreen(
                                 Icon(Icons.Default.Delete, contentDescription = "Delete Ledger", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (lang == "BN") "ডিলিট" else "Delete", 
+                                    text = AndroidStringCatalog.get(lang, "inline_walletscreen_8468393758"), 
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -335,7 +336,7 @@ fun WalletScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = if (lang == "BN") "তারিখ ও রেট অনুসারে সক্রিয় স্টক তালিকা:" else "Sub-Khata cost base stock registers (By Date & Rate):",
+                                text = AndroidStringCatalog.get(lang, "inline_walletscreen_4fde26e3dc"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
@@ -345,7 +346,7 @@ fun WalletScreen(
 
                             if (activeBatches.isEmpty()) {
                                 Text(
-                                    text = if (lang == "BN") "কোনো সক্রিয় স্টক খতিয়ান নেই।" else "No active sub-ledger batches registered.",
+                                    text = AndroidStringCatalog.get(lang, "inline_walletscreen_2af5044c9b"),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.outline,
                                     maxLines = 1,
@@ -451,12 +452,12 @@ fun WalletScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
             onDismissRequest = { showAddLedgerDialog = false },
-            title = { Text(if (lang == "BN") "নতুন ওয়ালেট খাতা তৈরি" else "Create Wallet Ledger Account") },
+            title = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_4fa00bf998")) },
             text = {
                 OutlinedTextField(
                     value = newLedgerName,
                     onValueChange = { newLedgerName = it },
-                    label = { Text(if (lang == "BN") "খাতার নাম" else "Ledger Account Name") },
+                    label = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_7b7df83518")) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -471,12 +472,12 @@ fun WalletScreen(
                     },
                     enabled = newLedgerName.isNotBlank()
                 ) {
-                    Text(if (lang == "BN") "যোগ করুন" else "Create", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_walletscreen_3dcb44550e"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddLedgerDialog = false }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_walletscreen_c74fa9cbbd"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -518,7 +519,7 @@ fun WalletScreen(
                         }
 
                         Text(
-                            text = if (lang == "BN") "ওয়ালেট নাম পরিবর্তন করুন" else "Rename Wallet Registrar",
+                            text = AndroidStringCatalog.get(lang, "inline_walletscreen_da5c044421"),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,
@@ -527,7 +528,7 @@ fun WalletScreen(
                         )
 
                         Text(
-                            text = if (lang == "BN") "ওয়ালেট খাতাটির নাম নিচে লিখুন:" else "Enter the new display name of this wallet book below:",
+                            text = AndroidStringCatalog.get(lang, "inline_walletscreen_ebb5bce5b0"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
                             textAlign = TextAlign.Center,
@@ -538,7 +539,7 @@ fun WalletScreen(
                         OutlinedTextField(
                             value = editLedgerNameInput,
                             onValueChange = { editLedgerNameInput = it },
-                            label = { Text(if (lang == "BN") "নতুন নাম (New Register Name)" else "New Display Name") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_b59787da20")) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -554,7 +555,7 @@ fun WalletScreen(
                                 modifier = Modifier.weight(1f).height(40.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(AndroidStringCatalog.get(lang, "inline_walletscreen_c74fa9cbbd"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
 
                             Button(
@@ -568,7 +569,7 @@ fun WalletScreen(
                                 modifier = Modifier.weight(1f).height(40.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "সংরক্ষণ করুন" else "Save", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(AndroidStringCatalog.get(lang, "inline_walletscreen_ce9658bee0"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -583,12 +584,10 @@ fun WalletScreen(
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = "", tint = MaterialTheme.colorScheme.error) },
-            title = { Text(if (lang == "BN") "মুছে ফেলুন নিশ্চিতকরণ" else "Confirm Wallet Deletion") },
+            title = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_7364501e9b")) },
             text = {
                 Text(
-                    text = if (lang == "BN") 
-                        "আপনি কি নিশ্চিতভাবে '${ledger.name}' ওয়ালেট খাতাটি মুছে ফেলতে চান? এই সিদ্ধান্ত বাতিল করা যাবে না।" 
-                        else "Are you sure you want to permanently delete inside the wallet ledger '${ledger.name}'? This action cannot be undone."
+                    text = AndroidStringCatalog.get(lang, "inline_walletscreen_9ee6510bfc")
                 )
             },
             confirmButton = {
@@ -601,12 +600,12 @@ fun WalletScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text(if (lang == "BN") "হ্যাঁ, মুছে ফেলুন" else "Yes, Delete", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_walletscreen_acc97d70c8"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = null }) {
-                    Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_walletscreen_c74fa9cbbd"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -618,12 +617,10 @@ fun WalletScreen(
         AlertDialog(
             onDismissRequest = { showDeletionBlockedDialog = null },
             icon = { Icon(Icons.Default.Warning, contentDescription = "", tint = Color(0xFFE65100)) },
-            title = { Text(if (lang == "BN") "ওয়ালেট মুছে ফেলা যাবে না" else "Wallet Cannot Be Deleted") },
+            title = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_b7426e830b")) },
             text = {
                 Text(
-                    text = if (lang == "BN") 
-                        "'${ledger.name}' ওয়ালেটে অবশিষ্ট ব্যালেন্স রয়েছে। ব্যালেন্স ০ (শূন্য) না হওয়া পর্যন্ত ওয়ালেটটি মুছে ফেলা সম্ভব নয়।" 
-                        else "The wallet '${ledger.name}' currently has a non-zero balance. You cannot delete a wallet with active funds."
+                    text = AndroidStringCatalog.get(lang, "inline_walletscreen_4b86f62f55")
                 )
             },
             confirmButton = {
@@ -631,7 +628,7 @@ fun WalletScreen(
                     onClick = { showDeletionBlockedDialog = null },
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text(if (lang == "BN") "ঠিক আছে" else "OK", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AndroidStringCatalog.get(lang, "inline_walletscreen_4b235f4c63"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -673,7 +670,7 @@ fun WalletScreen(
                         }
 
                         Text(
-                            text = if (lang == "BN") "${ledger.name} তে টাকা জমা" else "Deposit Funds - ${ledger.name}",
+                            text = AndroidStringCatalog.get(lang, "inline_walletscreen_9d204ef604"),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,
@@ -682,7 +679,7 @@ fun WalletScreen(
                         )
 
                         Text(
-                            text = if (lang == "BN") "তহবিলে জমা দেওয়ার বিবরণী" else "Enter deposit details",
+                            text = AndroidStringCatalog.get(lang, "inline_walletscreen_0c4742773c"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
                             textAlign = TextAlign.Center,
@@ -695,7 +692,7 @@ fun WalletScreen(
                         OutlinedTextField(
                             value = addFundBdtAmount,
                             onValueChange = { addFundBdtAmount = it },
-                            label = { Text(if (lang == "BN") "টাকার পরিমাণ ${localCur}" else "Amount ${localCur}") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_56586ca2eb")) },
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                             shape = RoundedCornerShape(12.dp),
@@ -708,7 +705,7 @@ fun WalletScreen(
                             OutlinedTextField(
                                 value = addFundRate,
                                 onValueChange = { addFundRate = it },
-                                label = { Text(if (lang == "BN") "ক্রয় রেট (ঐচ্ছিক)" else "Cost Rate (Optional)") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_f2a34e8824")) },
                                 placeholder = { Text("32.5") },
                                 singleLine = true,
                                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
@@ -722,7 +719,7 @@ fun WalletScreen(
                         OutlinedTextField(
                             value = addFundNotes,
                             onValueChange = { addFundNotes = it },
-                            label = { Text(if (lang == "BN") "নোট (ঐচ্ছিক)" else "Notes (Optional)") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_5604ce2844")) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -738,7 +735,7 @@ fun WalletScreen(
                                 modifier = Modifier.weight(1f).height(40.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(AndroidStringCatalog.get(lang, "inline_walletscreen_c74fa9cbbd"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
 
                             Button(
@@ -757,7 +754,7 @@ fun WalletScreen(
                                 modifier = Modifier.weight(1f).height(40.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "জমা করুন" else "Confirm", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(AndroidStringCatalog.get(lang, "inline_walletscreen_b957c429f8"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -810,7 +807,7 @@ fun WalletScreen(
                         }
 
                         Text(
-                            text = if (lang == "BN") "${ledger.name} থেকে তহবিল উত্তোলন" else "Reduce Funds - ${ledger.name}",
+                            text = AndroidStringCatalog.get(lang, "inline_walletscreen_208d3d52c0"),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,
@@ -841,7 +838,7 @@ fun WalletScreen(
                         }
 
                         Text(
-                            text = if (lang == "BN") "এই হিসাবটি থেকে লেজার স্টক সামঞ্জস্য করতে টাকার পরিমাণ টাইপ করুন।" else "Deduct money manually out of this register. This directly decreases BDT stock.",
+                            text = AndroidStringCatalog.get(lang, "inline_walletscreen_6ff16c3060"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
                             textAlign = TextAlign.Center
@@ -850,7 +847,7 @@ fun WalletScreen(
                         OutlinedTextField(
                             value = deductFundBdtAmount,
                             onValueChange = { deductFundBdtAmount = it },
-                            label = { Text(if (lang == "BN") "টাকার পরিমাণ (${localCur})" else "Amount (${localCur})") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_walletscreen_71847e6397")) },
                             singleLine = true,
                             isError = isOverLimit,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
@@ -886,7 +883,7 @@ fun WalletScreen(
                                 modifier = Modifier.weight(1f).height(40.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "বাতিল" else "Cancel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(AndroidStringCatalog.get(lang, "inline_walletscreen_c74fa9cbbd"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
 
                             Button(
@@ -903,7 +900,7 @@ fun WalletScreen(
                                 modifier = Modifier.weight(1f).height(40.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text(if (lang == "BN") "নিশ্চিত" else "Confirm", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(AndroidStringCatalog.get(lang, "inline_walletscreen_db67bec88e"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }

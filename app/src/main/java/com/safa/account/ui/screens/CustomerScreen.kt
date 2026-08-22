@@ -1,4 +1,5 @@
 package com.safa.account.ui.screens
+import com.safa.account.ui.localization.AndroidStringCatalog
 
 import android.content.Intent
 import android.net.Uri
@@ -288,7 +289,7 @@ fun CustomerScreen(
                         Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (lang == "BN") "নতুন" else "Add",
+                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_dffe3c0716"),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -301,7 +302,7 @@ fun CustomerScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        placeholder = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_cd4ccd465f"), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "", modifier = Modifier.size(20.dp)) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -346,7 +347,7 @@ fun CustomerScreen(
                     ) {
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(
-                                text = if (lang == "BN") "⚙️ ফিল্টার ও সেটিংস" else "⚙️ Filter & Settings",
+                                text = AndroidStringCatalog.get(lang, "inline_customerscreen_ed2f3bd877"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
@@ -359,7 +360,7 @@ fun CustomerScreen(
                                 // Sort Option Dropdown
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (lang == "BN") "বাছাই করুন" else "Sort By",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_def73680df"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
                                         modifier = Modifier.padding(bottom = 2.dp),
@@ -376,11 +377,11 @@ fun CustomerScreen(
                                         ) {
                                             Text(
                                                 text = when (selectedSortOption) {
-                                                    "Oldest" -> if (lang == "BN") "পুরাতন প্রথম" else "Oldest First"
-                                                    "A-Z" -> if (lang == "BN") "নাম A-Z" else "Name A-Z"
-                                                    "Due" -> if (lang == "BN") "সর্বোচ্চ বকেয়া" else "Highest Due"
-                                                    "Advance" -> if (lang == "BN") "সর্বোচ্চ অগ্রিম" else "Highest Advance"
-                                                    else -> if (lang == "BN") "নতুন প্রথম" else "Newest First"
+                                                    "Oldest" -> AndroidStringCatalog.get(lang, "inline_customerscreen_e0e188a0c3")
+                                                    "A-Z" -> AndroidStringCatalog.get(lang, "inline_customerscreen_2ca9cf5aad")
+                                                    "Due" -> AndroidStringCatalog.get(lang, "inline_customerscreen_d1e717904c")
+                                                    "Advance" -> AndroidStringCatalog.get(lang, "inline_customerscreen_9ac66d7220")
+                                                    else -> AndroidStringCatalog.get(lang, "inline_customerscreen_0edb739064")
                                                 },
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
@@ -397,11 +398,11 @@ fun CustomerScreen(
                                                     text = {
                                                         Text(
                                                             when (option) {
-                                                                "Oldest" -> if (lang == "BN") "পুরাতন প্রথম" else "Oldest First"
-                                                                "A-Z" -> if (lang == "BN") "নাম A-Z" else "Name A-Z"
-                                                                "Due" -> if (lang == "BN") "সর্বোচ্চ বকেয়া" else "Highest Due"
-                                                                "Advance" -> if (lang == "BN") "সর্বোচ্চ অগ্রিম" else "Highest Advance"
-                                                                else -> if (lang == "BN") "নতুন প্রথম" else "Newest First"
+                                                                "Oldest" -> AndroidStringCatalog.get(lang, "inline_customerscreen_e0e188a0c3")
+                                                                "A-Z" -> AndroidStringCatalog.get(lang, "inline_customerscreen_2ca9cf5aad")
+                                                                "Due" -> AndroidStringCatalog.get(lang, "inline_customerscreen_d1e717904c")
+                                                                "Advance" -> AndroidStringCatalog.get(lang, "inline_customerscreen_9ac66d7220")
+                                                                else -> AndroidStringCatalog.get(lang, "inline_customerscreen_0edb739064")
                                                             },
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
@@ -420,7 +421,7 @@ fun CustomerScreen(
                                 // Filter Status Option Dropdown
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (lang == "BN") "ফিল্টার ক্যাটাগরি" else "Filter Balance",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_8aa03a6e91"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline,
                                         modifier = Modifier.padding(bottom = 2.dp),
@@ -437,9 +438,9 @@ fun CustomerScreen(
                                         ) {
                                             Text(
                                                 text = when (selectedFilterStatus) {
-                                                    "Due" -> if (lang == "BN") "শুধু বকেয়া কাস্টমার" else "Due Customers"
-                                                    "Advance" -> if (lang == "BN") "শুধু অগ্রিম কাস্টমার" else "Advance Customers"
-                                                    else -> if (lang == "BN") "সব গ্রাহক" else "All Customers"
+                                                    "Due" -> AndroidStringCatalog.get(lang, "inline_customerscreen_11cd60c23c")
+                                                    "Advance" -> AndroidStringCatalog.get(lang, "inline_customerscreen_af4a1cc0fc")
+                                                    else -> AndroidStringCatalog.get(lang, "inline_customerscreen_3be0d774e8")
                                                 },
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
@@ -456,9 +457,9 @@ fun CustomerScreen(
                                                     text = {
                                                         Text(
                                                             when (option) {
-                                                                "Due" -> if (lang == "BN") "শুধু বকেয়া কাস্টমার" else "Due Customers"
-                                                                "Advance" -> if (lang == "BN") "শুধু অগ্রিম কাস্টমার" else "Advance Customers"
-                                                                else -> if (lang == "BN") "সব গ্রাহক" else "All Customers"
+                                                                "Due" -> AndroidStringCatalog.get(lang, "inline_customerscreen_11cd60c23c")
+                                                                "Advance" -> AndroidStringCatalog.get(lang, "inline_customerscreen_af4a1cc0fc")
+                                                                else -> AndroidStringCatalog.get(lang, "inline_customerscreen_3be0d774e8")
                                                             },
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
@@ -488,7 +489,7 @@ fun CustomerScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Default.People, contentDescription = "", modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.outline)
                             Text(
-                                text = if (lang == "BN") "কোনো কাস্টমার পাওয়া যায়নি!" else "No customer profiles found.",
+                                text = AndroidStringCatalog.get(lang, "inline_customerscreen_b894e5f946"),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.outline,
                                 maxLines = 1,
@@ -585,9 +586,9 @@ fun CustomerScreen(
                                          Column(horizontalAlignment = Alignment.End) {
                                              Text(
                                                  text = if (totalDue <= CUSTOMER_MONEY_THRESHOLD.negate()) {
-                                                     if (lang == "BN") "কাস্টমার পাবে" else "Customer Owed"
+                                                     AndroidStringCatalog.get(lang, "inline_customerscreen_4f46a2660b")
                                                  } else {
-                                                     if (lang == "BN") "মোট বকেয়া" else "Total Due"
+                                                     AndroidStringCatalog.get(lang, "inline_customerscreen_e9bb06d8b8")
                                                  },
                                                  style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                                  color = if (totalDue > CUSTOMER_MONEY_THRESHOLD) Color(0xFFD32F2F) else if (totalDue <= CUSTOMER_MONEY_THRESHOLD.negate()) Color(0xFF1565C0) else Color(0xFF2E7D32),
@@ -619,7 +620,7 @@ fun CustomerScreen(
                                      ) {
                                          Column(modifier = Modifier.weight(1f)) {
                                              Text(
-                                                 text = if (lang == "BN") "মোট লেনদেন ${foreignCur}" else "Total Trans. ${foreignCur}",
+                                                 text = AndroidStringCatalog.get(lang, "inline_customerscreen_e3aab99a49"),
                                                  style = MaterialTheme.typography.labelSmall,
                                                  color = MaterialTheme.colorScheme.outline,
                                                  maxLines = 1,
@@ -635,7 +636,7 @@ fun CustomerScreen(
                                          }
                                          Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                                              Text(
-                                                 text = if (lang == "BN") "মোট পাঠানো ${localCur}" else "Total Sent ${localCur}",
+                                                 text = AndroidStringCatalog.get(lang, "inline_customerscreen_a0292a457f"),
                                                  style = MaterialTheme.typography.labelSmall,
                                                  color = MaterialTheme.colorScheme.outline,
                                                  maxLines = 1,
@@ -651,7 +652,7 @@ fun CustomerScreen(
                                          }
                                          Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                                              Text(
-                                                 text = if (lang == "BN") "লেনদেন সংখ্যা" else "Trans. Count",
+                                                 text = AndroidStringCatalog.get(lang, "inline_customerscreen_3982854841"),
                                                  style = MaterialTheme.typography.labelSmall,
                                                  color = MaterialTheme.colorScheme.outline,
                                                  maxLines = 1,
@@ -829,7 +830,7 @@ fun CustomerProfileView(
 
     val transactionsByDate = remember(transactions, lang) {
         transactions.sortedByDescending { it.timestamp }.groupBy {
-            val sdf = SimpleDateFormat(if (lang == "BN") "d MMMM, yyyy" else "MMMM d, yyyy", Locale.US)
+            val sdf = SimpleDateFormat(AndroidStringCatalog.get(lang, "inline_customerscreen_6ef987f556"), Locale.US)
             sdf.format(Date(it.timestamp))
         }
     }
@@ -1010,7 +1011,7 @@ fun CustomerProfileView(
                                     receiverPhone = "N/A",
                                     receiverAccountType = "N/A",
                                     receiverAccountNo = "N/A",
-                                    notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
+                                    notes = if (isAdvanceReturn) (AndroidStringCatalog.get(lang, "inline_customerscreen_aa32889e82")) else (AndroidStringCatalog.get(lang, "inline_customerscreen_755d9d96ac")),
                                     sarCollected = dueAmtEffect,
                                     bdtDisbursed = MoneyMath.ZERO_AMOUNT,
                                     status = "Delivered",
@@ -1050,7 +1051,7 @@ fun CustomerProfileView(
                             receiverPhone = "N/A",
                             receiverAccountType = "N/A",
                             receiverAccountNo = "N/A",
-                            notes = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত" else "Advance Returned") else (if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Previous Due Payment / Recovery"),
+                            notes = if (isAdvanceReturn) (AndroidStringCatalog.get(lang, "inline_customerscreen_aa32889e82")) else (AndroidStringCatalog.get(lang, "inline_customerscreen_755d9d96ac")),
                             sarCollected = dueAmtEffect,
                             bdtDisbursed = MoneyMath.ZERO_AMOUNT,
                             status = "Delivered",
@@ -1078,7 +1079,7 @@ fun CustomerProfileView(
                 onDismissRequest = { showAddTxChoiceDialog = false },
                 title = {
                     Text(
-                        text = if (lang == "BN") "লেনদেনের ধরণ নির্বাচন করুন" else "Select Transaction Type",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_98bfb45d9d"),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
@@ -1137,11 +1138,11 @@ fun CustomerProfileView(
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (lang == "BN") "নতুন বিক্রয়" else "New Sale",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_a126cd34a4"),
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                                     )
                                     Text(
-                                        text = if (lang == "BN") "নতুন কারেন্সি বিক্রয়। ২য় ধাপে বকেয়া আদায়ের অপশনও থাকবে।" else "Sell new currency. Collect old dues in Step 2.",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_9d6e8cb361"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline
                                     )
@@ -1164,7 +1165,7 @@ fun CustomerProfileView(
                                         inputReceiverPhone = "N/A"
                                         inputReceiverAccountType = "Cash"
                                         inputReceiverAccountNo = "N/A"
-                                        inputNotes = if (lang == "BN") "বকেয়া আদায়" else "Due Payment"
+                                        inputNotes = AndroidStringCatalog.get(lang, "inline_customerscreen_f5199a75a0")
                                         inputSarCollected = "0"
                                         inputBdtDisbursed = "0"
                                         inputDueSarCollected = ""
@@ -1196,7 +1197,7 @@ fun CustomerProfileView(
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = if (lang == "BN") "বকেয়া আদায়" else "Due Collection",
+                                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_f132f0087b"),
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                             color = Color(0xFF2E7D32)
                                         )
@@ -1225,7 +1226,7 @@ fun CustomerProfileView(
                                         inputReceiverPhone = "N/A"
                                         inputReceiverAccountType = "Cash"
                                         inputReceiverAccountNo = "N/A"
-                                        inputNotes = if (lang == "BN") "পাওনা ফেরত" else "Advance Returned"
+                                        inputNotes = AndroidStringCatalog.get(lang, "inline_customerscreen_aa32889e82")
                                         inputSarCollected = "0"
                                         inputBdtDisbursed = "0"
                                         inputDueSarCollected = ""
@@ -1257,7 +1258,7 @@ fun CustomerProfileView(
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = if (lang == "BN") "পাওনা ফেরত" else "Advance Return",
+                                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_2e1008cee2"),
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                             color = Color(0xFF1565C0)
                                         )
@@ -1274,7 +1275,7 @@ fun CustomerProfileView(
                 },
                 confirmButton = {
                     TextButton(onClick = { showAddTxChoiceDialog = false }) {
-                        Text(if (lang == "BN") "বন্ধ করুন" else "Cancel")
+                        Text(AndroidStringCatalog.get(lang, "inline_customerscreen_0d3658f984"))
                     }
                 }
             )
@@ -1302,7 +1303,7 @@ fun CustomerProfileView(
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", modifier = Modifier.size(18.dp))
             }
             Text(
-                text = if (lang == "BN") "কাস্টমার প্রোফাইল" else "Customer Profile",
+                text = AndroidStringCatalog.get(lang, "inline_customerscreen_e9edee9585"),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 16.sp),
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -1403,7 +1404,7 @@ fun CustomerProfileView(
                                     )
                                 } else {
                                     Text(
-                                        text = if (lang == "BN") "অবতার কাস্টমাইজ করুন:" else "Customize avatar:",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_b20c9b4631"),
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -1440,7 +1441,7 @@ fun CustomerProfileView(
                                     Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = if (lang == "BN") "নতুন লেনদেন" else "New Transaction",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_8c3c780098"),
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White, fontSize = 11.sp),
                                         maxLines = 1
                                     )
@@ -1526,9 +1527,9 @@ fun CustomerProfileView(
                                 )
                                 Text(
                                     text = if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) {
-                                        if (lang == "BN") "কাস্টমার পাবে ${foreignCur}" else "Customer Owed ${foreignCur}"
+                                        AndroidStringCatalog.get(lang, "inline_customerscreen_f8f07fea86")
                                     } else {
-                                        if (lang == "BN") "মোট বকেয়া ${foreignCur}" else "Total Due ${foreignCur}"
+                                        AndroidStringCatalog.get(lang, "inline_customerscreen_106cf9feae")
                                     },
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     color = if (totalUncollectedSar > CUSTOMER_MONEY_THRESHOLD) Color(0xFFC62828) else if (totalUncollectedSar <= CUSTOMER_MONEY_THRESHOLD.negate()) Color(0xFF1565C0) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -1569,7 +1570,7 @@ fun CustomerProfileView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (lang == "BN") "লেনদেন সমূহ" else "Transactions List",
+                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_07a4e2bb0a"),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
                             color = tab1Text
                         )
@@ -1586,7 +1587,7 @@ fun CustomerProfileView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (lang == "BN") "কাস্টমার বিবরণী" else "Customer Info",
+                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_fa09237958"),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
                             color = tab2Text
                         )
@@ -1608,7 +1609,7 @@ fun CustomerProfileView(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = if (lang == "BN") "ব্যক্তিগত ও পরিচিতি বিবরণী" else "Contact & Privacy Details",
+                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_c526442d66"),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -1617,7 +1618,7 @@ fun CustomerProfileView(
                             OutlinedTextField(
                                 value = editName,
                                 onValueChange = { editName = it },
-                                label = { Text(if (lang == "BN") "নাম" else "Full Name") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_468765c3b2")) },
                                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = "") },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
@@ -1627,7 +1628,7 @@ fun CustomerProfileView(
                             OutlinedTextField(
                                 value = editPhone,
                                 onValueChange = { editPhone = it },
-                                label = { Text(if (lang == "BN") "ফোন নাম্বার" else "Phone Number") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_4ce6ccf57c")) },
                                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -1638,7 +1639,7 @@ fun CustomerProfileView(
                             OutlinedTextField(
                                 value = editAddress,
                                 onValueChange = { editAddress = it },
-                                label = { Text(if (lang == "BN") "ঠিকানা" else "Address") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_02f013d7f6")) },
                                 leadingIcon = { Icon(Icons.Default.Home, contentDescription = "") },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
@@ -1648,7 +1649,7 @@ fun CustomerProfileView(
                             OutlinedTextField(
                                 value = editNotes,
                                 onValueChange = { editNotes = it },
-                                label = { Text(if (lang == "BN") "প্রাইভেট সিকিউরিটি নোটস" else "Secure Security Notes") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_48ffd594a2")) },
                                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "") },
                                 minLines = 2,
                                 shape = RoundedCornerShape(12.dp),
@@ -1671,7 +1672,7 @@ fun CustomerProfileView(
                             ) {
                                 Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(if (lang == "BN") "কাস্টমার ডিলিট করুন" else "Delete Customer Profile")
+                                Text(AndroidStringCatalog.get(lang, "inline_customerscreen_f650e3479e"))
                             }
                         } else {
                             // Non-editing read view (looks very secure and neat)
@@ -1714,7 +1715,7 @@ fun CustomerProfileView(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (lang == "BN") "মোট পাঠানো ভলিউম" else "Total Volume",
+                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_c1b6465c33"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -1728,7 +1729,7 @@ fun CustomerProfileView(
 
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                                 Text(
-                                    text = if (lang == "BN") "মোট বিতরণ (টাকা)" else "Paid Out ${localCur}",
+                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_52a4485823"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -1753,12 +1754,12 @@ fun CustomerProfileView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (lang == "BN") "লেনদেন এবং হিসাব খাতা" else "Safa Audit Logs",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_17d0811674"),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = if (lang == "BN") "মোট লেনদেন: ${transactions.size} টি" else "Total Txs: ${transactions.size}",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_bdc99ef7ee"),
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -1772,7 +1773,7 @@ fun CustomerProfileView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (lang == "BN") "কোনো লেনদেন পাওয়া যায়নি।" else "No transactions recorded for this customer.",
+                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_457da6122b"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -1881,10 +1882,10 @@ fun CustomerProfileView(
                                                 Column(horizontalAlignment = Alignment.End) {
                                                     if (tx.amountSar <= CUSTOMER_MONEY_THRESHOLD && tx.sarCollected > CUSTOMER_MONEY_THRESHOLD) {
                                                         Text(text = "SAR ${tx.sarCollected}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E7D32))
-                                                        Text(text = if (lang == "BN") "বকেয়া আদায়" else "Due Paid", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E7D32))
+                                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_a6ba94f36b"), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E7D32))
                                                     } else if (tx.amountSar <= CUSTOMER_MONEY_THRESHOLD && tx.sarCollected <= CUSTOMER_MONEY_THRESHOLD.negate()) {
                                                         Text(text = "SAR ${tx.sarCollected.abs()}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1565C0))
-                                                        Text(text = if (lang == "BN") "রিয়াল ফেরত" else "Refunded", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1565C0))
+                                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_c7e56806e4"), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1565C0))
                                                     } else {
                                                         Text(text = "SAR ${tx.amountSar}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
                                                         Text(text = "Rate: ${MoneyMath.rateDisplayString(tx.customerRate)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
@@ -1907,17 +1908,17 @@ fun CustomerProfileView(
                                                 val ledger = walletLedgers.find { it.id == batch?.ledgerId }
                                                 
                                                 val walletName = if (tx.amountSar <= CUSTOMER_MONEY_THRESHOLD) {
-                                                    if (lang == "BN") "প্রযোজ্য নয় (বকেয়া আদায়)" else "N/A (Due Collected)"
+                                                    AndroidStringCatalog.get(lang, "inline_customerscreen_7e68c4389b")
                                                 } else {
                                                     ledger?.name ?: "Unknown Wallet"
                                                 }
 
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                    Text(text = if (lang == "BN") "ওয়ালেট লেজার:" else "Wallet/Pool Ledger:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                    Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_408ffc9247"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                     Text(text = walletName, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                    Text(text = if (lang == "BN") "প্রাপক পাবে:" else "Payout Amount BDT:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                    Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_ec1ab45050"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                     Text(text = "৳ ${DecimalFormat("#,##0").format(tx.amountBdt)}", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF1B5E20))
                                                 }
                                                 
@@ -1928,9 +1929,9 @@ fun CustomerProfileView(
                                                 
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                     Column {
-                                                        Text(text = if (lang == "BN") "রিয়াল গ্রহণ ${foreignCur}:" else "Riyal Collected ${foreignCur}:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_0498e7cd29"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                         if (tx.amountSar <= CUSTOMER_MONEY_THRESHOLD && tx.sarCollected > CUSTOMER_MONEY_THRESHOLD) {
-                                                            Text(text = "${tx.sarCollected} ${foreignCur}(${if (lang == "BN") "বকেয়া আদায় পরিশোধ" else "Outstanding Due Collected"})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                                            Text(text = "${tx.sarCollected} ${foreignCur}(${AndroidStringCatalog.get(lang, "inline_customerscreen_4b8ea35973")})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                                         } else {
                                                             Text(text = "${tx.sarCollected} / ${tx.amountSar} ${foreignCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (sarDue <= CUSTOMER_MONEY_THRESHOLD) Color(0xFF2E7D32) else Color(0xFFE65100))
                                                         }
@@ -1939,14 +1940,14 @@ fun CustomerProfileView(
                                                 
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                     Column {
-                                                        Text(text = if (lang == "BN") "বিতরণ ${localCur}:" else "Disbursed BDT:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_87fa7ba614"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                         Text(text = "৳ ${DecimalFormat("#,##0").format(tx.amountBdt)} ${localCur}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                                     }
                                                 }
 
                                                 if (tx.notes.isNotBlank()) {
                                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                        Text(text = if (lang == "BN") "মন্তব্য:" else "Notes:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_45f489d950"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                                                         Text(text = tx.notes, fontSize = 11.sp)
                                                     }
                                                 }
@@ -1984,7 +1985,7 @@ fun CustomerProfileView(
                                                         ) {
                                                             Icon(Icons.Default.Share, contentDescription = "", modifier = Modifier.size(12.dp))
                                                             Spacer(modifier = Modifier.width(4.dp))
-                                                            Text(if (lang == "BN") "শেয়ার" else "Share", fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                            Text(AndroidStringCatalog.get(lang, "inline_customerscreen_fc6320ee85"), fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         }
 
                                                         OutlinedButton(
@@ -2012,7 +2013,7 @@ fun CustomerProfileView(
                                                         ) {
                                                             Icon(Icons.Default.Edit, contentDescription = "", modifier = Modifier.size(12.dp))
                                                             Spacer(modifier = Modifier.width(4.dp))
-                                                            Text(if (lang == "BN") "এডিট" else "Edit", fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                            Text(AndroidStringCatalog.get(lang, "inline_customerscreen_ef70a6b821"), fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         }
 
                                                         OutlinedButton(
@@ -2025,7 +2026,7 @@ fun CustomerProfileView(
                                                         ) {
                                                             Icon(Icons.Default.Delete, contentDescription = "", modifier = Modifier.size(12.dp))
                                                             Spacer(modifier = Modifier.width(4.dp))
-                                                            Text(if (lang == "BN") "ডিলিট" else "Delete", fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                            Text(AndroidStringCatalog.get(lang, "inline_customerscreen_26e8941ff1"), fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         }
 
                                                         if (tx.status != "Cancelled" && tx.status != "Delivered") {
@@ -2037,7 +2038,7 @@ fun CustomerProfileView(
                                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                 modifier = Modifier.height(28.dp)
                                                             ) {
-                                                                Text(if (lang == "BN") "ডেলিভারি" else "Deliver", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                                Text(AndroidStringCatalog.get(lang, "inline_customerscreen_07385a0989"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                             }
                                                         }
 
@@ -2049,7 +2050,7 @@ fun CustomerProfileView(
                                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                 modifier = Modifier.height(28.dp)
                                                             ) {
-                                                                Text(if (lang == "BN") "বাতিল" else "Cancel", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                                                Text(AndroidStringCatalog.get(lang, "inline_customerscreen_e3952b8349"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                                                             }
                                                         } else if (tx.status == "Cancelled") {
                                                             OutlinedButton(
@@ -2059,7 +2060,7 @@ fun CustomerProfileView(
                                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                                 modifier = Modifier.height(28.dp)
                                                             ) {
-                                                                Text(if (lang == "BN") "পেন্ডিং করুন" else "Pending", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                                Text(AndroidStringCatalog.get(lang, "inline_customerscreen_23886d7cf0"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                                              }
                                                          }
                                                      }
@@ -2091,7 +2092,7 @@ fun CustomerProfileView(
     if (isAmountCalCOpen) {
         CalculatorDialog(
             initialValue = inputAmountSar,
-            title = if (lang == "BN") "রিয়াল পরিমাণ ${foreignCur}" else "Riyal Amount ${foreignCur}",
+            title = AndroidStringCatalog.get(lang, "inline_customerscreen_704f504756"),
             lang = lang,
             onDismiss = { isAmountCalCOpen = false },
             onConfirm = { result ->
@@ -2108,7 +2109,7 @@ fun CustomerProfileView(
     if (isEditAmountCalCOpen) {
         CalculatorDialog(
             initialValue = editAmountSar,
-            title = if (lang == "BN") "রিয়াল পরিমাণ ${foreignCur}" else "Riyal Amount ${foreignCur}",
+            title = AndroidStringCatalog.get(lang, "inline_customerscreen_704f504756"),
             lang = lang,
             onDismiss = { isEditAmountCalCOpen = false },
             onConfirm = { result ->
@@ -2320,7 +2321,7 @@ fun AddTransactionStepPage(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "পরিমাণ ${foreignCur}" else "Amount ${foreignCur}",
+                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_3759ad6328"),
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -2426,9 +2427,9 @@ fun AddTransactionStepPage(
                             OutlinedTextField(
                                 value = notes,
                                 onValueChange = onNotesChange,
-                                label = { Text(if (lang == "BN") "অতিরিক্ত মন্তব্য (নোট)" else "Notes / Description") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_0fee4d639d")) },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = "") },
-                                placeholder = { Text(if (lang == "BN") "মন্তব্য লিখুন..." else "Enter comments...") },
+                                placeholder = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_ea02bdbfb9")) },
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -2461,11 +2462,11 @@ fun AddTransactionStepPage(
                                         )
                                         Column {
                                             Text(
-                                                text = if (lang == "BN") "ডকুমেন্ট আপলোড" else "Upload Document",
+                                                text = AndroidStringCatalog.get(lang, "inline_customerscreen_f2aec4b443"),
                                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                             )
                                             Text(
-                                                text = selectedDocumentName ?: (if (lang == "BN") "রিসিট বা কোনো ছবি যুক্ত করুন..." else "No attachment file selected"),
+                                                text = selectedDocumentName ?: (AndroidStringCatalog.get(lang, "inline_customerscreen_766975bb5b")),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = if (selectedDocumentName != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                                             )
@@ -2475,7 +2476,7 @@ fun AddTransactionStepPage(
                                         TextButton(onClick = { documentPickerLauncher.launch("*/*") }) {
                                             Icon(Icons.Default.Add, contentDescription = "", modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text(if (lang == "BN") "যুক্ত করুন" else "Add File")
+                                            Text(AndroidStringCatalog.get(lang, "inline_customerscreen_a841a640d4"))
                                         }
                                     } else {
                                         IconButton(onClick = { onSelectedDocumentNameChange(null) }) {
@@ -2500,7 +2501,7 @@ fun AddTransactionStepPage(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (lang == "BN") "পেমেন্ট মেথড নির্বাচন করুন" else "Select Payout Method",
+                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_594a8f6ed9"),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -2594,8 +2595,8 @@ fun AddTransactionStepPage(
                             label = { 
                                 Text(
                                     text = when (paymentMethod) {
-                                        "Bank Transfer" -> if (lang == "BN") "ব্যাংক হিসাব নম্বর" else "Bank Account Number"
-                                        else -> if (lang == "BN") "$paymentMethod নম্বর (মোবাইল)" else "$paymentMethod Number (Mobile)"
+                                        "Bank Transfer" -> AndroidStringCatalog.get(lang, "inline_customerscreen_f8f7088737")
+                                        else -> AndroidStringCatalog.get(lang, "inline_customerscreen_a4985ef8ae")
                                     }
                                 ) 
                             },
@@ -2637,7 +2638,7 @@ fun AddTransactionStepPage(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = if (lang == "BN") "ওয়ালেট নির্বাচন করুন" else "Select Wallet Account",
+                                text = AndroidStringCatalog.get(lang, "inline_customerscreen_979e3f4016"),
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onBackground
                             )
@@ -2654,7 +2655,7 @@ fun AddTransactionStepPage(
                             }
                             if (activeBatches.isEmpty()) {
                                 Text(
-                                    text = if (lang == "BN") "কোনো সক্রিয় ওয়ালেট স্টক পাওয়া যায়নি!" else "No active wallet ledger stock available!",
+                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_b5aac5b451"),
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -2676,7 +2677,7 @@ fun AddTransactionStepPage(
                                         ) {
                                             Text(
                                                 text = activeLedger?.let { "${it.name} (Rate: ৳${activeBatch.rate} | Stock: ৳${activeBatch.remainingBdt.toInt()})" } 
-                                                    ?: (if (lang == "BN") "ওয়ালেট লেজার সিলেক্ট করুন ▾" else "Select Wallet Ledger Account ▾"),
+                                                    ?: (AndroidStringCatalog.get(lang, "inline_customerscreen_2340e0c8d8")),
                                                 fontWeight = FontWeight.ExtraBold,
                                                 color = if (activeLedger != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                                             )
@@ -2689,7 +2690,7 @@ fun AddTransactionStepPage(
                                             onDismissRequest = { expandedSupDropdown = false },
                                             title = {
                                                 Text(
-                                                    text = if (lang == "BN") "ওয়ালেট লেজার সিলেক্ট করুন" else "Select Wallet Ledger Account",
+                                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_6defdcf615"),
                                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                                 )
                                             },
@@ -2775,7 +2776,7 @@ fun AddTransactionStepPage(
                                             },
                                             confirmButton = {
                                                 TextButton(onClick = { expandedSupDropdown = false }) {
-                                                    Text(if (lang == "BN") "বন্ধ করুন" else "Cancel")
+                                                    Text(AndroidStringCatalog.get(lang, "inline_customerscreen_0d3658f984"))
                                                 }
                                             }
                                         )
@@ -2808,7 +2809,7 @@ fun AddTransactionStepPage(
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                                 Text(
-                                                    text = if (lang == "BN") "ওয়ালেট ক্রয় রেট (অটো):" else "Wallet Cost Rate (Auto):",
+                                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_765ab7aa3c"),
                                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -2845,7 +2846,7 @@ fun AddTransactionStepPage(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = if (lang == "BN") "পূর্বের বকেয়া আদায় / পরিশোধ" else "Pay Previous Outstanding Dues",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_eb4a0c28fa"),
                                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -2863,9 +2864,7 @@ fun AddTransactionStepPage(
                                 }
 
                                 Text(
-                                    text = if (lang == "BN") 
-                                        "কাস্টমারের পূর্বের বকেয়া রিয়াল থেকে আজ কত রিয়াল জমা নেওয়া হচ্ছে তা এখানে লিখুন।" 
-                                        else "Enter how many Riyals of previous outstanding dues are being collected/settled today.",
+                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_1e43775e1e"),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -2880,7 +2879,7 @@ fun AddTransactionStepPage(
                                         onValueChange = { },
                                         readOnly = true,
                                         enabled = false,
-                                        label = { Text(if (lang == "BN") "বকেয়া আদায় পরিমাণ ${foreignCur}" else "Due Collected Amount ${foreignCur}") },
+                                        label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_20ccc5dca0")) },
                                         placeholder = { Text("0.00") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         leadingIcon = { Icon(Icons.Default.PriceCheck, contentDescription = "") },
@@ -2918,7 +2917,7 @@ fun AddTransactionStepPage(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = if (lang == "BN") "পাওনা ফেরত" else "Return Advanced Balance",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_5fdc35b4dd"),
                                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                         color = Color(0xFF1565C0)
                                     )
@@ -2936,9 +2935,7 @@ fun AddTransactionStepPage(
                                 }
 
                                 Text(
-                                    text = if (lang == "BN") 
-                                        "কাস্টমারকে কত রিয়াল ফেরত দিচ্ছেন তা নিচে লিখুন।" 
-                                        else "Enter how many Riyals of advance balance are being returned.",
+                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_7167f05872"),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -2953,7 +2950,7 @@ fun AddTransactionStepPage(
                                         onValueChange = { },
                                         readOnly = true,
                                         enabled = false,
-                                        label = { Text(if (lang == "BN") "ফেরত পরিমাণ ${foreignCur}" else "Return Amount ${foreignCur}") },
+                                        label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_73bb2ca55d")) },
                                         placeholder = { Text("0.00") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         leadingIcon = { Icon(Icons.Default.CurrencyExchange, contentDescription = "") },
@@ -2988,7 +2985,7 @@ fun AddTransactionStepPage(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "বিক্রয় মূল্য ও রিয়াল হিসাব" else "Sales Price & Riyal Summary",
+                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_0f99c363b6"),
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                     color = if (isAmtPresent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                                 )
@@ -3003,7 +3000,7 @@ fun AddTransactionStepPage(
                                             value = customerRate,
                                             onValueChange = onCustomerRateChange,
                                             enabled = isAmtPresent,
-                                            label = { Text(if (lang == "BN") "বিক্রয় রেট ${localCur}" else "Selling Rate ${localCur}") },
+                                            label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_75601aa3c1")) },
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             shape = RoundedCornerShape(12.dp),
                                             modifier = Modifier.weight(1f)
@@ -3017,7 +3014,7 @@ fun AddTransactionStepPage(
                                         value = "$amountSar ${foreignCur}",
                                         onValueChange = { },
                                         enabled = false, // Disabled as requested!
-                                        label = { Text(if (lang == "BN") "পরিমাণ ${foreignCur}" else "Amount ${foreignCur}") },
+                                        label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_3759ad6328")) },
                                         shape = RoundedCornerShape(12.dp),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             disabledTextColor = MaterialTheme.colorScheme.onSurface,
@@ -3042,7 +3039,7 @@ fun AddTransactionStepPage(
                                             }
                                         },
                                         enabled = isAmtPresent,
-                                        label = { Text(if (lang == "BN") "গ্রহণ ${foreignCur}" else "Received ${foreignCur}") },
+                                        label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_5630bce913")) },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier.weight(1f)
@@ -3053,7 +3050,7 @@ fun AddTransactionStepPage(
                                         value = bdtDisbursed,
                                         onValueChange = { },
                                         enabled = false, // Disabled/read-only as requested!
-                                        label = { Text(if (lang == "BN") "বিতরণ ${localCur}" else "Disbursed ${localCur}") },
+                                        label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_46699e3019")) },
                                         shape = RoundedCornerShape(12.dp),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             disabledTextColor = MaterialTheme.colorScheme.onSurface,
@@ -3094,7 +3091,7 @@ fun AddTransactionStepPage(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = if (lang == "BN") "প্রাপক পাবে:" else "Total Beneficiary Payout:",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_3d0eda7bfb"),
                                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                         color = Color(0xFF1B5E20)
                                     )
@@ -3116,13 +3113,13 @@ fun AddTransactionStepPage(
                         ) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
-                                    text = if (lang == "BN") "রিভিউ ও সাবমিট" else "Review Details",
+                                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_53b8d1aa04"),
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.primary
                                 )
                                 Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(text = if (lang == "BN") "রিয়াল পরিমাণ:" else "SAR Amount:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                    Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_f989466287"), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                     Text(text = "$amountSar ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                                 val amtVal = amountSar.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
@@ -3130,39 +3127,39 @@ fun AddTransactionStepPage(
                                 val newDueSar = MoneyMath.subtract(amtVal, collectedVal)
                                 if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text(text = if (lang == "BN") "নতুন বকেয়া ${foreignCur}:" else "New Outstanding Due ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_7424cd3ff8"), fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                                         Text(text = "${String.format("%.2f", newDueSar)} ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
                                     }
                                 }
                                 if (previousDueSar > CUSTOMER_MONEY_THRESHOLD) {
                                     val dueAmtVal = dueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text(text = if (lang == "BN") "বকেয়া আদায় ${foreignCur}:" else "Due Collected ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_7fceb532b9"), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                         Text(text = "$dueAmtVal ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                     }
                                 } else if (previousDueSar <= CUSTOMER_MONEY_THRESHOLD.negate()) {
                                     val dueAmtVal = dueSarCollected.toBigDecimalOrNull() ?: MoneyMath.ZERO_AMOUNT
                                     if (dueAmtVal.signum() > 0) {
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(text = if (lang == "BN") "পাওনা ফেরত ${foreignCur}:" else "Advance Returned ${foreignCur}:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_7fae42c59f"), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                             Text(text = "$dueAmtVal ${foreignCur}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                                         }
                                     }
                                 }
                                 if (paymentMethod != "Cash") {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text(text = if (lang == "BN") "হিসাব নম্বর:" else "Account Number:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_cd1e0b92ff"), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                         val displayAccountNo = if (recipientNo == "N/A" || recipientNo.isBlank()) "" else recipientNo
                                         Text(text = displayAccountNo, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(text = if (lang == "BN") "পেমেন্ট মেথড:" else "Payout Channel:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                    Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_84af4f8f16"), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                     Text(text = paymentMethod, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 }
                                 if (!isDueOnly) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text(text = if (lang == "BN") "বিক্রয় রেট (৳):" else "Customer Rate:", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_7b1bdbed32"), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                         Text(text = "৳ $customerRate", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
@@ -3196,7 +3193,7 @@ fun AddTransactionStepPage(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(
-                        text = if (lang == "BN") "পরের ধাপ" else "Next Step",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_eb59ec36d0"),
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -3225,7 +3222,7 @@ fun AddTransactionStepPage(
                     Icon(Icons.Default.Check, contentDescription = "", modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (lang == "BN") "লেনদেন সম্পন্ন করুন" else "Create Transaction",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_dd15dada89"),
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -3236,7 +3233,7 @@ fun AddTransactionStepPage(
     if (isDueCalcOpen) {
         CalculatorDialog(
             initialValue = dueSarCollected,
-            title = if (lang == "BN") "বকেয়া আদায় পরিমাণ ${foreignCur}" else "Due Collected Amount ${foreignCur}",
+            title = AndroidStringCatalog.get(lang, "inline_customerscreen_20ccc5dca0"),
             lang = lang,
             onDismiss = { isDueCalcOpen = false },
             onConfirm = { result ->
@@ -3309,7 +3306,7 @@ fun EditTransactionPage(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", modifier = Modifier.size(20.dp))
                 }
                 Text(
-                    text = if (lang == "BN") "লেনদেন সংশোধন" else "Modify Transaction Ledger",
+                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_f4e373cfe9"),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -3350,7 +3347,7 @@ fun EditTransactionPage(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.Calculate, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Text(
-                                text = if (lang == "BN") "লেনদেন হিসাব ও রেট" else "Exchange Rates & Amount",
+                                text = AndroidStringCatalog.get(lang, "inline_customerscreen_ccc0085f03"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -3361,7 +3358,7 @@ fun EditTransactionPage(
                             value = editAmountSar,
                             onValueChange = { onEditAmountSarChange(it) },
                             readOnly = true,
-                            label = { Text(if (lang == "BN") "রিয়াল পরিমাণ ${foreignCur}" else "Riyal Amount ${foreignCur}") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_704f504756")) },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Calculate,
@@ -3379,7 +3376,7 @@ fun EditTransactionPage(
                             OutlinedTextField(
                                 value = editCustomerRate,
                                 onValueChange = { onEditCustomerRateChange(it) },
-                                label = { Text(if (lang == "BN") "গ্রাহক রেট" else "Customer Rate") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_59bf1dc769")) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.fillMaxWidth()
@@ -3393,7 +3390,7 @@ fun EditTransactionPage(
                             OutlinedTextField(
                                 value = editSarCollected,
                                 onValueChange = { onEditSarCollectedChange(it) },
-                                label = { Text(if (lang == "BN") "রিয়াল সংগ্রহ ${foreignCur}" else "Riyal Received") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_16c5328a35")) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
@@ -3401,7 +3398,7 @@ fun EditTransactionPage(
                             OutlinedTextField(
                                 value = editBdtDisbursed,
                                 onValueChange = { onEditBdtDisbursedChange(it) },
-                                label = { Text(if (lang == "BN") "টাকা পাঠানো ${localCur}" else "BDT Disbursed") },
+                                label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_a275e13aef")) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
@@ -3425,7 +3422,7 @@ fun EditTransactionPage(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = if (lang == "BN") "প্রাপক পাবে (মোট):" else "Recipient Output (Total):",
+                                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_68563b492c"),
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                         color = Color(0xFF1B5E20)
                                     )
@@ -3453,7 +3450,7 @@ fun EditTransactionPage(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.Person, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Text(
-                                text = if (lang == "BN") "প্রাপকের বিবরণ" else "Receiver Details",
+                                text = AndroidStringCatalog.get(lang, "inline_customerscreen_e1554f0d9c"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -3462,7 +3459,7 @@ fun EditTransactionPage(
                         OutlinedTextField(
                             value = editReceiverName,
                             onValueChange = { onEditReceiverNameChange(it) },
-                            label = { Text(if (lang == "BN") "প্রাপকের নাম" else "Receiver Name") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_f44683f2d9")) },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -3471,14 +3468,14 @@ fun EditTransactionPage(
                             value = editReceiverPhone,
                             onValueChange = { onEditReceiverPhoneChange(it) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            label = { Text(if (lang == "BN") "প্রাপকের ফোন" else "Receiver Phone") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_f592fbed68")) },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         // Payment Channel selection
                         Text(
-                            text = if (lang == "BN") "পেমেন্ট চ্যানেল" else "Payout Provider Channel",
+                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_6e2b5a4908"),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -3499,7 +3496,7 @@ fun EditTransactionPage(
                         OutlinedTextField(
                             value = editReceiverAccountNo,
                             onValueChange = { onEditReceiverAccountNoChange(it) },
-                            label = { Text(if (lang == "BN") "হিসাব / ওয়ালেট নম্বর" else "Account Number") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_9f0f35249b")) },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -3519,7 +3516,7 @@ fun EditTransactionPage(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.EditCalendar, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Text(
-                                text = if (lang == "BN") "স্ট্যাটাস ও মন্তব্য" else "Workflow Status & Remarks",
+                                text = AndroidStringCatalog.get(lang, "inline_customerscreen_168b24e627"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -3529,14 +3526,14 @@ fun EditTransactionPage(
                         OutlinedTextField(
                             value = editTxNotes,
                             onValueChange = { onEditTxNotesChange(it) },
-                            label = { Text(if (lang == "BN") "অতিরিক্ত মন্তব্য" else "Notes / Description") },
+                            label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_abe29fbe0f")) },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         // Status Flow Check
                         Text(
-                            text = if (lang == "BN") "লেনদেন অবস্থা পরিবর্তন করবেন?" else "Alter Transaction Status State?",
+                            text = AndroidStringCatalog.get(lang, "inline_customerscreen_fd7518647f"),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -3570,7 +3567,7 @@ fun EditTransactionPage(
             Icon(Icons.Default.CheckCircle, contentDescription = "", modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (lang == "BN") "পরিবর্তনসমূহ সংরক্ষণ করুন" else "Save Transaction Updates",
+                text = AndroidStringCatalog.get(lang, "inline_customerscreen_2d9be001aa"),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
                 color = Color.White
             )
@@ -3615,7 +3612,7 @@ fun generatePdfReceipt(
         // Subtitle
         paint.textSize = 13f
         paint.isFakeBoldText = false
-        canvas.drawText(if (lang == "BN") "লেনদেনের ডিজিটাল রসিদ" else "Digital Transaction Receipt", 40f, 95f, paint)
+        canvas.drawText(AndroidStringCatalog.get(lang, "inline_customerscreen_bf895dc046"), 40f, 95f, paint)
         
         // Timestamp on right
         paint.textSize = 13f
@@ -3641,23 +3638,23 @@ fun generatePdfReceipt(
             currentY += 32f
         }
         
-        drawRow(if (lang == "BN") "তারিখ ও সময়:" else "Date & Time:", sdf.format(Date(timestamp)))
-        drawRow(if (lang == "BN") "গ্রাহকের নাম:" else "Customer Name:", customerName)
+        drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_e09a5cd027"), sdf.format(Date(timestamp)))
+        drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_5645acea96"), customerName)
         
         val calculatedTotalBdt = MoneyMath.multiply(amountSar, customerRate)
         if (amountSar > CUSTOMER_MONEY_THRESHOLD) {
-            drawRow(if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", "$amountSar ${foreignCur}")
-            drawRow(if (lang == "BN") "বিনিময় হার:" else "Conversion Rate:", "$customerRate BDT/SAR")
-            drawRow(if (lang == "BN") "মোট প্রদান মূল্য ${localCur}:" else "Total Amount ${localCur}:", "BDT $calculatedTotalBdt")
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_75213bad55"), "$amountSar ${foreignCur}")
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_901fcf2e6b"), "$customerRate BDT/SAR")
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_e6de184d2e"), "BDT $calculatedTotalBdt")
         }
         
-        drawRow(if (lang == "BN") "পেমেন্ট মেথড:" else "Payment Method:", paymentMethod)
+        drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_f0d6009e5c"), paymentMethod)
         if (paymentMethod != "Cash" && recipientNo.isNotBlank() && recipientNo != "N/A") {
-            drawRow(if (lang == "BN") "হিসাব নম্বর:" else "Account Number:", recipientNo)
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_cd1e0b92ff"), recipientNo)
         }
         
         if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
-            drawRow(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), "$dueCollectedSar ${foreignCur}")
+            drawRow(if (isAdvanceReturn) (AndroidStringCatalog.get(lang, "inline_customerscreen_5f002413bb")) else (AndroidStringCatalog.get(lang, "inline_customerscreen_3f1bbaecc3")), "$dueCollectedSar ${foreignCur}")
         }
         
         // Horizontal grey divider line
@@ -3666,17 +3663,17 @@ fun generatePdfReceipt(
         currentY += 30f
         
         if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
-            drawRow(if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", "$newDueSar ${foreignCur}")
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_7e0cff546e"), "$newDueSar ${foreignCur}")
         } else if (newDueSar < CUSTOMER_DETAIL_THRESHOLD.negate()) {
-            drawRow(if (lang == "BN") "আপনার জমা ব্যালেন্স:" else "Customer Surplus Credit:", "${-newDueSar} ${foreignCur}")
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_b00533264d"), "${-newDueSar} ${foreignCur}")
         }
         
         if (totalRemainingDueSar > CUSTOMER_MONEY_THRESHOLD) {
-            drawRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Outstanding Due:", "$totalRemainingDueSar ${foreignCur}")
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_1f3d8f2dbd"), "$totalRemainingDueSar ${foreignCur}")
         } else if (totalRemainingDueSar < CUSTOMER_MONEY_THRESHOLD.negate()) {
-            drawRow(if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer refund credit:", "${-totalRemainingDueSar} ${foreignCur}")
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_bb8290ecab"), "${-totalRemainingDueSar} ${foreignCur}")
         } else {
-            drawRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Remaining Dues:", if (lang == "BN") "কোনো বকেয়া নেই" else "Zero Outstanding Dues")
+            drawRow(AndroidStringCatalog.get(lang, "inline_customerscreen_7617323277"), AndroidStringCatalog.get(lang, "inline_customerscreen_045944a2b1"))
         }
         
         // Bottom privacy note and divider
@@ -3686,7 +3683,7 @@ fun generatePdfReceipt(
         paint.color = android.graphics.Color.GRAY
         paint.textSize = 12f
         canvas.drawText(
-            if (lang == "BN") "উক্ত রসিদটি একটি বিশ্বস্ত ডিজিটাল সিস্টেম দ্বারা স্বয়ংক্রিয়ভাবে জেনারেট করা হয়েছে।" else "Receipt automatically compiled using secure ledger algorithms.",
+            AndroidStringCatalog.get(lang, "inline_customerscreen_0d8cdf29ff"),
             40f, currentY, paint
         )
         
@@ -3783,23 +3780,23 @@ fun generateImageReceipt(
         }
         
         val sdf = SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault())
-        drawVisualRow(if (lang == "BN") "তারিখ ও সময়:" else "Date & Time:", sdf.format(Date(timestamp)))
-        drawVisualRow(if (lang == "BN") "গ্রাহকের নাম:" else "Customer Name:", customerName)
+        drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_e09a5cd027"), sdf.format(Date(timestamp)))
+        drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_5645acea96"), customerName)
         
         val calculatedTotalBdt = MoneyMath.multiply(amountSar, customerRate)
         if (amountSar > CUSTOMER_MONEY_THRESHOLD) {
-            drawVisualRow(if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", "$amountSar ${foreignCur}")
-            drawVisualRow(if (lang == "BN") "রেট:" else "Ex. Rate:", "$customerRate BDT/SAR")
-            drawVisualRow(if (lang == "BN") "জমা মূল্য ${localCur}:" else "Total Amount ${localCur}:", "BDT $calculatedTotalBdt", highlight = true)
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_75213bad55"), "$amountSar ${foreignCur}")
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_5b125d2d0e"), "$customerRate BDT/SAR")
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_973d56a2ea"), "BDT $calculatedTotalBdt", highlight = true)
         }
         
-        drawVisualRow(if (lang == "BN") "পেমেন্ট মেথড:" else "Payment Method:", paymentMethod)
+        drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_f0d6009e5c"), paymentMethod)
         if (paymentMethod != "Cash" && recipientNo.isNotBlank() && recipientNo != "N/A") {
-            drawVisualRow(if (lang == "BN") "হিসাব নম্বর:" else "Account No:", recipientNo)
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_54e1eeccf5"), recipientNo)
         }
         
         if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
-            drawVisualRow(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), "$dueCollectedSar ${foreignCur}")
+            drawVisualRow(if (isAdvanceReturn) (AndroidStringCatalog.get(lang, "inline_customerscreen_5f002413bb")) else (AndroidStringCatalog.get(lang, "inline_customerscreen_3f1bbaecc3")), "$dueCollectedSar ${foreignCur}")
         }
         
         // Solid divider line
@@ -3809,17 +3806,17 @@ fun generateImageReceipt(
         currentY += 45f
         
         if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
-            drawVisualRow(if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", "$newDueSar ${foreignCur}")
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_7e0cff546e"), "$newDueSar ${foreignCur}")
         } else if (newDueSar < CUSTOMER_DETAIL_THRESHOLD.negate()) {
-            drawVisualRow(if (lang == "BN") "আপনার জমা ব্যালেন্স:" else "Surplus Balance:", "${-newDueSar} ${foreignCur}")
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_ec44b6a55e"), "${-newDueSar} ${foreignCur}")
         }
         
         if (totalRemainingDueSar > CUSTOMER_MONEY_THRESHOLD) {
-            drawVisualRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Outstanding Due:", "$totalRemainingDueSar ${foreignCur}")
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_1f3d8f2dbd"), "$totalRemainingDueSar ${foreignCur}")
         } else if (totalRemainingDueSar < CUSTOMER_MONEY_THRESHOLD.negate()) {
-            drawVisualRow(if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer due refund:", "${-totalRemainingDueSar} ${foreignCur}")
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_6c40219b13"), "${-totalRemainingDueSar} ${foreignCur}")
         } else {
-            drawVisualRow(if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Remaining Dues:", if (lang == "BN") "কোনো বকেয়া নেই" else "Zero Outstanding Dues")
+            drawVisualRow(AndroidStringCatalog.get(lang, "inline_customerscreen_7617323277"), AndroidStringCatalog.get(lang, "inline_customerscreen_045944a2b1"))
         }
         
         // Rounded bottom informational alert box
@@ -3832,7 +3829,7 @@ fun generateImageReceipt(
         paint.isFakeBoldText = true
         paint.textAlign = android.graphics.Paint.Align.CENTER
         canvas.drawText(
-            if (lang == "BN") "নির্ভুল ও বিশ্বস্ত লেনদেন খতিয়ান।" else "Compiled securely in client database.",
+            AndroidStringCatalog.get(lang, "inline_customerscreen_0b151be1cc"),
             width / 2f, currentY + 32f, paint
         )
         
@@ -3903,7 +3900,7 @@ fun TransactionConfirmationPage(
                 sb.append("হিসাব নম্বর: $recipientNo\n")
             }
             if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
-                sb.append(if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত: " else "Advance Return Paid: ") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ: " else "Previous Due Paid: ")).append("$dueCollectedSar SAR\n")
+                sb.append(if (isAdvanceReturn) (AndroidStringCatalog.get(lang, "inline_customerscreen_4c776e39d3")) else (AndroidStringCatalog.get(lang, "inline_customerscreen_fa577a01c0"))).append("$dueCollectedSar SAR\n")
             }
             sb.append("---------------------\n")
             if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
@@ -3958,7 +3955,7 @@ fun TransactionConfirmationPage(
             putExtra(android.content.Intent.EXTRA_TEXT, text)
             type = "text/plain"
         }
-        val shareIntent = android.content.Intent.createChooser(sendIntent, if (lang == "BN") "রসিদ শেয়ার করুন" else "Share Receipt")
+        val shareIntent = android.content.Intent.createChooser(sendIntent, AndroidStringCatalog.get(lang, "inline_customerscreen_8c4e311c44"))
         context.startActivity(shareIntent)
     }
 
@@ -3988,7 +3985,7 @@ fun TransactionConfirmationPage(
                 }
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (lang == "BN") "লেনদেন নিশ্চিতকরণ" else "Transaction Complete",
+                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_a736edcf1a"),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -4011,7 +4008,7 @@ fun TransactionConfirmationPage(
                     modifier = Modifier.size(22.dp)
                 )
                 Text(
-                    text = if (lang == "BN") "লেনদেন সফলভাবে সম্পন্ন হয়েছে!" else "Transaction Added!",
+                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_6605ed4861"),
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                     color = Color(0xFF1B5E20)
                 )
@@ -4032,36 +4029,36 @@ fun TransactionConfirmationPage(
                 ) {
                     val sdf = SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault())
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(text = if (lang == "BN") "তারিখ ও সময়:" else "Date & Time:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_e09a5cd027"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                         Text(text = sdf.format(Date(timestamp)), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(text = if (lang == "BN") "গ্রাহকের নাম:" else "Customer Name:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                        Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_5645acea96"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                         Text(text = customerName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                     }
                     if (amountSar > CUSTOMER_MONEY_THRESHOLD) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "নতুন লেনদেন ${foreignCur}:" else "New Remittance ${foreignCur}:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_75213bad55"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "$amountSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "বিতরণ মূল্য ${localCur}:" else "Disbursed ${localCur}:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_94923f5a72"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "৳ $calculatedTotalBdt ${localCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "পেমেন্ট মেথড:" else "Payment Method:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_f0d6009e5c"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = paymentMethod, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         if (paymentMethod != "Cash" && recipientNo.isNotBlank() && recipientNo != "N/A") {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(text = if (lang == "BN") "হিসাব নম্বর:" else "Account Number:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                                Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_cd1e0b92ff"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                                 Text(text = recipientNo, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     }
                     if (dueCollectedSar > CUSTOMER_MONEY_THRESHOLD) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (isAdvanceReturn) (if (lang == "BN") "পাওনা ফেরত:" else "Advance Returned:") else (if (lang == "BN") "পূর্বের বকেয়া পরিশোধ:" else "Previous Due Paid:"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = if (isAdvanceReturn) (AndroidStringCatalog.get(lang, "inline_customerscreen_5f002413bb")) else (AndroidStringCatalog.get(lang, "inline_customerscreen_3f1bbaecc3")), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "$dueCollectedSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
                         }
                     }
@@ -4069,37 +4066,37 @@ fun TransactionConfirmationPage(
                     
                     if (newDueSar > CUSTOMER_DETAIL_THRESHOLD) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "এই রসিদের বকেয়া:" else "Due on this receipt:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_7e0cff546e"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "$newDueSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error))
                         }
                     } else if (newDueSar < CUSTOMER_DETAIL_THRESHOLD.negate()) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "আপনার জমা ব্যালেন্স (সারপ্লাস):" else "Your Surplus Balance:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_0ebb5518a2"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "${-newDueSar} ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
                         }
                     }
                     
                     if (totalRemainingDueSar > CUSTOMER_MONEY_THRESHOLD) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "গ্রাহকের মোট বকেয়া:" else "Customer Total Due:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_70daa7fb2c"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "$totalRemainingDueSar ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error))
                         }
                     } else if (totalRemainingDueSar < CUSTOMER_MONEY_THRESHOLD.negate()) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "কাস্টমার অতিরিক্ত পাবেন:" else "Customer Credit Due:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_deae734bb4"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
                             Text(text = "${-totalRemainingDueSar} ${foreignCur}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Black, color = Color(0xFF2E7D32)))
                         }
                     } else {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = if (lang == "BN") "সর্বমোট বকেয়া:" else "Total Remaining Dues:", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
-                            Text(text = if (lang == "BN") "কোনো বকেয়া নেই" else "No outstanding dues", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_7617323277"), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.outline))
+                            Text(text = AndroidStringCatalog.get(lang, "inline_customerscreen_3c3889dd0d"), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
                         }
                     }
                 }
             }
 
             Text(
-                text = if (lang == "BN") "সাপ্লায়ার এবং ক্রয়ের গোপনীয় তথ্য এই রসিদে সংরক্ষণ করা হয়নি।" else "Supplier details and buying rates are omitted for privacy.",
+                text = AndroidStringCatalog.get(lang, "inline_customerscreen_591a96d516"),
                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.outline),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
@@ -4118,7 +4115,7 @@ fun TransactionConfirmationPage(
                     Icon(imageVector = Icons.Default.Share, contentDescription = "", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (lang == "BN") "টেক্সট" else "Text",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_e128aff38f"),
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -4140,9 +4137,9 @@ fun TransactionConfirmationPage(
                             isAdvanceReturn = isAdvanceReturn
                         )
                         if (pdfUri != null) {
-                            shareNativeFile(context, pdfUri, "application/pdf", if (lang == "BN") "PDF রসিদ শেয়ার করুন" else "Share PDF Receipt")
+                            shareNativeFile(context, pdfUri, "application/pdf", AndroidStringCatalog.get(lang, "inline_customerscreen_0a720dc7f2"))
                         } else {
-                            Toast.makeText(context, if (lang == "BN") "রসিদ তৈরি ব্যর্থ হয়েছে" else "Failed to compile PDF document", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, AndroidStringCatalog.get(lang, "inline_customerscreen_a386945d13"), Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier.weight(1f).height(46.dp),
@@ -4152,7 +4149,7 @@ fun TransactionConfirmationPage(
                     Icon(imageVector = Icons.Default.Print, contentDescription = "", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (lang == "BN") "পিডিএফ" else "PDF",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_349b576bb0"),
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -4174,9 +4171,9 @@ fun TransactionConfirmationPage(
                             isAdvanceReturn = isAdvanceReturn
                         )
                         if (imgUri != null) {
-                            shareNativeFile(context, imgUri, "image/png", if (lang == "BN") "ছবি রসিদ শেয়ার করুন" else "Share Image Receipt")
+                            shareNativeFile(context, imgUri, "image/png", AndroidStringCatalog.get(lang, "inline_customerscreen_998e2982bc"))
                         } else {
-                            Toast.makeText(context, if (lang == "BN") "রসিদ তৈরি ব্যর্থ হয়েছে" else "Failed to compile image asset", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, AndroidStringCatalog.get(lang, "inline_customerscreen_430e6d35e5"), Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier.weight(1f).height(46.dp),
@@ -4186,7 +4183,7 @@ fun TransactionConfirmationPage(
                     Icon(imageVector = Icons.Default.Image, contentDescription = "", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (lang == "BN") "ছবি" else "Image",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_d6801dd174"),
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -4201,7 +4198,7 @@ fun TransactionConfirmationPage(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
             ) {
                 Text(
-                    text = if (lang == "BN") "কাস্টমার খাতায় ফিরে যান" else "Return to Ledger",
+                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_1981827092"),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
@@ -4248,7 +4245,7 @@ fun AddCustomerPage(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                 }
                 Text(
-                    text = if (lang == "BN") "নতুন কাস্টমার যোগ" else "Add New Customer Profile",
+                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_44790f9f7e"),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 6.dp)
@@ -4257,7 +4254,7 @@ fun AddCustomerPage(
             TextButton(onClick = onContactPicker) {
                 Icon(Icons.Default.Contacts, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(if (lang == "BN") "কন্টাক্টস" else "Contacts", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                Text(AndroidStringCatalog.get(lang, "inline_customerscreen_22320b7621"), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
             }
         }
 
@@ -4289,7 +4286,7 @@ fun AddCustomerPage(
             ) {
                 item {
                     Text(
-                        text = if (lang == "BN") "কাস্টমার খাতা বিবরণ" else "Customer Information",
+                        text = AndroidStringCatalog.get(lang, "inline_customerscreen_851e3f5dc1"),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -4300,7 +4297,7 @@ fun AddCustomerPage(
                     OutlinedTextField(
                         value = nameInput,
                         onValueChange = onNameChange,
-                        label = { Text(if (lang == "BN") "কাস্টমার বা প্রতিষ্ঠানের নাম" else "Customer or Business Name") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_75c0728e42")) },
                         placeholder = { Text("e.g. Robin") },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = "", tint = MaterialTheme.colorScheme.primary) },
                         singleLine = true,
@@ -4313,7 +4310,7 @@ fun AddCustomerPage(
                     OutlinedTextField(
                         value = phoneInput,
                         onValueChange = onPhoneChange,
-                        label = { Text(if (lang == "BN") "মোবাইল নম্বর" else "Contact Phone Number") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_39457d1dd6")) },
                         placeholder = { Text("e.g. +88017xxxxxxxx / +966xxxxx") },
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "", tint = MaterialTheme.colorScheme.primary) },
                         singleLine = true,
@@ -4327,7 +4324,7 @@ fun AddCustomerPage(
                     OutlinedTextField(
                         value = addressInput,
                         onValueChange = onAddressChange,
-                        label = { Text(if (lang == "BN") "বর্তমান ঠিকানা (শাখা / অফিস)" else "Address (Branch / Office)") },
+                        label = { Text(AndroidStringCatalog.get(lang, "inline_customerscreen_73d90a8f75")) },
                         placeholder = { Text("e.g. Dhaka, Bangladesh / Riyadh, KSA") },
                         leadingIcon = { Icon(Icons.Default.Home, contentDescription = "", tint = MaterialTheme.colorScheme.primary) },
                         singleLine = true,
@@ -4353,7 +4350,7 @@ fun AddCustomerPage(
                     .height(36.dp)
             ) {
                 Text(
-                    text = if (lang == "BN") "বাতিল" else "Cancel",
+                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_e3952b8349"),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
             }
@@ -4370,7 +4367,7 @@ fun AddCustomerPage(
                 Icon(Icons.Default.Check, contentDescription = "")
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (lang == "BN") "সংরক্ষণ করুন" else "Save",
+                    text = AndroidStringCatalog.get(lang, "inline_customerscreen_e80930b66f"),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
             }

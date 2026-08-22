@@ -1,0 +1,606 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_access_denied" formatted="false">অনুমতি নেই</string>
+    <string name="ui_acquired_bdt" formatted="false">অর্জিত লোকাল</string>
+    <string name="ui_activate_super_admin" formatted="false">সুপার-এডমিন অ্যাক্টিভেশন</string>
+    <string name="ui_activation_desc" formatted="false">অ্যাডমিন অ্যাকাউন্ট সেটআপ করুন।</string>
+    <string name="ui_activation_title" formatted="false">সুপার-এডমিন অ্যাক্টিভেশন</string>
+    <string name="ui_add_customer" formatted="false">নতুন কাস্টমার যোগ করুন</string>
+    <string name="ui_add_customers" formatted="false">কাস্টমার যোগ করুন</string>
+    <string name="ui_add_expense_income" formatted="false">আয়/ব্যয় যোগ করুন</string>
+    <string name="ui_add_supplier" formatted="false">নতুন সাপ্লায়ার যোগ করুন</string>
+    <string name="ui_add_suppliers" formatted="false">সাপ্লায়ার যোগ করুন</string>
+    <string name="ui_add_transactions" formatted="false">লেনদেন যোগ করুন</string>
+    <string name="ui_address" formatted="false">ঠিকানা</string>
+    <string name="ui_amount" formatted="false">পরিমাণ</string>
+    <string name="ui_amount_sar" formatted="false">ডেবিট বৈদেশিক</string>
+    <string name="ui_app_title" formatted="false">SAFA</string>
+    <string name="ui_buy_bdt_pool" formatted="false">লোকাল ফান্ড কিনুন</string>
+    <string name="ui_category" formatted="false">ক্যাটাগরি</string>
+    <string name="ui_change_role" formatted="false">রোল পরিবর্তন</string>
+    <string name="ui_complete_activation" formatted="false">অ্যাক্টিভেশন সম্পন্ন</string>
+    <string name="ui_create_new_operator" formatted="false">নতুন স্টাফ অ্যাকাউন্ট</string>
+    <string name="ui_customer_assigned_rate" formatted="false">কাস্টমার রেট</string>
+    <string name="ui_customer_mgmt" formatted="false">কাস্টমার তালিকা</string>
+    <string name="ui_customer_name" formatted="false">কাস্টমারের নাম</string>
+    <string name="ui_customer_sale_rate" formatted="false">কাস্টমার রেট</string>
+    <string name="ui_customers" formatted="false">কাস্টমার</string>
+    <string name="ui_daily_operating_rates" formatted="false">দৈনিক বিনিময় হার</string>
+    <string name="ui_dashboard" formatted="false">ড্যাশবোর্ড</string>
+    <string name="ui_delete_customers" formatted="false">কাস্টমার মুছুন</string>
+    <string name="ui_delete_suppliers" formatted="false">সাপ্লায়ার মুছুন</string>
+    <string name="ui_delete_transactions" formatted="false">লেনদেন মুছুন</string>
+    <string name="ui_edit_customers" formatted="false">কাস্টমার সম্পাদন</string>
+    <string name="ui_edit_suppliers" formatted="false">সাপ্লায়ার সম্পাদন</string>
+    <string name="ui_edit_transactions" formatted="false">লেনদেন সম্পাদন</string>
+    <string name="ui_email" formatted="false">ইমেইল</string>
+    <string name="ui_enter_mobile_ph" formatted="false">যেমন: 01700000000</string>
+    <string name="ui_enter_pin" formatted="false">৬-ডিজিটের পিন</string>
+    <string name="ui_estimated_profit" formatted="false">আজকের আনুমানিক লাভ</string>
+    <string name="ui_expense" formatted="false">ব্যয়</string>
+    <string name="ui_expenses" formatted="false">আয়/ব্যায়</string>
+    <string name="ui_expenses_overhead" formatted="false">খরচ ও অন্যান্য</string>
+    <string name="ui_full_name" formatted="false">পূর্ণ নাম</string>
+    <string name="ui_income" formatted="false">আয়</string>
+    <string name="ui_inline_customerscreen_02f013d7f6" formatted="false">ঠিকানা</string>
+    <string name="ui_inline_customerscreen_045944a2b1" formatted="false">কোনো বকেয়া নেই</string>
+    <string name="ui_inline_customerscreen_0498e7cd29" formatted="false">রিয়াল গ্রহণ ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_07385a0989" formatted="false">ডেলিভারি</string>
+    <string name="ui_inline_customerscreen_07a4e2bb0a" formatted="false">লেনদেন সমূহ</string>
+    <string name="ui_inline_customerscreen_0a720dc7f2" formatted="false">PDF রসিদ শেয়ার করুন</string>
+    <string name="ui_inline_customerscreen_0b151be1cc" formatted="false">নির্ভুল ও বিশ্বস্ত লেনদেন খতিয়ান।</string>
+    <string name="ui_inline_customerscreen_0d3658f984" formatted="false">বন্ধ করুন</string>
+    <string name="ui_inline_customerscreen_0d8cdf29ff" formatted="false">উক্ত রসিদটি একটি বিশ্বস্ত ডিজিটাল সিস্টেম দ্বারা স্বয়ংক্রিয়ভাবে জেনারেট করা হয়েছে।</string>
+    <string name="ui_inline_customerscreen_0ebb5518a2" formatted="false">আপনার জমা ব্যালেন্স (সারপ্লাস):</string>
+    <string name="ui_inline_customerscreen_0edb739064" formatted="false">নতুন প্রথম</string>
+    <string name="ui_inline_customerscreen_0f99c363b6" formatted="false">বিক্রয় মূল্য ও রিয়াল হিসাব</string>
+    <string name="ui_inline_customerscreen_0fee4d639d" formatted="false">অতিরিক্ত মন্তব্য (নোট)</string>
+    <string name="ui_inline_customerscreen_106cf9feae" formatted="false">মোট বকেয়া ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_11cd60c23c" formatted="false">শুধু বকেয়া কাস্টমার</string>
+    <string name="ui_inline_customerscreen_168b24e627" formatted="false">স্ট্যাটাস ও মন্তব্য</string>
+    <string name="ui_inline_customerscreen_16c5328a35" formatted="false">রিয়াল সংগ্রহ ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_17d0811674" formatted="false">লেনদেন এবং হিসাব খাতা</string>
+    <string name="ui_inline_customerscreen_1981827092" formatted="false">কাস্টমার খাতায় ফিরে যান</string>
+    <string name="ui_inline_customerscreen_1e43775e1e" formatted="false">কাস্টমারের পূর্বের বকেয়া রিয়াল থেকে আজ কত রিয়াল জমা নেওয়া হচ্ছে তা এখানে লিখুন।</string>
+    <string name="ui_inline_customerscreen_1f3d8f2dbd" formatted="false">সর্বমোট বকেয়া:</string>
+    <string name="ui_inline_customerscreen_20ccc5dca0" formatted="false">বকেয়া আদায় পরিমাণ ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_22320b7621" formatted="false">কন্টাক্টস</string>
+    <string name="ui_inline_customerscreen_2340e0c8d8" formatted="false">ওয়ালেট লেজার সিলেক্ট করুন ▾</string>
+    <string name="ui_inline_customerscreen_23886d7cf0" formatted="false">পেন্ডিং করুন</string>
+    <string name="ui_inline_customerscreen_26e8941ff1" formatted="false">ডিলিট</string>
+    <string name="ui_inline_customerscreen_2ca9cf5aad" formatted="false">নাম A-Z</string>
+    <string name="ui_inline_customerscreen_2d9be001aa" formatted="false">পরিবর্তনসমূহ সংরক্ষণ করুন</string>
+    <string name="ui_inline_customerscreen_2e1008cee2" formatted="false">পাওনা ফেরত</string>
+    <string name="ui_inline_customerscreen_349b576bb0" formatted="false">পিডিএফ</string>
+    <string name="ui_inline_customerscreen_3759ad6328" formatted="false">পরিমাণ ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_39457d1dd6" formatted="false">মোবাইল নম্বর</string>
+    <string name="ui_inline_customerscreen_3982854841" formatted="false">লেনদেন সংখ্যা</string>
+    <string name="ui_inline_customerscreen_3be0d774e8" formatted="false">সব গ্রাহক</string>
+    <string name="ui_inline_customerscreen_3c3889dd0d" formatted="false">কোনো বকেয়া নেই</string>
+    <string name="ui_inline_customerscreen_3d0eda7bfb" formatted="false">প্রাপক পাবে:</string>
+    <string name="ui_inline_customerscreen_3f1bbaecc3" formatted="false">পূর্বের বকেয়া পরিশোধ:</string>
+    <string name="ui_inline_customerscreen_408ffc9247" formatted="false">ওয়ালেট লেজার:</string>
+    <string name="ui_inline_customerscreen_430e6d35e5" formatted="false">রসিদ তৈরি ব্যর্থ হয়েছে</string>
+    <string name="ui_inline_customerscreen_44790f9f7e" formatted="false">নতুন কাস্টমার যোগ</string>
+    <string name="ui_inline_customerscreen_457da6122b" formatted="false">কোনো লেনদেন পাওয়া যায়নি।</string>
+    <string name="ui_inline_customerscreen_45f489d950" formatted="false">মন্তব্য:</string>
+    <string name="ui_inline_customerscreen_46699e3019" formatted="false">বিতরণ ${localCur}</string>
+    <string name="ui_inline_customerscreen_468765c3b2" formatted="false">নাম</string>
+    <string name="ui_inline_customerscreen_48ffd594a2" formatted="false">প্রাইভেট সিকিউরিটি নোটস</string>
+    <string name="ui_inline_customerscreen_4b8ea35973" formatted="false">বকেয়া আদায় পরিশোধ</string>
+    <string name="ui_inline_customerscreen_4c776e39d3" formatted="false">পাওনা ফেরত: </string>
+    <string name="ui_inline_customerscreen_4ce6ccf57c" formatted="false">ফোন নাম্বার</string>
+    <string name="ui_inline_customerscreen_4f46a2660b" formatted="false">কাস্টমার পাবে</string>
+    <string name="ui_inline_customerscreen_52a4485823" formatted="false">মোট বিতরণ (টাকা)</string>
+    <string name="ui_inline_customerscreen_53b8d1aa04" formatted="false">রিভিউ ও সাবমিট</string>
+    <string name="ui_inline_customerscreen_54e1eeccf5" formatted="false">হিসাব নম্বর:</string>
+    <string name="ui_inline_customerscreen_5630bce913" formatted="false">গ্রহণ ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_5645acea96" formatted="false">গ্রাহকের নাম:</string>
+    <string name="ui_inline_customerscreen_591a96d516" formatted="false">সাপ্লায়ার এবং ক্রয়ের গোপনীয় তথ্য এই রসিদে সংরক্ষণ করা হয়নি।</string>
+    <string name="ui_inline_customerscreen_594a8f6ed9" formatted="false">পেমেন্ট মেথড নির্বাচন করুন</string>
+    <string name="ui_inline_customerscreen_59bf1dc769" formatted="false">গ্রাহক রেট</string>
+    <string name="ui_inline_customerscreen_5b125d2d0e" formatted="false">রেট:</string>
+    <string name="ui_inline_customerscreen_5f002413bb" formatted="false">পাওনা ফেরত:</string>
+    <string name="ui_inline_customerscreen_5fdc35b4dd" formatted="false">পাওনা ফেরত</string>
+    <string name="ui_inline_customerscreen_6605ed4861" formatted="false">লেনদেন সফলভাবে সম্পন্ন হয়েছে!</string>
+    <string name="ui_inline_customerscreen_68563b492c" formatted="false">প্রাপক পাবে (মোট):</string>
+    <string name="ui_inline_customerscreen_6c40219b13" formatted="false">কাস্টমার অতিরিক্ত পাবেন:</string>
+    <string name="ui_inline_customerscreen_6defdcf615" formatted="false">ওয়ালেট লেজার সিলেক্ট করুন</string>
+    <string name="ui_inline_customerscreen_6e2b5a4908" formatted="false">পেমেন্ট চ্যানেল</string>
+    <string name="ui_inline_customerscreen_6ef987f556" formatted="false">d MMMM, yyyy</string>
+    <string name="ui_inline_customerscreen_704f504756" formatted="false">রিয়াল পরিমাণ ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_70daa7fb2c" formatted="false">গ্রাহকের মোট বকেয়া:</string>
+    <string name="ui_inline_customerscreen_7167f05872" formatted="false">কাস্টমারকে কত রিয়াল ফেরত দিচ্ছেন তা নিচে লিখুন।</string>
+    <string name="ui_inline_customerscreen_73bb2ca55d" formatted="false">ফেরত পরিমাণ ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_73d90a8f75" formatted="false">বর্তমান ঠিকানা (শাখা / অফিস)</string>
+    <string name="ui_inline_customerscreen_7424cd3ff8" formatted="false">নতুন বকেয়া ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_75213bad55" formatted="false">নতুন লেনদেন ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_755d9d96ac" formatted="false">পূর্বের বকেয়া আদায় / পরিশোধ</string>
+    <string name="ui_inline_customerscreen_75601aa3c1" formatted="false">বিক্রয় রেট ${localCur}</string>
+    <string name="ui_inline_customerscreen_75c0728e42" formatted="false">কাস্টমার বা প্রতিষ্ঠানের নাম</string>
+    <string name="ui_inline_customerscreen_7617323277" formatted="false">সর্বমোট বকেয়া:</string>
+    <string name="ui_inline_customerscreen_765ab7aa3c" formatted="false">ওয়ালেট ক্রয় রেট (অটো):</string>
+    <string name="ui_inline_customerscreen_766975bb5b" formatted="false">রিসিট বা কোনো ছবি যুক্ত করুন...</string>
+    <string name="ui_inline_customerscreen_7b1bdbed32" formatted="false">বিক্রয় রেট (৳):</string>
+    <string name="ui_inline_customerscreen_7e0cff546e" formatted="false">এই রসিদের বকেয়া:</string>
+    <string name="ui_inline_customerscreen_7e68c4389b" formatted="false">প্রযোজ্য নয় (বকেয়া আদায়)</string>
+    <string name="ui_inline_customerscreen_7fae42c59f" formatted="false">পাওনা ফেরত ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_7fceb532b9" formatted="false">বকেয়া আদায় ${foreignCur}:</string>
+    <string name="ui_inline_customerscreen_84af4f8f16" formatted="false">পেমেন্ট মেথড:</string>
+    <string name="ui_inline_customerscreen_851e3f5dc1" formatted="false">কাস্টমার খাতা বিবরণ</string>
+    <string name="ui_inline_customerscreen_87fa7ba614" formatted="false">বিতরণ ${localCur}:</string>
+    <string name="ui_inline_customerscreen_8aa03a6e91" formatted="false">ফিল্টার ক্যাটাগরি</string>
+    <string name="ui_inline_customerscreen_8c3c780098" formatted="false">নতুন লেনদেন</string>
+    <string name="ui_inline_customerscreen_8c4e311c44" formatted="false">রসিদ শেয়ার করুন</string>
+    <string name="ui_inline_customerscreen_901fcf2e6b" formatted="false">বিনিময় হার:</string>
+    <string name="ui_inline_customerscreen_94923f5a72" formatted="false">বিতরণ মূল্য ${localCur}:</string>
+    <string name="ui_inline_customerscreen_973d56a2ea" formatted="false">জমা মূল্য ${localCur}:</string>
+    <string name="ui_inline_customerscreen_979e3f4016" formatted="false">ওয়ালেট নির্বাচন করুন</string>
+    <string name="ui_inline_customerscreen_98bfb45d9d" formatted="false">লেনদেনের ধরণ নির্বাচন করুন</string>
+    <string name="ui_inline_customerscreen_998e2982bc" formatted="false">ছবি রসিদ শেয়ার করুন</string>
+    <string name="ui_inline_customerscreen_9ac66d7220" formatted="false">সর্বোচ্চ অগ্রিম</string>
+    <string name="ui_inline_customerscreen_9d6e8cb361" formatted="false">নতুন কারেন্সি বিক্রয়। ২য় ধাপে বকেয়া আদায়ের অপশনও থাকবে।</string>
+    <string name="ui_inline_customerscreen_9f0f35249b" formatted="false">হিসাব / ওয়ালেট নম্বর</string>
+    <string name="ui_inline_customerscreen_a0292a457f" formatted="false">মোট পাঠানো ${localCur}</string>
+    <string name="ui_inline_customerscreen_a126cd34a4" formatted="false">নতুন বিক্রয়</string>
+    <string name="ui_inline_customerscreen_a275e13aef" formatted="false">টাকা পাঠানো ${localCur}</string>
+    <string name="ui_inline_customerscreen_a386945d13" formatted="false">রসিদ তৈরি ব্যর্থ হয়েছে</string>
+    <string name="ui_inline_customerscreen_a4985ef8ae" formatted="false">$paymentMethod নম্বর (মোবাইল)</string>
+    <string name="ui_inline_customerscreen_a6ba94f36b" formatted="false">বকেয়া আদায়</string>
+    <string name="ui_inline_customerscreen_a736edcf1a" formatted="false">লেনদেন নিশ্চিতকরণ</string>
+    <string name="ui_inline_customerscreen_a841a640d4" formatted="false">যুক্ত করুন</string>
+    <string name="ui_inline_customerscreen_aa32889e82" formatted="false">পাওনা ফেরত</string>
+    <string name="ui_inline_customerscreen_abe29fbe0f" formatted="false">অতিরিক্ত মন্তব্য</string>
+    <string name="ui_inline_customerscreen_af4a1cc0fc" formatted="false">শুধু অগ্রিম কাস্টমার</string>
+    <string name="ui_inline_customerscreen_b00533264d" formatted="false">আপনার জমা ব্যালেন্স:</string>
+    <string name="ui_inline_customerscreen_b20c9b4631" formatted="false">অবতার কাস্টমাইজ করুন:</string>
+    <string name="ui_inline_customerscreen_b5aac5b451" formatted="false">কোনো সক্রিয় ওয়ালেট স্টক পাওয়া যায়নি!</string>
+    <string name="ui_inline_customerscreen_b894e5f946" formatted="false">কোনো কাস্টমার পাওয়া যায়নি!</string>
+    <string name="ui_inline_customerscreen_bb8290ecab" formatted="false">কাস্টমার অতিরিক্ত পাবেন:</string>
+    <string name="ui_inline_customerscreen_bdc99ef7ee" formatted="false">মোট লেনদেন: ${transactions.size} টি</string>
+    <string name="ui_inline_customerscreen_bf895dc046" formatted="false">লেনদেনের ডিজিটাল রসিদ</string>
+    <string name="ui_inline_customerscreen_c1b6465c33" formatted="false">মোট পাঠানো ভলিউম</string>
+    <string name="ui_inline_customerscreen_c526442d66" formatted="false">ব্যক্তিগত ও পরিচিতি বিবরণী</string>
+    <string name="ui_inline_customerscreen_c7e56806e4" formatted="false">রিয়াল ফেরত</string>
+    <string name="ui_inline_customerscreen_ccc0085f03" formatted="false">লেনদেন হিসাব ও রেট</string>
+    <string name="ui_inline_customerscreen_cd1e0b92ff" formatted="false">হিসাব নম্বর:</string>
+    <string name="ui_inline_customerscreen_cd4ccd465f" formatted="false">খুঁজুন...</string>
+    <string name="ui_inline_customerscreen_d1e717904c" formatted="false">সর্বোচ্চ বকেয়া</string>
+    <string name="ui_inline_customerscreen_d6801dd174" formatted="false">ছবি</string>
+    <string name="ui_inline_customerscreen_dd15dada89" formatted="false">লেনদেন সম্পন্ন করুন</string>
+    <string name="ui_inline_customerscreen_deae734bb4" formatted="false">কাস্টমার অতিরিক্ত পাবেন:</string>
+    <string name="ui_inline_customerscreen_def73680df" formatted="false">বাছাই করুন</string>
+    <string name="ui_inline_customerscreen_dffe3c0716" formatted="false">নতুন</string>
+    <string name="ui_inline_customerscreen_e09a5cd027" formatted="false">তারিখ ও সময়:</string>
+    <string name="ui_inline_customerscreen_e0e188a0c3" formatted="false">পুরাতন প্রথম</string>
+    <string name="ui_inline_customerscreen_e128aff38f" formatted="false">টেক্সট</string>
+    <string name="ui_inline_customerscreen_e1554f0d9c" formatted="false">প্রাপকের বিবরণ</string>
+    <string name="ui_inline_customerscreen_e3952b8349" formatted="false">বাতিল</string>
+    <string name="ui_inline_customerscreen_e3aab99a49" formatted="false">মোট লেনদেন ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_e6de184d2e" formatted="false">মোট প্রদান মূল্য ${localCur}:</string>
+    <string name="ui_inline_customerscreen_e80930b66f" formatted="false">সংরক্ষণ করুন</string>
+    <string name="ui_inline_customerscreen_e9bb06d8b8" formatted="false">মোট বকেয়া</string>
+    <string name="ui_inline_customerscreen_e9edee9585" formatted="false">কাস্টমার প্রোফাইল</string>
+    <string name="ui_inline_customerscreen_ea02bdbfb9" formatted="false">মন্তব্য লিখুন...</string>
+    <string name="ui_inline_customerscreen_eb4a0c28fa" formatted="false">পূর্বের বকেয়া আদায় / পরিশোধ</string>
+    <string name="ui_inline_customerscreen_eb59ec36d0" formatted="false">পরের ধাপ</string>
+    <string name="ui_inline_customerscreen_ec1ab45050" formatted="false">প্রাপক পাবে:</string>
+    <string name="ui_inline_customerscreen_ec44b6a55e" formatted="false">আপনার জমা ব্যালেন্স:</string>
+    <string name="ui_inline_customerscreen_ed2f3bd877" formatted="false">⚙️ ফিল্টার ও সেটিংস</string>
+    <string name="ui_inline_customerscreen_ef70a6b821" formatted="false">এডিট</string>
+    <string name="ui_inline_customerscreen_f0d6009e5c" formatted="false">পেমেন্ট মেথড:</string>
+    <string name="ui_inline_customerscreen_f132f0087b" formatted="false">বকেয়া আদায়</string>
+    <string name="ui_inline_customerscreen_f2aec4b443" formatted="false">ডকুমেন্ট আপলোড</string>
+    <string name="ui_inline_customerscreen_f44683f2d9" formatted="false">প্রাপকের নাম</string>
+    <string name="ui_inline_customerscreen_f4e373cfe9" formatted="false">লেনদেন সংশোধন</string>
+    <string name="ui_inline_customerscreen_f5199a75a0" formatted="false">বকেয়া আদায়</string>
+    <string name="ui_inline_customerscreen_f592fbed68" formatted="false">প্রাপকের ফোন</string>
+    <string name="ui_inline_customerscreen_f650e3479e" formatted="false">কাস্টমার ডিলিট করুন</string>
+    <string name="ui_inline_customerscreen_f8f07fea86" formatted="false">কাস্টমার পাবে ${foreignCur}</string>
+    <string name="ui_inline_customerscreen_f8f7088737" formatted="false">ব্যাংক হিসাব নম্বর</string>
+    <string name="ui_inline_customerscreen_f989466287" formatted="false">রিয়াল পরিমাণ:</string>
+    <string name="ui_inline_customerscreen_fa09237958" formatted="false">কাস্টমার বিবরণী</string>
+    <string name="ui_inline_customerscreen_fa577a01c0" formatted="false">পূর্বের বকেয়া পরিশোধ: </string>
+    <string name="ui_inline_customerscreen_fc6320ee85" formatted="false">শেয়ার</string>
+    <string name="ui_inline_customerscreen_fd7518647f" formatted="false">লেনদেন অবস্থা পরিবর্তন করবেন?</string>
+    <string name="ui_inline_dashboardscreen_0a940e18e2" formatted="false">ঠিক আছে</string>
+    <string name="ui_inline_dashboardscreen_0c6daf1df1" formatted="false">সব সময়ের</string>
+    <string name="ui_inline_dashboardscreen_2140b2a729" formatted="false">রেট: ${dep.rate}</string>
+    <string name="ui_inline_dashboardscreen_239eff0825" formatted="false">খরচ ও আয়</string>
+    <string name="ui_inline_dashboardscreen_24c99c2141" formatted="false">কোনো লেনদেন পাওয়া যায়নি।</string>
+    <string name="ui_inline_dashboardscreen_2855417ce1" formatted="false">মাসিক</string>
+    <string name="ui_inline_dashboardscreen_2c88f565f2" formatted="false">রেট আপডেট</string>
+    <string name="ui_inline_dashboardscreen_37133257c6" formatted="false">লাভ-ক্ষতি</string>
+    <string name="ui_inline_dashboardscreen_38661b16fc" formatted="false">সব কাস্টমার</string>
+    <string name="ui_inline_dashboardscreen_3ac9ff7d33" formatted="false">রেট: ${unifiedEntry.tx.customerRate}</string>
+    <string name="ui_inline_dashboardscreen_3af1aa3f73" formatted="false">লেনদেন সমূহ</string>
+    <string name="ui_inline_dashboardscreen_3f2399ad79" formatted="false">আমাদের সেবাসমূহ</string>
+    <string name="ui_inline_dashboardscreen_41dbd04eba" formatted="false">আজকের রেট</string>
+    <string name="ui_inline_dashboardscreen_4624e4c22c" formatted="false">সেটিংস</string>
+    <string name="ui_inline_dashboardscreen_4e48563aeb" formatted="false">ব্যালেন্স শিট ও সাপ্লায়ার রিজার্ভ</string>
+    <string name="ui_inline_dashboardscreen_4f678be02e" formatted="false">আয়/ব্যায়</string>
+    <string name="ui_inline_dashboardscreen_534118eb79" formatted="false">গ্রাহকগণ</string>
+    <string name="ui_inline_dashboardscreen_55d73b3749" formatted="false">রিপোর্ট ডাউনলোড সফল!</string>
+    <string name="ui_inline_dashboardscreen_56fc780ef6" formatted="false">বাতিল</string>
+    <string name="ui_inline_dashboardscreen_67979a94eb" formatted="false">বকেয়া পরিশোধ</string>
+    <string name="ui_inline_dashboardscreen_6af182cb17" formatted="false">বিস্তারিত রিপোর্ট ডাউনলোড</string>
+    <string name="ui_inline_dashboardscreen_715bdc02ba" formatted="false">বন্ধ করুন</string>
+    <string name="ui_inline_dashboardscreen_747578b72b" formatted="false">কাস্টমার ফিল্টার</string>
+    <string name="ui_inline_dashboardscreen_75fc5120d2" formatted="false">বকেয়া ব্যালেন্সধারী</string>
+    <string name="ui_inline_dashboardscreen_85e2dfe329" formatted="false">রিসেন্ট লেনদেন খাতা</string>
+    <string name="ui_inline_dashboardscreen_8c9785fbb3" formatted="false">সকল লেনদেন</string>
+    <string name="ui_inline_dashboardscreen_96704a4214" formatted="false">আজকের</string>
+    <string name="ui_inline_dashboardscreen_ac41617c2c" formatted="false">বর্ণানুক্রমিক (A-Z)</string>
+    <string name="ui_inline_dashboardscreen_ac8ecfa8ef" formatted="false">লেনদেন খুঁজুন...</string>
+    <string name="ui_inline_dashboardscreen_b0116f6418" formatted="false">রিয়াল স্টক</string>
+    <string name="ui_inline_dashboardscreen_b736f27d7f" formatted="false">বাৎসরিক</string>
+    <string name="ui_inline_dashboardscreen_bae5e49479" formatted="false">রিপোর্ট তৈরি করুন</string>
+    <string name="ui_inline_dashboardscreen_cb37085c3f" formatted="false">ফাইলটি সফলভাবে সেভ করা হয়েছে এবং প্রিন্ট করার জন্য প্রস্তুত:</string>
+    <string name="ui_inline_dashboardscreen_cbd1524ae7" formatted="false">২. পিডিএফ / এক্সেল / ইমেজ ফরম্যাট:</string>
+    <string name="ui_inline_dashboardscreen_cc2b773055" formatted="false">কাস্টমার বিক্রয়</string>
+    <string name="ui_inline_dashboardscreen_cc900043e7" formatted="false">সাপ্লায়ার</string>
+    <string name="ui_inline_dashboardscreen_dcd7c6762f" formatted="false">সাপ্লায়ার</string>
+    <string name="ui_inline_dashboardscreen_e03fc5482b" formatted="false">১. সময়সীমা নির্বাচন করুন:</string>
+    <string name="ui_inline_dashboardscreen_e46b1a712e" formatted="false">লেনদেন সমূহ</string>
+    <string name="ui_inline_dashboardscreen_fa7c7072f9" formatted="false">লেনদেন খতিয়ান, লাভ-ক্ষতির হিসেব এবং ব্যবসার বিস্তারিত রিপোর্ট ডাউনলোড ও শেয়ার করুন।</string>
+    <string name="ui_inline_dashboardscreen_ff0dcbd8da" formatted="false">সাপ্তাহিক</string>
+    <string name="ui_inline_loginscreen_0e6bed32c2" formatted="false">লগইন</string>
+    <string name="ui_inline_loginscreen_173357f030" formatted="false">সেটআপ পেইজ খোলা যায়নি।</string>
+    <string name="ui_inline_loginscreen_48d93b1c66" formatted="false">লগআউট শেষ হচ্ছে। এক মুহূর্ত পরে আবার চেষ্টা করুন।</string>
+    <string name="ui_inline_loginscreen_4ca0f0ec8e" formatted="false">মোবাইল দিন</string>
+    <string name="ui_inline_loginscreen_5b8bea740d" formatted="false">English</string>
+    <string name="ui_inline_loginscreen_7320bb2444" formatted="false">৬ ডিজিটের পিন দিন</string>
+    <string name="ui_inline_loginscreen_9d00c1fa78" formatted="false">সেশন পাওয়া যায়নি</string>
+    <string name="ui_inline_loginscreen_bc6288dec7" formatted="false">মোবাইল</string>
+    <string name="ui_inline_loginscreen_c3b058ac5d" formatted="false">SAFA - সাফা</string>
+    <string name="ui_inline_loginscreen_dd561d689f" formatted="false">পিন</string>
+    <string name="ui_inline_loginscreen_ef5009f2d8" formatted="false">সেটআপ URL তৈরি করা যায়নি।</string>
+    <string name="ui_inline_loginscreen_fff0eecd17" formatted="false">সেটআপ অবস্থা আবার যাচাই করুন</string>
+    <string name="ui_inline_mainactivity_08cc868b45" formatted="false">থিম পরিবর্তন</string>
+    <string name="ui_inline_mainactivity_0df4700dea" formatted="false">ভাষা পরিবর্তন</string>
+    <string name="ui_inline_mainactivity_23cb748919" formatted="false">হ্যাঁ, বের হব</string>
+    <string name="ui_inline_mainactivity_408a03a0f0" formatted="false">লগআউট</string>
+    <string name="ui_inline_mainactivity_4755950621" formatted="false">বাতিল</string>
+    <string name="ui_inline_mainactivity_5eb55a54e9" formatted="false">অ্যাপ থেকে প্রস্থান</string>
+    <string name="ui_inline_mainactivity_64a08dc8e8" formatted="false">ইউজার: $operatorName</string>
+    <string name="ui_inline_mainactivity_e4e921c93d" formatted="false">না</string>
+    <string name="ui_inline_mainactivity_f530537e68" formatted="false">আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?</string>
+    <string name="ui_inline_mainactivity_f737c0b14e" formatted="false">মুছে ফেলুন</string>
+    <string name="ui_inline_settingsscreen_03ef14b8ec" formatted="false">১৫টি দানাদার RBAC অনুমতিসমূহ</string>
+    <string name="ui_inline_settingsscreen_050c0143b5" formatted="false">অ্যাকাউন্ট সুইচার (১-ট্যাপ)</string>
+    <string name="ui_inline_settingsscreen_0a8760117e" formatted="false">সাপ্লায়ারদের জন্য কাস্টম রেট</string>
+    <string name="ui_inline_settingsscreen_1524caf983" formatted="false">পিন পরিবর্তন</string>
+    <string name="ui_inline_settingsscreen_164f1cdc71" formatted="false">অপেরেশন সফল করতে মোবাইল এর লকস্ক্রিন লক ব্যবহার করি</string>
+    <string name="ui_inline_settingsscreen_29a9eddf16" formatted="false">ইউজার মুছে ফেলতে চান?</string>
+    <string name="ui_inline_settingsscreen_2c452450af" formatted="false">ওয়ালেট রিচার্জের জন্য কাস্টম রেট</string>
+    <string name="ui_inline_settingsscreen_315ec29116" formatted="false">বৈদেশিক কারেন্সি (যেমন: SAR)</string>
+    <string name="ui_inline_settingsscreen_3376a822e8" formatted="false">বাতিল</string>
+    <string name="ui_inline_settingsscreen_5104a1f5e2" formatted="false">ইউজার তথ্য ও অনুমতি পরিবর্তন</string>
+    <string name="ui_inline_settingsscreen_56190d1a6d" formatted="false">সাপ্লায়ার রেট</string>
+    <string name="ui_inline_settingsscreen_578d84f85c" formatted="false">সাপ্লায়ার ক্রয় রেট ও প্রফিট মার্জিন গণনাকারী মোড</string>
+    <string name="ui_inline_settingsscreen_5c4f895f83" formatted="false">ভাষা পরিবর্তন</string>
+    <string name="ui_inline_settingsscreen_5c8795ae1a" formatted="false">সিস্টেম কনফিগারেশন</string>
+    <string name="ui_inline_settingsscreen_5ce537ffe1" formatted="false">নতুন পিন</string>
+    <string name="ui_inline_settingsscreen_5d6402d7b1" formatted="false">রেট ভিত্তিক হিসাব মোড</string>
+    <string name="ui_inline_settingsscreen_6785197873" formatted="false">লোগো আপলোড করা যায়নি।</string>
+    <string name="ui_inline_settingsscreen_683e6f845d" formatted="false">ব্র্যান্ডিং</string>
+    <string name="ui_inline_settingsscreen_6dfb5e9cc1" formatted="false">হ্যাঁ, মুছে ফেলুন</string>
+    <string name="ui_inline_settingsscreen_6e177714cc" formatted="false">সংরক্ষণ করুন</string>
+    <string name="ui_inline_settingsscreen_8252500e53" formatted="false">রোল</string>
+    <string name="ui_inline_settingsscreen_912dac5254" formatted="false">নতুন অপারেটর যুক্ত করুন</string>
+    <string name="ui_inline_settingsscreen_943c4b578a" formatted="false">বর্তমান ও নতুন পিন আলাদা ৬ সংখ্যার হতে হবে</string>
+    <string name="ui_inline_settingsscreen_9be292c01b" formatted="false">অ্যাপের নাম</string>
+    <string name="ui_inline_settingsscreen_a1c22ebe6e" formatted="false">নতুন অপারেটর তৈরি করুন</string>
+    <string name="ui_inline_settingsscreen_a242c88f27" formatted="false">১৫টি দানাদার RBAC অনুমতিসমূহ</string>
+    <string name="ui_inline_settingsscreen_aa2bf1c2ae" formatted="false">কারেন্সি ও প্রতীক</string>
+    <string name="ui_inline_settingsscreen_acbe979931" formatted="false">লোকাল কারেন্সি (যেমন: BDT)</string>
+    <string name="ui_inline_settingsscreen_aed7797043" formatted="false">ভাষা</string>
+    <string name="ui_inline_settingsscreen_af3189500d" formatted="false">পিন সফলভাবে পরিবর্তন করা হয়েছে!</string>
+    <string name="ui_inline_settingsscreen_b0f6cf676f" formatted="false">ইমোজি লোগো</string>
+    <string name="ui_inline_settingsscreen_b168301089" formatted="false">আপডেট করুন</string>
+    <string name="ui_inline_settingsscreen_b7a2df780e" formatted="false">বর্তমান পিন</string>
+    <string name="ui_inline_settingsscreen_bcf76e6ee3" formatted="false">লগআউট</string>
+    <string name="ui_inline_settingsscreen_c0d666827c" formatted="false">আপডেট হচ্ছে…</string>
+    <string name="ui_inline_settingsscreen_c159b22e57" formatted="false">ফিঙ্গর প্রিন্ট লাগাও</string>
+    <string name="ui_inline_settingsscreen_c2af3165aa" formatted="false">আপনি কি নিশ্চিতভাবে \'${showDeleteConfirmByOp!!.username}\' ইউজারটি মুছে ফেলতে চান? এই অ্যাকশনটি রিভার্স করা যাবে না।</string>
+    <string name="ui_inline_settingsscreen_c6c50a3d01" formatted="false">সব তথ্য দিন এবং পিন ৬ সংখ্যার হতে হবে</string>
+    <string name="ui_inline_settingsscreen_cd6570bd8a" formatted="false">নতুন ৬-ডিজিটের পিন (ঐচ্ছিক)</string>
+    <string name="ui_inline_settingsscreen_ce6a481583" formatted="false">অপারেটর ও নিরাপত্তা</string>
+    <string name="ui_inline_settingsscreen_d588218cc7" formatted="false">ওয়ালেট রেট</string>
+    <string name="ui_inline_settingsscreen_dfcbe45f34" formatted="false">ছবি আপলোড করুন</string>
+    <string name="ui_inline_settingsscreen_e2072e86cc" formatted="false">দানাদার অনুমতিসমূহ (Granular RBAC)</string>
+    <string name="ui_inline_settingsscreen_e47e3c3caa" formatted="false">সেটিংস</string>
+    <string name="ui_inline_settingsscreen_e83999a27d" formatted="false">ভার্সন $appVersion</string>
+    <string name="ui_inline_settingsscreen_e919f0cf03" formatted="false">নতুন ভাষা যুক্ত করুন</string>
+    <string name="ui_inline_settingsscreen_e93a5d774b" formatted="false">লোগো ও নাম</string>
+    <string name="ui_inline_settingsscreen_f1c89007f9" formatted="false">সংরক্ষণ</string>
+    <string name="ui_inline_settingsscreen_fa43114985" formatted="false">শুধু SuperAdmin অপারেটর ব্যবস্থাপনা করতে পারবেন।</string>
+    <string name="ui_inline_settingsscreen_ffd90b5bdb" formatted="false">পিন আপডেট করুন</string>
+    <string name="ui_inline_supplierscreen_0247f236db" formatted="false">পরবর্তী ধাপ</string>
+    <string name="ui_inline_supplierscreen_04cd5d49fc" formatted="false">গ্রাহক রেট</string>
+    <string name="ui_inline_supplierscreen_0512afd425" formatted="false">সর্বমোট টাকা ক্রয়</string>
+    <string name="ui_inline_supplierscreen_05de0a5d74" formatted="false">খুঁজুন...</string>
+    <string name="ui_inline_supplierscreen_067fa2529a" formatted="false">একাউন্ট নম্বর:</string>
+    <string name="ui_inline_supplierscreen_0aadd123dc" formatted="false">সংরক্ষণ করুন</string>
+    <string name="ui_inline_supplierscreen_0c5f5eb77b" formatted="false">পরিশোধিত (BDT):</string>
+    <string name="ui_inline_supplierscreen_103e46851d" formatted="false">অভ্যন্তরীণ খাতা নোটস</string>
+    <string name="ui_inline_supplierscreen_10da88c485" formatted="false">ঠিকানা</string>
+    <string name="ui_inline_supplierscreen_1641f455c5" formatted="false">টাকা পরিশোধের ক্ষেত্র</string>
+    <string name="ui_inline_supplierscreen_1b63e310d4" formatted="false">ফান্ড ধরন</string>
+    <string name="ui_inline_supplierscreen_1c4720b4ca" formatted="false">সর্বোচ্চ ব্যালেন্স</string>
+    <string name="ui_inline_supplierscreen_1ecd7cf635" formatted="false">ডিপোজিট: ${deposits.size} টি</string>
+    <string name="ui_inline_supplierscreen_1faca4a15f" formatted="false">বকেয়া মূল্য পরিশোধ</string>
+    <string name="ui_inline_supplierscreen_20f7ff3a94" formatted="false">বকেয়া পরিশোধ</string>
+    <string name="ui_inline_supplierscreen_2173e7e448" formatted="false">প্রাপকের নাম</string>
+    <string name="ui_inline_supplierscreen_21d30e38de" formatted="false">সাপ্লায়ার থেকে আপনার পাওনা টাকা বুঝে নিন বা ক্যাশ গ্রহণ করুন।</string>
+    <string name="ui_inline_supplierscreen_245a59cc71" formatted="false">মন্তব্য:</string>
+    <string name="ui_inline_supplierscreen_2a988aeadb" formatted="false">সর্বমোট রিয়াল জমা</string>
+    <string name="ui_inline_supplierscreen_2b9f353c46" formatted="false">বন্ধ করুন</string>
+    <string name="ui_inline_supplierscreen_2e5ccb86a1" formatted="false">বাছাই করুন</string>
+    <string name="ui_inline_supplierscreen_2e6091ffc9" formatted="false">কোনো ডিপোজিট রেকর্ড পাওয়া যায়নি।</string>
+    <string name="ui_inline_supplierscreen_2f88198b4e" formatted="false">পিছনে ফিরে যেতে এখানে চাপুন</string>
+    <string name="ui_inline_supplierscreen_329acafa2c" formatted="false">ক্রয় রেট</string>
+    <string name="ui_inline_supplierscreen_32f071ea0d" formatted="false">অতিরিক্ত মন্তব্য</string>
+    <string name="ui_inline_supplierscreen_35e95659c0" formatted="false">লেনদেন সংশোধন</string>
+    <string name="ui_inline_supplierscreen_374c3b9623" formatted="false">স্ট্যাটাস পরিবর্তন</string>
+    <string name="ui_inline_supplierscreen_38c07c0400" formatted="false">রিয়াল ক্রয় (Deposit)</string>
+    <string name="ui_inline_supplierscreen_3e56cfb78a" formatted="false">অতিরিক্ত মন্তব্য (নোট)</string>
+    <string name="ui_inline_supplierscreen_3ed233d7d2" formatted="false">লেনদেন সমূহ</string>
+    <string name="ui_inline_supplierscreen_4271a57e62" formatted="false">যুক্ত করুন</string>
+    <string name="ui_inline_supplierscreen_42cfef2b1a" formatted="false">সাপ্লায়ার সিলেক্ট করুন</string>
+    <string name="ui_inline_supplierscreen_43495a73fa" formatted="false">কোনো সাপ্লায়ার প্রোফাইল নেই।</string>
+    <string name="ui_inline_supplierscreen_46d835234c" formatted="false">নতুন সাপ্লায়ার যোগ</string>
+    <string name="ui_inline_supplierscreen_4823b7177d" formatted="false">রিয়াল গ্রহণ (SAR):</string>
+    <string name="ui_inline_supplierscreen_4826fcae74" formatted="false">পুরাতন প্রথম</string>
+    <string name="ui_inline_supplierscreen_49e5d9354a" formatted="false">টাকা পাঠানো (BDT)</string>
+    <string name="ui_inline_supplierscreen_4a3088e0bf" formatted="false">আদায় সম্পন্ন</string>
+    <string name="ui_inline_supplierscreen_4dd223758c" formatted="false">মোবাইল নম্বর</string>
+    <string name="ui_inline_supplierscreen_4de7f1d1cc" formatted="false">নতুন লেনদেন</string>
+    <string name="ui_inline_supplierscreen_5141b71288" formatted="false">সাপ্লায়ার নাম</string>
+    <string name="ui_inline_supplierscreen_5490d713ad" formatted="false">বর্তমান ঠিকানা (শাখা / অফিস)</string>
+    <string name="ui_inline_supplierscreen_54c8f85923" formatted="false">প্রাপকের ফোন</string>
+    <string name="ui_inline_supplierscreen_558d5301df" formatted="false">গ্রহণ (BDT)</string>
+    <string name="ui_inline_supplierscreen_5642bd2e18" formatted="false">সাপ্লায়ার রেট:</string>
+    <string name="ui_inline_supplierscreen_5e549b17c8" formatted="false">বিনিময় রেট (BDT/SAR)</string>
+    <string name="ui_inline_supplierscreen_5f8e334d44" formatted="false">সাপ্লায়ার বা মহাজন খাতা বিবরণ</string>
+    <string name="ui_inline_supplierscreen_602f6d2b8b" formatted="false">ট্রেড লাইসেন্স / রেজিঃ</string>
+    <string name="ui_inline_supplierscreen_63c0e8ec71" formatted="false">শুধু ব্যালেন্স জমা</string>
+    <string name="ui_inline_supplierscreen_65a548656a" formatted="false">বকেয়া (BDT):</string>
+    <string name="ui_inline_supplierscreen_667dc17276" formatted="false">সাপ্লায়ারের পূর্বের বকেয়া পরিশোধ বা ক্যাশ পেমেন্ট করুন।</string>
+    <string name="ui_inline_supplierscreen_6694b5db45" formatted="false">সাপ্লায়ার ফান্ড নির্বাচন</string>
+    <string name="ui_inline_supplierscreen_67b48a844b" formatted="false">পেন্ডিং করুন</string>
+    <string name="ui_inline_supplierscreen_687918a84a" formatted="false">ডেলিভারি</string>
+    <string name="ui_inline_supplierscreen_68b2c9a8e8" formatted="false">বাতিল</string>
+    <string name="ui_inline_supplierscreen_697952c187" formatted="false">রেট ${localCur}</string>
+    <string name="ui_inline_supplierscreen_6c817a069a" formatted="false">সংরক্ষণ করুন</string>
+    <string name="ui_inline_supplierscreen_75ac1c1202" formatted="false">লোগো কাস্টমাইজ করুন:</string>
+    <string name="ui_inline_supplierscreen_818fd5e6ae" formatted="false">ডকুমেন্ট আপলোড</string>
+    <string name="ui_inline_supplierscreen_8546259e38" formatted="false">ওয়ালেট</string>
+    <string name="ui_inline_supplierscreen_8988bfe173" formatted="false">প্রোফাইল তথ্য</string>
+    <string name="ui_inline_supplierscreen_89967f3635" formatted="false">ওয়ালেট নির্বাচন করুন</string>
+    <string name="ui_inline_supplierscreen_9927799207" formatted="false">হিসাব নম্বর</string>
+    <string name="ui_inline_supplierscreen_9c9bcc517c" formatted="false">কোনো বকেয়া নেই</string>
+    <string name="ui_inline_supplierscreen_9d9f5c7e4e" formatted="false">পরিমাণ (SAR)</string>
+    <string name="ui_inline_supplierscreen_9efba04467" formatted="false">অতিরিক্ত মন্তব্য</string>
+    <string name="ui_inline_supplierscreen_a1ecb80ee6" formatted="false">রিসিট বা কোনো ছবি যুক্ত করুন...</string>
+    <string name="ui_inline_supplierscreen_a4beefb913" formatted="false">সাপ্লায়ার থেকে নতুন রিয়াল বা ফান্ড ক্রয় করুন।</string>
+    <string name="ui_inline_supplierscreen_a540a0f782" formatted="false">বিতরণ সম্পন্ন</string>
+    <string name="ui_inline_supplierscreen_a67983e47c" formatted="false">পাওনা (BDT):</string>
+    <string name="ui_inline_supplierscreen_a8096459f7" formatted="false">বিতরণ (BDT):</string>
+    <string name="ui_inline_supplierscreen_b0900dd70c" formatted="false">আমি দেবো / বকেয়া (BDT)</string>
+    <string name="ui_inline_supplierscreen_b0ecfd5034" formatted="false">রিয়াল পরিমাণ (SAR)</string>
+    <string name="ui_inline_supplierscreen_b568fb019a" formatted="false">ব্যবসা ও সিকিউরিটি প্রোফাইল</string>
+    <string name="ui_inline_supplierscreen_b770e658d1" formatted="false">লেনদেনের ধরণ নির্বাচন করুন</string>
+    <string name="ui_inline_supplierscreen_b9d74e5b2c" formatted="false">ফান্ড হিসাব সংশোধন / ডিলিট</string>
+    <string name="ui_inline_supplierscreen_b9f7414f68" formatted="false">ফিল্টার ক্যাটাগরি</string>
+    <string name="ui_inline_supplierscreen_bc2880aab4" formatted="false">সর্বমোট (BDT):</string>
+    <string name="ui_inline_supplierscreen_c2fbef9c22" formatted="false">নাম A-Z</string>
+    <string name="ui_inline_supplierscreen_c3941b1f8d" formatted="false">নতুন ফান্ড ক্রয়</string>
+    <string name="ui_inline_supplierscreen_c536aa9e37" formatted="false">⚙️ ফিল্টার ও সেটিংস</string>
+    <string name="ui_inline_supplierscreen_cefdba16cb" formatted="false">ফান্ড হিসাব সংশোধন</string>
+    <string name="ui_inline_supplierscreen_d303cb3757" formatted="false">বিতরণ (লেনদেন)</string>
+    <string name="ui_inline_supplierscreen_d306b6ced4" formatted="false">d MMMM, yyyy</string>
+    <string name="ui_inline_supplierscreen_d67ab65ccc" formatted="false">রিয়াল গ্রহণ (SAR)</string>
+    <string name="ui_inline_supplierscreen_dc8401f5a4" formatted="false">কন্টাক্টস</string>
+    <string name="ui_inline_supplierscreen_dc891852e7" formatted="false">আমি পাবো / পাওনা (BDT)</string>
+    <string name="ui_inline_supplierscreen_ddf2b3c1cd" formatted="false">লেনদেন ও হিসাব খাতা</string>
+    <string name="ui_inline_supplierscreen_e5bf76fd01" formatted="false">সব সাপ্লায়ার</string>
+    <string name="ui_inline_supplierscreen_e64b77d09a" formatted="false">গ্রাহক রেট:</string>
+    <string name="ui_inline_supplierscreen_e98335264f" formatted="false">পাওনা আদায়</string>
+    <string name="ui_inline_supplierscreen_ed1269c465" formatted="false">সাপ্লায়ার খাতা প্রোফাইল</string>
+    <string name="ui_inline_supplierscreen_ef81a9abb6" formatted="false">নতুন</string>
+    <string name="ui_inline_supplierscreen_f1811a120c" formatted="false">শুধু বাকি/পাওনা</string>
+    <string name="ui_inline_supplierscreen_f24d0fcd08" formatted="false">পাওনা</string>
+    <string name="ui_inline_supplierscreen_f2bbe60951" formatted="false">ফোন</string>
+    <string name="ui_inline_supplierscreen_f48a4becd8" formatted="false">সংরক্ষণ করুন</string>
+    <string name="ui_inline_supplierscreen_f6fecd5981" formatted="false">বকেয়া</string>
+    <string name="ui_inline_supplierscreen_f93797f985" formatted="false">নতুন প্রথম</string>
+    <string name="ui_inline_supplierscreen_fd478db4ac" formatted="false">সাপ্লায়ার বা প্রতিষ্ঠানের নাম</string>
+    <string name="ui_inline_transactionscreen_00b193f024" formatted="false">রিয়াল পরিমাণ:</string>
+    <string name="ui_inline_transactionscreen_05c09dddeb" formatted="false">আজকের</string>
+    <string name="ui_inline_transactionscreen_05d7a7b29c" formatted="false">বিতরণ বনাম অপেক্ষমান</string>
+    <string name="ui_inline_transactionscreen_0b3043f05d" formatted="false">কাস্টমার পরিবর্তন করুন</string>
+    <string name="ui_inline_transactionscreen_0fe39592a2" formatted="false">সাপ্লায়ার রেট</string>
+    <string name="ui_inline_transactionscreen_10785ab6e1" formatted="false">প্রাপকের ফোন নম্বর</string>
+    <string name="ui_inline_transactionscreen_17db0cacff" formatted="false">রিয়াল কম</string>
+    <string name="ui_inline_transactionscreen_1fbd70a6e7" formatted="false">হোয়াটসঅ্যাপ ভাউচার</string>
+    <string name="ui_inline_transactionscreen_218d809a21" formatted="false">নেট আনুমানিক মুনাফা:</string>
+    <string name="ui_inline_transactionscreen_2523e9785e" formatted="false">হ্যাঁ, ডিলিট করুন</string>
+    <string name="ui_inline_transactionscreen_2672f0b970" formatted="false">স্ট্যাটাস অবস্থা</string>
+    <string name="ui_inline_transactionscreen_2c78b4b47b" formatted="false">খুঁজুন...</string>
+    <string name="ui_inline_transactionscreen_2c947591d6" formatted="false">বিনিময় হার:</string>
+    <string name="ui_inline_transactionscreen_33f13eac89" formatted="false">একাউন্ট / নাম্বার</string>
+    <string name="ui_inline_transactionscreen_349e3b6fdc" formatted="false">শেষ ৩০ দিন</string>
+    <string name="ui_inline_transactionscreen_3554cbaee5" formatted="false">নতুন থেকে পুরাতন</string>
+    <string name="ui_inline_transactionscreen_392b19d30f" formatted="false">সর্বোচ্চ রিয়াল</string>
+    <string name="ui_inline_transactionscreen_3a36a926ad" formatted="false">মোট আউটফ্লো ভলিউম</string>
+    <string name="ui_inline_transactionscreen_3a4ae591b6" formatted="false">পেমেন্ট মাধ্যম</string>
+    <string name="ui_inline_transactionscreen_3e93c88ff2" formatted="false">হিসাব/টাকা প্রধান নম্বর (${receiverAccountTypeInput})</string>
+    <string name="ui_inline_transactionscreen_3f89da3610" formatted="false">ডিজিটাল লেজার ভেরিফাইড রসিদ। কোনো স্বাক্ষরের প্রয়োজন নেই।</string>
+    <string name="ui_inline_transactionscreen_3fdd2f0d73" formatted="false">মালিক বা ৬-ডিজিট সিকিউরিটি পিন দিন</string>
+    <string name="ui_inline_transactionscreen_42b800bae4" formatted="false">রেট ডিফারেনশিয়াল আয়</string>
+    <string name="ui_inline_transactionscreen_432a292c45" formatted="false">প্রাপক</string>
+    <string name="ui_inline_transactionscreen_44b156bccc" formatted="false">চ্যানেল:</string>
+    <string name="ui_inline_transactionscreen_4563426f35" formatted="false">অথবা পিন দিয়ে করুন:</string>
+    <string name="ui_inline_transactionscreen_4c4947e1ac" formatted="false">রসিদ</string>
+    <string name="ui_inline_transactionscreen_54082e09d8" formatted="false">সব সময়</string>
+    <string name="ui_inline_transactionscreen_54a404adaa" formatted="false">মোট আনুমানিক মুনাফা</string>
+    <string name="ui_inline_transactionscreen_5c804a4b33" formatted="false">প্রদেয় টাকা:</string>
+    <string name="ui_inline_transactionscreen_5fe7af6b2c" formatted="false">মন্তব্য / বিশেষ নোট</string>
+    <string name="ui_inline_transactionscreen_63e2626685" formatted="false">পুরাতন থেকে নতুন</string>
+    <string name="ui_inline_transactionscreen_6d5f0785e7" formatted="false">লেনদেন ডিলিট নিশ্চিতকরণ</string>
+    <string name="ui_inline_transactionscreen_705de569dd" formatted="false">শেষ ৭ দিন</string>
+    <string name="ui_inline_transactionscreen_726802e23c" formatted="false">হিসাব বিবরণী</string>
+    <string name="ui_inline_transactionscreen_7442be1ba6" formatted="false">হিসাব নম্বর:</string>
+    <string name="ui_inline_transactionscreen_7614cab6f5" formatted="false">কোনো লেনদেন রেকর্ড পাওয়া যায়নি।</string>
+    <string name="ui_inline_transactionscreen_7807695c2c" formatted="false">⚠️ ওয়ালেটে লেজারে কোনো সচল ফান্ড নেই! প্রথমে ওয়ালেটে ফান্ড যুক্ত করুন।</string>
+    <string name="ui_inline_transactionscreen_78177a2115" formatted="false">বাছাই করুন</string>
+    <string name="ui_inline_transactionscreen_785b3b93da" formatted="false">সকল লেনদেন</string>
+    <string name="ui_inline_transactionscreen_7b2995e282" formatted="false">লেনদেন ডাটা এন্ট্রি ফরম</string>
+    <string name="ui_inline_transactionscreen_83151ceb5e" formatted="false">নোট:</string>
+    <string name="ui_inline_transactionscreen_8398f7e59f" formatted="false">সৌদি রিয়াল (SAR) পরিমাণ</string>
+    <string name="ui_inline_transactionscreen_8477da0b5f" formatted="false">তারিখ ফিল্টার</string>
+    <string name="ui_inline_transactionscreen_868e42c10a" formatted="false">লেনদেন রেকর্ড জমা দিন</string>
+    <string name="ui_inline_transactionscreen_8d4374a172" formatted="false">বিতরিত</string>
+    <string name="ui_inline_transactionscreen_97969b2dbf" formatted="false">মোবাইল:</string>
+    <string name="ui_inline_transactionscreen_99cb19dacd" formatted="false">ডিজিটাল হিসাব খাতা</string>
+    <string name="ui_inline_transactionscreen_9eb332d63b" formatted="false">সক্রিয় কাস্টমার ফান্ড</string>
+    <string name="ui_inline_transactionscreen_9ff3f5bf5e" formatted="false">⚙️ ফিল্টার ও সেটিংস</string>
+    <string name="ui_inline_transactionscreen_a43aa8b0e7" formatted="false">বাতিল</string>
+    <string name="ui_inline_transactionscreen_a5d308c590" formatted="false">সংগৃহীত রিয়াল</string>
+    <string name="ui_inline_transactionscreen_a64ae276e0" formatted="false">বিতরণ</string>
+    <string name="ui_inline_transactionscreen_b121f7fc07" formatted="false">সর্বোচ্চ মুনাফা</string>
+    <string name="ui_inline_transactionscreen_b173d86347" formatted="false">রিয়াল বেশি</string>
+    <string name="ui_inline_transactionscreen_b3f5ca8d55" formatted="false">পরিসংখ্যান (Stats):</string>
+    <string name="ui_inline_transactionscreen_b4a48a02f3" formatted="false">প্রাপকের ডেলিভারি বিবরণ:</string>
+    <string name="ui_inline_transactionscreen_b5e20bedf0" formatted="false">হিসাবকৃত মুনাফা (Estimated Profit):</string>
+    <string name="ui_inline_transactionscreen_ba489679d6" formatted="false">অপেক্ষমান</string>
+    <string name="ui_inline_transactionscreen_bad78af4d6" formatted="false">বিতরণ সম্পন্ন</string>
+    <string name="ui_inline_transactionscreen_bb32984be0" formatted="false">আপনি কি নিশ্চিতভাবে এই লেনদেনটি মুছে দিতে চান?</string>
+    <string name="ui_inline_transactionscreen_bf5779d0f1" formatted="false">নাম:</string>
+    <string name="ui_inline_transactionscreen_bf66ee6e4d" formatted="false">বন্ধ করুন</string>
+    <string name="ui_inline_transactionscreen_c182ecd62c" formatted="false">লেনদেন সমূহ</string>
+    <string name="ui_inline_transactionscreen_d55321ef68" formatted="false">📊 এক্সচেঞ্জ ডিফারেন্স (Exchange Margin):</string>
+    <string name="ui_inline_transactionscreen_d639c488a0" formatted="false">⚙️ কুইক স্ট্যাটাস সংশোধন:</string>
+    <string name="ui_inline_transactionscreen_d67bad03f6" formatted="false">প্রাপকের নাম</string>
+    <string name="ui_inline_transactionscreen_da89cf23a9" formatted="false">অপেক্ষমান</string>
+    <string name="ui_inline_transactionscreen_dc24b0524b" formatted="false">SAFA রসিদ বিবরণী</string>
+    <string name="ui_inline_transactionscreen_df3f33aa9b" formatted="false">বাতিল</string>
+    <string name="ui_inline_transactionscreen_e09cc2736f" formatted="false">সংক্ষিপ্ত ভিউ:</string>
+    <string name="ui_inline_transactionscreen_e1a952da61" formatted="false">প্রাপকের বিবরণ (Recipient Details)</string>
+    <string name="ui_inline_transactionscreen_e82177bc54" formatted="false">সেভ</string>
+    <string name="ui_inline_transactionscreen_eb9da5ad9f" formatted="false">লেনদেন তথ্য সংশোধন</string>
+    <string name="ui_inline_transactionscreen_ebfe052e12" formatted="false">বাতিলকৃত</string>
+    <string name="ui_inline_transactionscreen_ec6998d371" formatted="false">সাপ্লায়ার পরিবর্তন করুন</string>
+    <string name="ui_inline_transactionscreen_f014b99eb3" formatted="false">বিতরণকৃত টাকা</string>
+    <string name="ui_inline_transactionscreen_f1fe15da93" formatted="false">প্রেরক (Sender Customer)</string>
+    <string name="ui_inline_transactionscreen_faf00f8937" formatted="false">সর্বনিম্ন রিয়াল</string>
+    <string name="ui_inline_transactionscreen_fc0fd694b9" formatted="false">টাকার সোর্স ওয়ালেট খাতা (Wallet Source)</string>
+    <string name="ui_inline_transactionscreen_fd154673ac" formatted="false">কাস্টমার রেট</string>
+    <string name="ui_inline_transactionscreen_fe1292315b" formatted="false">মুনাফা বেশি</string>
+    <string name="ui_inline_walletscreen_0c4742773c" formatted="false">তহবিলে জমা দেওয়ার বিবরণী</string>
+    <string name="ui_inline_walletscreen_208d3d52c0" formatted="false">${ledger.name} থেকে তহবিল উত্তোলন</string>
+    <string name="ui_inline_walletscreen_2af5044c9b" formatted="false">কোনো সক্রিয় স্টক খতিয়ান নেই।</string>
+    <string name="ui_inline_walletscreen_3dcb44550e" formatted="false">যোগ করুন</string>
+    <string name="ui_inline_walletscreen_471077bea8" formatted="false">উত্তোলন</string>
+    <string name="ui_inline_walletscreen_4b235f4c63" formatted="false">ঠিক আছে</string>
+    <string name="ui_inline_walletscreen_4b86f62f55" formatted="false">\'${ledger.name}\' ওয়ালেটে অবশিষ্ট ব্যালেন্স রয়েছে। ব্যালেন্স ০ (শূন্য) না হওয়া পর্যন্ত ওয়ালেটটি মুছে ফেলা সম্ভব নয়।</string>
+    <string name="ui_inline_walletscreen_4fa00bf998" formatted="false">নতুন ওয়ালেট খাতা তৈরি</string>
+    <string name="ui_inline_walletscreen_4fde26e3dc" formatted="false">তারিখ ও রেট অনুসারে সক্রিয় স্টক তালিকা:</string>
+    <string name="ui_inline_walletscreen_5604ce2844" formatted="false">নোট (ঐচ্ছিক)</string>
+    <string name="ui_inline_walletscreen_56586ca2eb" formatted="false">টাকার পরিমাণ ${localCur}</string>
+    <string name="ui_inline_walletscreen_5c1ca5db47" formatted="false">নতুন</string>
+    <string name="ui_inline_walletscreen_6ff16c3060" formatted="false">এই হিসাবটি থেকে লেজার স্টক সামঞ্জস্য করতে টাকার পরিমাণ টাইপ করুন।</string>
+    <string name="ui_inline_walletscreen_71847e6397" formatted="false">টাকার পরিমাণ (${localCur})</string>
+    <string name="ui_inline_walletscreen_7364501e9b" formatted="false">মুছে ফেলুন নিশ্চিতকরণ</string>
+    <string name="ui_inline_walletscreen_7b7df83518" formatted="false">খাতার নাম</string>
+    <string name="ui_inline_walletscreen_8468393758" formatted="false">ডিলিট</string>
+    <string name="ui_inline_walletscreen_9d204ef604" formatted="false">${ledger.name} তে টাকা জমা</string>
+    <string name="ui_inline_walletscreen_9ee6510bfc" formatted="false">আপনি কি নিশ্চিতভাবে \'${ledger.name}\' ওয়ালেট খাতাটি মুছে ফেলতে চান? এই সিদ্ধান্ত বাতিল করা যাবে না।</string>
+    <string name="ui_inline_walletscreen_a324f6b630" formatted="false">ডিপোজিট</string>
+    <string name="ui_inline_walletscreen_aad15554bf" formatted="false">কোনো ওয়ালেট লেজার খাতা খুঁজে পাওয়া যায়নি!</string>
+    <string name="ui_inline_walletscreen_acc97d70c8" formatted="false">হ্যাঁ, মুছে ফেলুন</string>
+    <string name="ui_inline_walletscreen_b59787da20" formatted="false">নতুন নাম (New Register Name)</string>
+    <string name="ui_inline_walletscreen_b7426e830b" formatted="false">ওয়ালেট মুছে ফেলা যাবে না</string>
+    <string name="ui_inline_walletscreen_b957c429f8" formatted="false">জমা করুন</string>
+    <string name="ui_inline_walletscreen_bb077162a5" formatted="false">সক্রিয় উপ-হিসাব: ${batches.count { it.remainingBdt.signum() &gt; 0 }}টি</string>
+    <string name="ui_inline_walletscreen_c74fa9cbbd" formatted="false">বাতিল</string>
+    <string name="ui_inline_walletscreen_ce9658bee0" formatted="false">সংরক্ষণ করুন</string>
+    <string name="ui_inline_walletscreen_da5c044421" formatted="false">ওয়ালেট নাম পরিবর্তন করুন</string>
+    <string name="ui_inline_walletscreen_db67bec88e" formatted="false">নিশ্চিত</string>
+    <string name="ui_inline_walletscreen_e7c71289c5" formatted="false">লেজার খাতা সমূহ</string>
+    <string name="ui_inline_walletscreen_ebb5bce5b0" formatted="false">ওয়ালেট খাতাটির নাম নিচে লিখুন:</string>
+    <string name="ui_inline_walletscreen_f2a34e8824" formatted="false">ক্রয় রেট (ঐচ্ছিক)</string>
+    <string name="ui_invalid_credentials" formatted="false">ভুল মোবাইল বা পিন।</string>
+    <string name="ui_is_expense" formatted="false">ধরণ</string>
+    <string name="ui_login_button" formatted="false">লগইন</string>
+    <string name="ui_login_title" formatted="false">SAFA - সাফা</string>
+    <string name="ui_logout" formatted="false">লগ আউট</string>
+    <string name="ui_manage_expenses" formatted="false">আয়/ব্যয় পরিচালনা</string>
+    <string name="ui_manage_operators" formatted="false">অপারেটর ও স্টাফ ব্যবস্থাপনা</string>
+    <string name="ui_manage_wallet" formatted="false">ওয়ালেট পরিচালনা</string>
+    <string name="ui_mobile_number" formatted="false">মোবাইল নম্বর</string>
+    <string name="ui_net_profit_bdt" formatted="false">নিট লাভ (লোকাল)</string>
+    <string name="ui_net_profit_sar" formatted="false">নিট লাভ (বৈদেশিক)</string>
+    <string name="ui_new_remittance" formatted="false">নতুন লেনদেন</string>
+    <string name="ui_no_account_found" formatted="false">অ্যাকাউন্ট পাওয়া যায়নি।</string>
+    <string name="ui_notes" formatted="false">নোট</string>
+    <string name="ui_operator_blocked" formatted="false">অ্যাকাউন্ট স্থগিত।</string>
+    <string name="ui_operator_list" formatted="false">অপারেটর ও কর্মী</string>
+    <string name="ui_operator_management_desc" formatted="false">সার্ভার ব্যবহারকারীর ১৫টি বিস্তারিত অনুমতি নিয়ন্ত্রণ করুন</string>
+    <string name="ui_payment_method" formatted="false">পেমেন্ট চ্যানেল</string>
+    <string name="ui_permission_required" formatted="false">অনুমতি প্রয়োজন।</string>
+    <string name="ui_phone_number" formatted="false">মোবাইল নম্বর</string>
+    <string name="ui_pin_incorrect" formatted="false">ভুল পিন! আবার চেষ্টা করুন।</string>
+    <string name="ui_pincode" formatted="false">৬-ডিজিটের পিন</string>
+    <string name="ui_pool_balance" formatted="false">সাপ্লায়ার ফান্ড</string>
+    <string name="ui_purchase_success" formatted="false">লোকাল ফান্ড সফল।</string>
+    <string name="ui_rate_applied" formatted="false">বিনিময় হার</string>
+    <string name="ui_rate_saved" formatted="false">হার সংরক্ষিত!</string>
+    <string name="ui_receiver_account_no" formatted="false">অ্যাকাউন্ট নং</string>
+    <string name="ui_receiver_bdt_amount" formatted="false">প্রাপকের লোকাল</string>
+    <string name="ui_receiver_name" formatted="false">প্রাপকের নাম</string>
+    <string name="ui_receiver_phone" formatted="false">প্রাপকের মোবাইল</string>
+    <string name="ui_role" formatted="false">রোল</string>
+    <string name="ui_role_owner" formatted="false">মালিক</string>
+    <string name="ui_role_staff" formatted="false">স্টাফ</string>
+    <string name="ui_saudi_amount" formatted="false">প্রাপ্ত বৈদেশিক</string>
+    <string name="ui_save_customer" formatted="false">কাস্টমার নিবন্ধন</string>
+    <string name="ui_save_record" formatted="false">রেকর্ড সংরক্ষণ</string>
+    <string name="ui_save_supplier" formatted="false">সাপ্লায়ার সংরক্ষণ</string>
+    <string name="ui_save_transaction" formatted="false">লেনদেন সংরক্ষণ</string>
+    <string name="ui_select_customer" formatted="false">কাস্টমার নির্বাচন</string>
+    <string name="ui_select_operator" formatted="false">ইউজার নির্বাচন করুন</string>
+    <string name="ui_select_supplier" formatted="false">সাপ্লায়ার নির্বাচন</string>
+    <string name="ui_settings" formatted="false">সেটিংস</string>
+    <string name="ui_status" formatted="false">স্ট্যাটাস</string>
+    <string name="ui_status_cancelled" formatted="false">বাতিল</string>
+    <string name="ui_status_delivered" formatted="false">ডেলিভার্ড</string>
+    <string name="ui_status_pending" formatted="false">পেন্ডিং</string>
+    <string name="ui_supplier_buy_rate" formatted="false">সাপ্লায়ার রেট (খরচ)</string>
+    <string name="ui_supplier_mgmt" formatted="false">সাপ্লায়ার</string>
+    <string name="ui_supplier_name" formatted="false">সাপ্লায়ারের নাম</string>
+    <string name="ui_supplier_rate_tx" formatted="false">সাপ্লায়ার রেট</string>
+    <string name="ui_suppliers" formatted="false">সাপ্লায়ার</string>
+    <string name="ui_title" formatted="false">বিবরণ</string>
+    <string name="ui_total_bdt_delivered" formatted="false">মোট বিতরণকৃত লোকাল</string>
+    <string name="ui_total_bdt_pending" formatted="false">মোট পেন্ডিং লোকাল</string>
+    <string name="ui_total_customers" formatted="false">মোট কাস্টমার</string>
+    <string name="ui_total_deposited_sar" formatted="false">মোট জমা বৈদেশিক</string>
+    <string name="ui_total_sar_received" formatted="false">মোট প্রাপ্ত বৈদেশিক</string>
+    <string name="ui_transactions" formatted="false">লেনদেন</string>
+    <string name="ui_unsettled_supp" formatted="false">সাপ্লায়ার দেনা/পাওনা</string>
+    <string name="ui_update_daily_rates" formatted="false">বিনিময় হার প্রকাশ</string>
+    <string name="ui_view_customers" formatted="false">কাস্টমার দেখুন</string>
+    <string name="ui_view_reports" formatted="false">রিপোর্টস দেখুন</string>
+    <string name="ui_view_suppliers" formatted="false">সাপ্লায়ার দেখুন</string>
+    <string name="ui_view_transactions" formatted="false">লেনদেন দেখুন</string>
+    <string name="ui_wallet" formatted="false">ওয়ালেট</string>
+    <string name="setup_database_required" formatted="false">প্রথমবার ডাটাবেজ সেটআপ দরকার</string>
+    <string name="setup_superadmin_required" formatted="false">প্রথম SuperAdmin সেটআপ শেষ করুন</string>
+    <string name="setup_database_explanation" formatted="false">লগইনের আগে সার্ভার ডাটাবেজ চালু করতে হবে। নিচের বাটনটি সুরক্ষিত সেটআপ পেজ খুলবে; ব্যক্তিগত সেটআপ কোড অ্যাপের মধ্যে দেখানো বা সংরক্ষণ করা হয় না।</string>
+    <string name="setup_superadmin_explanation" formatted="false">ডাটাবেজ প্রস্তুত হয়েছে। যে ব্রাউজার সেশন দিয়ে মাইগ্রেশন চালানো হয়েছে, সেই সেশনেই প্রথম SuperAdmin তৈরি করে সেটআপ সম্পন্ন করুন।</string>
+    <string name="setup_database_action" formatted="false">ডাটাবেজ সেটআপ খুলুন</string>
+    <string name="setup_superadmin_action" formatted="false">SuperAdmin সেটআপ খুলুন</string>
+    <string name="session_verification_failed" formatted="false">সেশন যাচাই করা যায়নি। আবার মোবাইল ও পিন দিয়ে লগইন করুন।</string>
+</resources>

@@ -1,4 +1,5 @@
 package com.safa.account.ui.screens
+import com.safa.account.ui.localization.AndroidStringCatalog
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -263,7 +264,7 @@ fun TransactionScreen(
                     }
                     Column {
                         Text(
-                            text = if (lang == "BN") "লেনদেন সমূহ" else "Transactions",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_c182ecd62c"),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
@@ -274,7 +275,7 @@ fun TransactionScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (lang == "BN") "ডিজিটাল হিসাব খাতা" else "Remittance Ledger",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_99cb19dacd"),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -297,9 +298,9 @@ fun TransactionScreen(
                 ) {
                     // KPI: ${foreignCur}volume
                     KpiIndicatorCard(
-                        title = if (lang == "BN") "সংগৃহীত রিয়াল" else "Total Received",
+                        title = AndroidStringCatalog.get(lang, "inline_transactionscreen_a5d308c590"),
                         value = "SAR ${currencyFormatter.format(statsSarTotal)}",
-                        subtitle = if (lang == "BN") "সক্রিয় কাস্টমার ফান্ড" else "Fuzzy matches",
+                        subtitle = AndroidStringCatalog.get(lang, "inline_transactionscreen_9eb332d63b"),
                         icon = Icons.Default.MonetizationOn,
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
                         textColor = MaterialTheme.colorScheme.primary
@@ -307,9 +308,9 @@ fun TransactionScreen(
 
                     // KPI: ${localCur}volume disbursed
                     KpiIndicatorCard(
-                        title = if (lang == "BN") "বিতরণকৃত টাকা" else "Total Disbursed",
+                        title = AndroidStringCatalog.get(lang, "inline_transactionscreen_f014b99eb3"),
                         value = "৳${currencyFormatter.format(statsBdtTotal)}",
-                        subtitle = if (lang == "BN") "মোট আউটফ্লো ভলিউম" else "Ledger payout",
+                        subtitle = AndroidStringCatalog.get(lang, "inline_transactionscreen_3a36a926ad"),
                         icon = Icons.Default.Payments,
                         containerColor = Color(0xFFE8F5E9),
                         textColor = Color(0xFF2E7D32)
@@ -317,9 +318,9 @@ fun TransactionScreen(
 
                     // KPI: Net yield profit margins
                     KpiIndicatorCard(
-                        title = if (lang == "BN") "মোট আনুমানিক মুনাফা" else "Expected Profit",
+                        title = AndroidStringCatalog.get(lang, "inline_transactionscreen_54a404adaa"),
                         value = "৳${currencyFormatter.format(statsProfitTotal)}",
-                        subtitle = if (lang == "BN") "রেট ডিফারেনশিয়াল আয়" else "Arbitrage margin",
+                        subtitle = AndroidStringCatalog.get(lang, "inline_transactionscreen_42b800bae4"),
                         icon = Icons.Default.TrendingUp,
                         containerColor = Color(0xFFE3F2FD),
                         textColor = Color(0xFF1565C0)
@@ -327,9 +328,9 @@ fun TransactionScreen(
 
                     // KPI: Count states
                     KpiIndicatorCard(
-                        title = if (lang == "BN") "স্ট্যাটাস অবস্থা" else "Status Tracking",
+                        title = AndroidStringCatalog.get(lang, "inline_transactionscreen_2672f0b970"),
                         value = "D: $statsDeliveredCount | P: $statsPendingCount",
-                        subtitle = if (lang == "BN") "বিতরণ বনাম অপেক্ষমান" else "Delivered vs Pending",
+                        subtitle = AndroidStringCatalog.get(lang, "inline_transactionscreen_05d7a7b29c"),
                         icon = Icons.Default.DoneAll,
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         textColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -346,7 +347,7 @@ fun TransactionScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text(if (lang == "BN") "খুঁজুন..." else "Search...", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    placeholder = { Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_2c78b4b47b"), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "", modifier = Modifier.size(20.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -396,7 +397,7 @@ fun TransactionScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = if (lang == "BN") "⚙️ ফিল্টার ও সেটিংস" else "⚙️ Filter & Settings",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_9ff3f5bf5e"),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
@@ -410,7 +411,7 @@ fun TransactionScreen(
                             // Sort Choice
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (lang == "BN") "বাছাই করুন" else "Sort By",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_78177a2115"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.padding(bottom = 2.dp),
@@ -427,11 +428,11 @@ fun TransactionScreen(
                                     ) {
                                         Text(
                                             text = when (selectedSortOption) {
-                                                "Oldest" -> if (lang == "BN") "পুরাতন থেকে নতুন" else "Oldest First"
-                                                "Max ${foreignCur}" -> if (lang == "BN") "রিয়াল বেশি" else "Max ${foreignCur}"
-                                                "Min ${foreignCur}" -> if (lang == "BN") "রিয়াল কম" else "Min ${foreignCur}"
-                                                "Max Profit" -> if (lang == "BN") "মুনাফা বেশি" else "Max Profit"
-                                                else -> if (lang == "BN") "নতুন থেকে পুরাতন" else "Newest First"
+                                                "Oldest" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_63e2626685")
+                                                "Max ${foreignCur}" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_b173d86347")
+                                                "Min ${foreignCur}" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_17db0cacff")
+                                                "Max Profit" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_fe1292315b")
+                                                else -> AndroidStringCatalog.get(lang, "inline_transactionscreen_3554cbaee5")
                                             },
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
@@ -448,11 +449,11 @@ fun TransactionScreen(
                                                 text = {
                                                     Text(
                                                         when (option) {
-                                                            "Oldest" -> if (lang == "BN") "পুরাতন থেকে নতুন" else "Oldest First"
-                                                            "Max ${foreignCur}" -> if (lang == "BN") "সর্বোচ্চ রিয়াল" else "Highest Riyal"
-                                                            "Min ${foreignCur}" -> if (lang == "BN") "সর্বনিম্ন রিয়াল" else "Lowest Riyal"
-                                                            "Max Profit" -> if (lang == "BN") "সর্বোচ্চ মুনাফা" else "Highest Profit"
-                                                            else -> if (lang == "BN") "নতুন থেকে পুরাতন" else "Newest First"
+                                                            "Oldest" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_63e2626685")
+                                                            "Max ${foreignCur}" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_392b19d30f")
+                                                            "Min ${foreignCur}" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_faf00f8937")
+                                                            "Max Profit" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_b121f7fc07")
+                                                            else -> AndroidStringCatalog.get(lang, "inline_transactionscreen_3554cbaee5")
                                                         },
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
@@ -471,7 +472,7 @@ fun TransactionScreen(
                             // Date Range Choice
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (lang == "BN") "তারিখ ফিল্টার" else "Date Filter",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_8477da0b5f"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.padding(bottom = 2.dp),
@@ -488,10 +489,10 @@ fun TransactionScreen(
                                     ) {
                                         Text(
                                             text = when (selectedDateFilter) {
-                                                "Today" -> if (lang == "BN") "আজকের" else "Today"
-                                                "Week" -> if (lang == "BN") "শেষ ৭ দিন" else "Last 7 Days"
-                                                "Month" -> if (lang == "BN") "শেষ ৩০ দিন" else "Last 30 Days"
-                                                else -> if (lang == "BN") "সব সময়" else "All Time"
+                                                "Today" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_05c09dddeb")
+                                                "Week" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_705de569dd")
+                                                "Month" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_349e3b6fdc")
+                                                else -> AndroidStringCatalog.get(lang, "inline_transactionscreen_54082e09d8")
                                             },
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
@@ -508,10 +509,10 @@ fun TransactionScreen(
                                                 text = {
                                                     Text(
                                                         when (range) {
-                                                            "Today" -> if (lang == "BN") "আজকের" else "Today"
-                                                            "Week" -> if (lang == "BN") "শেষ ৭ দিন" else "Last 7 Days"
-                                                            "Month" -> if (lang == "BN") "শেষ ৩০ দিন" else "Last 30 Days"
-                                                            else -> if (lang == "BN") "সব সময়" else "All Time"
+                                                            "Today" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_05c09dddeb")
+                                                            "Week" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_705de569dd")
+                                                            "Month" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_349e3b6fdc")
+                                                            else -> AndroidStringCatalog.get(lang, "inline_transactionscreen_54082e09d8")
                                                         },
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
@@ -542,7 +543,7 @@ fun TransactionScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "সংক্ষিপ্ত ভিউ:" else "Compact View:",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_e09cc2736f"),
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -567,7 +568,7 @@ fun TransactionScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "পরিসংখ্যান (Stats):" else "Show KPI Stats:",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_b3f5ca8d55"),
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -606,10 +607,10 @@ fun TransactionScreen(
                         label = {
                             Text(
                                 text = when (status) {
-                                    "All" -> if (lang == "BN") "সকল লেনদেন" else "All Remits"
-                                    "Pending" -> if (lang == "BN") "অপেক্ষমান" else "Pending"
-                                    "Delivered" -> if (lang == "BN") "বিতরিত" else "Delivered"
-                                    "Cancelled" -> if (lang == "BN") "বাতিল" else "Cancelled"
+                                    "All" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_785b3b93da")
+                                    "Pending" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_ba489679d6")
+                                    "Delivered" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_8d4374a172")
+                                    "Cancelled" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_a43aa8b0e7")
                                     else -> status
                                 },
                                 maxLines = 1,
@@ -645,7 +646,7 @@ fun TransactionScreen(
                             modifier = Modifier.size(50.dp)
                         )
                         Text(
-                            text = if (lang == "BN") "কোনো লেনদেন রেকর্ড পাওয়া যায়নি।" else "No transactions matching your selection.",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_7614cab6f5"),
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.outline,
                             textAlign = TextAlign.Center
@@ -759,7 +760,7 @@ fun TransactionScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = if (lang == "BN") "লেনদেন ডাটা এন্ট্রি ফরম" else "Register new transaction record",
+                                        text = AndroidStringCatalog.get(lang, "inline_transactionscreen_7b2995e282"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline
                                     )
@@ -811,7 +812,7 @@ fun TransactionScreen(
                                     }
 
                                     Text(
-                                        text = if (lang == "BN") "টাকার সোর্স ওয়ালেট খাতা (Wallet Source)" else "Select Wallet Ledger Source",
+                                        text = AndroidStringCatalog.get(lang, "inline_transactionscreen_fc0fd694b9"),
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.padding(bottom = 4.dp)
@@ -823,7 +824,7 @@ fun TransactionScreen(
                                             color = MaterialTheme.colorScheme.errorContainer
                                         ) {
                                             Text(
-                                                text = if (lang == "BN") "⚠️ ওয়ালেটে লেজারে কোনো সচল ফান্ড নেই! প্রথমে ওয়ালেটে ফান্ড যুক্ত করুন।" else "⚠️ No active funds in any wallet ledger! Configure a wallet deposit first.",
+                                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_7807695c2c"),
                                                 modifier = Modifier.padding(12.dp),
                                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                                                 color = MaterialTheme.colorScheme.onErrorContainer
@@ -1013,7 +1014,7 @@ fun TransactionScreen(
                                                     horizontalArrangement = Arrangement.SpaceBetween
                                                 ) {
                                                     Text(
-                                                        text = if (lang == "BN") "হিসাবকৃত মুনাফা (Estimated Profit):" else "Estimated Arbitrage Profit:",
+                                                        text = AndroidStringCatalog.get(lang, "inline_transactionscreen_b5e20bedf0"),
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = MaterialTheme.colorScheme.outline
                                                     )
@@ -1059,7 +1060,7 @@ fun TransactionScreen(
                                 item {
                                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                         Text(
-                                            text = if (lang == "BN") "প্রাপকের বিবরণ (Recipient Details)" else "Recipient Payout Details",
+                                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_e1a952da61"),
                                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                             color = MaterialTheme.colorScheme.primary
                                         )
@@ -1068,7 +1069,7 @@ fun TransactionScreen(
                                         OutlinedTextField(
                                             value = receiverNameInput,
                                             onValueChange = { receiverNameInput = it },
-                                            placeholder = { Text(if (lang == "BN") "প্রাপকের নাম" else "Recipient Name") },
+                                            placeholder = { Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_d67bad03f6")) },
                                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = "", modifier = Modifier.size(20.dp)) },
                                             singleLine = true,
                                             shape = RoundedCornerShape(14.dp),
@@ -1079,7 +1080,7 @@ fun TransactionScreen(
                                         OutlinedTextField(
                                             value = receiverPhoneInput,
                                             onValueChange = { receiverPhoneInput = it },
-                                            placeholder = { Text(if (lang == "BN") "প্রাপকের ফোন নম্বর" else "Recipient Phone") },
+                                            placeholder = { Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_10785ab6e1")) },
                                             leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "", modifier = Modifier.size(20.dp)) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -1092,7 +1093,7 @@ fun TransactionScreen(
                                             OutlinedTextField(
                                                 value = receiverAccountNoInput,
                                                 onValueChange = { receiverAccountNoInput = it },
-                                                placeholder = { Text(if (lang == "BN") "হিসাব/টাকা প্রধান নম্বর (${receiverAccountTypeInput})" else "Account / Transfer Number (${receiverAccountTypeInput})", color = MaterialTheme.colorScheme.outline) },
+                                                placeholder = { Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_3e93c88ff2"), color = MaterialTheme.colorScheme.outline) },
                                                 leadingIcon = {
                                                     Icon(Icons.Default.CreditCard, contentDescription = "", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
                                                 },
@@ -1168,7 +1169,7 @@ fun TransactionScreen(
                                 enabled = sarAmountInput.isNotBlank() && receiverNameInput.isNotBlank() && receiverPhoneInput.isNotBlank() && (receiverAccountTypeInput == "Cash" || receiverAccountNoInput.isNotBlank())
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "লেনদেন রেকর্ড জমা দিন" else "Issue Remittance",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_868e42c10a"),
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = Color.White,
                                         fontWeight = FontWeight.ExtraBold
@@ -1211,7 +1212,7 @@ fun TransactionScreen(
                                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                                 }
                                 Text(
-                                    text = if (lang == "BN") "লেনদেন তথ্য সংশোধন" else "Edit Remittance Data",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_eb9da5ad9f"),
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
                                     modifier = Modifier.padding(start = 6.dp)
                                 )
@@ -1219,7 +1220,7 @@ fun TransactionScreen(
 
                             // Customer selection list
                             Text(
-                                text = if (lang == "BN") "কাস্টমার পরিবর্তন করুন" else "Change Customer",
+                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_0b3043f05d"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1242,7 +1243,7 @@ fun TransactionScreen(
 
                             // Recipient Name
                             Text(
-                                text = if (lang == "BN") "প্রাপকের নাম" else "Recipient Name",
+                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_d67bad03f6"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1263,7 +1264,7 @@ fun TransactionScreen(
 
                             // Recipient Phone
                             Text(
-                                text = if (lang == "BN") "প্রাপকের ফোন নম্বর" else "Recipient Phone",
+                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_10785ab6e1"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1285,7 +1286,7 @@ fun TransactionScreen(
 
                             // Saudi Amount Input
                             Text(
-                                text = if (lang == "BN") "সৌদি রিয়াল (SAR) পরিমাণ" else "Saudi Amount (SAR)",
+                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_8398f7e59f"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1309,7 +1310,7 @@ fun TransactionScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (lang == "BN") "কাস্টমার রেট" else "Customer Rate",
+                                        text = AndroidStringCatalog.get(lang, "inline_transactionscreen_fd154673ac"),
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.secondary
                                     )
@@ -1328,7 +1329,7 @@ fun TransactionScreen(
 
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (lang == "BN") "সাপ্লায়ার রেট" else "Supplier Rate",
+                                        text = AndroidStringCatalog.get(lang, "inline_transactionscreen_0fe39592a2"),
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.secondary
                                     )
@@ -1348,7 +1349,7 @@ fun TransactionScreen(
 
                             // Receiver Account Type Selection Chips
                             Text(
-                                text = if (lang == "BN") "পেমেন্ট মাধ্যম" else "Payout Channel",
+                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_3a4ae591b6"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1375,7 +1376,7 @@ fun TransactionScreen(
                                 OutlinedTextField(
                                     value = editReceiverAccountNoInput,
                                     onValueChange = { editReceiverAccountNoInput = it },
-                                    placeholder = { Text(if (lang == "BN") "একাউন্ট / নাম্বার" else "Account / Transfer Number") },
+                                    placeholder = { Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_33f13eac89")) },
                                     leadingIcon = {
                                         Icon(Icons.Default.CreditCard, contentDescription = "", tint = MaterialTheme.colorScheme.outline)
                                     },
@@ -1391,7 +1392,7 @@ fun TransactionScreen(
 
                             // Supplier select
                             Text(
-                                text = if (lang == "BN") "সাপ্লায়ার পরিবর্তন করুন" else "Change Supplier Account",
+                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_ec6998d371"),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1416,7 +1417,7 @@ fun TransactionScreen(
                             OutlinedTextField(
                                 value = editNotesInput,
                                 onValueChange = { editNotesInput = it },
-                                placeholder = { Text(if (lang == "BN") "মন্তব্য / বিশেষ নোট" else "Notes / Operational Instructions") },
+                                placeholder = { Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_5fe7af6b2c")) },
                                 leadingIcon = {
                                     Icon(Icons.Default.Notes, contentDescription = "", tint = MaterialTheme.colorScheme.outline)
                                 },
@@ -1497,13 +1498,13 @@ fun TransactionScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (lang == "BN") "অথবা পিন দিয়ে করুন:" else "Or verify using PIN:",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_4563426f35"),
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.outline
                                 )
                             } else {
                                 Text(
-                                    text = if (lang == "BN") "মালিক বা ৬-ডিজিট সিকিউরিটি পিন দিন" else "Confirm 6-digit Security PIN",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_3fdd2f0d73"),
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.error
                                 )
@@ -1565,7 +1566,7 @@ fun TransactionScreen(
                                 enabled = editCustomerIdInput > 0 && editReceiverNameInput.isNotBlank() && editReceiverPhoneInput.isNotBlank() && editSarAmountInput.isNotBlank()
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "সেভ" else "Save",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_e82177bc54"),
                                     style = MaterialTheme.typography.bodyLarge.copy(color = Color.White, fontWeight = FontWeight.Bold),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -1592,15 +1593,14 @@ fun TransactionScreen(
                             modifier = Modifier.size(24.dp)
                         )
                         Text(
-                            text = if (lang == "BN") "লেনদেন ডিলিট নিশ্চিতকরণ" else "Transaction Deletion",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_6d5f0785e7"),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
                 },
                 text = {
                     Text(
-                        text = if (lang == "BN") "আপনি কি নিশ্চিতভাবে এই লেনদেনটি মুছে দিতে চান?" 
-                               else "Are you sure you want to delete this transaction record?",
+                        text = AndroidStringCatalog.get(lang, "inline_transactionscreen_bb32984be0"),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },
@@ -1614,12 +1614,12 @@ fun TransactionScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(if (lang == "BN") "হ্যাঁ, ডিলিট করুন" else "Yes, Confirm Delete")
+                        Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_2523e9785e"))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { deletingTx = null }) {
-                        Text(if (lang == "BN") "বাতিল" else "Cancel")
+                        Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_df3f33aa9b"))
                     }
                 }
             )
@@ -1866,9 +1866,9 @@ fun TransactionPremiumCard(
                         )
                         Text(
                             text = when (tx.status) {
-                                "Delivered" -> if (lang == "BN") "বিতরিত" else "Delivered"
-                                "Cancelled" -> if (lang == "BN") "বাতিল" else "Cancelled"
-                                else -> if (lang == "BN") "অপেক্ষমান" else "Pending"
+                                "Delivered" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_8d4374a172")
+                                "Cancelled" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_a43aa8b0e7")
+                                else -> AndroidStringCatalog.get(lang, "inline_transactionscreen_ba489679d6")
                             },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
@@ -1954,7 +1954,7 @@ fun TransactionPremiumCard(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "📊 এক্সচেঞ্জ ডিফারেন্স (Exchange Margin):" else "📊 Arbitrage Exchange Matrix:",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_d55321ef68"),
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 )
                                 Text(
@@ -1983,7 +1983,7 @@ fun TransactionPremiumCard(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = if (lang == "BN") "নেট আনুমানিক মুনাফা:" else "Net Estimated Yield:",
+                                    text = AndroidStringCatalog.get(lang, "inline_transactionscreen_218d809a21"),
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
                                 )
                                 Column(horizontalAlignment = Alignment.End) {
@@ -2005,7 +2005,7 @@ fun TransactionPremiumCard(
                     // Recipient Particular Detail fields
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = if (lang == "BN") "প্রাপকের ডেলিভারি বিবরণ:" else "Bangladesh Receiver Particulars:",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_b4a48a02f3"),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -2034,7 +2034,7 @@ fun TransactionPremiumCard(
                     if (isPending) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = if (lang == "BN") "⚙️ কুইক স্ট্যাটাস সংশোধন:" else "⚙️ Quick Status Actions:",
+                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_d639c488a0"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -2052,7 +2052,7 @@ fun TransactionPremiumCard(
                                 ) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = "", modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (lang == "BN") "বিতরণ" else "Deliver", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(text = AndroidStringCatalog.get(lang, "inline_transactionscreen_a64ae276e0"), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
 
                                 // Cancelled action button
@@ -2065,7 +2065,7 @@ fun TransactionPremiumCard(
                                 ) {
                                     Icon(Icons.Default.Cancel, contentDescription = "", modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (lang == "BN") "বাতিল" else "Cancel", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(text = AndroidStringCatalog.get(lang, "inline_transactionscreen_df3f33aa9b"), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
@@ -2085,7 +2085,7 @@ fun TransactionPremiumCard(
                         ) {
                             Icon(Icons.Default.Receipt, contentDescription = "", modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = if (lang == "BN") "রসিদ" else "Receipt", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(text = AndroidStringCatalog.get(lang, "inline_transactionscreen_4c4947e1ac"), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -2198,7 +2198,7 @@ fun TransactionCompactItemRow(
                         ) {
                             Icon(Icons.Default.Receipt, null, modifier = Modifier.size(12.dp))
                             Spacer(modifier = Modifier.width(2.dp))
-                            Text(if (lang == "BN") "রসিদ" else "Receipt", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_4c4947e1ac"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -2254,7 +2254,7 @@ fun DigitalReceiptDialog(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = if (lang == "BN") "SAFA রসিদ বিবরণী" else "SAFA LEDGER RECEIPT",
+                                text = AndroidStringCatalog.get(lang, "inline_transactionscreen_dc24b0524b"),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -2269,7 +2269,7 @@ fun DigitalReceiptDialog(
                     // Sender Details block
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = if (lang == "BN") "প্রেরক (Sender Customer)" else "Sender Customer Details",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_f1fe15da93"),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                         )
                         Card(
@@ -2294,7 +2294,7 @@ fun DigitalReceiptDialog(
                     // Bangladesh delivery details
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = if (lang == "BN") "প্রাপক" else "Recipient Payout Details",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_432a292c45"),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                         )
                         Card(
@@ -2312,27 +2312,27 @@ fun DigitalReceiptDialog(
 
                                 if (hasValidReceiverName) {
                                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                        Text(if (lang == "BN") "নাম:" else "Name:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                        Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_bf5779d0f1"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                         Text(rxName, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
                                     }
                                 }
                                 if (hasValidReceiverPhone) {
                                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                        Text(if (lang == "BN") "মোবাইল:" else "Phone:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                        Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_97969b2dbf"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                         Text(rxPhone, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
                                     }
                                 }
                                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                    Text(if (lang == "BN") "চ্যানেল:" else "Payout Channel:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                    Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_44b156bccc"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                     Text(tx.receiverAccountType, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold), color = MaterialTheme.colorScheme.primary)
                                 }
                                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                    Text(if (lang == "BN") "হিসাব নম্বর:" else "Account/Number:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                    Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_7442be1ba6"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                     Text(tx.receiverAccountNo, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
                                 }
                                 if (tx.notes.isNotBlank()) {
                                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                        Text(if (lang == "BN") "নোট:" else "Note:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                        Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_83151ceb5e"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                         Text(tx.notes, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f).padding(start = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                                     }
                                 }
@@ -2343,7 +2343,7 @@ fun DigitalReceiptDialog(
                     // Billing exchange calculations
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = if (lang == "BN") "হিসাব বিবরণী" else "Exchange Calculations Matrix",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_726802e23c"),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                         )
                         Card(
@@ -2354,11 +2354,11 @@ fun DigitalReceiptDialog(
                         ) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                    Text(if (lang == "BN") "রিয়াল পরিমাণ:" else "SAR Amount Sent:", style = MaterialTheme.typography.bodyMedium)
+                                    Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_00b193f024"), style = MaterialTheme.typography.bodyMedium)
                                     Text("SAR ${currencyFormatter.format(tx.amountSar)}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                                 }
                                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                    Text(if (lang == "BN") "বিনিময় হার:" else "Customer Exchange Rate:", style = MaterialTheme.typography.bodyMedium)
+                                    Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_2c947591d6"), style = MaterialTheme.typography.bodyMedium)
                                     Text("৳ ${tx.customerRate} BDT/SAR", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                                 }
                                 Divider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
@@ -2368,7 +2368,7 @@ fun DigitalReceiptDialog(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = if (lang == "BN") "প্রদেয় টাকা:" else "Payable BDT:",
+                                        text = AndroidStringCatalog.get(lang, "inline_transactionscreen_5c804a4b33"),
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
                                         color = MaterialTheme.colorScheme.primary,
                                         maxLines = 1,
@@ -2419,9 +2419,9 @@ fun DigitalReceiptDialog(
                                 )
                                 Text(
                                     text = when (tx.status) {
-                                        "Delivered" -> if (lang == "BN") "বিতরণ সম্পন্ন" else "Transaction Delivered"
-                                        "Cancelled" -> if (lang == "BN") "বাতিলকৃত" else "Cancelled Record"
-                                        else -> if (lang == "BN") "অপেক্ষমান" else "Pending Processing"
+                                        "Delivered" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_bad78af4d6")
+                                        "Cancelled" -> AndroidStringCatalog.get(lang, "inline_transactionscreen_ebfe052e12")
+                                        else -> AndroidStringCatalog.get(lang, "inline_transactionscreen_da89cf23a9")
                                     },
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.ExtraBold,
@@ -2465,7 +2465,7 @@ fun DigitalReceiptDialog(
                             modifier = Modifier.padding(top = 4.dp)
                         )
                         Text(
-                            text = if (lang == "BN") "ডিজিটাল লেজার ভেরিফাইড রসিদ। কোনো স্বাক্ষরের প্রয়োজন নেই।" else "Digitally Verified Ledger Slip. No Physical Stamp Required.",
+                            text = AndroidStringCatalog.get(lang, "inline_transactionscreen_3f89da3610"),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                             color = MaterialTheme.colorScheme.outline,
                             textAlign = TextAlign.Center
@@ -2520,7 +2520,7 @@ fun DigitalReceiptDialog(
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text(if (lang == "BN") "হোয়াটসঅ্যাপ ভাউচার" else "WhatsApp Voucher", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_1fbd70a6e7"), color = Color.White, fontWeight = FontWeight.Bold)
                         }
 
                         OutlinedButton(
@@ -2528,7 +2528,7 @@ fun DigitalReceiptDialog(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(if (lang == "BN") "বন্ধ করুন" else "Close Receipt")
+                            Text(AndroidStringCatalog.get(lang, "inline_transactionscreen_bf66ee6e4d"))
                         }
                     }
                 }

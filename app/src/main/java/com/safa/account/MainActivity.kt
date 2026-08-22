@@ -1,4 +1,5 @@
 package com.safa.account
+import com.safa.account.ui.localization.AndroidStringCatalog
 
 import android.animation.ValueAnimator
 import android.os.Build
@@ -204,10 +205,10 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
         if (showExitDialog) {
             AlertDialog(
                 onDismissRequest = { showExitDialog = false },
-                title = { Text(text = if (currentLanguage == "BN") "অ্যাপ থেকে প্রস্থান" else "Exit Application", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                text = { Text(text = if (currentLanguage == "BN") "আপনি কি নিশ্চিতভাবে অ্যাপ থেকে বের হতে চান?" else "Are you sure you want to exit the application?", style = MaterialTheme.typography.bodyMedium) },
-                confirmButton = { TextButton(onClick = { showExitDialog = false; onExit() }) { Text(text = if (currentLanguage == "BN") "হ্যাঁ, বের হব" else "Yes, Exit", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
-                dismissButton = { TextButton(onClick = { showExitDialog = false }) { Text(text = if (currentLanguage == "BN") "না" else "No", fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) } }
+                title = { Text(text = AndroidStringCatalog.get(currentLanguage, "inline_mainactivity_5eb55a54e9"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                text = { Text(text = AndroidStringCatalog.get(currentLanguage, "inline_mainactivity_f530537e68"), style = MaterialTheme.typography.bodyMedium) },
+                confirmButton = { TextButton(onClick = { showExitDialog = false; onExit() }) { Text(text = AndroidStringCatalog.get(currentLanguage, "inline_mainactivity_23cb748919"), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+                dismissButton = { TextButton(onClick = { showExitDialog = false }) { Text(text = AndroidStringCatalog.get(currentLanguage, "inline_mainactivity_e4e921c93d"), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) } }
             )
         }
 
@@ -216,8 +217,8 @@ private fun SafaRoot(viewModel: SafaViewModel, onExit: () -> Unit) {
                 onDismissRequest = { DeleteConfirmationCoordinator.resolve(request.id, false); deleteConfirmation = null },
                 title = { Text(if (currentLanguage == "BN") "ডাটা মুছে ফেলবেন?" else request.title, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
                 text = { Text(if (currentLanguage == "BN") "এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।" else request.message, style = MaterialTheme.typography.bodyMedium) },
-                confirmButton = { TextButton(onClick = { DeleteConfirmationCoordinator.resolve(request.id, true); deleteConfirmation = null }) { Text(if (currentLanguage == "BN") "মুছে ফেলুন" else "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) } },
-                dismissButton = { TextButton(onClick = { DeleteConfirmationCoordinator.resolve(request.id, false); deleteConfirmation = null }) { Text(if (currentLanguage == "BN") "বাতিল" else "Cancel") } }
+                confirmButton = { TextButton(onClick = { DeleteConfirmationCoordinator.resolve(request.id, true); deleteConfirmation = null }) { Text(AndroidStringCatalog.get(currentLanguage, "inline_mainactivity_f737c0b14e"), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) } },
+                dismissButton = { TextButton(onClick = { DeleteConfirmationCoordinator.resolve(request.id, false); deleteConfirmation = null }) { Text(AndroidStringCatalog.get(currentLanguage, "inline_mainactivity_4755950621")) } }
             )
         }
 
@@ -309,15 +310,15 @@ fun SafaTopAppBar(
                 }
                 Column {
                     Text(text = customAppName, style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, color = contentOnGoldColor), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(text = if (currentLang == "BN") "ইউজার: $operatorName" else "User: $operatorName", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp, color = contentOnGoldColor.copy(alpha = 0.8f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = AndroidStringCatalog.get(currentLang, "inline_mainactivity_64a08dc8e8"), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp, color = contentOnGoldColor.copy(alpha = 0.8f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         },
         actions = {
             Spacer(Modifier.width(4.dp))
-            IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = if (currentLang == "BN") "থিম পরিবর্তন" else "Switch Theme", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
-            IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = if (currentLang == "BN") "ভাষা পরিবর্তন" else "Switch Language", tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
-            IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = if (currentLang == "BN") "লগআউট" else "Logout", tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = { viewModel.toggleDarkMode() }, modifier = Modifier.testTag("appbar_theme_toggle").size(36.dp)) { Icon(imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = AndroidStringCatalog.get(currentLang, "inline_mainactivity_08cc868b45"), tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = { viewModel.toggleLanguage() }, modifier = Modifier.testTag("appbar_lang_toggle").size(36.dp)) { Icon(imageVector = Icons.Default.Language, contentDescription = AndroidStringCatalog.get(currentLang, "inline_mainactivity_0df4700dea"), tint = contentOnGoldColor, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("appbar_logout_btn").size(36.dp)) { Icon(imageVector = Icons.Default.ExitToApp, contentDescription = AndroidStringCatalog.get(currentLang, "inline_mainactivity_408a03a0f0"), tint = if (isDarkMode) Color(0xFFF36666) else Color(0xFF860A0A), modifier = Modifier.size(18.dp)) }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = goldBgColor), modifier = Modifier.fillMaxWidth()
     )
