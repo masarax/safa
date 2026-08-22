@@ -24,21 +24,31 @@ A client starts with `cursor=0`. A successful response contains:
 - `cursor`: the requested cursor
 - `next_cursor`: the last change included in this chunk, or the requested cursor when idle
 - `high_water`: the newest currently visible change ID for this account/permission context
+- `permission_scope`: a stable hash of the entity read permissions used to filter the feed
 - `has_more`: whether another bounded chunk is immediately available
 - the same seven entity arrays used by the existing Android merge layer
 
 Cursor IDs may contain gaps because the database sequence is shared across accounts. They remain strictly monotonic for every account and must be treated as opaque positions, not row counts.
 
+## Permission checkpoints
+
+A persisted cursor is valid only for the `permission_scope` returned with it. Android persists the account cursor and permission scope together.
+
+If the server returns a different permission scope while the client has a non-zero cursor, Android discards that checkpoint, persists the new scope with cursor `0`, and rebuilds the authorized baseline from the beginning of the retained change feed. This prevents a user from permanently missing historical rows that become readable after a later permission grant.
+
+The server still applies entity permission filtering before returning snapshots. Permission-scope changes never allow the client to request data outside its current authorization.
+
 ## Android durability rule
 
 Android must process one chunk at a time:
 
-1. Read the persisted cursor for the active account.
+1. Read the persisted cursor and permission scope for the active account.
 2. Request one bounded chunk.
-3. Validate that the returned account and cursor match the active request.
-4. Merge every row through the existing `sync_version` and pending-mutation conflict guard.
-5. Persist the new cursor only after all rows in the chunk have been durably written.
-6. Request another chunk only when `has_more` is true.
+3. Validate that the returned account, cursor and permission scope match the active checkpoint.
+4. If the permission scope changed, reset the checkpoint to cursor `0` and restart the authorized baseline.
+5. Merge every row through the existing `sync_version` and pending-mutation conflict guard.
+6. Persist the new cursor only after all rows in the chunk have been durably written.
+7. Request another chunk only when `has_more` is true.
 
 If the process stops after row persistence but before cursor persistence, the same chunk is replayed. Replay is safe because server snapshots carry authoritative `sync_version` values and the local merge boundary ignores equal/older versions and protects pending local mutations.
 
@@ -75,9 +85,10 @@ The legacy route must not be extended with new sync features. New clients use `c
 
 ## Operational invariants
 
-- Cursor values never regress.
+- Cursor values never regress within one account/permission checkpoint.
 - `has_more=true` requires `next_cursor > cursor`.
 - Account context cannot change during a download loop.
+- A permission-scope change resets the cursor before any new-scope chunk is merged.
 - Permission filtering remains enforced before change snapshots are returned.
 - Existing pending local mutations and stale-version conflict handling remain authoritative.
 - An unchanged account returns bounded metadata with empty entity arrays rather than historical business rows.
