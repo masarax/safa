@@ -89,7 +89,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon :app:safaResolvedReleaseDependencies
+          ./gradlew --no-daemon --no-configuration-cache :app:safaResolvedReleaseDependencies
           version="$(sed -n 's/^SAFA_VERSION_NAME=//p' gradle.properties | tail -n 1 | tr -d '[:space:]')"
           python3 scripts/generate-sbom.py \
             --target android \
