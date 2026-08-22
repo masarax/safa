@@ -219,17 +219,43 @@ class AppRepository private constructor(
 
     suspend fun refreshAll(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val response = api.syncDown()
-            if (!response.isSuccessful || response.body() == null) error("Sync download failed: HTTP ${response.code()}")
-            val body = response.body()!!
-            validateAndBindServerAccount(body.accountId)
-            mergeServerRows("customers", body.customers, ::customer, ::cp)
-            mergeServerRows("suppliers", body.suppliers, ::supplier, ::sp)
-            mergeServerRows("transactions", body.transactions, ::transaction, ::tp)
-            mergeServerRows("supplier_deposits", body.supplierDeposits, ::deposit, ::dp)
-            mergeServerRows("expenses_incomes", body.expensesIncomes, ::expense, ::ep)
-            mergeServerRows("wallet_ledgers", body.walletLedgers, ::ledger, ::lp)
-            mergeServerRows("wallet_batches", body.walletBatches, ::batch, ::bp)
+            val cursorStore = appContext?.let(::SyncCursorStore)
+            var accountId = appContext?.let { TokenManager(it).getActiveAccountId() }?.takeIf { it > 0 }
+            var cursor = accountId?.let { cursorStore?.read(it) } ?: 0L
+            var pageCount = 0
+
+            while (true) {
+                check(++pageCount <= 10_000) { "Sync cursor page limit exceeded" }
+                val response = api.syncDownPage(cursor)
+                if (!response.isSuccessful || response.body() == null) error("Sync download failed: HTTP ${response.code()}")
+                val body = response.body()!!
+                if (body.protocol != null && body.protocol != "cursor-v1") error("Unsupported sync download protocol")
+                if (body.protocol == "cursor-v1" && body.cursor != cursor) error("Server sync cursor mismatch")
+
+                validateAndBindServerAccount(body.accountId)
+                val responseAccountId = body.accountId?.takeIf { it > 0 }
+                if (accountId != null && responseAccountId != null && accountId != responseAccountId) {
+                    error("Server account context changed during synchronization")
+                }
+                accountId = responseAccountId ?: accountId
+
+                mergeServerRows("customers", body.customers, ::customer, ::cp)
+                mergeServerRows("suppliers", body.suppliers, ::supplier, ::sp)
+                mergeServerRows("transactions", body.transactions, ::transaction, ::tp)
+                mergeServerRows("supplier_deposits", body.supplierDeposits, ::deposit, ::dp)
+                mergeServerRows("expenses_incomes", body.expensesIncomes, ::expense, ::ep)
+                mergeServerRows("wallet_ledgers", body.walletLedgers, ::ledger, ::lp)
+                mergeServerRows("wallet_batches", body.walletBatches, ::batch, ::bp)
+
+                val nextCursor = if (body.protocol == "cursor-v1") body.nextCursor else cursor
+                if (nextCursor < cursor) error("Server sync cursor regressed")
+                if (body.hasMore && nextCursor == cursor) error("Server sync cursor did not advance")
+
+                accountId?.let { id -> cursorStore?.advance(id, nextCursor) }
+                cursor = nextCursor
+                if (!body.hasMore) break
+            }
+
             publish()
         }
     }
