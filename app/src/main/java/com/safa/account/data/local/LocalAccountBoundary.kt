@@ -13,6 +13,7 @@ import android.database.sqlite.SQLiteDatabase
  */
 object LocalAccountBoundary {
     private const val META_ACTIVE_ACCOUNT_ID = "active_account_id"
+    private const val META_SYNC_CURSOR = "sync_cursor"
 
     enum class Result { BOUND, UNCHANGED, SWITCHED, BLOCKED_BY_PENDING_MUTATIONS }
 
@@ -46,11 +47,12 @@ object LocalAccountBoundary {
                     }
                     unresolvedMutationCount(db) > 0 -> Result.BLOCKED_BY_PENDING_MUTATIONS
                     else -> {
-                        // Cache + revision metadata are account-owned. Keep device/local-id
-                        // seed metadata so IDs remain collision-resistant across switches.
+                        // Cache + revision/cursor metadata are account-owned. Keep
+                        // only device/local-id seed metadata across account switches.
                         db.delete("records", null, null)
                         db.delete("outbox", null, null)
                         db.delete("server_versions", null, null)
+                        db.delete("meta", "key=?", arrayOf(META_SYNC_CURSOR))
                         putAccount(db, accountId)
                         Result.SWITCHED
                     }
@@ -67,7 +69,7 @@ object LocalAccountBoundary {
      * Authentication boundary: destroy every account-owned durable structure in
      * one SQLite transaction before credentials can be reused by another user.
      * Device/local-id seed metadata is intentionally retained; business/account
-     * data, outbox mutations, revisions and the active-account binding are not.
+     * data, outbox mutations, revisions, cursor and active-account binding are not.
      */
     fun destroyAccountState(context: Context) {
         withStore(context) { db ->
@@ -76,7 +78,7 @@ object LocalAccountBoundary {
                 db.delete("records", null, null)
                 db.delete("outbox", null, null)
                 db.delete("server_versions", null, null)
-                db.delete("meta", "key=?", arrayOf(META_ACTIVE_ACCOUNT_ID))
+                db.delete("meta", "key IN (?,?)", arrayOf(META_ACTIVE_ACCOUNT_ID, META_SYNC_CURSOR))
                 db.setTransactionSuccessful()
             } finally {
                 db.endTransaction()
@@ -86,7 +88,7 @@ object LocalAccountBoundary {
 
     fun clearBinding(context: Context) {
         withStore(context) { db ->
-            db.delete("meta", "key=?", arrayOf(META_ACTIVE_ACCOUNT_ID))
+            db.delete("meta", "key IN (?,?)", arrayOf(META_ACTIVE_ACCOUNT_ID, META_SYNC_CURSOR))
         }
     }
 
