@@ -50,6 +50,18 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
+      mysql-recovery:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: safa_test
+          MYSQL_ROOT_PASSWORD: recovery_root_password
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -precovery_root_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -68,6 +80,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y mysql-client-8.0
+          command -v mysql
           command -v mysqlbinlog
 
       - name: Set up PHP
@@ -107,63 +120,76 @@ jobs:
         run: |
           set -euo pipefail
           start_epoch="$(date -u +%s)"
-          mysql_container="$(docker ps --filter 'ancestor=mysql:8.0' --format '{{.ID}}' | head -n 1)"
-          test -n "$mysql_container"
+          source_mysql=(mysql --protocol=TCP -h 127.0.0.1 -P 3306 -uroot)
+          recovery_mysql=(mysql --protocol=TCP -h 127.0.0.1 -P 3307 -uroot)
 
-          log_bin="$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot -e 'SELECT @@GLOBAL.log_bin')"
+          export MYSQL_PWD=root_password
+          log_bin="$("${source_mysql[@]}" -N -B -e 'SELECT @@GLOBAL.log_bin')"
           test "$log_bin" = '1' || { echo 'MySQL binary logging must be enabled for PITR'; exit 1; }
 
           full_dump="$RUNNER_TEMP/safa-dr-full.sql"
-          docker exec -e MYSQL_PWD=root_password "$mysql_container" \
-            mysqldump -uroot --single-transaction --quick --routines --triggers --events --hex-blob safa_test > "$full_dump"
+          mysqldump --protocol=TCP -h 127.0.0.1 -P 3306 -uroot \
+            --single-transaction --quick --routines --triggers --events --hex-blob safa_test > "$full_dump"
           test -s "$full_dump"
           full_sha="$(sha256sum "$full_dump" | awk '{print $1}')"
 
-          read -r start_log start_pos < <(docker exec -e MYSQL_PWD=root_password "$mysql_container" \
-            mysql -N -B -uroot -e 'SHOW MASTER STATUS' | awk '{print $1, $2}')
+          read -r start_log start_pos < <("${source_mysql[@]}" -N -B -e 'SHOW MASTER STATUS' | awk '{print $1, $2}')
           test -n "$start_log"
           test -n "$start_pos"
 
-          docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -uroot safa_test -e \
-            "UPDATE system_settings SET app_name='SAFA-DR-PITR' WHERE account_id=(SELECT id FROM accounts ORDER BY id LIMIT 1)"
-          read -r target_log target_pos < <(docker exec -e MYSQL_PWD=root_password "$mysql_container" \
-            mysql -N -B -uroot -e 'SHOW MASTER STATUS' | awk '{print $1, $2}')
+          "${source_mysql[@]}" safa_test -e \
+            "UPDATE system_settings SET app_name='SAFA-DR-PITR' WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)"
+          read -r target_log target_pos < <("${source_mysql[@]}" -N -B -e 'SHOW MASTER STATUS' | awk '{print $1, $2}')
           test "$target_log" = "$start_log" || { echo 'Unexpected binlog rotation during bounded drill'; exit 1; }
+          test "$target_pos" -gt "$start_pos" || { echo 'PITR target did not advance the binary log'; exit 1; }
 
           # This later write must NOT exist in the recovered point-in-time state.
-          docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -uroot safa_test -e \
-            "UPDATE system_settings SET app_name='CORRUPTED-LATER' WHERE account_id=(SELECT id FROM accounts ORDER BY id LIMIT 1)"
+          "${source_mysql[@]}" safa_test -e \
+            "UPDATE system_settings SET app_name='CORRUPTED-LATER' WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)"
+          test "$("${source_mysql[@]}" -N -B safa_test -e "SELECT app_name FROM system_settings WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)")" = 'CORRUPTED-LATER'
 
-          docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -uroot -e \
-            "DROP DATABASE IF EXISTS safa_dr_restore; CREATE DATABASE safa_dr_restore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-          docker exec -i -e MYSQL_PWD=root_password "$mysql_container" mysql -uroot safa_dr_restore < "$full_dump"
+          # Restore into an independent clean MySQL instance using the same
+          # authoritative database name. This avoids database-name rewriting,
+          # which can silently drop row-based Table_map events and therefore is
+          # not representative of a real bare-metal recovery.
+          export MYSQL_PWD=recovery_root_password
+          "${recovery_mysql[@]}" -e 'DROP DATABASE IF EXISTS safa_test; CREATE DATABASE safa_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+          "${recovery_mysql[@]}" safa_test < "$full_dump"
+          test "$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT app_name FROM system_settings WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)")" = 'SAFA-DR-BASELINE'
 
-          # The official mysql:8.0 service image intentionally does not expose
-          # mysqlbinlog in every image variant. Copy the exact server binlog to
-          # the runner and decode it with the matching Ubuntu MySQL 8 client.
+          source_container="$(docker ps --format '{{.ID}} {{.Ports}}' | awk '/:3306->3306\/tcp/ {print $1; exit}')"
+          test -n "$source_container" || { echo 'Unable to locate source MySQL service container'; exit 1; }
           binlog_copy="$RUNNER_TEMP/$start_log"
-          docker cp "$mysql_container:/var/lib/mysql/$start_log" "$binlog_copy"
+          docker cp "$source_container:/var/lib/mysql/$start_log" "$binlog_copy"
           test -s "$binlog_copy"
+
           mysqlbinlog \
             --start-position="$start_pos" \
             --stop-position="$target_pos" \
-            --database=safa_test \
-            --rewrite-db='safa_test->safa_dr_restore' \
-            "$binlog_copy" | \
-            docker exec -i -e MYSQL_PWD=root_password "$mysql_container" mysql -uroot safa_dr_restore
+            "$binlog_copy" | "${recovery_mysql[@]}"
 
-          test "$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot safa_dr_restore -e "SELECT COUNT(*) FROM accounts WHERE name='DR Account'")" = '1'
-          test "$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot safa_dr_restore -e "SELECT COUNT(*) FROM customers WHERE local_id=770001 AND name='DR Customer'")" = '1'
-          test "$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot safa_dr_restore -e "SELECT COUNT(*) FROM suppliers WHERE local_id=770002 AND name='DR Supplier'")" = '1'
-          test "$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot safa_dr_restore -e "SELECT COUNT(*) FROM wallet_ledgers WHERE local_id=770003 AND name='DR Wallet'")" = '1'
-          test "$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot safa_dr_restore -e "SELECT COUNT(*) FROM wallet_batches b JOIN wallet_ledgers l ON l.id=b.ledger_id WHERE b.local_id=770004 AND l.local_id=770003 AND b.remaining_bdt=400.00")" = '1'
-          test "$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot safa_dr_restore -e "SELECT COUNT(*) FROM transactions t JOIN customers c ON c.id=t.customer_id JOIN suppliers s ON s.id=t.supplier_id JOIN wallet_batches b ON b.id=t.wallet_batch_id WHERE t.local_id=770005 AND c.local_id=770001 AND s.local_id=770002 AND b.local_id=770004 AND t.amount_bdt=100.00")" = '1'
-          test "$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot safa_dr_restore -e "SELECT app_name FROM system_settings WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)")" = 'SAFA-DR-PITR'
+          account_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM accounts WHERE name='DR Account'")"
+          customer_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM customers WHERE local_id=770001 AND name='DR Customer'")"
+          supplier_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM suppliers WHERE local_id=770002 AND name='DR Supplier'")"
+          ledger_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM wallet_ledgers WHERE local_id=770003 AND name='DR Wallet'")"
+          batch_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM wallet_batches b JOIN wallet_ledgers l ON l.id=b.ledger_id WHERE b.local_id=770004 AND l.local_id=770003 AND b.remaining_bdt=400.00")"
+          transaction_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM transactions t JOIN customers c ON c.id=t.customer_id JOIN suppliers s ON s.id=t.supplier_id JOIN wallet_batches b ON b.id=t.wallet_batch_id WHERE t.local_id=770005 AND c.local_id=770001 AND s.local_id=770002 AND b.local_id=770004 AND t.amount_bdt=100.00")"
+          recovered_name="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT app_name FROM system_settings WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)")"
+
+          printf 'Recovered integrity: account=%s customer=%s supplier=%s ledger=%s batch=%s transaction=%s app_name=%s\n' \
+            "$account_count" "$customer_count" "$supplier_count" "$ledger_count" "$batch_count" "$transaction_count" "$recovered_name"
+          test "$account_count" = '1'
+          test "$customer_count" = '1'
+          test "$supplier_count" = '1'
+          test "$ledger_count" = '1'
+          test "$batch_count" = '1'
+          test "$transaction_count" = '1'
+          test "$recovered_name" = 'SAFA-DR-PITR'
 
           duration="$(( $(date -u +%s) - start_epoch ))"
           {
             echo "drill=full-backup-plus-binlog-pitr"
-            echo "recovered_database=safa_dr_restore"
+            echo "recovered_database=safa_test-on-independent-instance"
             echo "full_backup_sha256=$full_sha"
             echo "start_coordinate=$start_log:$start_pos"
             echo "stop_coordinate=$target_log:$target_pos"
