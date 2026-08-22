@@ -2,7 +2,9 @@ package com.safa.account.data.repository
 
 import com.safa.account.data.api.ApiService
 import com.safa.account.data.api.dto.SyncDownResponse
+import java.io.File
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -87,6 +89,18 @@ class SyncCursorDownloadTest {
 
         assertTrue(result.isSuccess)
         verify(api, times(expectedPages)).syncDownPage(any(), eq(chunkSize))
+    }
+
+    @Test
+    fun cursorMergeUsesIndexedRecordLookupInsteadOfMaterializingTheEntityTable() {
+        val source = File("src/main/java/com/safa/account/data/repository/AppRepository.kt").readText()
+        val merge = source.substringAfter("private fun <T : Any> mergeServerRows")
+            .substringBefore("private fun localId")
+
+        assertTrue(merge.contains("findLocalRecordState(store, entity, serverId, requestedLocalId)"))
+        assertFalse(merge.contains("getRecordPayloads(entity)"))
+        assertTrue(source.contains("WHERE entity=? AND server_id=? LIMIT 1"))
+        assertTrue(source.contains("WHERE entity=? AND local_id=? LIMIT 1"))
     }
 
     @Test
