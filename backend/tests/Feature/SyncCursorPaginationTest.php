@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\Customer;
 use App\Models\SafaApiKey;
+use App\Models\SyncChange;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -83,6 +84,80 @@ class SyncCursorPaginationTest extends TestCase
         $this->assertSame([], $idle->json('customers'));
         $this->assertSame([], $idle->json('transactions'));
         $this->assertSame([], $idle->json('suppliers'));
+    }
+
+    public function test_large_change_feed_stays_chunk_bounded_and_resumes_without_loss(): void
+    {
+        $total = 1500;
+        $now = now();
+        $rows = [];
+
+        for ($i = 1; $i <= $total; $i++) {
+            $serverId = 100000 + $i;
+            $rows[] = [
+                'account_id' => $this->account->id,
+                'entity' => 'customers',
+                'record_id' => $serverId,
+                'operation' => 'UPSERT',
+                'snapshot' => json_encode([
+                    'id' => $serverId,
+                    'account_id' => $this->account->id,
+                    'local_id' => 200000 + $i,
+                    'name' => "Load Customer {$i}",
+                    'phone' => '',
+                    'timestamp' => 1700000000 + $i,
+                    'sync_version' => 0,
+                    'deleted_at' => null,
+                ], JSON_UNESCAPED_SLASHES),
+                'created_at' => $now,
+            ];
+        }
+
+        foreach (array_chunk($rows, 250) as $chunk) {
+            SyncChange::query()->insert($chunk);
+        }
+
+        $cursor = 0;
+        $seen = [];
+        $pages = 0;
+        $replayed = false;
+
+        while (true) {
+            $response = $this->getSync("cursor={$cursor}&per_page=125")->assertOk();
+            $customers = $response->json('customers');
+            $this->assertLessThanOrEqual(125, count($customers));
+            $pages++;
+
+            if ($pages === 4 && !$replayed) {
+                $replay = $this->getSync("cursor={$cursor}&per_page=125")->assertOk();
+                $this->assertSame($customers, $replay->json('customers'));
+                $this->assertSame($response->json('next_cursor'), $replay->json('next_cursor'));
+                $replayed = true;
+            }
+
+            foreach ($customers as $row) {
+                $seen[] = (int) $row['local_id'];
+            }
+
+            $nextCursor = (int) $response->json('next_cursor');
+            if (!$response->json('has_more')) {
+                $cursor = $nextCursor;
+                break;
+            }
+
+            $this->assertGreaterThan($cursor, $nextCursor);
+            $cursor = $nextCursor;
+        }
+
+        $this->assertSame(12, $pages);
+        $this->assertCount($total, $seen);
+        $this->assertCount($total, array_unique($seen));
+        $this->assertSame(200001, min($seen));
+        $this->assertSame(201500, max($seen));
+
+        $idle = $this->getSync("cursor={$cursor}&per_page=125")->assertOk();
+        $idle->assertJsonPath('has_more', false);
+        $this->assertSame([], $idle->json('customers'));
     }
 
     public function test_direct_server_update_and_delete_advance_version_and_emit_only_deltas(): void
