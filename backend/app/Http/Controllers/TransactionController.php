@@ -9,6 +9,7 @@ use App\Models\WalletBatch;
 use App\Services\TransactionWalletAccounting;
 use App\Support\MoneyDecimal;
 use DomainException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Validator;
 class TransactionController extends Controller
 {
     use AuthorizeAccountContext;
+
+    private const DB_TRANSACTION_ATTEMPTS = 3;
 
     public function __construct(private readonly TransactionWalletAccounting $walletAccounting) {}
 
@@ -126,8 +129,7 @@ class TransactionController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if ($existing) $this->walletAccounting->restoreExisting($existing, $accountId);
-                $this->walletAccounting->debitNew($accountId, $batchId, $amountBdt, $status);
+                $this->walletAccounting->applyTransition($existing, $accountId, $batchId, $amountBdt, $status);
                 $values = $this->valuesForStore($request, $amountSar, $amountBdt, $batchId, $status);
 
                 if ($existing) {
@@ -140,13 +142,16 @@ class TransactionController extends Controller
                     'account_id' => $accountId,
                     'local_id' => $localId,
                 ], $values));
-            });
+            }, self::DB_TRANSACTION_ATTEMPTS);
             return response()->json(['status' => 'success', 'message' => 'Transaction saved successfully.', 'transaction' => $transaction, 'id' => (int) $transaction->id], 201);
         } catch (DomainException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        } catch (QueryException $e) {
+            report($e);
+            return response()->json(['status' => 'retryable_error', 'message' => 'Transaction storage is temporarily busy. Please retry.'], 503);
         } catch (\Throwable $e) {
             report($e);
-            return response()->json(['status' => 'error', 'message' => 'Unable to save transaction.'], 422);
+            return response()->json(['status' => 'error', 'message' => 'Unable to save transaction.'], 500);
         }
     }
 
@@ -178,7 +183,25 @@ class TransactionController extends Controller
                     ->first();
                 if (!$transaction) throw new DomainException('Transaction not found.');
 
-                $this->walletAccounting->restoreExisting($transaction, $accountId);
+                $targetStatus = $request->has('type')
+                    ? substr((string) $request->input('type'), 0, 20)
+                    : (string) $transaction->type;
+                $targetBatchId = $request->has('wallet_batch_id')
+                    ? $this->nullableForeignKey($request, 'wallet_batch_id')
+                    : ($transaction->wallet_batch_id ? (int) $transaction->wallet_batch_id : null);
+                $targetAmountBdt = $request->has('amount_bdt')
+                    ? $this->decimal($request->input('amount_bdt') ?: 0, 2, 13)
+                    : (string) $transaction->amount_bdt;
+
+                // Lock both old and prospective wallet rows in one ordered set
+                // before mutating either balance.
+                $this->walletAccounting->applyTransition(
+                    $transaction,
+                    $accountId,
+                    $targetBatchId,
+                    $targetAmountBdt,
+                    $targetStatus,
+                );
 
                 foreach (['type','receiver_name','receiver_phone','receiver_account_type','receiver_account_no','notes','hash'] as $field) {
                     if ($request->has($field)) $transaction->{$field} = $request->input($field);
@@ -195,22 +218,18 @@ class TransactionController extends Controller
                 $transaction->amount = $transaction->amount_sar;
                 if ($request->has('timestamp')) $transaction->timestamp = $this->timestamp($request->input('timestamp'));
                 $transaction->deleted_at = null;
-
-                $this->walletAccounting->debitNew(
-                    $accountId,
-                    $transaction->wallet_batch_id ? (int) $transaction->wallet_batch_id : null,
-                    $transaction->amount_bdt,
-                    (string) $transaction->type,
-                );
                 $transaction->save();
                 return $transaction->fresh();
-            });
+            }, self::DB_TRANSACTION_ATTEMPTS);
             return response()->json(['status' => 'success', 'message' => 'Transaction updated successfully.', 'transaction' => $transaction]);
         } catch (DomainException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], $e->getMessage() === 'Transaction not found.' ? 404 : 422);
+        } catch (QueryException $e) {
+            report($e);
+            return response()->json(['status' => 'retryable_error', 'message' => 'Transaction storage is temporarily busy. Please retry.'], 503);
         } catch (\Throwable $e) {
             report($e);
-            return response()->json(['status' => 'error', 'message' => 'Unable to update transaction.'], 422);
+            return response()->json(['status' => 'error', 'message' => 'Unable to update transaction.'], 500);
         }
     }
 
@@ -229,12 +248,15 @@ class TransactionController extends Controller
                     ->lockForUpdate()
                     ->first();
                 if (!$transaction) throw new DomainException('Transaction not found.');
-                $this->walletAccounting->restoreExisting($transaction, $accountId);
+                $this->walletAccounting->applyTransition($transaction, $accountId, null, '0.00', 'Cancelled');
                 $transaction->delete();
                 return (int) $transaction->id;
-            });
+            }, self::DB_TRANSACTION_ATTEMPTS);
         } catch (DomainException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 404);
+        } catch (QueryException $e) {
+            report($e);
+            return response()->json(['status' => 'retryable_error', 'message' => 'Transaction storage is temporarily busy. Please retry.'], 503);
         }
 
         return response()->json(['status' => 'success', 'message' => 'Transaction deleted successfully.', 'id' => $deletedId]);
