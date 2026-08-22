@@ -39,6 +39,10 @@ class WebAppController extends Controller
         if (!in_array($language, ['en', 'bn'], true)) $language = 'en';
         App::setLocale($language);
         $permissions = BusinessPermissions::effective($user, (int) ($activeAccountId ?? 0));
+        $webCopy = array_replace(
+            (array) trans('web.js'),
+            (array) trans('web_runtime'),
+        );
 
         return view('safa.app', [
             'user' => $user,
@@ -50,7 +54,7 @@ class WebAppController extends Controller
             'logoSource' => $setting?->webLogoSource() ?: '/safa-logo.png',
             'captainName' => $user->name,
             'language' => $language,
-            'webCopy' => trans('web.js'),
+            'webCopy' => $webCopy,
             'canManageUsers' => $user->canManageUsers(),
             'canManageSystemSettings' => $user->canManageBranding(),
             'isSuperAdmin' => $user->isSuperAdmin(),
