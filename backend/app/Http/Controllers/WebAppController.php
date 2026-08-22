@@ -6,6 +6,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Support\BusinessPermissions;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\View\View;
 
 class WebAppController extends Controller
@@ -36,7 +37,12 @@ class WebAppController extends Controller
 
         $language = $request->session()->get('safa_web_language', 'en');
         if (!in_array($language, ['en', 'bn'], true)) $language = 'en';
+        App::setLocale($language);
         $permissions = BusinessPermissions::effective($user, (int) ($activeAccountId ?? 0));
+        $webCopy = array_replace(
+            (array) trans('web.js'),
+            (array) trans('web_runtime'),
+        );
 
         return view('safa.app', [
             'user' => $user,
@@ -48,6 +54,7 @@ class WebAppController extends Controller
             'logoSource' => $setting?->webLogoSource() ?: '/safa-logo.png',
             'captainName' => $user->name,
             'language' => $language,
+            'webCopy' => $webCopy,
             'canManageUsers' => $user->canManageUsers(),
             'canManageSystemSettings' => $user->canManageBranding(),
             'isSuperAdmin' => $user->isSuperAdmin(),

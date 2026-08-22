@@ -13,7 +13,7 @@ class WebUnifiedDesignSystemContractTest extends TestCase
 
         foreach ([
             '--brand-green:#064e3b',
-            '--brand-orange:#f97316',
+            '--brand-orange:#c2410c',
             '--chrome-gold:#d7a84b',
             '--chrome-ink:#3e2700',
             '--nav-active:#a82222',
@@ -67,6 +67,7 @@ class WebUnifiedDesignSystemContractTest extends TestCase
     {
         $view = (string) file_get_contents(resource_path('views/safa/app.blade.php'));
         $presentation = (string) file_get_contents(public_path('safa-web-product.js'));
+        $english = require base_path('lang/en/web.php');
 
         $this->assertStringContainsString('class="dashboard-shortcuts"', $view);
         $this->assertStringContainsString('class="shortcut-grid"', $view);
@@ -80,8 +81,10 @@ class WebUnifiedDesignSystemContractTest extends TestCase
         $this->assertStringContainsString('shortcut-action brown', $view);
         $this->assertStringContainsString("url('/safa-web-product.js')", $view);
 
-        $this->assertStringContainsString('Recent Transaction History', $presentation);
-        $this->assertStringContainsString('Ledger Reserves Details', $presentation);
+        $this->assertSame('Recent Transaction History', $english['js']['recent_history']);
+        $this->assertSame('Ledger Reserves Details', $english['js']['reserves']);
+        $this->assertStringContainsString("t('recent_history')", $presentation);
+        $this->assertStringContainsString("t('reserves')", $presentation);
         $this->assertStringContainsString("credentials:'same-origin'", $presentation);
         $this->assertStringNotContainsString("method:'POST'", $presentation);
         $this->assertStringNotContainsString("method:'PATCH'", $presentation);

@@ -5,17 +5,19 @@
   const dashboard = document.querySelector('[data-screen="dashboard"]');
   if (!app || !dashboard) return;
 
-  const bn = app.dataset.language === 'bn';
-  const text = (en, bengali) => bn ? bengali : en;
+  let copy = {};
+  try { copy = JSON.parse(app.dataset.webCopy || '{}'); } catch (_) { copy = {}; }
+  const t = key => String(copy[key] ?? key);
+  const locale = app.dataset.language === 'bn' ? 'bn-BD' : 'en';
   const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const num = value => Number.parseFloat(value ?? 0) || 0;
-  const money = (value, digits = 2) => num(value).toLocaleString(undefined, {minimumFractionDigits: digits, maximumFractionDigits: digits});
+  const money = (value, digits = 2) => num(value).toLocaleString(locale, {minimumFractionDigits: digits, maximumFractionDigits: digits});
   const timestampMs = value => {
     const raw = Number(value) || 0;
     return raw > 2_000_000_000 ? raw : raw * 1000;
   };
-  const dateText = value => new Date(timestampMs(value)).toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
-  const timeText = value => new Date(timestampMs(value)).toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+  const dateText = value => new Date(timestampMs(value)).toLocaleDateString(locale, {year:'numeric', month:'long', day:'numeric'});
+  const timeText = value => new Date(timestampMs(value)).toLocaleTimeString(locale, {hour:'2-digit', minute:'2-digit'});
 
   function ensureDashboardSections() {
     if (document.getElementById('dashboard-recent-card')) return;
@@ -27,15 +29,15 @@
     recent.className = 'surface-card dashboard-recent-card';
     recent.innerHTML = `
       <div class="card-heading dashboard-section-heading">
-        <div><h2>${text('Recent Transaction History','রিসেন্ট লেনদেন খাতা')}</h2><p>${text('Latest customer and supplier ledger activity','সর্বশেষ কাস্টমার ও সাপ্লায়ার লেনদেন')}</p></div>
+        <div><h2>${esc(t('recent_history'))}</h2><p>${esc(t('recent_help'))}</p></div>
       </div>
-      <div id="dashboard-recent-list" class="dashboard-recent-list"><div class="empty-state">${text('Loading recent activity…','সাম্প্রতিক কার্যক্রম লোড হচ্ছে…')}</div></div>`;
+      <div id="dashboard-recent-list" class="dashboard-recent-list"><div class="empty-state">${esc(t('loading_recent'))}</div></div>`;
 
     const reserves = document.createElement('section');
     reserves.id = 'dashboard-reserves-card';
     reserves.className = 'surface-card dashboard-reserves-card';
     reserves.innerHTML = `
-      <div class="card-heading"><div><h2>${text('Ledger Reserves Details','ব্যালেন্স শিট ও সাপ্লায়ার রিজার্ভ')}</h2><p>${text('Current movement and available fund position','বর্তমান লেনদেন ও ফান্ড অবস্থান')}</p></div></div>
+      <div class="card-heading"><div><h2>${esc(t('reserves'))}</h2><p>${esc(t('reserves_help'))}</p></div></div>
       <div id="dashboard-reserves" class="reserve-grid"></div>`;
 
     overview.insertAdjacentElement('afterend', recent);
@@ -66,8 +68,8 @@
 
     const customerRows = transactions.map(tx => ({
       kind:'customer', id:tx.id, entityId:tx.customer_id, timestamp:tx.timestamp,
-      name:customers.find(item => Number(item.id) === Number(tx.customer_id))?.name || text('Customer','কাস্টমার'),
-      subtitle:`${text('Rate','রেট')}: ${tx.customer_rate ?? '—'} · ${timeText(tx.timestamp)}`,
+      name:customers.find(item => Number(item.id) === Number(tx.customer_id))?.name || t('customer'),
+      subtitle:`${t('rate')}: ${tx.customer_rate ?? '—'} · ${timeText(tx.timestamp)}`,
       amount:`${foreign} ${money(tx.amount_sar, 0)}`,
       amountClass:(num(tx.amount_sar) - num(tx.sar_collected)) > .05 ? 'negative' : 'positive'
     }));
@@ -76,8 +78,8 @@
       const settlement = dep.transaction_type === 'BDT_SETTLEMENT';
       return {
         kind:'supplier', id:dep.id, entityId:dep.supplier_id, timestamp:dep.timestamp,
-        name:suppliers.find(item => Number(item.id) === Number(dep.supplier_id))?.name || text('Supplier','সাপ্লায়ার'),
-        subtitle:settlement ? `${text('Settle dues','বকেয়া পরিশোধ')} · ${timeText(dep.timestamp)}` : `${text('Rate','রেট')}: ${dep.rate ?? '—'} · ${timeText(dep.timestamp)}`,
+        name:suppliers.find(item => Number(item.id) === Number(dep.supplier_id))?.name || t('supplier'),
+        subtitle:settlement ? `${t('settle_dues')} · ${timeText(dep.timestamp)}` : `${t('rate')}: ${dep.rate ?? '—'} · ${timeText(dep.timestamp)}`,
         amount:settlement ? `${local} ${money(dep.paid_bdt, 0)}` : `${foreign} ${money(dep.amount_sar, 0)}`,
         amountClass:settlement ? 'positive' : 'info'
       };
@@ -85,7 +87,7 @@
 
     const rows = [...customerRows, ...supplierRows].sort((a,b) => Number(b.timestamp) - Number(a.timestamp)).slice(0, 8);
     if (!rows.length) {
-      list.innerHTML = `<div class="empty-state"><strong>${text('No transactions found','কোনো লেনদেন পাওয়া যায়নি')}</strong>${text('New customer and supplier activity will appear here.','নতুন কাস্টমার ও সাপ্লায়ার কার্যক্রম এখানে দেখাবে।')}</div>`;
+      list.innerHTML = `<div class="empty-state"><strong>${esc(t('no_transactions'))}</strong>${esc(t('no_transactions_help'))}</div>`;
       return;
     }
 
@@ -126,10 +128,10 @@
     const supplierNet = suppliers.reduce((sum, supplier) => sum + supplierBalance(deposits, supplier.id), 0);
 
     root.innerHTML = `
-      <div class="reserve-item"><small>${text('Customer SAR volume','কাস্টমার রিয়াল ভলিউম')}</small><strong>${money(sarVolume,0)} ${esc(foreign)}</strong></div>
-      <div class="reserve-item"><small>${text('Current fund stock','বর্তমান ফান্ড স্টক')}</small><strong>${money(walletStock,0)} ${esc(local)}</strong></div>
-      <div class="reserve-item"><small>${text('Customer due','কাস্টমার বকেয়া')}</small><strong class="${customerDue > .05 ? 'negative' : ''}">${money(customerDue,0)} ${esc(foreign)}</strong></div>
-      <div class="reserve-item"><small>${text('Supplier ledger net','সাপ্লায়ার লেজার নেট')}</small><strong>${money(Math.abs(supplierNet),0)} ${esc(local)}</strong></div>`;
+      <div class="reserve-item"><small>${esc(t('customer_sar_volume'))}</small><strong>${money(sarVolume,0)} ${esc(foreign)}</strong></div>
+      <div class="reserve-item"><small>${esc(t('current_fund_stock'))}</small><strong>${money(walletStock,0)} ${esc(local)}</strong></div>
+      <div class="reserve-item"><small>${esc(t('customer_due'))}</small><strong class="${customerDue > .05 ? 'negative' : ''}">${money(customerDue,0)} ${esc(foreign)}</strong></div>
+      <div class="reserve-item"><small>${esc(t('supplier_ledger_net'))}</small><strong>${money(Math.abs(supplierNet),0)} ${esc(local)}</strong></div>`;
   }
 
   let requestSequence = 0;
@@ -138,7 +140,7 @@
     const url = app.dataset.workspaceUrl || '';
     if (!url || !app.dataset.activeAccount) {
       const list = document.getElementById('dashboard-recent-list');
-      if (list) list.innerHTML = `<div class="empty-state">${text('Select an account to load recent activity.','সাম্প্রতিক কার্যক্রম দেখতে একটি অ্যাকাউন্ট নির্বাচন করুন।')}</div>`;
+      if (list) list.innerHTML = `<div class="empty-state">${esc(t('select_account_recent'))}</div>`;
       return;
     }
     const sequence = ++requestSequence;
@@ -166,4 +168,83 @@
     }).observe(stats, {childList:true});
   }
   new MutationObserver(refreshPresentation).observe(app, {attributes:true, attributeFilter:['data-active-account']});
+
+  // Modal accessibility contract: dynamically rendered dialogs must receive
+  // focus, trap keyboard navigation, close on Escape, and restore focus to the
+  // control that opened them. The primary runtime remains the owner of modal
+  // content and successful form-close behavior.
+  const modal = document.getElementById('modal');
+  const modalCard = document.getElementById('modal-card');
+  let modalTrigger = null;
+  const focusableSelector = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled]):not([type="hidden"])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(',');
+
+  function modalFocusables() {
+    if (!modalCard) return [];
+    return Array.from(modalCard.querySelectorAll(focusableSelector))
+      .filter(element => element instanceof HTMLElement && !element.hidden && element.getClientRects().length > 0);
+  }
+
+  function focusModal() {
+    if (!modal || !modalCard || modal.classList.contains('hidden')) return;
+    const target = modalCard.querySelector('[autofocus]') || modalFocusables()[0];
+    if (target instanceof HTMLElement) target.focus();
+    else {
+      modal.setAttribute('tabindex', '-1');
+      modal.focus();
+    }
+  }
+
+  function restoreModalFocus() {
+    const target = modalTrigger;
+    modalTrigger = null;
+    if (target instanceof HTMLElement && target.isConnected) target.focus();
+  }
+
+  if (modal && modalCard) {
+    new MutationObserver(() => {
+      if (modal.classList.contains('hidden')) {
+        restoreModalFocus();
+        return;
+      }
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && !modal.contains(active) && active !== document.body) modalTrigger = active;
+      requestAnimationFrame(focusModal);
+    }).observe(modal, {attributes:true, attributeFilter:['class']});
+
+    document.addEventListener('keydown', event => {
+      if (modal.classList.contains('hidden')) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        modal.classList.add('hidden');
+        modalCard.innerHTML = '';
+        restoreModalFocus();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusables = modalFocusables();
+      if (!focusables.length) {
+        event.preventDefault();
+        focusModal();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !modal.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !modal.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }, true);
+  }
 })();

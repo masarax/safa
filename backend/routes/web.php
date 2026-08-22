@@ -25,7 +25,8 @@ Route::get('/safa-web-product.css', fn () => response()->file(public_path('safa-
 Route::get('/safa-web.js', function () {
     $guard = (string) @file_get_contents(public_path('safa-web-events.js'));
     $runtime = (string) file_get_contents(public_path('safa-web.js'));
-    return response($guard . "\n" . $runtime, 200, ['Content-Type' => 'application/javascript; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']);
+    $accessibility = (string) @file_get_contents(public_path('safa-web-accessibility.js'));
+    return response($guard . "\n" . $runtime . "\n" . $accessibility, 200, ['Content-Type' => 'application/javascript; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']);
 });
 Route::get('/safa-web-events.js', fn () => response()->file(public_path('safa-web-events.js'), ['Content-Type' => 'application/javascript; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']));
 Route::get('/safa-web-product.js', fn () => response()->file(public_path('safa-web-product.js'), ['Content-Type' => 'application/javascript; charset=utf-8', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']));

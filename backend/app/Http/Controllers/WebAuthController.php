@@ -10,6 +10,7 @@ use App\Support\CredentialVerifier;
 use App\Support\MobileNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
@@ -23,6 +24,7 @@ class WebAuthController extends Controller
         $language = strtolower((string) $request->query('lang', $request->session()->get('safa_web_language', 'en')));
         if (!in_array($language, ['en', 'bn'], true)) $language = 'en';
         $request->session()->put('safa_web_language', $language);
+        App::setLocale($language);
 
         $setting = Schema::hasTable('system_settings') ? SystemSetting::first() : null;
 
