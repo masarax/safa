@@ -18,7 +18,7 @@ class VerifyMultiLevelToken
     {
         // API-key-only requests are permitted only inside the isolated test
         // environment so sync/domain tests do not need to manufacture mobile
-        // credentials. Production always requires the full token stack.
+        // credentials. Production always requires authenticated session proof.
         if (app()->environment('testing') && $request->header('X-SAFA-API-KEY') && !$request->bearerToken()) {
             $key = SafaApiKey::query()
                 ->where('api_key', $request->header('X-SAFA-API-KEY'))
@@ -33,12 +33,14 @@ class VerifyMultiLevelToken
         }
 
         $accessToken = $request->bearerToken();
-        $refreshToken = $request->header('X-SAFA-REFRESH-TOKEN') ?? $request->header('x-safa-refresh-token');
         $deviceUuid = $request->header('X-SAFA-DEVICE-TOKEN') ?? $request->header('x-safa-device-token');
         $sessionToken = $request->header('X-SAFA-SESSION-TOKEN') ?? $request->header('x-safa-session-token');
         $fingerprintHash = $request->header('X-SAFA-FINGERPRINT-TOKEN') ?? $request->header('x-safa-fingerprint-token');
 
-        if (!$accessToken || !$refreshToken || !$deviceUuid || !$sessionToken || !$fingerprintHash) {
+        // The long-lived refresh credential is deliberately not part of normal
+        // request authorization. Older installed clients may still send the
+        // legacy header during rollout; it is ignored rather than trusted.
+        if (!$accessToken || !$deviceUuid || !$sessionToken || !$fingerprintHash) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized: missing required security tokens.'], 401);
         }
 
@@ -52,11 +54,10 @@ class VerifyMultiLevelToken
             return response()->json(['status' => 'error', 'message' => 'Forbidden: token/device mismatch.'], 403);
         }
 
-        $session = AuthSession::findActiveByTokenStack(
+        $session = AuthSession::findActiveByAccessSessionStack(
             $userId,
             (string) $deviceUuid,
             (string) $accessToken,
-            (string) $refreshToken,
             (string) $sessionToken
         );
 
