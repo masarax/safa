@@ -2,6 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\Customer;
+use App\Models\ExpenseIncome;
+use App\Models\Supplier;
+use App\Models\SupplierDeposit;
+use App\Models\Transaction;
+use App\Models\WalletBatch;
+use App\Models\WalletLedger;
+use App\Observers\SyncChangeObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -16,6 +24,18 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        foreach ([
+            Customer::class,
+            Supplier::class,
+            WalletLedger::class,
+            SupplierDeposit::class,
+            WalletBatch::class,
+            Transaction::class,
+            ExpenseIncome::class,
+        ] as $model) {
+            $model::observe(SyncChangeObserver::class);
+        }
+
         // Canonical API policy: 60 requests/minute per authenticated user/session
         // or device. The Android client API key is intentionally only one part of
         // the key because it is shared by all installations of the public client.

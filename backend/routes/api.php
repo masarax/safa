@@ -87,7 +87,9 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
 });
 
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:api'])->group(function () {
-    Route::get('/sync/down', [SyncController::class, 'syncDown']);
+    // Deprecated compatibility endpoint. It now shares the bounded page
+    // implementation; clients must migrate to the v1 cursor contract.
+    Route::get('/sync/down', SyncPageController::class);
     Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);

@@ -11,60 +11,12 @@ import retrofit2.http.*
 interface ApiService {
     @POST("sync/up") suspend fun syncUp(@Body payload: SyncUpPayload): Response<Map<String, Any>>
 
-    /** Raw bounded page used by the canonical v1 sync contract. */
-    @GET("sync/down") suspend fun syncDownPage(@Query("page") page: Int, @Query("per_page") perPage: Int = 100): Response<SyncDownResponse>
-
-    /** Existing repository callers transparently receive all bounded pages. */
-    suspend fun syncDown(): Response<SyncDownResponse> {
-        val transactions = mutableListOf<Map<String, Any?>>()
-        val customers = mutableListOf<Map<String, Any?>>()
-        val suppliers = mutableListOf<Map<String, Any?>>()
-        val deposits = mutableListOf<Map<String, Any?>>()
-        val expenses = mutableListOf<Map<String, Any?>>()
-        val batches = mutableListOf<Map<String, Any?>>()
-        val ledgers = mutableListOf<Map<String, Any?>>()
-        var permissions: Map<String, Any?> = emptyMap()
-        var userPermissions: Map<String, Any?> = emptyMap()
-        var accountId: Int? = null
-        var serverTime: Long? = null
-        var page = 1
-
-        while (page <= 10_000) {
-            val response = syncDownPage(page)
-            if (!response.isSuccessful || response.body() == null) return response
-            val body = response.body()!!
-            accountId = body.accountId ?: accountId
-            serverTime = body.serverTime ?: serverTime
-            if (body.permissions.isNotEmpty()) permissions = body.permissions
-            if (body.userPermissions.isNotEmpty()) userPermissions = body.userPermissions
-            transactions += body.transactions
-            customers += body.customers
-            suppliers += body.suppliers
-            deposits += body.supplierDeposits
-            expenses += body.expensesIncomes
-            batches += body.walletBatches
-            ledgers += body.walletLedgers
-            if (!body.hasMore) break
-            page++
-        }
-
-        return Response.success(SyncDownResponse(
-            status = "success",
-            accountId = accountId,
-            serverTime = serverTime,
-            transactions = transactions,
-            customers = customers,
-            suppliers = suppliers,
-            supplierDeposits = deposits,
-            expensesIncomes = expenses,
-            walletBatches = batches,
-            walletLedgers = ledgers,
-            permissions = permissions,
-            userPermissions = userPermissions,
-            page = page,
-            hasMore = false
-        ))
-    }
+    /** One bounded deterministic chunk from the canonical cursor sync feed. */
+    @GET("sync/down")
+    suspend fun syncDownPage(
+        @Query("cursor") cursor: Long,
+        @Query("per_page") perPage: Int = 100
+    ): Response<SyncDownResponse>
 
     @GET("customers")
     suspend fun getCustomers(@Query("page") page: Int = 1, @Query("per_page") perPage: Int = 50): Response<Map<String, Any?>>

@@ -1,0 +1,206 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Account;
+use App\Models\Customer;
+use App\Models\SafaApiKey;
+use App\Models\SyncChange;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class SyncCursorPaginationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private string $apiKey = 'cursor-sync-test-key';
+    private Account $account;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware();
+
+        $this->account = Account::create(['name' => 'Cursor Sync Account']);
+        SafaApiKey::create([
+            'account_id' => $this->account->id,
+            'api_key' => $this->apiKey,
+            'api_secret' => 'cursor-sync-test-secret',
+            'client_name' => 'Cursor Sync Test',
+            'is_active' => true,
+        ]);
+    }
+
+    private function getSync(string $query): \Illuminate\Testing\TestResponse
+    {
+        return $this->withHeader('X-SAFA-API-KEY', $this->apiKey)
+            ->getJson('/api/v1/sync/down?' . $query);
+    }
+
+    private function customer(int $localId, string $name): Customer
+    {
+        return Customer::create([
+            'account_id' => $this->account->id,
+            'local_id' => $localId,
+            'name' => $name,
+            'phone' => '',
+            'timestamp' => time(),
+        ]);
+    }
+
+    public function test_cursor_bootstrap_is_bounded_deterministic_and_resumable(): void
+    {
+        $this->customer(1001, 'One');
+        $this->customer(1002, 'Two');
+        $this->customer(1003, 'Three');
+
+        $first = $this->getSync('cursor=0&per_page=2')->assertOk();
+        $first->assertJsonPath('protocol', 'cursor-v1');
+        $first->assertJsonPath('cursor', 0);
+        $first->assertJsonPath('has_more', true);
+        $permissionScope = (string) $first->json('permission_scope');
+        $this->assertSame(64, strlen($permissionScope));
+        $this->assertCount(2, $first->json('customers'));
+        $cursor = (int) $first->json('next_cursor');
+        $this->assertGreaterThan(0, $cursor);
+
+        // A client crash before durable cursor commit must be safely replayable.
+        $replay = $this->getSync('cursor=0&per_page=2')->assertOk();
+        $this->assertSame($first->json('customers'), $replay->json('customers'));
+        $this->assertSame($first->json('next_cursor'), $replay->json('next_cursor'));
+        $this->assertSame($permissionScope, $replay->json('permission_scope'));
+
+        $second = $this->getSync("cursor={$cursor}&per_page=2")->assertOk();
+        $second->assertJsonPath('has_more', false);
+        $this->assertCount(1, $second->json('customers'));
+        $finalCursor = (int) $second->json('next_cursor');
+        $this->assertGreaterThan($cursor, $finalCursor);
+
+        // Unchanged accounts return only protocol metadata, never historical rows.
+        $idle = $this->getSync("cursor={$finalCursor}&per_page=2")->assertOk();
+        $idle->assertJsonPath('next_cursor', $finalCursor);
+        $idle->assertJsonPath('has_more', false);
+        $this->assertSame($permissionScope, $idle->json('permission_scope'));
+        $this->assertSame([], $idle->json('customers'));
+        $this->assertSame([], $idle->json('transactions'));
+        $this->assertSame([], $idle->json('suppliers'));
+    }
+
+    public function test_large_change_feed_stays_chunk_bounded_and_resumes_without_loss(): void
+    {
+        $total = 1500;
+        $now = now();
+        $rows = [];
+
+        for ($i = 1; $i <= $total; $i++) {
+            $serverId = 100000 + $i;
+            $rows[] = [
+                'account_id' => $this->account->id,
+                'entity' => 'customers',
+                'record_id' => $serverId,
+                'operation' => 'UPSERT',
+                'snapshot' => json_encode([
+                    'id' => $serverId,
+                    'account_id' => $this->account->id,
+                    'local_id' => 200000 + $i,
+                    'name' => "Load Customer {$i}",
+                    'phone' => '',
+                    'timestamp' => 1700000000 + $i,
+                    'sync_version' => 0,
+                    'deleted_at' => null,
+                ], JSON_UNESCAPED_SLASHES),
+                'created_at' => $now,
+            ];
+        }
+
+        foreach (array_chunk($rows, 250) as $chunk) {
+            SyncChange::query()->insert($chunk);
+        }
+
+        $cursor = 0;
+        $seen = [];
+        $pages = 0;
+        $replayed = false;
+
+        while (true) {
+            $response = $this->getSync("cursor={$cursor}&per_page=125")->assertOk();
+            $customers = $response->json('customers');
+            $this->assertLessThanOrEqual(125, count($customers));
+            $pages++;
+
+            if ($pages === 4 && !$replayed) {
+                $replay = $this->getSync("cursor={$cursor}&per_page=125")->assertOk();
+                $this->assertSame($customers, $replay->json('customers'));
+                $this->assertSame($response->json('next_cursor'), $replay->json('next_cursor'));
+                $replayed = true;
+            }
+
+            foreach ($customers as $row) {
+                $seen[] = (int) $row['local_id'];
+            }
+
+            $nextCursor = (int) $response->json('next_cursor');
+            if (!$response->json('has_more')) {
+                $cursor = $nextCursor;
+                break;
+            }
+
+            $this->assertGreaterThan($cursor, $nextCursor);
+            $cursor = $nextCursor;
+        }
+
+        $this->assertSame(12, $pages);
+        $this->assertCount($total, $seen);
+        $this->assertCount($total, array_unique($seen));
+        $this->assertSame(200001, min($seen));
+        $this->assertSame(201500, max($seen));
+
+        $idle = $this->getSync("cursor={$cursor}&per_page=125")->assertOk();
+        $idle->assertJsonPath('has_more', false);
+        $this->assertSame([], $idle->json('customers'));
+    }
+
+    public function test_direct_server_update_and_delete_advance_version_and_emit_only_deltas(): void
+    {
+        $customer = $this->customer(2001, 'Before');
+        $bootstrap = $this->getSync('cursor=0&per_page=50')->assertOk();
+        $cursor = (int) $bootstrap->json('next_cursor');
+        $version = (int) $bootstrap->json('customers.0.sync_version');
+        $this->assertSame(0, $version);
+
+        $customer->name = 'After';
+        $customer->save();
+
+        $updated = $this->getSync("cursor={$cursor}&per_page=50")->assertOk();
+        $this->assertCount(1, $updated->json('customers'));
+        $updated->assertJsonPath('customers.0.name', 'After');
+        $updatedVersion = (int) $updated->json('customers.0.sync_version');
+        $this->assertGreaterThan($version, $updatedVersion);
+        $cursor = (int) $updated->json('next_cursor');
+
+        $customer->delete();
+
+        $deleted = $this->getSync("cursor={$cursor}&per_page=50")->assertOk();
+        $this->assertCount(1, $deleted->json('customers'));
+        $this->assertNotNull($deleted->json('customers.0.deleted_at'));
+        $this->assertGreaterThan($updatedVersion, (int) $deleted->json('customers.0.sync_version'));
+    }
+
+    public function test_legacy_snapshot_route_is_bounded_and_deprecated(): void
+    {
+        $this->customer(3001, 'One');
+        $this->customer(3002, 'Two');
+        $this->customer(3003, 'Three');
+
+        $response = $this->withHeader('X-SAFA-API-KEY', $this->apiKey)
+            ->getJson('/api/sync/down?per_page=2')
+            ->assertOk();
+
+        $response->assertJsonPath('protocol', 'legacy-page-v1');
+        $response->assertJsonPath('has_more', true);
+        $this->assertCount(2, $response->json('customers'));
+        $this->assertSame('true', $response->headers->get('Deprecation'));
+        $this->assertStringContainsString('/api/v1/sync/down', (string) $response->headers->get('Link'));
+        $this->assertNotNull($response->headers->get('Sunset'));
+    }
+}

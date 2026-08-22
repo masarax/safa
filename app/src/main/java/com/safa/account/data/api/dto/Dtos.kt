@@ -20,6 +20,7 @@ data class SyncUpPayload(
 @JsonClass(generateAdapter = true)
 data class SyncDownResponse(
     @Json(name = "status") val status: String = "success",
+    @Json(name = "protocol") val protocol: String? = null,
     @Json(name = "account_id") val accountId: Int? = null,
     @Json(name = "server_time") val serverTime: Long? = null,
     @Json(name = "transactions") val transactions: List<Map<String, Any?>> = emptyList(),
@@ -31,6 +32,10 @@ data class SyncDownResponse(
     @Json(name = "wallet_ledgers") val walletLedgers: List<Map<String, Any?>> = emptyList(),
     @Json(name = "permissions") val permissions: Map<String, Any?> = emptyMap(),
     @Json(name = "user_permissions") val userPermissions: Map<String, Any?> = emptyMap(),
+    @Json(name = "cursor") val cursor: Long = 0L,
+    @Json(name = "next_cursor") val nextCursor: Long = 0L,
+    @Json(name = "high_water") val highWater: Long = 0L,
+    @Json(name = "permission_scope") val permissionScope: String? = null,
     @Json(name = "page") val page: Int = 1,
     @Json(name = "per_page") val perPage: Int = 100,
     @Json(name = "has_more") val hasMore: Boolean = false,
