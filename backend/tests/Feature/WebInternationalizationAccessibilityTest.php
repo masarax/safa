@@ -13,12 +13,16 @@ class WebInternationalizationAccessibilityTest extends TestCase
     {
         $en = require base_path('lang/en/web.php');
         $bn = require base_path('lang/bn/web.php');
+        $runtimeEn = require base_path('lang/en/web_runtime.php');
+        $runtimeBn = require base_path('lang/bn/web_runtime.php');
 
         $this->assertSame($this->flattenKeys($en), $this->flattenKeys($bn));
+        $this->assertSame($this->flattenKeys($runtimeEn), $this->flattenKeys($runtimeBn));
         $this->assertNotEmpty($en['js']);
+        $this->assertGreaterThan(100, count($runtimeEn));
     }
 
-    public function test_core_web_views_do_not_embed_language_ternaries(): void
+    public function test_core_web_views_and_scripts_do_not_embed_language_branches(): void
     {
         foreach (['safa/app.blade.php', 'safa/login.blade.php'] as $view) {
             $source = file_get_contents(resource_path('views/' . $view));
@@ -27,11 +31,15 @@ class WebInternationalizationAccessibilityTest extends TestCase
             $this->assertStringNotContainsString('$language === \'bn\' ?', $source, $view);
         }
 
-        $product = file_get_contents(public_path('safa-web-product.js'));
-        $this->assertIsString($product);
-        $this->assertStringNotContainsString('const bn =', $product);
-        $this->assertStringNotContainsString('const text =', $product);
-        $this->assertStringContainsString('app.dataset.webCopy', $product);
+        foreach (['safa-web.js', 'safa-web-product.js'] as $script) {
+            $source = file_get_contents(public_path($script));
+            $this->assertIsString($source);
+            $this->assertStringNotContainsString('const bn =', $source, $script);
+            $this->assertStringNotContainsString('const text =', $source, $script);
+            $this->assertStringNotContainsString('text(', $source, $script);
+            $this->assertDoesNotMatchRegularExpression('/[\x{0980}-\x{09FF}]/u', $source, $script);
+            $this->assertStringContainsString('app.dataset.webCopy', $source, $script);
+        }
     }
 
     public function test_login_renders_from_selected_locale_catalog(): void
