@@ -7,6 +7,7 @@ import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -138,6 +139,85 @@ class ApiSecurityInterceptorRefreshTest {
         assertEquals(401, response.code)
         verify(chain, times(1)).proceed(any())
         verify(tokenManager, times(1)).notifySessionInvalidated()
+    }
+
+    @Test
+    fun refreshResponsePersistsOneCompleteRotatedGeneration() {
+        val tokenManager: TokenManager = mock()
+        whenever(tokenManager.getRefreshToken()).thenReturn("refresh-old")
+        whenever(tokenManager.getSessionToken()).thenReturn("session-old")
+        whenever(tokenManager.getDeviceToken()).thenReturn("device-old")
+        whenever(tokenManager.getFingerprintToken()).thenReturn("fingerprint-old")
+
+        val access = persistRefreshGeneration(
+            tokenManager,
+            "refresh-old",
+            JSONObject(
+                """{
+                    "tokens": {
+                        "access_token": "access-new",
+                        "refresh_token": "refresh-new",
+                        "device_token": "device-new",
+                        "session_token": "session-new",
+                        "fingerprint_token": "fingerprint-new"
+                    }
+                }""".trimIndent()
+            )
+        )
+
+        assertEquals("access-new", access)
+        verify(tokenManager, times(1)).saveAllTokens(
+            accessToken = "access-new",
+            refreshToken = "refresh-new",
+            deviceToken = "device-new",
+            sessionToken = "session-new",
+            fingerprintToken = "fingerprint-new"
+        )
+        verify(tokenManager, never()).saveAccessToken(any())
+        verify(tokenManager, never()).saveRefreshToken(any())
+        verify(tokenManager, never()).saveSessionToken(any())
+        verify(tokenManager, never()).saveDeviceToken(any())
+        verify(tokenManager, never()).saveFingerprintToken(any())
+    }
+
+    @Test
+    fun refreshResponsePreservesOptionalUnchangedGenerationFields() {
+        val tokenManager: TokenManager = mock()
+        whenever(tokenManager.getRefreshToken()).thenReturn("refresh-old")
+        whenever(tokenManager.getSessionToken()).thenReturn("session-existing")
+        whenever(tokenManager.getDeviceToken()).thenReturn("device-existing")
+        whenever(tokenManager.getFingerprintToken()).thenReturn("fingerprint-existing")
+
+        val access = persistRefreshGeneration(
+            tokenManager,
+            "refresh-old",
+            JSONObject("""{"tokens":{"access_token":"access-new","refresh_token":"refresh-new"}}""")
+        )
+
+        assertEquals("access-new", access)
+        verify(tokenManager).saveAllTokens(
+            accessToken = "access-new",
+            refreshToken = "refresh-new",
+            deviceToken = "device-existing",
+            sessionToken = "session-existing",
+            fingerprintToken = "fingerprint-existing"
+        )
+    }
+
+    @Test
+    fun staleRefreshResponseCannotOverwriteNewerStoredGeneration() {
+        val tokenManager: TokenManager = mock()
+        whenever(tokenManager.getRefreshToken()).thenReturn("refresh-newer")
+        whenever(tokenManager.getAccessToken()).thenReturn("access-newer")
+
+        val access = persistRefreshGeneration(
+            tokenManager,
+            "refresh-old",
+            JSONObject("""{"tokens":{"access_token":"stale-access","refresh_token":"stale-refresh"}}""")
+        )
+
+        assertEquals("access-newer", access)
+        verify(tokenManager, never()).saveAllTokens(any(), any(), any(), any(), any())
     }
 
     private fun response(request: Request, code: Int, message: String): Response =
