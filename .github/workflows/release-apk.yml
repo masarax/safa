@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: safa-android-release-${{ github.ref }}
@@ -15,14 +16,22 @@ concurrency:
 
 jobs:
   signed-apk:
-    name: Test and build signed release APK
+    name: Validate and build signed release APK
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - name: Checkout exact release commit
+      - name: Checkout exact release commit with main history
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+
+      - name: Require exact full Android Production CI success
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          chmod +x scripts/verify-android-release-eligibility.sh
+          scripts/verify-android-release-eligibility.sh | tee "$RUNNER_TEMP/release-validation.txt"
 
       - name: Set up Java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
@@ -34,6 +43,18 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Validate release version identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(sed -n 's/^SAFA_VERSION_CODE=//p' gradle.properties | tail -n 1 | tr -d '[:space:]')"
+          published="$(tr -d '[:space:]' < release/android-last-published-version-code.txt)"
+          [[ "$current" =~ ^[0-9]+$ ]] || { echo 'SAFA_VERSION_CODE must be an integer'; exit 1; }
+          [[ "$published" =~ ^[0-9]+$ ]] || { echo 'Published version baseline must be an integer'; exit 1; }
+          test "$current" -gt "$published" || { echo "Release versionCode $current must be greater than last published code $published"; exit 1; }
+
+      # Signing secrets are deliberately not read or decoded until provenance,
+      # main ancestry, tag/version identity and full Android CI are validated.
       - name: Validate signing secrets
         shell: bash
         env:
@@ -51,16 +72,8 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/safa-release.jks"
           keytool -list -keystore "$RUNNER_TEMP/safa-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
 
-      - name: Validate release version identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          current="$(sed -n 's/^SAFA_VERSION_CODE=//p' gradle.properties | tail -n 1 | tr -d '[:space:]')"
-          published="$(tr -d '[:space:]' < release/android-last-published-version-code.txt)"
-          [[ "$current" =~ ^[0-9]+$ ]] || { echo 'SAFA_VERSION_CODE must be an integer'; exit 1; }
-          [[ "$published" =~ ^[0-9]+$ ]] || { echo 'Published version baseline must be an integer'; exit 1; }
-          test "$current" -gt "$published" || { echo "Release versionCode $current must be greater than last published code $published"; exit 1; }
-
+      # Keep a local defense-in-depth test/lint pass even though the exact SHA
+      # has already passed the stronger CI including emulator/runtime smoke.
       - name: Run unit tests and lint
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
 
@@ -72,7 +85,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew --no-daemon assembleRelease
 
-      - name: Verify APK signature and create checksum
+      - name: Verify APK signature and create provenance
         shell: bash
         run: |
           set -euo pipefail
@@ -81,9 +94,12 @@ jobs:
           apksigner verify --verbose "$apk"
           mkdir -p app/build/release-publication
           sha256sum "$apk" | sed "s#${apk}#$(basename "$apk")#" > app/build/release-publication/SHA256SUMS.txt
-          printf 'commit=%s\nref=%s\n' "$GITHUB_SHA" "$GITHUB_REF" > app/build/release-publication/build-identity.txt
+          {
+            printf 'commit=%s\nref=%s\n' "$GITHUB_SHA" "$GITHUB_REF"
+            cat "$RUNNER_TEMP/release-validation.txt"
+          } > app/build/release-publication/build-identity.txt
 
-      - name: Upload signed APK, mapping and checksum
+      - name: Upload signed APK, mapping and provenance
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: safa-signed-apk-${{ github.run_id }}
