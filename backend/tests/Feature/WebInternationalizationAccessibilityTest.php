@@ -22,13 +22,13 @@ class WebInternationalizationAccessibilityTest extends TestCase
         $this->assertGreaterThan(100, count($runtimeEn));
     }
 
-    public function test_core_web_views_and_scripts_do_not_embed_language_branches(): void
+    public function test_core_web_views_and_scripts_centralize_product_copy(): void
     {
         foreach (['safa/app.blade.php', 'safa/login.blade.php'] as $view) {
             $source = file_get_contents(resource_path('views/' . $view));
             $this->assertIsString($source);
             $this->assertStringNotContainsString('$bn ?', $source, $view);
-            $this->assertStringNotContainsString('$language === \'bn\' ?', $source, $view);
+            $this->assertStringContainsString("__('web.", $source, $view);
         }
 
         foreach (['safa-web.js', 'safa-web-product.js'] as $script) {
