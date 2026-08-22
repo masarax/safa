@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -111,6 +112,15 @@ class ServiceStatusTest extends TestCase
 
     public function test_api_health_fails_when_account_settings_uniqueness_is_missing(): void
     {
+        // MySQL may select the single-column unique index to support the
+        // account_id foreign key. Remove that dependency first so this test can
+        // model only the missing uniqueness capability that readiness owns.
+        if (DB::connection()->getDriverName() === 'mysql') {
+            Schema::table('system_settings', function (Blueprint $table) {
+                $table->dropForeign(['account_id']);
+            });
+        }
+
         Schema::table('system_settings', function (Blueprint $table) {
             $table->dropUnique('system_settings_account_id_unique');
         });
