@@ -31,6 +31,7 @@ class AppFeatureRepositorySet(private val repository: AppRepository) : FeatureRe
         override suspend fun update(item: Customer) = repository.updateCustomer(item)
         override suspend fun find(id: Int) = repository.getCustomerById(id)
         override suspend fun delete(id: Int) = repository.softDeleteCustomerById(id)
+        override suspend fun removeAccepted(id: Int) = repository.deleteCustomerById(id)
     }
 
     override val suppliers: SupplierRepository = object : SupplierRepository {

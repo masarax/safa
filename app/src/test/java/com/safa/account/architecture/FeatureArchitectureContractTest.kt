@@ -51,6 +51,51 @@ class FeatureArchitectureContractTest {
     }
 
     @Test
+    fun `customer use case stays infrastructure independent`() {
+        val source = rootFile("app/src/main/java/com/safa/account/domain/feature/customer/CustomerUseCase.kt").readText()
+        listOf(
+            "android.",
+            "androidx.",
+            "AppRepository",
+            "SyncManager",
+            "TokenManager",
+            "RetrofitClient",
+            "LocalFirstStore",
+            "org.json",
+        ).forEach { forbidden ->
+            assertFalse("Customer use case must not depend on $forbidden", source.contains(forbidden))
+        }
+        assertTrue(source.contains("class CustomerUseCase("))
+        assertTrue(source.contains("private val repository: CustomerRepository"))
+    }
+
+    @Test
+    fun `SafaViewModel delegates customer mutations to customer feature boundary`() {
+        val source = rootFile("app/src/main/java/com/safa/account/ui/viewmodel/SafaViewModel.kt").readText()
+        assertTrue(source.contains("private val customerUseCase: CustomerUseCase"))
+        assertTrue(source.contains("featureRepositories.customers.items"))
+
+        val updateBlock = source.substringAfter("fun updateCustomer(").substringBefore("fun updateSupplier(")
+        assertTrue(updateBlock.contains("customerUseCase.update(customer)"))
+        assertFalse(updateBlock.contains("repository.updateCustomer"))
+
+        val customerBusiness = source.substringAfter("// 1. Save Customer").substringBefore("// 2. Save Supplier")
+        assertTrue(customerBusiness.contains("customerUseCase.create("))
+        assertTrue(customerBusiness.contains("customerUseCase.delete("))
+        listOf(
+            "repository.insertCustomer",
+            "repository.getCustomerById",
+            "repository.softDeleteCustomerById",
+            "repository.deleteCustomerById",
+            "repository.enqueueOutbox",
+            "syncManager.getApiService().createCustomer",
+            "syncManager.getApiService().deleteCustomerApi",
+        ).forEach { forbidden ->
+            assertFalse("Customer flow escaped the feature boundary through $forbidden", customerBusiness.contains(forbidden))
+        }
+    }
+
+    @Test
     fun `business screens do not reach Retrofit SQLite or local store directly`() {
         val screens = listOf(
             "CustomerScreen.kt",

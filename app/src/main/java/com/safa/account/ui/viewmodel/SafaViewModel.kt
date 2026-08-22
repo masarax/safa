@@ -13,7 +13,14 @@ import com.safa.account.data.api.dto.LoginRequest
 import com.safa.account.data.api.toEntity
 import com.safa.account.data.model.*
 import com.safa.account.data.money.MoneyMath
+import com.safa.account.data.repository.AppCustomerOutboxGateway
+import com.safa.account.data.repository.AppCustomerRemoteGateway
+import com.safa.account.data.repository.AppCustomerSyncGateway
+import com.safa.account.data.repository.AppFeatureRepositorySet
 import com.safa.account.data.repository.AppRepository
+import com.safa.account.data.repository.SafaCustomerOperationLogger
+import com.safa.account.domain.feature.customer.CustomerCommandResult
+import com.safa.account.domain.feature.customer.CustomerUseCase
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -139,6 +146,17 @@ class SafaViewModel(
 
     val syncManager: SyncManager? = tokenManager?.let { SyncManager(repository, it) }
     val syncState: StateFlow<SyncState> = syncManager?.syncState ?: MutableStateFlow(SyncState.Idle)
+
+    private val featureRepositories = AppFeatureRepositorySet(repository)
+    private val customerUseCase: CustomerUseCase by lazy {
+        CustomerUseCase(
+            repository = featureRepositories.customers,
+            remote = syncManager?.let(::AppCustomerRemoteGateway),
+            outbox = AppCustomerOutboxGateway(repository),
+            sync = AppCustomerSyncGateway(tokenManager, syncManager) { triggerFullSync() },
+            logger = SafaCustomerOperationLogger,
+        )
+    }
 
     private val _apiBaseUrl = MutableStateFlow(tokenManager?.getBaseUrl() ?: "https://safa.masarax.com/api/")
     val apiBaseUrl: StateFlow<String> = _apiBaseUrl.asStateFlow()
@@ -517,9 +535,7 @@ class SafaViewModel(
 
     fun updateCustomer(customer: Customer, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            val updatedStatus = if (customer.syncStatus == SyncStatus.SYNCED) SyncStatus.PENDING_UPDATE else customer.syncStatus
-            repository.updateCustomer(customer.copy(syncStatus = updatedStatus))
-            syncManager?.syncAll()
+            customerUseCase.update(customer)
             onComplete()
         }
     }
@@ -537,7 +553,7 @@ class SafaViewModel(
     val operators: StateFlow<List<OperatorAccount>> = repository.allOperators
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val customers: StateFlow<List<Customer>> = repository.allCustomers
+    val customers: StateFlow<List<Customer>> = featureRepositories.customers.items
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val suppliers: StateFlow<List<Supplier>> = repository.allSuppliers
@@ -1121,55 +1137,19 @@ class SafaViewModel(
     // 1. Save Customer
     fun registerCustomer(name: String, phone: String, address: String, onComplete: () -> Unit) {
         viewModelScope.launch {
-            if (name.isBlank() || phone.isBlank()) return@launch
-            val ctx = tokenManager?.getContext()
-            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
-
-            if (isOnline && syncManager != null) {
-                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create customer")
-                try {
-                    val api = syncManager.getApiService()
-                    val res = api.createCustomer(mapOf("name" to name, "phone" to phone, "address" to address))
-                    if (res.isSuccessful && res.body() != null) {
-                        val body = res.body()!!
-                        val serverId = (body["id"] as? Number)?.toInt()
-                            ?: ((body["customer"] as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
-                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server created customer id=$serverId")
-                        repository.insertCustomer(
-                            Customer(serverId = serverId, name = name, phone = phone, address = address, syncStatus = SyncStatus.SYNCED)
-                        )
-                        onComplete()
-                        return@launch
-                    } else {
-                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Create customer rejected with HTTP ${res.code()}")
-                        setPinError(safeServerFailure("Create customer", res.code()))
-                        return@launch
-                    }
-                } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Create customer network call failed; using outbox", e)
-                }
-            }
-
-            // Offline or fallback to outbox queue
-            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create customer")
-            val localId = repository.insertCustomer(
-                Customer(name = name, phone = phone, address = address, syncStatus = SyncStatus.PENDING_CREATE)
-            ).toInt()
-
-            val payloadJson = org.json.JSONObject(mapOf("local_id" to localId, "name" to name, "phone" to phone, "address" to address)).toString()
-            repository.enqueueOutbox(
-                SyncOutbox(
-                    userId = _currentOperator.value?.id ?: 0,
-                    entityType = "CUSTOMER",
-                    entityLocalId = localId,
-                    operation = OutboxOperation.CREATE,
-                    payloadJson = payloadJson,
-                    status = OutboxStatus.PENDING
+            when (val result = customerUseCase.create(
+                name = name,
+                phone = phone,
+                address = address,
+                userId = _currentOperator.value?.id ?: 0,
+            )) {
+                CustomerCommandResult.Completed -> onComplete()
+                CustomerCommandResult.InvalidInput,
+                CustomerCommandResult.NotFound -> Unit
+                is CustomerCommandResult.Rejected -> setPinError(
+                    safeServerFailure(result.action, result.status)
                 )
-            )
-            com.safa.account.utils.SafaLogger.log("OUTBOX_ENQUEUED", "Enqueued outbox CREATE for customer localId=$localId")
-            onComplete()
-            triggerFullSync()
+            }
         }
     }
 
@@ -1179,44 +1159,17 @@ class SafaViewModel(
 
     fun deleteCustomer(id: Int) {
         viewModelScope.launch {
-            val target = repository.getCustomerById(id) ?: return@launch
-            val ctx = tokenManager?.getContext()
-            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
-
-            if (isOnline && syncManager != null && target.serverId > 0) {
-                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online delete customer serverId=${target.serverId}")
-                try {
-                    val api = syncManager.getApiService()
-                    val res = api.deleteCustomerApi(target.serverId)
-                    if (res.isSuccessful) {
-                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server deleted customer serverId=${target.serverId}")
-                        repository.deleteCustomerById(id)
-                        return@launch
-                    } else {
-                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Delete customer rejected with HTTP ${res.code()}")
-                        setPinError(safeServerFailure("Delete customer", res.code()))
-                        return@launch
-                    }
-                } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Delete customer network call failed; using outbox", e)
-                }
-            }
-
-            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline delete customer localId=$id")
-            repository.softDeleteCustomerById(id)
-            val payloadJson = org.json.JSONObject(mapOf("local_id" to id, "server_id" to target.serverId)).toString()
-            repository.enqueueOutbox(
-                SyncOutbox(
-                    userId = _currentOperator.value?.id ?: 0,
-                    entityType = "CUSTOMER",
-                    entityLocalId = id,
-                    entityServerId = target.serverId,
-                    operation = OutboxOperation.DELETE,
-                    payloadJson = payloadJson,
-                    status = OutboxStatus.PENDING
+            when (val result = customerUseCase.delete(
+                id = id,
+                userId = _currentOperator.value?.id ?: 0,
+            )) {
+                is CustomerCommandResult.Rejected -> setPinError(
+                    safeServerFailure(result.action, result.status)
                 )
-            )
-            triggerFullSync()
+                CustomerCommandResult.Completed,
+                CustomerCommandResult.InvalidInput,
+                CustomerCommandResult.NotFound -> Unit
+            }
         }
     }
 

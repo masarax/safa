@@ -21,6 +21,7 @@ interface CustomerRepository {
     suspend fun update(item: Customer)
     suspend fun find(id: Int): Customer?
     suspend fun delete(id: Int)
+    suspend fun removeAccepted(id: Int)
 }
 
 interface SupplierRepository {
