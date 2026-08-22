@@ -24,13 +24,13 @@ class WebInternationalizationAccessibilityTest extends TestCase
             $source = file_get_contents(resource_path('views/' . $view));
             $this->assertIsString($source);
             $this->assertStringNotContainsString('$bn ?', $source, $view);
-            $this->assertStringNotContainsString("$language === 'bn' ?", $source, $view);
+            $this->assertStringNotContainsString('$language === \'bn\' ?', $source, $view);
         }
 
         $product = file_get_contents(public_path('safa-web-product.js'));
         $this->assertIsString($product);
-        $this->assertStringNotContainsString("const bn =", $product);
-        $this->assertStringNotContainsString("const text =", $product);
+        $this->assertStringNotContainsString('const bn =', $product);
+        $this->assertStringNotContainsString('const text =', $product);
         $this->assertStringContainsString('app.dataset.webCopy', $product);
     }
 
