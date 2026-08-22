@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsSyncChanges;
 use App\Models\Concerns\UsesCollisionSafeLocalId;
 use App\Support\DecimalMath;
 use DomainException;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WalletLedger extends Model
 {
-    use SoftDeletes, UsesCollisionSafeLocalId;
+    use SoftDeletes, UsesCollisionSafeLocalId, RecordsSyncChanges;
 
     protected $fillable = [
         'account_id',
