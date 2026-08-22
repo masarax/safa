@@ -18,9 +18,15 @@ import com.safa.account.data.repository.AppCustomerRemoteGateway
 import com.safa.account.data.repository.AppCustomerSyncGateway
 import com.safa.account.data.repository.AppFeatureRepositorySet
 import com.safa.account.data.repository.AppRepository
+import com.safa.account.data.repository.AppSupplierOutboxGateway
+import com.safa.account.data.repository.AppSupplierRemoteGateway
+import com.safa.account.data.repository.AppSupplierSyncGateway
 import com.safa.account.data.repository.SafaCustomerOperationLogger
+import com.safa.account.data.repository.SafaSupplierOperationLogger
 import com.safa.account.domain.feature.customer.CustomerCommandResult
 import com.safa.account.domain.feature.customer.CustomerUseCase
+import com.safa.account.domain.feature.supplier.SupplierCommandResult
+import com.safa.account.domain.feature.supplier.SupplierUseCase
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -157,6 +163,15 @@ class SafaViewModel(
             logger = SafaCustomerOperationLogger,
         )
     }
+    private val supplierUseCase: SupplierUseCase by lazy {
+        SupplierUseCase(
+            repository = featureRepositories.suppliers,
+            remote = syncManager?.let(::AppSupplierRemoteGateway),
+            outbox = AppSupplierOutboxGateway(repository),
+            sync = AppSupplierSyncGateway(tokenManager, syncManager) { triggerFullSync() },
+            logger = SafaSupplierOperationLogger,
+        )
+    }
 
     private val _apiBaseUrl = MutableStateFlow(tokenManager?.getBaseUrl() ?: "https://safa.masarax.com/api/")
     val apiBaseUrl: StateFlow<String> = _apiBaseUrl.asStateFlow()
@@ -199,7 +214,6 @@ class SafaViewModel(
         }
     }
 
-    // Language Toggle: "BN" (Bengali) or "EN" (English)
     private val _currentLanguage = MutableStateFlow(tokenManager?.getLanguage() ?: "BN")
     val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
 
@@ -208,7 +222,6 @@ class SafaViewModel(
         tokenManager?.saveLanguage(lang)
     }
 
-    // Dark Mode Toggle (Default: loaded from TokenManager)
     private val _isDarkMode = MutableStateFlow(tokenManager?.getDarkMode() ?: false)
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
@@ -223,14 +236,12 @@ class SafaViewModel(
         tokenManager?.saveDarkMode(isDark)
     }
 
-    // Persistent currencies (SAR vs BDT customize settings)
     private val _selectedForeignCurrency = MutableStateFlow(tokenManager?.getForeignCurrency() ?: "SAR")
     val selectedForeignCurrency: StateFlow<String> = _selectedForeignCurrency.asStateFlow()
 
     private val _selectedLocalCurrency = MutableStateFlow(tokenManager?.getLocalCurrency() ?: "BDT")
     val selectedLocalCurrency: StateFlow<String> = _selectedLocalCurrency.asStateFlow()
 
-    // Biometric Security Toggle
     private val _isBiometricEnabled = MutableStateFlow(false)
     val isBiometricEnabled: StateFlow<Boolean> = _isBiometricEnabled.asStateFlow()
 
@@ -259,7 +270,6 @@ class SafaViewModel(
         tokenManager?.saveLocalCurrency(currency)
     }
 
-    // Dynamic Rate-Based Operational Mode Feature Toggle
     private val _isRateBasedModeEnabled = MutableStateFlow(tokenManager?.getRateFeatureEnabled() ?: true)
     val isRateBasedModeEnabled: StateFlow<Boolean> = _isRateBasedModeEnabled.asStateFlow()
 
@@ -284,7 +294,6 @@ class SafaViewModel(
         tokenManager?.saveWalletRateEnabled(enabled)
     }
 
-    // Dynamic App Name & Logo Customization
     private val _customAppName = MutableStateFlow(tokenManager?.getCustomAppName() ?: "SAFA")
     val customAppName: StateFlow<String> = _customAppName.asStateFlow()
 
@@ -432,7 +441,6 @@ class SafaViewModel(
         }
     }
 
-    // Database master reset function
     fun resetDatabase(onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             try {
@@ -450,7 +458,6 @@ class SafaViewModel(
         }
     }
 
-    // Passcode protection / Multi-user login
     private val _currentOperator = MutableStateFlow<OperatorAccount?>(null)
     val currentOperator: StateFlow<OperatorAccount?> = _currentOperator.asStateFlow()
 
@@ -467,7 +474,6 @@ class SafaViewModel(
         _pinError.value = error
     }
 
-    // Screen State
     private val _currentScreen = MutableStateFlow(AppScreen.LOCK_SCREEN)
     val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
 
@@ -492,7 +498,6 @@ class SafaViewModel(
         _isSubPageActive.value = active
     }
 
-    // Global profile navigation anchors
     private val _selectedCustomerIdForProfile = MutableStateFlow<Int?>(null)
     val selectedCustomerIdForProfile: StateFlow<Int?> = _selectedCustomerIdForProfile.asStateFlow()
 
@@ -542,21 +547,18 @@ class SafaViewModel(
 
     fun updateSupplier(supplier: Supplier, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            val updatedStatus = if (supplier.syncStatus == SyncStatus.SYNCED) SyncStatus.PENDING_UPDATE else supplier.syncStatus
-            repository.updateSupplier(supplier.copy(syncStatus = updatedStatus))
-            syncManager?.syncAll()
+            supplierUseCase.update(supplier)
             onComplete()
         }
     }
 
-    // Lists representing reactive Flows
     val operators: StateFlow<List<OperatorAccount>> = repository.allOperators
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val customers: StateFlow<List<Customer>> = featureRepositories.customers.items
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val suppliers: StateFlow<List<Supplier>> = repository.allSuppliers
+    val suppliers: StateFlow<List<Supplier>> = featureRepositories.suppliers.items
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val transactions: StateFlow<List<RemittanceTransaction>> = repository.allTransactions
@@ -577,15 +579,12 @@ class SafaViewModel(
     val walletBatches: StateFlow<List<WalletBatch>> = repository.allWalletBatches
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // --- Daily Rates ---
     private val _currentRates = MutableStateFlow<DailyRate?>(null)
     val currentRates: StateFlow<DailyRate?> = _currentRates.asStateFlow()
 
-    // Financial Summaries Derived State
     val financialStats: StateFlow<FinancialStats> = combine(
         transactions, supplierDeposits, expensesIncomes
     ) { txs, deposits, expenses ->
-        
         var totalSar = MoneyMath.ZERO_AMOUNT
         var totalDeliveredBdt = MoneyMath.ZERO_AMOUNT
         var totalPendingBdt = MoneyMath.ZERO_AMOUNT
@@ -623,7 +622,6 @@ class SafaViewModel(
 
         var totalExp = MoneyMath.ZERO_AMOUNT
         var totalInc = MoneyMath.ZERO_AMOUNT
-        
         val currentRate = _currentRates.value?.supplierRate ?: MoneyMath.rate("32.5")
 
         for (item in expenses) {
@@ -658,7 +656,6 @@ class SafaViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialStats())
 
     init {
-        // Automatically check/load rates for today on startup
         try {
             refreshTodayRates()
         } catch (e: Throwable) {
@@ -688,7 +685,6 @@ class SafaViewModel(
             if (existing != null) {
                 _currentRates.value = existing
             } else {
-                // If not set yet, use latest rate set ever or default baseline
                 val allRates = dailyRatesList.value
                 if (allRates.isNotEmpty()) {
                     val latest = allRates.maxByOrNull { it.date } ?: return@launch
@@ -698,13 +694,11 @@ class SafaViewModel(
                         dateStr,
                         MoneyMath.rate("32.0"),
                         MoneyMath.rate("32.5")
-                    ) // Standard baseline
+                    )
                 }
             }
         }
     }
-
-    // --- Translations now live in Android locale resources. ---
 
     fun t(key: String, lang: String = _currentLanguage.value): String {
         var value = AndroidStringCatalog.get(lang, key)
@@ -723,13 +717,8 @@ class SafaViewModel(
         return value
     }
 
-    fun BdtSymbol(): String {
-        return "(${_selectedLocalCurrency.value})"
-    }
-
-    fun SarSymbol(): String {
-        return "(${_selectedForeignCurrency.value})"
-    }
+    fun BdtSymbol(): String = "(${_selectedLocalCurrency.value})"
+    fun SarSymbol(): String = "(${_selectedForeignCurrency.value})"
 
     fun toggleLanguage() {
         val newLang = if (_currentLanguage.value == "BN") "EN" else "BN"
@@ -737,7 +726,6 @@ class SafaViewModel(
         tokenManager?.saveLanguage(newLang)
     }
 
-    // --- Screen Navigation Control ---
     fun navigateTo(screen: AppScreen) {
         _navDirection.value = NavDirection.FORWARD
         if (_currentOperator.value == null && screen != AppScreen.LOCK_SCREEN) {
@@ -757,9 +745,7 @@ class SafaViewModel(
             } else {
                 _currentScreen.value = screen
                 val currentHistory = _screenHistory.value.toMutableList()
-                if (currentHistory.contains(screen)) {
-                    currentHistory.remove(screen)
-                }
+                if (currentHistory.contains(screen)) currentHistory.remove(screen)
                 currentHistory.add(screen)
                 _screenHistory.value = currentHistory
             }
@@ -767,8 +753,6 @@ class SafaViewModel(
     }
 
     fun navigateBack(): Boolean {
-        // If there's screen history we can slide to, go back one step.
-        // Otherwise return false to let the activity exit warning dialog render.
         _navDirection.value = NavDirection.BACKWARD
         val currentHistory = _screenHistory.value.toMutableList()
         if (currentHistory.size > 1) {
@@ -776,29 +760,21 @@ class SafaViewModel(
             _screenHistory.value = currentHistory
             val previousScreen = currentHistory.last()
             _currentScreen.value = previousScreen
-            
-            // Sync selected profile states
-            if (previousScreen != AppScreen.CUSTOMER_PROFILE) {
-                _selectedCustomerIdForProfile.value = null
-            }
-            if (previousScreen != AppScreen.SUPPLIER_PROFILE) {
-                _selectedSupplierIdForProfile.value = null
-            }
+            if (previousScreen != AppScreen.CUSTOMER_PROFILE) _selectedCustomerIdForProfile.value = null
+            if (previousScreen != AppScreen.SUPPLIER_PROFILE) _selectedSupplierIdForProfile.value = null
             return true
         }
         return false
     }
 
-    // --- Authentication Pin-lock Business Logic ---
     fun selectLoginOperator(operator: OperatorAccount) {
         _selectedLoginOperator.value = operator
         _pinBuffer.value = ""
         _pinError.value = null
     }
 
-    // Legacy PIN pad functions removed - all auth is server-driven
-    fun appendPinDigit(digit: Char) { /* Disabled: server-driven auth only */ }
-    fun deletePinDigit() { /* Disabled: server-driven auth only */ }
+    fun appendPinDigit(digit: Char) { }
+    fun deletePinDigit() { }
 
     fun loginWithServer(mobile: String, pin: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
@@ -836,11 +812,8 @@ class SafaViewModel(
                             return@launch
                         }
 
-                        val existing = operators.value.find { it.id == op.id }
-                            ?: repository.getOperatorByMobile(op.mobile)
-                        if (existing != null && existing.id != op.id) {
-                            repository.removeOperatorLocally(existing)
-                        }
+                        val existing = operators.value.find { it.id == op.id } ?: repository.getOperatorByMobile(op.mobile)
+                        if (existing != null && existing.id != op.id) repository.removeOperatorLocally(existing)
                         repository.insertOperator(op)
                         tokenManager?.saveAllTokens(
                             accessToken = tokens["access_token"]?.toString(),
@@ -877,8 +850,6 @@ class SafaViewModel(
         }
     }
 
-    // loginWithMobileAndPin() REMOVED: All authentication is server-driven via loginWithServer()
-
     fun fetchOperatorsFromServer() {
         viewModelScope.launch {
             if (_currentOperator.value?.role != "SuperAdmin") return@launch
@@ -893,7 +864,6 @@ class SafaViewModel(
                         ?: return@launch
                     val currentOps = operators.value
                     val validIds = rawOps.mapNotNull { (it["id"] as? Number)?.toInt() }.filter { it > 0 }
-
                     rawOps.forEach { opMap ->
                         val serverId = (opMap["id"] as? Number)?.toInt() ?: 0
                         if (serverId <= 0) return@forEach
@@ -906,10 +876,8 @@ class SafaViewModel(
                         }
                         @Suppress("UNCHECKED_CAST")
                         val permsMap = opMap["permissions"] as? Map<String, Any?> ?: emptyMap()
-
                         val existing = currentOps.find {
-                            (serverId > 0 && it.id == serverId) ||
-                            (mobile.isNotBlank() && it.mobile.trim() == mobile)
+                            (serverId > 0 && it.id == serverId) || (mobile.isNotBlank() && it.mobile.trim() == mobile)
                         }
                         val op = OperatorAccount(
                             id = serverId,
@@ -939,12 +907,9 @@ class SafaViewModel(
                         if (existing != null && existing.id != serverId) repository.removeOperatorLocally(existing)
                         repository.insertOperator(op)
                     }
-
                     val authenticatedId = _currentOperator.value?.id
                     currentOps.forEach { localOp ->
-                        if (localOp.id != authenticatedId && localOp.id !in validIds) {
-                            repository.removeOperatorLocally(localOp)
-                        }
+                        if (localOp.id != authenticatedId && localOp.id !in validIds) repository.removeOperatorLocally(localOp)
                     }
                 } else {
                     com.safa.account.utils.SafaLogger.warn("OPERATORS", "Operator refresh rejected with HTTP ${res.code()}")
@@ -955,49 +920,27 @@ class SafaViewModel(
         }
     }
 
-    fun createOperatorOnServer(
-        name: String,
-        mobile: String,
-        email: String,
-        role: String,
-        pin: String,
-        permissionsMap: Map<String, Boolean>,
-        onResult: (Boolean, String?) -> Unit
-    ) {
+    fun createOperatorOnServer(name: String, mobile: String, email: String, role: String, pin: String, permissionsMap: Map<String, Boolean>, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             if (_currentOperator.value?.role != "SuperAdmin") {
-                onResult(false, t("access_denied"))
-                return@launch
+                onResult(false, t("access_denied")); return@launch
             }
             try {
                 val api = syncManager?.getApiService()
-                if (api == null) {
-                    onResult(false, safeConnectionFailure())
-                    return@launch
-                }
+                if (api == null) { onResult(false, safeConnectionFailure()); return@launch }
                 val apiRole = when (role.trim().lowercase()) {
                     "manager", "owner" -> "manager"
                     "admin" -> "admin"
                     "user" -> "user"
                     else -> "staff"
                 }
-                val req = com.safa.account.data.api.dto.OperatorApiRequest(
-                    name = name.trim(),
-                    mobile = mobile.trim(),
-                    email = email.ifBlank { null },
-                    role = apiRole,
-                    pin = pin,
-                    isActivated = true,
-                    permissions = permissionsMap
-                )
+                val req = com.safa.account.data.api.dto.OperatorApiRequest(name.trim(), mobile.trim(), email.ifBlank { null }, apiRole, pin, true, permissionsMap)
                 val response = api.createOperator(req)
                 if (!response.isSuccessful) {
                     com.safa.account.utils.SafaLogger.warn("OPERATOR_CREATE", "Operator creation rejected with HTTP ${response.code()}")
-                    onResult(false, safeServerFailure("Create operator", response.code()))
-                    return@launch
+                    onResult(false, safeServerFailure("Create operator", response.code())); return@launch
                 }
-                fetchOperatorsFromServer()
-                onResult(true, null)
+                fetchOperatorsFromServer(); onResult(true, null)
             } catch (e: Exception) {
                 com.safa.account.utils.SafaLogger.error("OPERATOR_CREATE", "Server operator creation failed", e)
                 onResult(false, safeConnectionFailure())
@@ -1005,22 +948,12 @@ class SafaViewModel(
         }
     }
 
-    fun updateOperatorOnServer(
-        op: OperatorAccount,
-        newPin: String? = null,
-        onResult: (Boolean, String?) -> Unit = { _, _ -> }
-    ) {
+    fun updateOperatorOnServer(op: OperatorAccount, newPin: String? = null, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
-            if (_currentOperator.value?.role != "SuperAdmin") {
-                onResult(false, t("access_denied"))
-                return@launch
-            }
+            if (_currentOperator.value?.role != "SuperAdmin") { onResult(false, t("access_denied")); return@launch }
             try {
                 val api = syncManager?.getApiService()
-                if (api == null || op.id <= 0) {
-                    onResult(false, safeConnectionFailure())
-                    return@launch
-                }
+                if (api == null || op.id <= 0) { onResult(false, safeConnectionFailure()); return@launch }
                 val apiRole = when (op.role.trim().lowercase()) {
                     "manager", "owner" -> "manager"
                     "admin" -> "admin"
@@ -1044,53 +977,33 @@ class SafaViewModel(
                     "can_manage_expenses" to op.canManageExpenses,
                     "can_view_reports" to op.canViewReports
                 )
-                val req = com.safa.account.data.api.dto.OperatorApiRequest(
-                    name = op.username,
-                    mobile = op.mobile,
-                    email = op.email.ifBlank { null },
-                    role = apiRole,
-                    pin = newPin.takeIf { !it.isNullOrBlank() && it.length == 6 },
-                    isActivated = op.isActivated,
-                    permissions = permsMap
-                )
+                val req = com.safa.account.data.api.dto.OperatorApiRequest(op.username, op.mobile, op.email.ifBlank { null }, apiRole, newPin.takeIf { !it.isNullOrBlank() && it.length == 6 }, op.isActivated, permsMap)
                 val response = api.updateOperator(op.id, req)
                 if (!response.isSuccessful) {
                     com.safa.account.utils.SafaLogger.warn("OPERATOR_UPDATE", "Operator update rejected with HTTP ${response.code()}")
-                    onResult(false, safeServerFailure("Update operator", response.code()))
-                    return@launch
+                    onResult(false, safeServerFailure("Update operator", response.code())); return@launch
                 }
-                repository.updateOperator(op.copy(role = localRole(apiRole), pin = ""))
-                onResult(true, null)
+                repository.updateOperator(op.copy(role = localRole(apiRole), pin = "")); onResult(true, null)
             } catch (e: Exception) {
-                com.safa.account.utils.SafaLogger.error("OPERATOR_UPDATE", "Server operator update failed", e)
-                onResult(false, safeConnectionFailure())
+                com.safa.account.utils.SafaLogger.error("OPERATOR_UPDATE", "Server operator update failed", e); onResult(false, safeConnectionFailure())
             }
         }
     }
 
     fun deleteOperatorOnServer(op: OperatorAccount, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
-            if (_currentOperator.value?.role != "SuperAdmin") {
-                onResult(false, t("access_denied"))
-                return@launch
-            }
+            if (_currentOperator.value?.role != "SuperAdmin") { onResult(false, t("access_denied")); return@launch }
             try {
                 val api = syncManager?.getApiService()
-                if (api == null || op.id <= 0) {
-                    onResult(false, safeConnectionFailure())
-                    return@launch
-                }
+                if (api == null || op.id <= 0) { onResult(false, safeConnectionFailure()); return@launch }
                 val response = api.deleteOperator(op.id, confirmed = true)
                 if (!response.isSuccessful) {
                     com.safa.account.utils.SafaLogger.warn("OPERATOR_DELETE", "Operator deletion rejected with HTTP ${response.code()}")
-                    onResult(false, safeServerFailure("Delete operator", response.code()))
-                    return@launch
+                    onResult(false, safeServerFailure("Delete operator", response.code())); return@launch
                 }
-                repository.removeOperatorLocally(op)
-                onResult(true, null)
+                repository.removeOperatorLocally(op); onResult(true, null)
             } catch (e: Exception) {
-                com.safa.account.utils.SafaLogger.error("OPERATOR_DELETE", "Server operator deletion failed", e)
-                onResult(false, safeConnectionFailure())
+                com.safa.account.utils.SafaLogger.error("OPERATOR_DELETE", "Server operator deletion failed", e); onResult(false, safeConnectionFailure())
             }
         }
     }
@@ -1104,11 +1017,9 @@ class SafaViewModel(
         navigateTo(AppScreen.LOCK_SCREEN)
     }
 
-    /** Persist and expose only identity returned by the live authenticated session endpoint. */
     suspend fun restoreAuthenticatedSession(userMap: Map<String, Any?>): Boolean {
         val operator = authenticatedOperator(userMap) ?: return false
-        val existing = operators.value.find { it.id == operator.id }
-            ?: repository.getOperatorByMobile(operator.mobile)
+        val existing = operators.value.find { it.id == operator.id } ?: repository.getOperatorByMobile(operator.mobile)
         if (existing != null && existing.id != operator.id) repository.removeOperatorLocally(existing)
         repository.insertOperator(operator)
         _isBiometricEnabled.value = operator.isBiometricEnabled
@@ -1124,152 +1035,52 @@ class SafaViewModel(
         return true
     }
 
-    /** Operator changes require a fresh server-authenticated session. */
     fun requestOperatorSwitch(operator: OperatorAccount) {
         if (operator.id == _currentOperator.value?.id) return
         tokenManager?.saveLastMobile(operator.mobile)
         logout()
     }
 
-
-    // --- Business Functions ---
-
-    // 1. Save Customer
     fun registerCustomer(name: String, phone: String, address: String, onComplete: () -> Unit) {
         viewModelScope.launch {
-            when (val result = customerUseCase.create(
-                name = name,
-                phone = phone,
-                address = address,
-                userId = _currentOperator.value?.id ?: 0,
-            )) {
+            when (val result = customerUseCase.create(name, phone, address, _currentOperator.value?.id ?: 0)) {
                 CustomerCommandResult.Completed -> onComplete()
-                CustomerCommandResult.InvalidInput,
-                CustomerCommandResult.NotFound -> Unit
-                is CustomerCommandResult.Rejected -> setPinError(
-                    safeServerFailure(result.action, result.status)
-                )
+                CustomerCommandResult.InvalidInput, CustomerCommandResult.NotFound -> Unit
+                is CustomerCommandResult.Rejected -> setPinError(safeServerFailure(result.action, result.status))
             }
         }
     }
 
-    suspend fun updateCustomerProfile(customer: Customer) {
-        updateCustomer(customer)
-    }
+    suspend fun updateCustomerProfile(customer: Customer) { updateCustomer(customer) }
 
     fun deleteCustomer(id: Int) {
         viewModelScope.launch {
-            when (val result = customerUseCase.delete(
-                id = id,
-                userId = _currentOperator.value?.id ?: 0,
-            )) {
-                is CustomerCommandResult.Rejected -> setPinError(
-                    safeServerFailure(result.action, result.status)
-                )
-                CustomerCommandResult.Completed,
-                CustomerCommandResult.InvalidInput,
-                CustomerCommandResult.NotFound -> Unit
+            when (val result = customerUseCase.delete(id, _currentOperator.value?.id ?: 0)) {
+                is CustomerCommandResult.Rejected -> setPinError(safeServerFailure(result.action, result.status))
+                CustomerCommandResult.Completed, CustomerCommandResult.InvalidInput, CustomerCommandResult.NotFound -> Unit
             }
         }
     }
 
-    // 2. Save Supplier
     fun registerSupplier(name: String, phone: String, address: String, onComplete: () -> Unit) {
         viewModelScope.launch {
-            if (name.isBlank()) return@launch
-            val ctx = tokenManager?.getContext()
-            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
-
-            if (isOnline && syncManager != null) {
-                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create supplier")
-                try {
-                    val api = syncManager.getApiService()
-                    val res = api.createSupplier(mapOf("name" to name, "phone" to phone, "address" to address))
-                    if (res.isSuccessful && res.body() != null) {
-                        val body = res.body()!!
-                        val serverId = (body["id"] as? Number)?.toInt()
-                            ?: ((body["supplier"] as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
-                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server created supplier id=$serverId")
-                        repository.insertSupplier(
-                            Supplier(serverId = serverId, name = name, phone = phone, address = address, syncStatus = SyncStatus.SYNCED)
-                        )
-                        onComplete()
-                        return@launch
-                    } else {
-                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Create supplier rejected with HTTP ${res.code()}")
-                        setPinError(safeServerFailure("Create supplier", res.code()))
-                        return@launch
-                    }
-                } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Create supplier network call failed; using outbox", e)
-                }
+            when (val result = supplierUseCase.create(name, phone, address, _currentOperator.value?.id ?: 0)) {
+                SupplierCommandResult.Completed -> onComplete()
+                SupplierCommandResult.InvalidInput, SupplierCommandResult.NotFound -> Unit
+                is SupplierCommandResult.Rejected -> setPinError(safeServerFailure(result.action, result.status))
             }
-
-            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create supplier")
-            val localId = repository.insertSupplier(
-                Supplier(name = name, phone = phone, address = address, syncStatus = SyncStatus.PENDING_CREATE)
-            ).toInt()
-
-            val payloadJson = org.json.JSONObject(mapOf("local_id" to localId, "name" to name, "phone" to phone, "address" to address)).toString()
-            repository.enqueueOutbox(
-                SyncOutbox(
-                    userId = _currentOperator.value?.id ?: 0,
-                    entityType = "SUPPLIER",
-                    entityLocalId = localId,
-                    operation = OutboxOperation.CREATE,
-                    payloadJson = payloadJson,
-                    status = OutboxStatus.PENDING
-                )
-            )
-            onComplete()
-            triggerFullSync()
         }
     }
 
     fun deleteSupplier(id: Int) {
         viewModelScope.launch {
-            val target = repository.getSupplierById(id) ?: return@launch
-            val ctx = tokenManager?.getContext()
-            val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
-
-            if (isOnline && syncManager != null && target.serverId > 0) {
-                com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online delete supplier serverId=${target.serverId}")
-                try {
-                    val api = syncManager.getApiService()
-                    val res = api.deleteSupplierApi(target.serverId)
-                    if (res.isSuccessful) {
-                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server deleted supplier serverId=${target.serverId}")
-                        repository.deleteSupplierById(id)
-                        return@launch
-                    } else {
-                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Delete supplier rejected with HTTP ${res.code()}")
-                        setPinError(safeServerFailure("Delete supplier", res.code()))
-                        return@launch
-                    }
-                } catch (e: Exception) {
-                    com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Delete supplier network call failed; using outbox", e)
-                }
+            when (val result = supplierUseCase.delete(id, _currentOperator.value?.id ?: 0)) {
+                is SupplierCommandResult.Rejected -> setPinError(safeServerFailure(result.action, result.status))
+                SupplierCommandResult.Completed, SupplierCommandResult.InvalidInput, SupplierCommandResult.NotFound -> Unit
             }
-
-            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline delete supplier localId=$id")
-            repository.softDeleteSupplierById(id)
-            val payloadJson = org.json.JSONObject(mapOf("local_id" to id, "server_id" to target.serverId)).toString()
-            repository.enqueueOutbox(
-                SyncOutbox(
-                    userId = _currentOperator.value?.id ?: 0,
-                    entityType = "SUPPLIER",
-                    entityLocalId = id,
-                    entityServerId = target.serverId,
-                    operation = OutboxOperation.DELETE,
-                    payloadJson = payloadJson,
-                    status = OutboxStatus.PENDING
-                )
-            )
-            triggerFullSync()
         }
     }
 
-    // 3. Purchase / Deposit SAR to Supplier to Acquire BDT
     fun depositToSupplier(
         supplierId: Int,
         amountSar: BigDecimal,
@@ -1299,7 +1110,6 @@ class SafaViewModel(
                         timestamp = timestamp
                     )
                 )
-                
                 if ((transactionType == "SAR_GIVEN" || transactionType == "SAR_DEPOSIT") && ledgerId > 0) {
                     val supplierName = suppliers.value.find { it.id == supplierId }?.name ?: "Supplier"
                     repository.insertWalletBatch(
@@ -1337,25 +1147,16 @@ class SafaViewModel(
                 val newAmountBdt = MoneyMath.multiply(deposit.amountSar, deposit.rate)
                 val diff = MoneyMath.subtract(newAmountBdt, match.initialBdt)
                 val updatedRemaining = MoneyMath.clampNonNegativeAmount(MoneyMath.add(match.remainingBdt, diff))
-                repository.updateWalletBatch(
-                    match.copy(
-                        rate = deposit.rate,
-                        initialBdt = newAmountBdt,
-                        remainingBdt = updatedRemaining
-                    )
-                )
+                repository.updateWalletBatch(match.copy(rate = deposit.rate, initialBdt = newAmountBdt, remainingBdt = updatedRemaining))
             }
             syncManager?.syncAll()
         }
     }
 
-    // --- Wallet Manual Operations ---
     fun registerWalletLedger(name: String, onComplete: () -> Unit = {}) {
         if (name.isNotBlank()) {
             viewModelScope.launch {
-                repository.insertWalletLedger(WalletLedger(name = name))
-                onComplete()
-                syncManager?.syncAll()
+                repository.insertWalletLedger(WalletLedger(name = name)); onComplete(); syncManager?.syncAll()
             }
         }
     }
@@ -1363,13 +1164,8 @@ class SafaViewModel(
     fun updateWalletLedgerName(id: Int, newName: String, onComplete: () -> Unit = {}) {
         if (newName.isNotBlank()) {
             viewModelScope.launch {
-                val list = repository.allWalletLedgers.firstOrNull() ?: emptyList()
-                val target = list.find { it.id == id }
-                if (target != null) {
-                    repository.updateWalletLedger(target.copy(name = newName))
-                    onComplete()
-                    syncManager?.syncAll()
-                }
+                val target = (repository.allWalletLedgers.firstOrNull() ?: emptyList()).find { it.id == id }
+                if (target != null) { repository.updateWalletLedger(target.copy(name = newName)); onComplete(); syncManager?.syncAll() }
             }
         }
     }
@@ -1377,29 +1173,16 @@ class SafaViewModel(
     fun deleteWalletLedger(id: Int, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             repository.softDeleteWalletLedgerById(id)
-            val batches = repository.allWalletBatches.firstOrNull()?.filter { it.ledgerId == id } ?: emptyList()
-            batches.forEach {
-                repository.softDeleteWalletBatchById(it.id)
-            }
-            onComplete()
-            syncManager?.syncAll()
+            (repository.allWalletBatches.firstOrNull()?.filter { it.ledgerId == id } ?: emptyList()).forEach { repository.softDeleteWalletBatchById(it.id) }
+            onComplete(); syncManager?.syncAll()
         }
     }
 
     fun addMoneyToWallet(ledgerId: Int, amountBdt: BigDecimal, rate: BigDecimal, notes: String, onComplete: () -> Unit = {}) {
         if (ledgerId > 0 && amountBdt.signum() > 0 && rate.signum() > 0) {
             viewModelScope.launch {
-                repository.insertWalletBatch(
-                    WalletBatch(
-                        ledgerId = ledgerId,
-                        rate = MoneyMath.nonNegativeRate(rate),
-                        initialBdt = MoneyMath.nonNegativeAmount(amountBdt),
-                        remainingBdt = MoneyMath.nonNegativeAmount(amountBdt),
-                        notes = if (notes.isNotBlank()) notes else "Manual Capital Deposit"
-                    )
-                )
-                onComplete()
-                syncManager?.syncAll()
+                repository.insertWalletBatch(WalletBatch(ledgerId = ledgerId, rate = MoneyMath.nonNegativeRate(rate), initialBdt = MoneyMath.nonNegativeAmount(amountBdt), remainingBdt = MoneyMath.nonNegativeAmount(amountBdt), notes = if (notes.isNotBlank()) notes else "Manual Capital Deposit"))
+                onComplete(); syncManager?.syncAll()
             }
         }
     }
@@ -1407,19 +1190,15 @@ class SafaViewModel(
     fun deductMoneyFromWalletLedger(ledgerId: Int, amountBdtToDeduct: BigDecimal, onComplete: () -> Unit = {}) {
         if (ledgerId > 0 && amountBdtToDeduct.signum() > 0) {
             viewModelScope.launch {
-                val batches = repository.allWalletBatches.firstOrNull()
-                    ?.filter { it.ledgerId == ledgerId && it.remainingBdt.signum() > 0 }
-                    ?.sortedBy { it.timestamp } ?: emptyList()
+                val batches = repository.allWalletBatches.firstOrNull()?.filter { it.ledgerId == ledgerId && it.remainingBdt.signum() > 0 }?.sortedBy { it.timestamp } ?: emptyList()
                 var remainingToDeduct = MoneyMath.nonNegativeAmount(amountBdtToDeduct)
                 for (b in batches) {
                     if (remainingToDeduct.signum() <= 0) break
-                    val bRemaining = b.remainingBdt
-                    val deductFromThisBatch = if (bRemaining < remainingToDeduct) bRemaining else remainingToDeduct
-                    repository.updateWalletBatch(b.copy(remainingBdt = MoneyMath.subtract(bRemaining, deductFromThisBatch)))
-                    remainingToDeduct = MoneyMath.subtract(remainingToDeduct, deductFromThisBatch)
+                    val deduct = if (b.remainingBdt < remainingToDeduct) b.remainingBdt else remainingToDeduct
+                    repository.updateWalletBatch(b.copy(remainingBdt = MoneyMath.subtract(b.remainingBdt, deduct)))
+                    remainingToDeduct = MoneyMath.subtract(remainingToDeduct, deduct)
                 }
-                onComplete()
-                syncManager?.syncAll()
+                onComplete(); syncManager?.syncAll()
             }
         }
     }
@@ -1429,18 +1208,13 @@ class SafaViewModel(
             viewModelScope.launch {
                 val batch = repository.getWalletBatchById(batchId)
                 if (batch != null) {
-                    val updatedRemaining = MoneyMath.clampNonNegativeAmount(
-                        MoneyMath.subtract(batch.remainingBdt, MoneyMath.nonNegativeAmount(amountBdtToDeduct))
-                    )
-                    repository.updateWalletBatch(batch.copy(remainingBdt = updatedRemaining))
-                    onComplete()
-                    syncManager?.syncAll()
+                    repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, MoneyMath.nonNegativeAmount(amountBdtToDeduct)))))
+                    onComplete(); syncManager?.syncAll()
                 }
             }
         }
     }
 
-    // 4. Create Remittance Transaction (Safa Entry)
     fun createRemittance(
         customerId: Int,
         walletBatchId: Int,
@@ -1463,20 +1237,17 @@ class SafaViewModel(
             val exactCustomerRate = MoneyMath.nonNegativeRate(customerRate)
             val resolvedSupplierRate = batch?.rate ?: exactCustomerRate
             val resolvedSupplierId = batch?.supplierId ?: 0
-
             val operatorId = _currentOperator.value?.id ?: 1
             val amountBdt = MoneyMath.multiply(exactAmountSar, exactCustomerRate)
             val actualSarCollected = MoneyMath.amount(sarCollected ?: exactAmountSar)
             val actualBdtDisbursed = MoneyMath.nonNegativeAmount(bdtDisbursed ?: amountBdt)
             val actualTimestamp = timestamp ?: System.currentTimeMillis()
-
             val ctx = tokenManager?.getContext()
             val isOnline = com.safa.account.utils.ConnectivityMonitor.isOnline(ctx)
 
             if (isOnline && syncManager != null) {
                 com.safa.account.utils.SafaLogger.log("ONLINE_REQUEST", "Online create transaction")
                 try {
-                    val api = syncManager.getApiService()
                     val reqMap = mapOf(
                         "type" to status,
                         "amount_sar" to MoneyMath.amountString(exactAmountSar),
@@ -1494,297 +1265,113 @@ class SafaViewModel(
                         "wallet_batch_id" to walletBatchId,
                         "notes" to notes
                     )
-                    val res = api.createTransactionApi(reqMap)
+                    val res = syncManager.getApiService().createTransactionApi(reqMap)
                     if (res.isSuccessful && res.body() != null) {
                         val body = res.body()!!
-                        val serverId = (body["id"] as? Number)?.toInt()
-                            ?: ((body["transaction"] as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
-                        com.safa.account.utils.SafaLogger.log("SERVER_RESPONSE", "Server created transaction serverId=$serverId")
-                        repository.insertTransaction(
-                            RemittanceTransaction(
-                                serverId = serverId,
-                                customerId = customerId,
-                                supplierId = resolvedSupplierId,
-                                amountSar = exactAmountSar,
-                                customerRate = exactCustomerRate,
-                                supplierRate = resolvedSupplierRate,
-                                amountBdt = amountBdt,
-                                receiverName = receiverName,
-                                receiverPhone = receiverPhone,
-                                receiverAccountType = receiverAccountType,
-                                receiverAccountNo = receiverAccountNo,
-                                status = status,
-                                operatorId = operatorId,
-                                notes = notes,
-                                sarCollected = actualSarCollected,
-                                bdtDisbursed = actualBdtDisbursed,
-                                timestamp = actualTimestamp,
-                                walletBatchId = walletBatchId,
-                                syncStatus = SyncStatus.SYNCED
-                            )
-                        )
-                        if (batch != null) {
-                            repository.updateWalletBatch(
-                                batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, amountBdt)))
-                            )
-                        }
-                        onComplete()
-                        return@launch
+                        val serverId = (body["id"] as? Number)?.toInt() ?: ((body["transaction"] as? Map<*, *>)?.get("id") as? Number)?.toInt() ?: 0
+                        repository.insertTransaction(RemittanceTransaction(serverId = serverId, customerId = customerId, supplierId = resolvedSupplierId, amountSar = exactAmountSar, customerRate = exactCustomerRate, supplierRate = resolvedSupplierRate, amountBdt = amountBdt, sarCollected = actualSarCollected, bdtDisbursed = actualBdtDisbursed, receiverName = receiverName, receiverPhone = receiverPhone, receiverAccountType = receiverAccountType, receiverAccountNo = receiverAccountNo, status = status, operatorId = operatorId, walletBatchId = walletBatchId, notes = notes, timestamp = actualTimestamp, syncStatus = SyncStatus.SYNCED))
+                        if (batch != null) repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, amountBdt))))
+                        onComplete(); return@launch
                     } else {
-                        com.safa.account.utils.SafaLogger.warn("SERVER_RESPONSE", "Create transaction rejected with HTTP ${res.code()}")
-                        setPinError(safeServerFailure("Create transaction", res.code()))
-                        return@launch
+                        setPinError(safeServerFailure("Create transaction", res.code())); return@launch
                     }
                 } catch (e: Exception) {
                     com.safa.account.utils.SafaLogger.error("OFFLINE_QUEUE", "Create transaction network call failed; using outbox", e)
                 }
             }
 
-            // Offline or fallback to outbox queue
-            com.safa.account.utils.SafaLogger.log("OFFLINE_QUEUE", "Offline create transaction")
-            val localTx = RemittanceTransaction(
-                customerId = customerId,
-                supplierId = resolvedSupplierId,
-                amountSar = exactAmountSar,
-                customerRate = exactCustomerRate,
-                supplierRate = resolvedSupplierRate,
-                amountBdt = amountBdt,
-                receiverName = receiverName,
-                receiverPhone = receiverPhone,
-                receiverAccountType = receiverAccountType,
-                receiverAccountNo = receiverAccountNo,
-                status = status,
-                operatorId = operatorId,
-                notes = notes,
-                sarCollected = actualSarCollected,
-                bdtDisbursed = actualBdtDisbursed,
-                timestamp = actualTimestamp,
-                walletBatchId = walletBatchId,
-                syncStatus = SyncStatus.PENDING_CREATE
-            )
-            val localId = repository.insertTransaction(localTx).toInt()
-
-            if (batch != null) {
-                repository.updateWalletBatch(
-                    batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, amountBdt)))
-                )
-            }
-
-            val payloadMap = mapOf(
-                "local_id" to localId,
-                "type" to status,
-                "amount_sar" to MoneyMath.amountString(exactAmountSar),
-                "customer_id" to customerId,
-                "supplier_id" to resolvedSupplierId,
-                "customer_rate" to MoneyMath.rateString(exactCustomerRate),
-                "supplier_rate" to MoneyMath.rateString(resolvedSupplierRate),
-                "amount_bdt" to MoneyMath.amountString(amountBdt),
-                "sar_collected" to MoneyMath.amountString(actualSarCollected),
-                "bdt_disbursed" to MoneyMath.amountString(actualBdtDisbursed),
-                "receiver_name" to receiverName,
-                "receiver_phone" to receiverPhone,
-                "receiver_account_type" to receiverAccountType,
-                "receiver_account_no" to receiverAccountNo,
-                "wallet_batch_id" to walletBatchId,
-                "notes" to notes
-            )
-            repository.enqueueOutbox(
-                SyncOutbox(
-                    userId = _currentOperator.value?.id ?: 0,
-                    entityType = "TRANSACTION",
-                    entityLocalId = localId,
-                    operation = OutboxOperation.CREATE,
-                    payloadJson = org.json.JSONObject(payloadMap).toString(),
-                    status = OutboxStatus.PENDING
-                )
-            )
-            onComplete()
-            triggerFullSync()
+            val localId = repository.insertTransaction(RemittanceTransaction(customerId = customerId, supplierId = resolvedSupplierId, amountSar = exactAmountSar, customerRate = exactCustomerRate, supplierRate = resolvedSupplierRate, amountBdt = amountBdt, sarCollected = actualSarCollected, bdtDisbursed = actualBdtDisbursed, receiverName = receiverName, receiverPhone = receiverPhone, receiverAccountType = receiverAccountType, receiverAccountNo = receiverAccountNo, status = status, operatorId = operatorId, walletBatchId = walletBatchId, notes = notes, timestamp = actualTimestamp, syncStatus = SyncStatus.PENDING_CREATE)).toInt()
+            if (batch != null) repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, amountBdt))))
+            val payloadMap = mapOf("local_id" to localId, "type" to status, "amount_sar" to MoneyMath.amountString(exactAmountSar), "customer_id" to customerId, "supplier_id" to resolvedSupplierId, "customer_rate" to MoneyMath.rateString(exactCustomerRate), "supplier_rate" to MoneyMath.rateString(resolvedSupplierRate), "amount_bdt" to MoneyMath.amountString(amountBdt), "sar_collected" to MoneyMath.amountString(actualSarCollected), "bdt_disbursed" to MoneyMath.amountString(actualBdtDisbursed), "receiver_name" to receiverName, "receiver_phone" to receiverPhone, "receiver_account_type" to receiverAccountType, "receiver_account_no" to receiverAccountNo, "wallet_batch_id" to walletBatchId, "notes" to notes)
+            repository.enqueueOutbox(SyncOutbox(userId = _currentOperator.value?.id ?: 0, entityType = "TRANSACTION", entityLocalId = localId, operation = OutboxOperation.CREATE, payloadJson = org.json.JSONObject(payloadMap).toString(), status = OutboxStatus.PENDING))
+            onComplete(); triggerFullSync()
         }
     }
 
     fun updateRemittance(transaction: RemittanceTransaction, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             val previous = repository.getTransactionById(transaction.id)
-            if (previous != null && previous.status != "Cancelled" && previous.walletBatchId > 0) {
-                repository.getWalletBatchById(previous.walletBatchId)?.let { batch ->
-                    repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.add(batch.remainingBdt, previous.amountBdt)))
-                }
-            }
-            if (transaction.status != "Cancelled" && transaction.walletBatchId > 0) {
-                repository.getWalletBatchById(transaction.walletBatchId)?.let { batch ->
-                    repository.updateWalletBatch(
-                        batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, transaction.amountBdt)))
-                    )
-                }
-            }
-            repository.updateTransaction(transaction)
-            onComplete()
-            triggerFullSync()
+            if (previous != null && previous.status != "Cancelled" && previous.walletBatchId > 0) repository.getWalletBatchById(previous.walletBatchId)?.let { repository.updateWalletBatch(it.copy(remainingBdt = MoneyMath.add(it.remainingBdt, previous.amountBdt))) }
+            if (transaction.status != "Cancelled" && transaction.walletBatchId > 0) repository.getWalletBatchById(transaction.walletBatchId)?.let { repository.updateWalletBatch(it.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(it.remainingBdt, transaction.amountBdt)))) }
+            repository.updateTransaction(transaction); onComplete(); triggerFullSync()
         }
     }
 
     fun updateTransactionStatus(transaction: RemittanceTransaction, newStatus: String) {
         viewModelScope.launch {
-            if (newStatus == "Cancelled" && transaction.status != "Cancelled") {
-                // Refund BDT back to the Wallet Batch
-                if (transaction.walletBatchId > 0) {
-                    val batch = repository.getWalletBatchById(transaction.walletBatchId)
-                    if (batch != null) {
-                        repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.add(batch.remainingBdt, transaction.amountBdt)))
-                    }
-                }
-            } else if (newStatus != "Cancelled" && transaction.status == "Cancelled") {
-                // Re-deduct BDT from the Wallet Batch
-                if (transaction.walletBatchId > 0) {
-                    val batch = repository.getWalletBatchById(transaction.walletBatchId)
-                    if (batch != null) {
-                        repository.updateWalletBatch(
-                            batch.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(batch.remainingBdt, transaction.amountBdt)))
-                        )
-                    }
-                }
-            }
-            repository.updateTransaction(
-                transaction.copy(status = newStatus)
-            )
-            syncManager?.syncAll()
+            if (newStatus == "Cancelled" && transaction.status != "Cancelled" && transaction.walletBatchId > 0) repository.getWalletBatchById(transaction.walletBatchId)?.let { repository.updateWalletBatch(it.copy(remainingBdt = MoneyMath.add(it.remainingBdt, transaction.amountBdt))) }
+            else if (newStatus != "Cancelled" && transaction.status == "Cancelled" && transaction.walletBatchId > 0) repository.getWalletBatchById(transaction.walletBatchId)?.let { repository.updateWalletBatch(it.copy(remainingBdt = MoneyMath.clampNonNegativeAmount(MoneyMath.subtract(it.remainingBdt, transaction.amountBdt)))) }
+            repository.updateTransaction(transaction.copy(status = newStatus)); syncManager?.syncAll()
         }
     }
 
     fun deleteTransaction(id: Int, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            val all = repository.allTransactions.firstOrNull() ?: emptyList()
-            val tx = all.find { it.id == id }
+            val tx = (repository.allTransactions.firstOrNull() ?: emptyList()).find { it.id == id }
             if (tx != null) {
-                if (tx.status != "Cancelled" && tx.walletBatchId > 0) {
-                    val batch = repository.getWalletBatchById(tx.walletBatchId)
-                    if (batch != null) {
-                        repository.updateWalletBatch(batch.copy(remainingBdt = MoneyMath.add(batch.remainingBdt, tx.amountBdt)))
-                    }
-                }
-                repository.softDeleteTransactionById(id)
-                onComplete()
-                syncManager?.syncAll()
+                if (tx.status != "Cancelled" && tx.walletBatchId > 0) repository.getWalletBatchById(tx.walletBatchId)?.let { repository.updateWalletBatch(it.copy(remainingBdt = MoneyMath.add(it.remainingBdt, tx.amountBdt))) }
+                repository.softDeleteTransactionById(id); onComplete(); syncManager?.syncAll()
             }
         }
     }
 
-    // 5. Save Operational Expense / Income
-    fun addExpenseIncome(
-        title: String,
-        amount: BigDecimal,
-        currency: String,
-        isExpense: Boolean,
-        category: String,
-        onComplete: () -> Unit
-    ) {
+    fun addExpenseIncome(title: String, amount: BigDecimal, currency: String, isExpense: Boolean, category: String, onComplete: () -> Unit) {
         viewModelScope.launch {
             if (title.isNotBlank() && amount.signum() > 0) {
-                repository.insertExpenseIncome(
-                    ExpenseIncome(
-                        title = title,
-                        amount = MoneyMath.nonNegativeAmount(amount),
-                        currency = currency,
-                        isExpense = isExpense,
-                        category = category
-                    )
-                )
-                onComplete()
-                syncManager?.syncAll()
+                repository.insertExpenseIncome(ExpenseIncome(title = title, amount = MoneyMath.nonNegativeAmount(amount), currency = currency, isExpense = isExpense, category = category))
+                onComplete(); syncManager?.syncAll()
             }
         }
     }
 
-    fun removeExpenseIncome(id: Int) {
-        viewModelScope.launch {
-            repository.softDeleteExpenseIncomeById(id)
-            syncManager?.syncAll()
-        }
-    }
+    fun removeExpenseIncome(id: Int) { viewModelScope.launch { repository.softDeleteExpenseIncomeById(id); syncManager?.syncAll() } }
 
     fun triggerFullSync() {
         viewModelScope.launch {
-            try {
-                syncManager?.syncAll()
-            } catch (e: Exception) {
-                com.safa.account.utils.SafaLogger.error("SYNC", "Background sync trigger failed", e)
-            }
+            try { syncManager?.syncAll() } catch (e: Exception) { com.safa.account.utils.SafaLogger.error("SYNC", "Background sync trigger failed", e) }
         }
     }
 
-    // 6. Update Daily Standard Market Rates
     fun publishDailyRates(customerRate: BigDecimal, supplierRate: BigDecimal, onComplete: () -> Unit) {
         viewModelScope.launch {
             val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            val updated = DailyRate(
-                date = dateStr,
-                customerRate = MoneyMath.nonNegativeRate(customerRate),
-                supplierRate = MoneyMath.nonNegativeRate(supplierRate)
-            )
-            repository.insertDailyRate(updated)
-            _currentRates.value = updated
-            onComplete()
-            syncManager?.syncAll()
+            val updated = DailyRate(date = dateStr, customerRate = MoneyMath.nonNegativeRate(customerRate), supplierRate = MoneyMath.nonNegativeRate(supplierRate))
+            repository.insertDailyRate(updated); _currentRates.value = updated; onComplete(); syncManager?.syncAll()
         }
     }
 
-    // 7. Add Staff Operator
     fun updateOperator(operator: OperatorAccount, onComplete: () -> Unit = {}) {
         _currentOperator.value = operator
-        viewModelScope.launch {
-            repository.updateOperator(operator)
-            onComplete()
-            syncManager?.syncAll()
-        }
+        viewModelScope.launch { repository.updateOperator(operator); onComplete(); syncManager?.syncAll() }
     }
 
-    /** Change the current PIN through the authenticated server authority. */
     fun updateOperatorPin(currentPin: String, newPin: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             val op = _currentOperator.value
-            if (op == null || currentPin.length != 6 || newPin.length != 6 ||
-                !currentPin.all { it.isDigit() } || !newPin.all { it.isDigit() } || currentPin == newPin
-            ) {
-                onResult(false, if (_currentLanguage.value == "BN") "দুটি আলাদা ৬ সংখ্যার পিন দিন।" else "Enter two different six-digit PINs.")
-                return@launch
+            if (op == null || currentPin.length != 6 || newPin.length != 6 || !currentPin.all { it.isDigit() } || !newPin.all { it.isDigit() } || currentPin == newPin) {
+                onResult(false, if (_currentLanguage.value == "BN") "দুটি আলাদা ৬ সংখ্যার পিন দিন।" else "Enter two different six-digit PINs."); return@launch
             }
-
             try {
                 val api = syncManager?.getApiService()
-                if (api == null) {
-                    onResult(false, safeConnectionFailure())
-                    return@launch
-                }
+                if (api == null) { onResult(false, safeConnectionFailure()); return@launch }
                 val response = api.changePin(com.safa.account.data.api.dto.ChangePinRequest(currentPin, newPin))
                 if (!response.isSuccessful) {
-                    com.safa.account.utils.SafaLogger.warn("PIN_CHANGE", "PIN change rejected with HTTP ${response.code()}")
                     val message = when (response.code()) {
                         401 -> if (_currentLanguage.value == "BN") "বর্তমান পিন সঠিক নয়।" else "Current PIN is incorrect."
                         422 -> if (_currentLanguage.value == "BN") "নতুন পিনটি আলাদা ৬ সংখ্যার হতে হবে।" else "The new PIN must be a different six-digit PIN."
                         else -> safeServerFailure("PIN change", response.code())
                     }
-                    onResult(false, message)
-                    return@launch
+                    onResult(false, message); return@launch
                 }
-
-                // PIN verifiers remain server-only; no reusable PIN material is
-                // persisted in the Android operator cache.
                 val updatedOp = op.copy(pin = "")
-                repository.updateOperator(updatedOp)
-                _currentOperator.value = updatedOp
-                onResult(true, null)
+                repository.updateOperator(updatedOp); _currentOperator.value = updatedOp; onResult(true, null)
             } catch (e: Exception) {
-                com.safa.account.utils.SafaLogger.error("PIN_CHANGE", "PIN change request failed", e)
-                onResult(false, safeConnectionFailure())
+                com.safa.account.utils.SafaLogger.error("PIN_CHANGE", "PIN change request failed", e); onResult(false, safeConnectionFailure())
             }
         }
     }
 
-    // Disable demo data injection; all data is fetched live from server
-    fun injectDemoSandboxData() {
-        // No-op: Only real server data is used
-    }
+    fun injectDemoSandboxData() { }
 }
 
 class SafaViewModelFactory(
