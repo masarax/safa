@@ -221,7 +221,9 @@ class AppRepository private constructor(
         runCatching {
             val cursorStore = appContext?.let(::SyncCursorStore)
             var accountId = appContext?.let { TokenManager(it).getActiveAccountId() }?.takeIf { it > 0 }
-            var cursor = accountId?.let { cursorStore?.read(it) } ?: 0L
+            val initialState = accountId?.let { cursorStore?.read(it) }
+            var cursor = initialState?.cursor ?: 0L
+            var permissionScope = initialState?.permissionScope
             var pageCount = 0
 
             while (true) {
@@ -239,6 +241,18 @@ class AppRepository private constructor(
                 }
                 accountId = responseAccountId ?: accountId
 
+                val responsePermissionScope = body.permissionScope?.takeIf { it.isNotBlank() }
+                if (body.protocol == "cursor-v1" && responsePermissionScope == null) {
+                    error("Server sync permission scope is missing")
+                }
+                if (body.protocol == "cursor-v1" && cursor > 0L && permissionScope != responsePermissionScope) {
+                    accountId?.let { id -> cursorStore?.resetForPermissionScope(id, responsePermissionScope!!) }
+                    permissionScope = responsePermissionScope
+                    cursor = 0L
+                    continue
+                }
+                if (permissionScope == null) permissionScope = responsePermissionScope
+
                 mergeServerRows("customers", body.customers, ::customer, ::cp)
                 mergeServerRows("suppliers", body.suppliers, ::supplier, ::sp)
                 mergeServerRows("transactions", body.transactions, ::transaction, ::tp)
@@ -251,7 +265,9 @@ class AppRepository private constructor(
                 if (nextCursor < cursor) error("Server sync cursor regressed")
                 if (body.hasMore && nextCursor == cursor) error("Server sync cursor did not advance")
 
-                accountId?.let { id -> cursorStore?.advance(id, nextCursor) }
+                if (body.protocol == "cursor-v1") {
+                    accountId?.let { id -> cursorStore?.commit(id, nextCursor, permissionScope!!) }
+                }
                 cursor = nextCursor
                 if (!body.hasMore) break
             }
