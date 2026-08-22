@@ -170,7 +170,8 @@ class ApiSecurityInterceptor(
                 .use { response ->
                     if (!response.isSuccessful) return null
                     val json = JSONObject(response.body?.string().orEmpty())
-                    persistRefreshGeneration(tm, token, json)
+                    val generation = parseRefreshGeneration(json) ?: return null
+                    persistRefreshGeneration(tm, token, generation)
                 }
         } catch (_: Exception) {
             null
@@ -178,40 +179,40 @@ class ApiSecurityInterceptor(
     }
 }
 
+internal data class RefreshTokenGeneration(
+    val accessToken: String,
+    val refreshToken: String? = null,
+    val sessionToken: String? = null,
+    val deviceToken: String? = null,
+    val fingerprintToken: String? = null
+)
+
+private fun parseRefreshGeneration(responseJson: JSONObject): RefreshTokenGeneration? {
+    val tokens = responseJson.optJSONObject("tokens") ?: responseJson
+    fun tokenValue(name: String): String? = tokens.optString(name)
+        .ifBlank { responseJson.optString(name) }
+        .takeIf { it.isNotBlank() }
+
+    val accessToken = tokenValue("access_token") ?: return null
+    return RefreshTokenGeneration(
+        accessToken = accessToken,
+        refreshToken = tokenValue("refresh_token"),
+        sessionToken = tokenValue("session_token"),
+        deviceToken = tokenValue("device_token"),
+        fingerprintToken = tokenValue("fingerprint_token")
+    )
+}
+
 /**
- * Validate a refresh response completely before mutating local credentials, then
- * persist the resulting generation through TokenManager's single-edit path.
- *
- * A refresh response is allowed to omit unchanged session/device/fingerprint
- * values. The old refresh token is used only as a fallback when the server does
- * not rotate it. If another flow has already replaced that refresh token while
- * the request was in flight, this stale response is discarded and the newer
- * access token is returned instead.
+ * Persist one already-validated refresh generation through TokenManager's
+ * single-edit path. This function intentionally contains no Android JSON work so
+ * its race/atomicity contract is deterministic in JVM unit tests too.
  */
 internal fun persistRefreshGeneration(
     tokenManager: TokenManager,
     expectedRefreshToken: String,
-    responseJson: JSONObject
+    generation: RefreshTokenGeneration
 ): String? {
-    val tokens = responseJson.optJSONObject("tokens") ?: responseJson
-    val accessToken = tokens.optString("access_token")
-        .ifBlank { responseJson.optString("access_token") }
-        .takeIf { it.isNotBlank() }
-        ?: return null
-
-    val rotatedRefreshToken = tokens.optString("refresh_token")
-        .ifBlank { responseJson.optString("refresh_token") }
-        .takeIf { it.isNotBlank() }
-    val sessionToken = tokens.optString("session_token")
-        .ifBlank { responseJson.optString("session_token") }
-        .takeIf { it.isNotBlank() }
-    val deviceToken = tokens.optString("device_token")
-        .ifBlank { responseJson.optString("device_token") }
-        .takeIf { it.isNotBlank() }
-    val fingerprintToken = tokens.optString("fingerprint_token")
-        .ifBlank { responseJson.optString("fingerprint_token") }
-        .takeIf { it.isNotBlank() }
-
     synchronized(tokenManager) {
         val currentRefreshToken = tokenManager.getRefreshToken()
         if (currentRefreshToken != expectedRefreshToken) {
@@ -220,17 +221,17 @@ internal fun persistRefreshGeneration(
             return tokenManager.getAccessToken()
         }
 
-        val effectiveRefreshToken = rotatedRefreshToken ?: currentRefreshToken
+        val effectiveRefreshToken = generation.refreshToken ?: currentRefreshToken
         if (effectiveRefreshToken.isNullOrBlank()) return null
 
         tokenManager.saveAllTokens(
-            accessToken = accessToken,
+            accessToken = generation.accessToken,
             refreshToken = effectiveRefreshToken,
-            deviceToken = deviceToken ?: tokenManager.getDeviceToken(),
-            sessionToken = sessionToken ?: tokenManager.getSessionToken(),
-            fingerprintToken = fingerprintToken ?: tokenManager.getFingerprintToken()
+            deviceToken = generation.deviceToken ?: tokenManager.getDeviceToken(),
+            sessionToken = generation.sessionToken ?: tokenManager.getSessionToken(),
+            fingerprintToken = generation.fingerprintToken ?: tokenManager.getFingerprintToken()
         )
     }
 
-    return accessToken
+    return generation.accessToken
 }
