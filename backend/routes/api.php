@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\SyncPageController;
+use App\Http\Controllers\SyncDeltaController;
 use App\Http\Controllers\RemoteConfigController;
 use App\Http\Controllers\AuthJWTController;
 use App\Http\Controllers\SecureAuthController;
@@ -36,6 +37,7 @@ use App\Http\Middleware\ValidateSyncDependencies;
 // the public Android client key is never used as a global shared bucket.
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:api'])->group(function () {
     Route::get('/v1/sync/down', SyncPageController::class);
+    Route::get('/v1/sync/changes', SyncDeltaController::class);
     foreach (['customers', 'suppliers', 'transactions', 'wallet-ledgers', 'supplier-deposits', 'wallet-batches', 'expenses-incomes'] as $resource) {
         Route::get('/v1/' . $resource, VersionedCollectionController::class)->defaults('resource', $resource);
     }
@@ -88,6 +90,7 @@ Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', Verify
 
 Route::middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, AuditLogMiddleware::class, RequireBusinessPermission::class, 'throttle:api'])->group(function () {
     Route::get('/sync/down', [SyncController::class, 'syncDown']);
+    Route::get('/sync/changes', SyncDeltaController::class);
     Route::post('/sync/up', [SyncController::class, 'syncUp'])->middleware(ValidateSyncDependencies::class);
     Route::get('/config/remote', [RemoteConfigController::class, 'getRemoteConfig']);
     Route::get('/version/check', [RemoteConfigController::class, 'checkVersion']);
