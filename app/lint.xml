@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      Compose 1.12 introduces NonObservableLocale as an error for existing
+      Locale.getDefault() formatting inside composables. Issue #233 owns the
+      locale/resource migration across those screens and will remove this
+      temporary warning override. Keep the rule visible; do not baseline or
+      disable it, so new occurrences remain reported by lint.
+    -->
+    <issue id="NonObservableLocale" severity="warning" />
+</lint>

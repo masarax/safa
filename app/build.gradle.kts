@@ -29,7 +29,7 @@ val releaseSigningConfigured = listOf(
 
 android {
   namespace = "com.safa.account"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk { version = release(37) }
   defaultConfig {
     applicationId = "com.safa.account"
     minSdk = 24
@@ -77,7 +77,7 @@ android {
 secrets { propertiesFileName = ".env"; defaultPropertiesFileName = ".env.example" }
 
 dependencies {
-  coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+  coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
   implementation(platform(libs.androidx.compose.bom)); implementation(libs.androidx.activity.compose); implementation(libs.androidx.biometric)
   implementation(libs.androidx.compose.material.icons.core); implementation(libs.androidx.compose.material.icons.extended); implementation(libs.androidx.compose.material3); implementation(libs.androidx.compose.ui); implementation(libs.androidx.compose.ui.graphics); implementation(libs.androidx.compose.ui.tooling.preview); implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.compose); implementation(libs.androidx.lifecycle.runtime.ktx); implementation(libs.androidx.lifecycle.viewmodel.compose)
