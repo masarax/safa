@@ -1,5 +1,5 @@
 plugins {
-  alias(libs.plugins.android.test)
+  id("com.android.test")
 }
 
 android {
