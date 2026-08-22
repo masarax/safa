@@ -2,29 +2,26 @@ package com.safa.account.data.api
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Build
 import android.util.Base64
 import androidx.core.content.edit
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.safa.account.data.network.DeviceSecurityHelper
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.json.JSONObject
 
-class TokenManager(private val context: Context) {
-    private val legacyPrefs = context.getSharedPreferences("safa_secure_prefs", Context.MODE_PRIVATE)
-    private val prefs: SharedPreferences = if (Build.FINGERPRINT == "robolectric") {
-        context.getSharedPreferences("safa_secure_prefs_v2", Context.MODE_PRIVATE)
-    } else {
-        EncryptedSharedPreferences.create(
-            context,
-            "safa_secure_prefs_v2",
-            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
+class TokenManager internal constructor(
+    private val context: Context,
+    private val vault: TokenVault,
+    private val migrationFault: (() -> Unit)?,
+) {
+    constructor(context: Context) : this(
+        context.applicationContext,
+        TokenVault(context.applicationContext),
+        null,
+    )
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(METADATA_PREFS_NAME, Context.MODE_PRIVATE)
 
     private val _sessionInvalidated = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionInvalidated = _sessionInvalidated.asSharedFlow()
@@ -35,7 +32,10 @@ class TokenManager(private val context: Context) {
     @Volatile
     private var logoutInProgress = false
 
-    init { migrateLegacyPreferences() }
+    init {
+        migrateLegacyPreferences()
+        reconcileAccountContextFromVault()
+    }
 
     companion object {
         private const val KEY_ACCESS_TOKEN = "auth_token"
@@ -50,28 +50,159 @@ class TokenManager(private val context: Context) {
         private const val KEY_BIOMETRIC_ENABLED = "biometric_quick_unlock_enabled"
         private const val KEY_BIOMETRIC_USER_ID = "biometric_quick_unlock_user_id"
         private const val KEY_BIOMETRIC_MOBILE = "biometric_quick_unlock_mobile"
-        private const val KEY_MIGRATION_COMPLETE = "secure_prefs_migration_complete"
+        private const val KEY_LEGACY_MIGRATION_COMPLETE = "secure_prefs_migration_complete"
+        private const val KEY_VAULT_MIGRATION_COMPLETE = "secure_vault_v3_migration_complete"
+        internal const val METADATA_PREFS_NAME = "safa_secure_metadata_v3"
         private const val DEFAULT_URL = "https://safa.masarax.com/api/"
+
+        private val SECRET_KEYS = setOf(
+            KEY_ACCESS_TOKEN,
+            KEY_REFRESH_TOKEN,
+            KEY_DEVICE_TOKEN,
+            KEY_SESSION_TOKEN,
+            KEY_FINGERPRINT_TOKEN,
+        )
     }
 
+    /**
+     * Move one complete legacy credential generation into the v3 vault.
+     *
+     * The new generation is encrypted and read back before the metadata marker is
+     * committed. Legacy stores are deleted only after that durable checkpoint.
+     * If the process stops between those steps, the next construction reuses the
+     * already verified v3 generation and safely completes the migration.
+     */
     private fun migrateLegacyPreferences() {
-        if (prefs.getBoolean(KEY_MIGRATION_COMPLETE, false)) return
-        if (legacyPrefs.all.isNotEmpty()) {
-            prefs.edit {
-                legacyPrefs.all.forEach { (key, value) ->
-                    when (value) {
-                        is String -> putString(key, value)
-                        is Boolean -> putBoolean(key, value)
-                        is Int -> putInt(key, value)
-                        is Long -> putLong(key, value)
-                        is Float -> putFloat(key, value)
-                    }
-                }
-                putBoolean(KEY_MIGRATION_COMPLETE, true)
+        if (prefs.getBoolean(KEY_VAULT_MIGRATION_COMPLETE, false)) {
+            LegacySecurePreferences.delete(context)
+            return
+        }
+
+        val plainSnapshot = LegacySecurePreferences.plain(context).all.toMap()
+        val currentGeneration = try {
+            vault.read()
+        } catch (_: TokenVaultException) {
+            runCatching { vault.reset() }
+            TokenGeneration()
+        }
+
+        val encryptedSnapshot = try {
+            LegacySecurePreferences.encrypted(context).all.toMap()
+        } catch (_: Exception) {
+            if (currentGeneration.isEmpty()) {
+                completeUnrecoverableLegacyReset(plainSnapshot)
+            } else {
+                // A prior migration run may have durably verified v3 and then
+                // stopped before the metadata marker/legacy cleanup. Never
+                // discard that recoverable authoritative generation just
+                // because the older compatibility vault later became unreadable.
+                commitMigratedMetadata(plainSnapshot, clearSessionBinding = false)
+                LegacySecurePreferences.delete(context)
             }
-            legacyPrefs.edit { clear() }
-        } else {
-            prefs.edit { putBoolean(KEY_MIGRATION_COMPLETE, true) }
+            return
+        }
+
+        val legacy = LinkedHashMap<String, Any?>().apply {
+            putAll(plainSnapshot)
+            putAll(encryptedSnapshot)
+        }
+        val legacyGeneration = generationFromLegacy(legacy)
+
+        if (!legacyGeneration.isEmpty() && currentGeneration.isEmpty()) {
+            vault.write(legacyGeneration)
+            if (vault.read() != legacyGeneration) {
+                throw TokenVaultException("Legacy token generation verification failed")
+            }
+            migrationFault?.invoke()
+        }
+
+        commitMigratedMetadata(legacy, clearSessionBinding = false)
+        LegacySecurePreferences.delete(context)
+    }
+
+    private fun commitMigratedMetadata(values: Map<String, Any?>, clearSessionBinding: Boolean) {
+        val editor = prefs.edit()
+        values.forEach { (key, value) ->
+            if (key !in SECRET_KEYS && key != KEY_LEGACY_MIGRATION_COMPLETE) {
+                putMetadataValue(editor, key, value)
+            }
+        }
+        if (clearSessionBinding) {
+            editor.remove(KEY_ACTIVE_ACCOUNT_ID)
+            editor.remove(KEY_BIOMETRIC_ENABLED)
+            editor.remove(KEY_BIOMETRIC_USER_ID)
+            editor.remove(KEY_BIOMETRIC_MOBILE)
+        }
+        editor.putBoolean(KEY_VAULT_MIGRATION_COMPLETE, true)
+        if (!editor.commit()) {
+            throw TokenVaultException("Unable to commit token vault migration metadata")
+        }
+        if (clearSessionBinding) biometricUnlockApproved = false
+    }
+
+    /**
+     * A legacy encrypted store whose key can no longer authenticate is not
+     * recoverable. Fail closed: preserve only non-secret plain metadata, reset
+     * the v3 key/ciphertext, clear session binding, and retire the unreadable
+     * legacy store so the user must authenticate again.
+     */
+    private fun completeUnrecoverableLegacyReset(plainSnapshot: Map<String, Any?>) {
+        runCatching { vault.reset() }
+        commitMigratedMetadata(plainSnapshot, clearSessionBinding = true)
+        LegacySecurePreferences.delete(context)
+    }
+
+    private fun generationFromLegacy(values: Map<String, Any?>) = TokenGeneration(
+        accessToken = values[KEY_ACCESS_TOKEN] as? String,
+        refreshToken = values[KEY_REFRESH_TOKEN] as? String,
+        deviceToken = values[KEY_DEVICE_TOKEN] as? String,
+        sessionToken = values[KEY_SESSION_TOKEN] as? String,
+        fingerprintToken = values[KEY_FINGERPRINT_TOKEN] as? String,
+    )
+
+    private fun putMetadataValue(editor: SharedPreferences.Editor, key: String, value: Any?) {
+        when (value) {
+            is String -> editor.putString(key, value)
+            is Boolean -> editor.putBoolean(key, value)
+            is Int -> editor.putInt(key, value)
+            is Long -> editor.putLong(key, value)
+            is Float -> editor.putFloat(key, value)
+            is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+        }
+    }
+
+    private fun readGeneration(): TokenGeneration = try {
+        vault.read()
+    } catch (_: TokenVaultException) {
+        failClosedVaultReset()
+        TokenGeneration()
+    }
+
+    private fun writeGeneration(generation: TokenGeneration) {
+        try {
+            vault.write(generation)
+        } catch (error: TokenVaultException) {
+            failClosedVaultReset()
+            throw error
+        }
+    }
+
+    private fun failClosedVaultReset() {
+        runCatching { vault.reset() }
+        prefs.edit {
+            remove(KEY_ACTIVE_ACCOUNT_ID)
+            remove(KEY_BIOMETRIC_ENABLED)
+            remove(KEY_BIOMETRIC_USER_ID)
+            remove(KEY_BIOMETRIC_MOBILE)
+        }
+        biometricUnlockApproved = false
+        _sessionInvalidated.tryEmit(Unit)
+    }
+
+    private fun reconcileAccountContextFromVault() {
+        val accountId = accountIdFromAccessToken(readGeneration().accessToken) ?: return
+        if (getActiveAccountId() != accountId) {
+            prefs.edit { putInt(KEY_ACTIVE_ACCOUNT_ID, accountId) }
         }
     }
 
@@ -85,17 +216,17 @@ class TokenManager(private val context: Context) {
     fun saveApiSecret(@Suppress("UNUSED_PARAMETER") secret: String) = Unit
     fun getApiSecret(): String = ""
 
-    fun saveAccessToken(token: String?) = prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
-    fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
+    fun saveAccessToken(token: String?) = writeGeneration(readGeneration().copy(accessToken = token))
+    fun getAccessToken(): String? = readGeneration().accessToken
     fun saveToken(token: String) = saveAccessToken(token)
     fun getToken(): String? = getAccessToken()
     fun clearToken() = clearAllTokens()
-    fun saveRefreshToken(token: String?) = prefs.edit { putString(KEY_REFRESH_TOKEN, token) }
-    fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
+    fun saveRefreshToken(token: String?) = writeGeneration(readGeneration().copy(refreshToken = token))
+    fun getRefreshToken(): String? = readGeneration().refreshToken
 
-    fun saveDeviceToken(token: String?) = prefs.edit { putString(KEY_DEVICE_TOKEN, token) }
+    fun saveDeviceToken(token: String?) = writeGeneration(readGeneration().copy(deviceToken = token))
     fun getDeviceToken(): String {
-        var token = prefs.getString(KEY_DEVICE_TOKEN, null)
+        var token = readGeneration().deviceToken
         if (token.isNullOrBlank()) {
             token = DeviceSecurityHelper.getOrCreateDeviceUuid(context)
             saveDeviceToken(token)
@@ -103,11 +234,11 @@ class TokenManager(private val context: Context) {
         return token
     }
 
-    fun saveSessionToken(token: String?) = prefs.edit { putString(KEY_SESSION_TOKEN, token) }
-    fun getSessionToken(): String? = prefs.getString(KEY_SESSION_TOKEN, null)
-    fun saveFingerprintToken(token: String?) = prefs.edit { putString(KEY_FINGERPRINT_TOKEN, token) }
+    fun saveSessionToken(token: String?) = writeGeneration(readGeneration().copy(sessionToken = token))
+    fun getSessionToken(): String? = readGeneration().sessionToken
+    fun saveFingerprintToken(token: String?) = writeGeneration(readGeneration().copy(fingerprintToken = token))
     fun getFingerprintToken(): String {
-        var token = prefs.getString(KEY_FINGERPRINT_TOKEN, null)
+        var token = readGeneration().fingerprintToken
         if (token.isNullOrBlank()) {
             token = DeviceSecurityHelper.getHardwareFingerprintHash(context)
             saveFingerprintToken(token)
@@ -123,14 +254,18 @@ class TokenManager(private val context: Context) {
     }.getOrNull()
 
     fun saveAllTokens(accessToken: String?, refreshToken: String?, deviceToken: String?, sessionToken: String?, fingerprintToken: String?) {
-        val automaticAccountId = accountIdFromAccessToken(accessToken)
-        prefs.edit {
-            putString(KEY_ACCESS_TOKEN, accessToken)
-            putString(KEY_REFRESH_TOKEN, refreshToken)
-            if (!deviceToken.isNullOrBlank()) putString(KEY_DEVICE_TOKEN, deviceToken)
-            putString(KEY_SESSION_TOKEN, sessionToken)
-            if (!fingerprintToken.isNullOrBlank()) putString(KEY_FINGERPRINT_TOKEN, fingerprintToken)
-            if (automaticAccountId != null) putInt(KEY_ACTIVE_ACCOUNT_ID, automaticAccountId)
+        val current = readGeneration()
+        val next = TokenGeneration(
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            deviceToken = deviceToken?.takeIf { it.isNotBlank() } ?: current.deviceToken,
+            sessionToken = sessionToken,
+            fingerprintToken = fingerprintToken?.takeIf { it.isNotBlank() } ?: current.fingerprintToken,
+        )
+        writeGeneration(next)
+
+        accountIdFromAccessToken(accessToken)?.let { accountId ->
+            prefs.edit { putInt(KEY_ACTIVE_ACCOUNT_ID, accountId) }
         }
     }
 
@@ -147,14 +282,21 @@ class TokenManager(private val context: Context) {
     fun finishLogout() { logoutInProgress = false }
     fun isLogoutInProgress(): Boolean = logoutInProgress
 
-    fun clearAllTokens() = prefs.edit {
-        remove(KEY_ACCESS_TOKEN)
-        remove(KEY_REFRESH_TOKEN)
-        remove(KEY_SESSION_TOKEN)
-        remove(KEY_ACTIVE_ACCOUNT_ID)
-        remove(KEY_BIOMETRIC_ENABLED)
-        remove(KEY_BIOMETRIC_USER_ID)
-        remove(KEY_BIOMETRIC_MOBILE)
+    fun clearAllTokens() {
+        val current = readGeneration()
+        writeGeneration(
+            current.copy(
+                accessToken = null,
+                refreshToken = null,
+                sessionToken = null,
+            )
+        )
+        prefs.edit {
+            remove(KEY_ACTIVE_ACCOUNT_ID)
+            remove(KEY_BIOMETRIC_ENABLED)
+            remove(KEY_BIOMETRIC_USER_ID)
+            remove(KEY_BIOMETRIC_MOBILE)
+        }
         biometricUnlockApproved = false
     }
 
