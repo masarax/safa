@@ -21,35 +21,73 @@ class AuditSecurityRegressionTest extends TestCase
     use RefreshDatabase;
     use AuthorizeAccountContext;
 
-    public function test_audit_payload_redacts_current_new_and_nested_credentials(): void
+    public function test_audit_event_never_duplicates_credentials_or_business_pii(): void
     {
         $user = User::factory()->create(['is_activated' => true]);
         $account = Account::create(['name' => 'Audit Account', 'balance' => 0, 'owner_user_id' => $user->id]);
         Auth::login($user);
 
-        $request = Request::create('/api/auth/change-pin', 'POST', [
+        $request = Request::create('/api/transactions', 'POST', [
             'current_pin' => '123456',
             'new_pin' => '654321',
             'password_confirmation' => 'secret-password',
-            'note' => 'keep-me',
+            'customer_phone' => '+8801712345678',
+            'receiver_account_no' => '1234567890123456',
+            'receiver_name' => 'Sensitive Receiver',
+            'notes' => 'private business note',
+            'logo_base64' => 'data:image/png;base64,secret-image-data',
             'nested' => [
                 'access_token' => 'access-secret',
                 'api_secret' => 'api-secret',
-                'safe' => 'visible',
+                'address' => 'private address',
             ],
         ]);
         $request->attributes->set('active_account_id', $account->id);
 
-        app(AuditLogMiddleware::class)->handle($request, fn () => response()->json(['ok' => true]));
+        app(AuditLogMiddleware::class)->handle($request, fn () => response()->json(['ok' => true], 201));
 
-        $payload = AuditLog::query()->latest('id')->firstOrFail()->payload;
-        $this->assertSame('[REDACTED]', $payload['current_pin']);
-        $this->assertSame('[REDACTED]', $payload['new_pin']);
-        $this->assertSame('[REDACTED]', $payload['password_confirmation']);
-        $this->assertSame('[REDACTED]', $payload['nested']['access_token']);
-        $this->assertSame('[REDACTED]', $payload['nested']['api_secret']);
-        $this->assertSame('keep-me', $payload['note']);
-        $this->assertSame('visible', $payload['nested']['safe']);
+        $audit = AuditLog::query()->latest('id')->firstOrFail();
+        $encoded = json_encode($audit->payload, JSON_THROW_ON_ERROR);
+
+        $this->assertSame($user->id, $audit->user_id);
+        $this->assertSame($account->id, $audit->account_id);
+        $this->assertSame('POST', $audit->action);
+        $this->assertSame(201, $audit->payload['status_code']);
+        $this->assertSame('success', $audit->payload['result']);
+        $this->assertNotSame('127.0.0.1', $audit->ip_address);
+        $this->assertLessThanOrEqual(45, strlen((string) $audit->ip_address));
+
+        foreach ([
+            '123456', '654321', 'secret-password', '+8801712345678',
+            '1234567890123456', 'Sensitive Receiver', 'private business note',
+            'secret-image-data', 'access-secret', 'api-secret', 'private address',
+        ] as $secret) {
+            $this->assertStringNotContainsString($secret, $encoded);
+        }
+    }
+
+    public function test_audit_prune_removes_only_records_outside_configured_retention(): void
+    {
+        config(['safa.audit_retention_days' => 90]);
+        $old = AuditLog::create([
+            'action' => 'POST',
+            'endpoint' => 'api/customers',
+            'payload' => ['status_code' => 201],
+            'created_at' => now()->subDays(91),
+            'updated_at' => now()->subDays(91),
+        ]);
+        $current = AuditLog::create([
+            'action' => 'POST',
+            'endpoint' => 'api/customers',
+            'payload' => ['status_code' => 201],
+            'created_at' => now()->subDays(89),
+            'updated_at' => now()->subDays(89),
+        ]);
+
+        $this->artisan('safa:audit-prune')->assertSuccessful();
+
+        $this->assertDatabaseMissing('audit_logs', ['id' => $old->id]);
+        $this->assertDatabaseHas('audit_logs', ['id' => $current->id]);
     }
 
     public function test_revoked_device_binding_cannot_be_reactivated_by_model_update(): void
