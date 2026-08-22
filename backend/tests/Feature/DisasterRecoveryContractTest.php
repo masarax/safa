@@ -116,7 +116,7 @@ class DisasterRecoveryContractTest extends TestCase
         $this->assertStringContainsString('mysqlbinlog', $workflow);
         $this->assertStringContainsString('mysql-recovery:', $workflow);
         $this->assertStringContainsString('3307:3306', $workflow);
-        $this->assertStringContainsString('same authoritative database name', $workflow);
+        $this->assertStringContainsString('independent clean MySQL instance', $workflow);
         $this->assertStringContainsString('CORRUPTED-LATER', $workflow);
         $this->assertStringContainsString('SAFA-DR-PITR', $workflow);
         foreach (['customers', 'suppliers', 'wallet_ledgers', 'wallet_batches', 'transactions', 'system_settings'] as $table) {
