@@ -34,6 +34,12 @@ internal object LegacySecurePreferences {
         context.getSharedPreferences(PLAIN_PREFS_NAME, Context.MODE_PRIVATE)
 
     fun delete(context: Context) {
+        // Clear synchronously before deleting the files. Besides being safer for
+        // a live process that may still hold a SharedPreferences instance, this
+        // guarantees migrated secrets are no longer reachable through any
+        // already-open legacy handle after the migration checkpoint commits.
+        runCatching { encrypted(context).edit().clear().commit() }
+        runCatching { plain(context).edit().clear().commit() }
         context.deleteSharedPreferences(ENCRYPTED_PREFS_NAME)
         context.deleteSharedPreferences(PLAIN_PREFS_NAME)
     }
