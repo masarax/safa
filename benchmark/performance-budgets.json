@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "device_profile": "controlled-physical-reference",
+  "startup": {
+    "cold_ms_p50_max": 1000,
+    "cold_ms_p95_max": 1800,
+    "warm_ms_p50_max": 650
+  },
+  "frames": {
+    "frame_ms_p95_max": 32,
+    "jank_percent_max": 8.0
+  },
+  "regression": {
+    "max_percent_vs_accepted_baseline": 10.0
+  }
+}

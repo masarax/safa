@@ -64,6 +64,15 @@ android {
       if (releaseSigningConfigured) signingConfig = signingConfigs.getByName("release")
     }
     debug { }
+    create("benchmark") {
+      initWith(getByName("release"))
+      // Controlled performance runs use a release-like, non-debuggable build
+      // signed with the local debug key so the benchmark APK can install it
+      // without production signing material.
+      signingConfig = signingConfigs.getByName("debug")
+      isDebuggable = false
+      matchingFallbacks += listOf("release")
+    }
   }
   compileOptions {
     isCoreLibraryDesugaringEnabled = true
