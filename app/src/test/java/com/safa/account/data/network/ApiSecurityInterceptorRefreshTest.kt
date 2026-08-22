@@ -7,7 +7,6 @@ import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -152,16 +151,12 @@ class ApiSecurityInterceptorRefreshTest {
         val access = persistRefreshGeneration(
             tokenManager,
             "refresh-old",
-            JSONObject(
-                """{
-                    "tokens": {
-                        "access_token": "access-new",
-                        "refresh_token": "refresh-new",
-                        "device_token": "device-new",
-                        "session_token": "session-new",
-                        "fingerprint_token": "fingerprint-new"
-                    }
-                }""".trimIndent()
+            RefreshTokenGeneration(
+                accessToken = "access-new",
+                refreshToken = "refresh-new",
+                deviceToken = "device-new",
+                sessionToken = "session-new",
+                fingerprintToken = "fingerprint-new"
             )
         )
 
@@ -191,7 +186,10 @@ class ApiSecurityInterceptorRefreshTest {
         val access = persistRefreshGeneration(
             tokenManager,
             "refresh-old",
-            JSONObject("""{"tokens":{"access_token":"access-new","refresh_token":"refresh-new"}}""")
+            RefreshTokenGeneration(
+                accessToken = "access-new",
+                refreshToken = "refresh-new"
+            )
         )
 
         assertEquals("access-new", access)
@@ -213,7 +211,10 @@ class ApiSecurityInterceptorRefreshTest {
         val access = persistRefreshGeneration(
             tokenManager,
             "refresh-old",
-            JSONObject("""{"tokens":{"access_token":"stale-access","refresh_token":"stale-refresh"}}""")
+            RefreshTokenGeneration(
+                accessToken = "stale-access",
+                refreshToken = "stale-refresh"
+            )
         )
 
         assertEquals("access-newer", access)
