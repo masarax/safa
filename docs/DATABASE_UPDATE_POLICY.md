@@ -15,6 +15,18 @@ This is the production contract for first-time database initialization and all l
 
 `migrate:fresh`, `migrate:refresh`, reset, rollback and wipe commands are rebuild/destructive tools and are not part of the production installation or update procedure for an existing SAFA database.
 
+## Recovery prerequisite before production changes
+
+Migration safety reduces change risk but cannot recover deleted/corrupted storage. Before any production schema release, data backfill, emergency repair or other risky write:
+
+1. confirm the latest encrypted full backup is within the 26-hour freshness budget;
+2. confirm encrypted MySQL binlog and uploaded-logo snapshots are both within the 15-minute RPO budget;
+3. confirm their encrypted artifacts pass SHA-256 verification through `bin/verify-backup-freshness.sh`;
+4. confirm the external `/api/auth/backup-health` monitor is green with `SAFA_BACKUP_STATUS_REQUIRED=true`;
+5. confirm a recent restore/PITR drill is green and the operator can access the off-host backup destination plus recovery encryption key.
+
+The full operating/restore procedure, RPO/RTO and destructive recovery safeguards are defined in `docs/DISASTER_RECOVERY.md`. Do not continue a risky production change when recovery coverage is stale or unverified.
+
 ## Ongoing live updates
 
 - Application files may be deployed while the existing database remains intact.
@@ -41,4 +53,4 @@ Normal one-click production updates use an **expand / backfill / compatibility**
 
 `App\Support\ProductionMigrationSafety` inspects only each pending migration's `up()` body. It blocks known destructive schema/data operations before Laravel's migration command is invoked. CI applies the same analyzer to every committed production migration and includes representative destructive/rollback regression cases.
 
-This guard supplements migration review; it does not make arbitrary SQL safe and it is not a substitute for operational database backups.
+This guard supplements migration review; it does not make arbitrary SQL safe and it is not a substitute for the verified backup/PITR capability in `docs/DISASTER_RECOVERY.md`.

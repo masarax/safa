@@ -1,0 +1,209 @@
+name: MySQL Disaster Recovery Drill
+
+on:
+  pull_request:
+    paths:
+      - 'backend/bin/*.sh'
+      - 'backend/app/Http/Controllers/BackupHealthController.php'
+      - 'backend/config/safa.php'
+      - 'backend/routes/api.php'
+      - 'backend/tests/Feature/DisasterRecoveryContractTest.php'
+      - 'docs/DISASTER_RECOVERY.md'
+      - 'docs/DATABASE_UPDATE_POLICY.md'
+      - '.github/workflows/dr-restore-drill.yml'
+  schedule:
+    - cron: '17 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mysql-dr-drill-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  restore-pitr:
+    name: Restore full backup and replay to chosen binlog point
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: safa_test
+      DB_USERNAME: safa
+      DB_PASSWORD: safa_test_password
+      DB_URL: ''
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: safa_test
+          MYSQL_USER: safa
+          MYSQL_PASSWORD: safa_test_password
+          MYSQL_ROOT_PASSWORD: root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      mysql-recovery:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: safa_test
+          MYSQL_ROOT_PASSWORD: recovery_root_password
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -precovery_root_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Verify immutable workflow action pins
+        run: bash scripts/check-workflow-action-pins.sh
+
+      - name: Validate recovery shell syntax
+        run: |
+          set -euo pipefail
+          for script in backend/bin/*.sh; do bash -n "$script"; done
+
+      - name: Install MySQL recovery client utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y mysql-client-8.0
+          command -v mysql
+          command -v mysqlbinlog
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, pdo, pdo_mysql, bcmath, ctype, fileinfo, json, tokenizer
+          coverage: none
+          ini-values: memory_limit=1G, max_execution_time=0
+
+      - name: Prepare Laravel recovery fixture
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          php -r '$env=file_get_contents(".env"); $key="base64:".base64_encode(random_bytes(32)); $env=preg_replace("/^APP_KEY=.*$/m", "APP_KEY=$key", $env); file_put_contents(".env", $env);'
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+          php artisan migrate:fresh --force --no-interaction
+          php -r '
+          require "vendor/autoload.php";
+          $app = require "bootstrap/app.php";
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $credential = Illuminate\Support\Facades\Hash::make("731942");
+          $user = App\Models\User::create(["name"=>"DR Operator","mobile"=>"0500770999","email"=>"dr@example.invalid","password"=>$credential,"pin_hash"=>$credential,"role"=>App\Models\User::ROLE_SUPERADMIN,"is_activated"=>true,"permissions"=>App\Models\User::permissionsForRole(App\Models\User::ROLE_SUPERADMIN)]);
+          $account = App\Models\Account::create(["name"=>"DR Account","balance"=>"0.00","owner_user_id"=>$user->id]);
+          $customer = App\Models\Customer::create(["account_id"=>$account->id,"local_id"=>770001,"name"=>"DR Customer","phone"=>"0500770001","timestamp"=>time()]);
+          $supplier = App\Models\Supplier::create(["account_id"=>$account->id,"local_id"=>770002,"name"=>"DR Supplier","phone"=>"0500770002","timestamp"=>time()]);
+          $ledger = App\Models\WalletLedger::create(["account_id"=>$account->id,"local_id"=>770003,"name"=>"DR Wallet","timestamp"=>time()]);
+          $batch = App\Models\WalletBatch::create(["account_id"=>$account->id,"local_id"=>770004,"ledger_id"=>$ledger->id,"rate"=>"1.0000","initial_bdt"=>"500.00","remaining_bdt"=>"400.00","timestamp"=>time()]);
+          App\Models\Transaction::create(["account_id"=>$account->id,"local_id"=>770005,"type"=>"Delivered","amount"=>"10.00","amount_sar"=>"10.00","customer_id"=>$customer->id,"supplier_id"=>$supplier->id,"customer_rate"=>"10.0000","supplier_rate"=>"9.9000","amount_bdt"=>"100.00","sar_collected"=>"10.00","bdt_disbursed"=>"100.00","wallet_batch_id"=>$batch->id,"timestamp"=>time()]);
+          App\Models\SystemSetting::query()->create(["account_id"=>$account->id,"app_name"=>"SAFA-DR-BASELINE","app_logo_url"=>"/safa-logo.png","app_version"=>"1.0.0","local_currency"=>"BDT","foreign_currency"=>"SAR","rate_based_mode"=>true,"supplier_rate_enabled"=>true,"wallet_rate_enabled"=>true]);
+          '
+
+      - name: Full backup, point-in-time replay and integrity verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          start_epoch="$(date -u +%s)"
+          source_mysql=(mysql --protocol=TCP -h 127.0.0.1 -P 3306 -uroot)
+          recovery_mysql=(mysql --protocol=TCP -h 127.0.0.1 -P 3307 -uroot)
+
+          export MYSQL_PWD=root_password
+          log_bin="$("${source_mysql[@]}" -N -B -e 'SELECT @@GLOBAL.log_bin')"
+          test "$log_bin" = '1' || { echo 'MySQL binary logging must be enabled for PITR'; exit 1; }
+
+          full_dump="$RUNNER_TEMP/safa-dr-full.sql"
+          mysqldump --protocol=TCP -h 127.0.0.1 -P 3306 -uroot \
+            --single-transaction --quick --routines --triggers --events --hex-blob safa_test > "$full_dump"
+          test -s "$full_dump"
+          full_sha="$(sha256sum "$full_dump" | awk '{print $1}')"
+
+          read -r start_log start_pos < <("${source_mysql[@]}" -N -B -e 'SHOW MASTER STATUS' | awk '{print $1, $2}')
+          test -n "$start_log"
+          test -n "$start_pos"
+
+          "${source_mysql[@]}" safa_test -e \
+            "UPDATE system_settings SET app_name='SAFA-DR-PITR' WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)"
+          read -r target_log target_pos < <("${source_mysql[@]}" -N -B -e 'SHOW MASTER STATUS' | awk '{print $1, $2}')
+          test "$target_log" = "$start_log" || { echo 'Unexpected binlog rotation during bounded drill'; exit 1; }
+          test "$target_pos" -gt "$start_pos" || { echo 'PITR target did not advance the binary log'; exit 1; }
+
+          # This later write must NOT exist in the recovered point-in-time state.
+          "${source_mysql[@]}" safa_test -e \
+            "UPDATE system_settings SET app_name='CORRUPTED-LATER' WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)"
+          test "$("${source_mysql[@]}" -N -B safa_test -e "SELECT app_name FROM system_settings WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)")" = 'CORRUPTED-LATER'
+
+          # Restore into an independent clean MySQL instance using the same
+          # authoritative database name. This avoids database-name rewriting,
+          # which can silently drop row-based Table_map events and therefore is
+          # not representative of a real bare-metal recovery.
+          export MYSQL_PWD=recovery_root_password
+          "${recovery_mysql[@]}" -e 'DROP DATABASE IF EXISTS safa_test; CREATE DATABASE safa_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+          "${recovery_mysql[@]}" safa_test < "$full_dump"
+          test "$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT app_name FROM system_settings WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)")" = 'SAFA-DR-BASELINE'
+
+          source_container="$(docker ps --format '{{.ID}} {{.Ports}}' | awk '/:3306->3306\/tcp/ {print $1; exit}')"
+          test -n "$source_container" || { echo 'Unable to locate source MySQL service container'; exit 1; }
+          binlog_copy="$RUNNER_TEMP/$start_log"
+          docker cp "$source_container:/var/lib/mysql/$start_log" "$binlog_copy"
+          test -s "$binlog_copy"
+
+          mysqlbinlog \
+            --start-position="$start_pos" \
+            --stop-position="$target_pos" \
+            "$binlog_copy" | "${recovery_mysql[@]}"
+
+          account_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM accounts WHERE name='DR Account'")"
+          customer_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM customers WHERE local_id=770001 AND name='DR Customer'")"
+          supplier_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM suppliers WHERE local_id=770002 AND name='DR Supplier'")"
+          ledger_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM wallet_ledgers WHERE local_id=770003 AND name='DR Wallet'")"
+          batch_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM wallet_batches b JOIN wallet_ledgers l ON l.id=b.ledger_id WHERE b.local_id=770004 AND l.local_id=770003 AND b.remaining_bdt=400.00")"
+          transaction_count="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT COUNT(*) FROM transactions t JOIN customers c ON c.id=t.customer_id JOIN suppliers s ON s.id=t.supplier_id JOIN wallet_batches b ON b.id=t.wallet_batch_id WHERE t.local_id=770005 AND c.local_id=770001 AND s.local_id=770002 AND b.local_id=770004 AND t.amount_bdt=100.00")"
+          recovered_name="$("${recovery_mysql[@]}" -N -B safa_test -e "SELECT app_name FROM system_settings WHERE account_id=(SELECT id FROM accounts WHERE name='DR Account' LIMIT 1)")"
+
+          printf 'Recovered integrity: account=%s customer=%s supplier=%s ledger=%s batch=%s transaction=%s app_name=%s\n' \
+            "$account_count" "$customer_count" "$supplier_count" "$ledger_count" "$batch_count" "$transaction_count" "$recovered_name"
+          test "$account_count" = '1'
+          test "$customer_count" = '1'
+          test "$supplier_count" = '1'
+          test "$ledger_count" = '1'
+          test "$batch_count" = '1'
+          test "$transaction_count" = '1'
+          test "$recovered_name" = 'SAFA-DR-PITR'
+
+          duration="$(( $(date -u +%s) - start_epoch ))"
+          {
+            echo "drill=full-backup-plus-binlog-pitr"
+            echo "recovered_database=safa_test-on-independent-instance"
+            echo "full_backup_sha256=$full_sha"
+            echo "start_coordinate=$start_log:$start_pos"
+            echo "stop_coordinate=$target_log:$target_pos"
+            echo "integrity=accounts,customers,suppliers,wallets,transactions,settings"
+            echo "recovery_duration_seconds=$duration"
+            echo "completed_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$RUNNER_TEMP/dr-evidence.txt"
+          cat "$RUNNER_TEMP/dr-evidence.txt"
+
+      - name: Upload restore-drill evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mysql-dr-evidence-${{ github.run_id }}
+          retention-days: 90
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/dr-evidence.txt

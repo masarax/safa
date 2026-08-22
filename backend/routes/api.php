@@ -17,6 +17,7 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\VersionedApiProxyController;
 use App\Http\Controllers\VersionedCollectionController;
 use App\Http\Controllers\ServiceHealthController;
+use App\Http\Controllers\BackupHealthController;
 use App\Http\Middleware\CheckApiSecurityKey;
 use App\Http\Middleware\AuditLogMiddleware;
 use App\Http\Middleware\VerifyActiveAuthSession;
@@ -53,6 +54,7 @@ Route::any('/v1/{path?}', VersionedApiProxyController::class)->where('path', '.*
 
 Route::prefix('auth')->group(function () {
     Route::get('/health', ServiceHealthController::class)->middleware('throttle:30,1');
+    Route::get('/backup-health', BackupHealthController::class)->middleware('throttle:12,1');
     Route::post('/login', [MobileLoginController::class, 'login'])->middleware([RejectInactiveLogin::class, RejectAmbiguousLoginIdentity::class, ThrottleMobileLoginAttempts::class, 'throttle:60,1']);
     Route::post('/refresh', [SecureAuthController::class, 'refresh'])->middleware([CheckApiSecurityKey::class, 'throttle:20,1']);
     Route::get('/session', [SecureAuthController::class, 'session'])->middleware([CheckApiSecurityKey::class, 'verify.multilevel.token', VerifyActiveAuthSession::class, 'throttle:api']);

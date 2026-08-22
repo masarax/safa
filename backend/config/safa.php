@@ -14,4 +14,18 @@ return [
     // minimized event metadata. Operators can increase/decrease this value to
     // meet their documented legal/product retention requirement.
     'audit_retention_days' => max(1, (int) env('SAFA_AUDIT_RETENTION_DAYS', 90)),
+
+    // Backup workers write small local heartbeat files only after encrypted
+    // off-host artifacts have passed checksum verification. The public
+    // backup-health endpoint exposes freshness only; paths and credentials are
+    // never returned. Enable status_required after production cron jobs are live.
+    'dr' => [
+        'status_required' => filter_var(env('SAFA_BACKUP_STATUS_REQUIRED', false), FILTER_VALIDATE_BOOL),
+        'full_status_file' => env('SAFA_FULL_BACKUP_STATUS_FILE', storage_path('app/dr/latest-full.json')),
+        'binlog_status_file' => env('SAFA_BINLOG_BACKUP_STATUS_FILE', storage_path('app/dr/latest-binlog.json')),
+        'asset_status_file' => env('SAFA_ASSET_BACKUP_STATUS_FILE', storage_path('app/dr/latest-assets.json')),
+        'full_max_age_seconds' => max(3600, (int) env('SAFA_FULL_BACKUP_MAX_AGE_SECONDS', 93600)),
+        'binlog_max_age_seconds' => max(300, (int) env('SAFA_BINLOG_BACKUP_MAX_AGE_SECONDS', 900)),
+        'asset_max_age_seconds' => max(300, (int) env('SAFA_ASSET_BACKUP_MAX_AGE_SECONDS', 900)),
+    ],
 ];
