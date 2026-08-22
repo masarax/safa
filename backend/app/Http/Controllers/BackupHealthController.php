@@ -16,9 +16,13 @@ class BackupHealthController extends Controller
             (string) config('safa.dr.binlog_status_file'),
             (int) config('safa.dr.binlog_max_age_seconds', 900),
         );
+        $assets = $this->status(
+            (string) config('safa.dr.asset_status_file'),
+            (int) config('safa.dr.asset_max_age_seconds', 900),
+        );
 
         $configured = (bool) config('safa.dr.status_required', false);
-        $ready = $full['fresh'] && $binlog['fresh'];
+        $ready = $full['fresh'] && $binlog['fresh'] && $assets['fresh'];
         $healthy = !$configured || $ready;
 
         return response()->json([
@@ -27,10 +31,12 @@ class BackupHealthController extends Controller
             'checks' => [
                 'full_backup' => $full['fresh'],
                 'binlog_archive' => $binlog['fresh'],
+                'logo_assets' => $assets['fresh'],
             ],
             'age_seconds' => [
                 'full_backup' => $full['age_seconds'],
                 'binlog_archive' => $binlog['age_seconds'],
+                'logo_assets' => $assets['age_seconds'],
             ],
         ], $healthy ? 200 : 503)->header('Cache-Control', 'no-store');
     }
