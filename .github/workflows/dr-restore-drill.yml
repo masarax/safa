@@ -62,6 +62,14 @@ jobs:
           set -euo pipefail
           for script in backend/bin/*.sh; do bash -n "$script"; done
 
+      - name: Install MySQL recovery client utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y mysql-client-8.0
+          command -v mysqlbinlog
+
       - name: Set up PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
@@ -130,12 +138,18 @@ jobs:
             "DROP DATABASE IF EXISTS safa_dr_restore; CREATE DATABASE safa_dr_restore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
           docker exec -i -e MYSQL_PWD=root_password "$mysql_container" mysql -uroot safa_dr_restore < "$full_dump"
 
-          docker exec "$mysql_container" mysqlbinlog \
+          # The official mysql:8.0 service image intentionally does not expose
+          # mysqlbinlog in every image variant. Copy the exact server binlog to
+          # the runner and decode it with the matching Ubuntu MySQL 8 client.
+          binlog_copy="$RUNNER_TEMP/$start_log"
+          docker cp "$mysql_container:/var/lib/mysql/$start_log" "$binlog_copy"
+          test -s "$binlog_copy"
+          mysqlbinlog \
             --start-position="$start_pos" \
             --stop-position="$target_pos" \
             --database=safa_test \
             --rewrite-db='safa_test->safa_dr_restore' \
-            "/var/lib/mysql/$start_log" | \
+            "$binlog_copy" | \
             docker exec -i -e MYSQL_PWD=root_password "$mysql_container" mysql -uroot safa_dr_restore
 
           test "$(docker exec -e MYSQL_PWD=root_password "$mysql_container" mysql -N -B -uroot safa_dr_restore -e "SELECT COUNT(*) FROM accounts WHERE name='DR Account'")" = '1'
