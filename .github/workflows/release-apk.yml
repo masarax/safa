@@ -1,4 +1,4 @@
-name: Build Signed Android APK
+name: Build Signed Android Release Artifacts
 
 on:
   workflow_dispatch:
@@ -15,10 +15,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  signed-apk:
-    name: Validate and build signed release APK
+  signed-android-release:
+    name: Validate and build signed APK + AAB
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Checkout exact release commit with main history
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -77,13 +77,13 @@ jobs:
       - name: Run unit tests and lint
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
 
-      - name: Build minified signed release APK
+      - name: Build minified signed APK and Play App Bundle
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/safa-release.jks
           STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
 
       - name: Generate commit-bound Android SBOM
         shell: bash
@@ -98,29 +98,54 @@ jobs:
             --commit "$GITHUB_SHA" \
             --version "$version"
 
-      - name: Verify APK signature and create provenance
+      - name: Verify signatures and create provenance
         shell: bash
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
           apk="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          aab="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -print -quit)"
           test -n "$apk" || { echo 'Release APK was not produced'; exit 1; }
-          apksigner verify --verbose "$apk"
+          test -n "$aab" || { echo 'Release AAB was not produced'; exit 1; }
+
+          apksigner verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apk-signature.txt"
+          jarsigner -verify -strict -certs "$aab" >/dev/null
+          keytool -list -v \
+            -keystore "$RUNNER_TEMP/safa-release.jks" \
+            -storepass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            | sed -n '/SHA256:/p' | head -n 1 > "$RUNNER_TEMP/signing-certificate.txt"
+          test -s "$RUNNER_TEMP/signing-certificate.txt" || { echo 'Signing certificate SHA-256 was not resolved'; exit 1; }
+
           mkdir -p app/build/release-publication
-          sha256sum "$apk" | sed "s#${apk}#$(basename "$apk")#" > app/build/release-publication/SHA256SUMS.txt
+          : > app/build/release-publication/SHA256SUMS.txt
+          sha256sum "$apk" | sed "s#${apk}#$(basename "$apk")#" >> app/build/release-publication/SHA256SUMS.txt
+          sha256sum "$aab" | sed "s#${aab}#$(basename "$aab")#" >> app/build/release-publication/SHA256SUMS.txt
           sha256sum app/build/release-publication/safa-android.cdx.json | sed 's#app/build/release-publication/##' >> app/build/release-publication/SHA256SUMS.txt
+
+          version_code="$(sed -n 's/^SAFA_VERSION_CODE=//p' gradle.properties | tail -n 1 | tr -d '[:space:]')"
+          version_name="$(sed -n 's/^SAFA_VERSION_NAME=//p' gradle.properties | tail -n 1 | tr -d '[:space:]')"
           {
-            printf 'commit=%s\nref=%s\n' "$GITHUB_SHA" "$GITHUB_REF"
+            printf 'commit=%s\nref=%s\npackage=com.safa.account\nversionCode=%s\nversionName=%s\n' \
+              "$GITHUB_SHA" "$GITHUB_REF" "$version_code" "$version_name"
+            printf 'artifact_apk=%s\nartifact_aab=%s\n' "$(basename "$apk")" "$(basename "$aab")"
+            printf 'signing_certificate_'
+            tr -d '\r\n' < "$RUNNER_TEMP/signing-certificate.txt"
+            printf '\n'
             cat "$RUNNER_TEMP/release-validation.txt"
           } > app/build/release-publication/build-identity.txt
 
-      - name: Upload signed APK, mapping, SBOM and provenance
+      - name: Upload APK, AAB, mapping, SBOM and provenance
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: safa-signed-apk-${{ github.run_id }}
+          name: safa-signed-android-release-${{ github.run_id }}
           retention-days: 30
           if-no-files-found: error
           path: |
             app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
             app/build/outputs/mapping/release/mapping.txt
             app/build/release-publication/SHA256SUMS.txt
             app/build/release-publication/build-identity.txt
