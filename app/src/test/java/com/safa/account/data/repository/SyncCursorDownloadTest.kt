@@ -16,7 +16,7 @@ import retrofit2.Response
 class SyncCursorDownloadTest {
 
     @Test
-    fun refreshAllRequestsNextChunkOnlyAfterCurrentCursorAdvances() = runBlocking {
+    fun refreshAllRequestsNextChunkOnlyAfterCurrentCursorAdvances() = runBlocking<Unit> {
         val api: ApiService = mock()
         whenever(api.syncDownPage(0L, 100)).thenReturn(
             Response.success(
@@ -53,7 +53,7 @@ class SyncCursorDownloadTest {
     }
 
     @Test
-    fun largeFeedIsConsumedAsBoundedChunksInsteadOfOneAccountSnapshot() = runBlocking {
+    fun largeFeedIsConsumedAsBoundedChunksInsteadOfOneAccountSnapshot() = runBlocking<Unit> {
         val api: ApiService = mock()
         val totalRows = 5_000L
         val chunkSize = 100
@@ -90,7 +90,7 @@ class SyncCursorDownloadTest {
     }
 
     @Test
-    fun refreshAllRejectsNonAdvancingCursorWhenMoreDataIsAdvertised() = runBlocking {
+    fun refreshAllRejectsNonAdvancingCursorWhenMoreDataIsAdvertised() = runBlocking<Unit> {
         val api: ApiService = mock()
         whenever(api.syncDownPage(0L, 100)).thenReturn(
             Response.success(
@@ -112,7 +112,7 @@ class SyncCursorDownloadTest {
     }
 
     @Test
-    fun refreshAllRejectsCursorResponsesWithoutPermissionScope() = runBlocking {
+    fun refreshAllRejectsCursorResponsesWithoutPermissionScope() = runBlocking<Unit> {
         val api: ApiService = mock()
         whenever(api.syncDownPage(0L, 100)).thenReturn(
             Response.success(
