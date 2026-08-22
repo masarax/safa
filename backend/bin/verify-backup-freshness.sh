@@ -4,10 +4,12 @@ umask 077
 
 : "${SAFA_FULL_BACKUP_STATUS_FILE:?Set SAFA_FULL_BACKUP_STATUS_FILE.}"
 : "${SAFA_BINLOG_BACKUP_STATUS_FILE:?Set SAFA_BINLOG_BACKUP_STATUS_FILE.}"
+: "${SAFA_ASSET_BACKUP_STATUS_FILE:?Set SAFA_ASSET_BACKUP_STATUS_FILE.}"
 
 full_max_age="${SAFA_FULL_BACKUP_MAX_AGE_SECONDS:-93600}"
 binlog_max_age="${SAFA_BINLOG_BACKUP_MAX_AGE_SECONDS:-900}"
-[[ "$full_max_age" =~ ^[0-9]+$ && "$binlog_max_age" =~ ^[0-9]+$ ]] || {
+asset_max_age="${SAFA_ASSET_BACKUP_MAX_AGE_SECONDS:-900}"
+[[ "$full_max_age" =~ ^[0-9]+$ && "$binlog_max_age" =~ ^[0-9]+$ && "$asset_max_age" =~ ^[0-9]+$ ]] || {
   echo 'Backup freshness limits must be integer seconds.' >&2
   exit 1
 }
@@ -76,5 +78,6 @@ done
 
 check_status 'full backup' "$SAFA_FULL_BACKUP_STATUS_FILE" "$full_max_age"
 check_status 'binlog archive' "$SAFA_BINLOG_BACKUP_STATUS_FILE" "$binlog_max_age"
+check_status 'logo assets' "$SAFA_ASSET_BACKUP_STATUS_FILE" "$asset_max_age"
 
 echo 'SAFA backup freshness and artifact integrity are healthy.'
