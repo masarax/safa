@@ -63,7 +63,9 @@ class TransactionWalletAccountingTest extends TestCase
     {
         [, $account] = $this->ownerAndAccount();
         $low = $this->batch($account->id, 900, 23, 1000);
-        $high = $this->batch($account->id, 1000, 24);
+        // The persisted transaction below already consumed 100 BDT from this
+        // source batch, so the fixture must reflect that pre-transition stock.
+        $high = $this->batch($account->id, 900, 24, 1000);
         $transaction = $this->transaction($account->id, $high->id, 100, 202);
         $queries = [];
         DB::listen(function ($query) use (&$queries): void {
@@ -83,7 +85,7 @@ class TransactionWalletAccountingTest extends TestCase
         $this->assertStringContainsString('order by', $lockingQuery);
         $this->assertStringContainsString('id', $lockingQuery);
         $this->assertSame('750.00', $low->fresh()->remaining_bdt);
-        $this->assertSame('1100.00', $high->fresh()->remaining_bdt);
+        $this->assertSame('1000.00', $high->fresh()->remaining_bdt);
     }
 
     public function test_insufficient_new_stock_rolls_back_transaction_and_both_batches(): void
