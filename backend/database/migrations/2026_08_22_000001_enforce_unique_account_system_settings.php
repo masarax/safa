@@ -13,8 +13,11 @@ return new class extends Migration {
         }
 
         // Older deployments could create duplicate scoped rows through a
-        // read-then-create race. Preserve the most recently updated row for each
-        // account (id is the deterministic tie breaker) before adding uniqueness.
+        // read-then-create race. Keep the most recently updated row authoritative
+        // for each account (id is the deterministic tie breaker). Preserve every
+        // other row and its configuration values by demoting only its scope to
+        // the nullable legacy/global pool; production migrations never delete
+        // existing records.
         $duplicateAccountIds = DB::table('system_settings')
             ->whereNotNull('account_id')
             ->select('account_id')
@@ -33,9 +36,14 @@ return new class extends Migration {
                 $winner = $rows->first();
                 if (!$winner) return;
 
-                $loserIds = $rows->skip(1)->pluck('id')->all();
-                if ($loserIds !== []) {
-                    DB::table('system_settings')->whereIn('id', $loserIds)->delete();
+                $legacyIds = $rows->skip(1)->pluck('id')->all();
+                if ($legacyIds !== []) {
+                    DB::table('system_settings')
+                        ->whereIn('id', $legacyIds)
+                        ->update([
+                            'account_id' => null,
+                            'updated_at' => now(),
+                        ]);
                 }
             }, 3);
         }
