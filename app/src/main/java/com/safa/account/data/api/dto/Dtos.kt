@@ -35,6 +35,7 @@ data class SyncDownResponse(
     @Json(name = "cursor") val cursor: Long = 0L,
     @Json(name = "next_cursor") val nextCursor: Long = 0L,
     @Json(name = "high_water") val highWater: Long = 0L,
+    @Json(name = "permission_scope") val permissionScope: String? = null,
     @Json(name = "page") val page: Int = 1,
     @Json(name = "per_page") val perPage: Int = 100,
     @Json(name = "has_more") val hasMore: Boolean = false,
