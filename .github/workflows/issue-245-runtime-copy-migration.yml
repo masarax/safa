@@ -81,7 +81,7 @@ jobs:
           migrated, template_count = template_pair.subn(replace_template, migrated)
           old = "  const bn = app.dataset.language === 'bn';\n  const text = (en, bengali) => bn ? bengali : en;"
           new = "  let copy = {};\n  try { copy = JSON.parse(app.dataset.webCopy || '{}'); } catch (_) { copy = {}; }\n  const t = key => String(copy[key] ?? key);\n  const tf = (key, vars = {}) => Object.entries(vars).reduce((value, [name, replacement]) => value.replaceAll(`{${name}}`, String(replacement)), t(key));"
-          if (literal_count + template_count == 0 or old not in migrated:
+          if literal_count + template_count == 0 or old not in migrated:
               raise SystemExit('Expected bilingual copy/helper declaration not found.')
           migrated = migrated.replace(old, new, 1)
 
