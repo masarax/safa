@@ -17,24 +17,35 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+private const val PACKAGE_NAME = "com.safa.account"
+private const val BENCHMARK_HOST_COMPONENT =
+    "com.safa.account/com.safa.account.benchmark.BenchmarkHostActivity"
+private const val UI_TIMEOUT_MS = 5_000L
+
 @RunWith(AndroidJUnit4::class)
 class SafaBaselineProfileGenerator {
     @get:Rule
     val baselineProfileRule = BaselineProfileRule()
 
-    private val packageName = "com.safa.account"
-
     @Test
     fun generate() = baselineProfileRule.collect(
-        packageName = packageName,
+        packageName = PACKAGE_NAME,
         includeInStartupProfile = true,
     ) {
         BenchmarkFixture.seed(InstrumentationRegistry.getInstrumentation().targetContext)
+
+        // Exercise the real launcher/login shell so startup profile coverage remains
+        // representative of production first launch and signed-out startup.
         pressHome()
         startActivityAndWait()
-        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        device.waitForIdle()
-        exerciseVisibleHighFrequencyJourney(device)
+
+        // Business journeys need deterministic local state but must never use
+        // production credentials or services. The benchmark-only host renders
+        // the real production screens with a synthetic local operator instead.
+        val device = benchmarkDevice()
+        pressHome()
+        startBenchmarkHost(device)
+        exerciseRequiredHighFrequencyJourney(device)
     }
 }
 
@@ -43,11 +54,9 @@ class SafaMacrobenchmark {
     @get:Rule
     val benchmarkRule = MacrobenchmarkRule()
 
-    private val packageName = "com.safa.account"
-
     @Test
     fun coldStartup() = benchmarkRule.measureRepeated(
-        packageName = packageName,
+        packageName = PACKAGE_NAME,
         metrics = listOf(StartupTimingMetric()),
         compilationMode = CompilationMode.Partial(BaselineProfileMode.Require),
         startupMode = StartupMode.COLD,
@@ -59,7 +68,7 @@ class SafaMacrobenchmark {
 
     @Test
     fun warmStartup() = benchmarkRule.measureRepeated(
-        packageName = packageName,
+        packageName = PACKAGE_NAME,
         metrics = listOf(StartupTimingMetric()),
         compilationMode = CompilationMode.Partial(BaselineProfileMode.Require),
         startupMode = StartupMode.WARM,
@@ -73,44 +82,81 @@ class SafaMacrobenchmark {
     fun navigationAndScrollingFrames() {
         BenchmarkFixture.seed(InstrumentationRegistry.getInstrumentation().targetContext)
         benchmarkRule.measureRepeated(
-            packageName = packageName,
+            packageName = PACKAGE_NAME,
             metrics = listOf(FrameTimingMetric()),
             compilationMode = CompilationMode.Partial(BaselineProfileMode.Require),
             iterations = 6,
             setupBlock = {
                 pressHome()
-                startActivityAndWait()
+                startBenchmarkHost(benchmarkDevice())
             },
         ) {
-            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            device.waitForIdle()
-            exerciseVisibleHighFrequencyJourney(device)
+            exerciseRequiredHighFrequencyJourney(benchmarkDevice())
         }
     }
 }
 
-private fun exerciseVisibleHighFrequencyJourney(device: UiDevice) {
-    val labels = listOf(
-        listOf("Dashboard", "ড্যাশবোর্ড"),
-        listOf("Customers", "কাস্টমার"),
-        listOf("Suppliers", "সাপ্লায়ার", "সাপ্লায়ার"),
-        listOf("Transactions", "লেনদেন"),
-        listOf("Wallet", "ওয়ালেট", "ওয়ালেট"),
-    )
+private fun benchmarkDevice(): UiDevice =
+    UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 
-    labels.forEach { alternatives ->
-        val target = alternatives.asSequence()
-            .mapNotNull { label -> device.findObject(By.text(label)) }
-            .firstOrNull()
-        if (target != null) {
-            target.click()
-            device.waitForIdle()
-            device.findObject(By.scrollable(true))?.scroll(Direction.DOWN, 0.7f)
-            device.waitForIdle()
-        }
+private fun startBenchmarkHost(device: UiDevice) {
+    device.executeShellCommand("am force-stop $PACKAGE_NAME")
+    val startOutput = device.executeShellCommand("am start -W -n $BENCHMARK_HOST_COMPONENT")
+    check(startOutput.contains("Status: ok")) {
+        "Benchmark host failed to start: $startOutput"
     }
+    check(device.wait(Until.hasObject(By.text("Dashboard")), UI_TIMEOUT_MS)) {
+        "Benchmark host did not reach the dashboard"
+    }
+    device.waitForIdle()
+}
 
-    // Login is a critical first-run journey and remains valid when the benchmark
-    // fixture intentionally starts from a signed-out state.
-    device.wait(Until.hasObject(By.res("com.safa.account", "android:id/content")), 2_000)
+private fun exerciseRequiredHighFrequencyJourney(device: UiDevice) {
+    // Transactions are reached from the production dashboard shortcut before any
+    // scrolling can move that shortcut off-screen.
+    openRequiredDestination(device, "Transactions")
+    scrollRequiredList(device, "Transactions")
+    returnToDashboard(device, "Transactions")
+
+    openRequiredDestination(device, "Customers")
+    scrollRequiredList(device, "Customers")
+    returnToDashboard(device, "Customers")
+
+    openRequiredDestination(device, "Suppliers")
+    scrollRequiredList(device, "Suppliers")
+    returnToDashboard(device, "Suppliers")
+
+    openRequiredDestination(device, "Wallet")
+    scrollRequiredList(device, "Wallet")
+    returnToDashboard(device, "Wallet")
+}
+
+private fun openRequiredDestination(device: UiDevice, label: String) {
+    check(device.wait(Until.hasObject(By.text(label)), UI_TIMEOUT_MS)) {
+        "Required benchmark destination is missing: $label"
+    }
+    val target = checkNotNull(device.findObject(By.text(label))) {
+        "Required benchmark destination disappeared: $label"
+    }
+    target.click()
+    device.waitForIdle()
+}
+
+private fun scrollRequiredList(device: UiDevice, destination: String) {
+    check(device.wait(Until.hasObject(By.scrollable(true)), UI_TIMEOUT_MS)) {
+        "Required benchmark list is not scrollable: $destination"
+    }
+    val scrollable = checkNotNull(device.findObject(By.scrollable(true))) {
+        "Required benchmark list disappeared: $destination"
+    }
+    scrollable.scroll(Direction.DOWN, 0.7f)
+    device.waitForIdle()
+}
+
+private fun returnToDashboard(device: UiDevice, from: String) {
+    device.pressBack()
+    check(device.wait(Until.hasObject(By.text("Dashboard")), UI_TIMEOUT_MS)) {
+        "Benchmark navigation did not return to Dashboard from $from"
+    }
+    device.waitForIdle()
 }
