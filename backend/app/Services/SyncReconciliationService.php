@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Models\SyncMutation;
 use App\Models\Transaction;
+use App\Support\DatabaseConcurrency;
 use App\Support\MoneyDecimal;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class SyncReconciliationService
 {
@@ -57,6 +59,7 @@ class SyncReconciliationService
                 } elseif ($baseVersion !== null && $baseVersion > 0) return $this->rejected($entity, $localId, 'Referenced server version does not exist', 'STALE_BASE_VERSION', $mutationId);
 
                 $record ??= new $modelClass();
+                $oldTransaction = $record instanceof Transaction && $record->exists ? clone $record : null;
                 $record->account_id = $accountId;
                 $record->local_id = $localId;
                 try {
@@ -68,10 +71,6 @@ class SyncReconciliationService
                 }
                 if ($data instanceof \Throwable) return $this->rejected($entity, $localId, 'A referenced record could not be synchronized.', 'DEPENDENCY', $mutationId);
 
-                if ($record instanceof Transaction && $record->exists) {
-                    $this->walletAccounting->restoreExisting($record, $accountId);
-                }
-
                 foreach ($data as $key => $value) $record->{$key} = $value;
                 $record->timestamp = $incomingTimestamp;
                 $nextVersion = (int) ($record->sync_version ?? 0) + 1;
@@ -80,12 +79,13 @@ class SyncReconciliationService
                 $deleting = $operation === 'DELETE' || $this->isDeleted($payload);
                 $record->deleted_at = $deleting ? ($this->parseDeletedAt($payload['deleted_at'] ?? null) ?? now()) : null;
 
-                if ($record instanceof Transaction && !$deleting) {
-                    $this->walletAccounting->debitNew(
+                if ($record instanceof Transaction) {
+                    $this->walletAccounting->applyTransition(
+                        $oldTransaction,
                         $accountId,
-                        $record->wallet_batch_id ? (int) $record->wallet_batch_id : null,
+                        $deleting || !$record->wallet_batch_id ? null : (int) $record->wallet_batch_id,
                         $record->amount_bdt ?? '0.00',
-                        (string) ($record->type ?? 'Pending'),
+                        $deleting ? 'Cancelled' : (string) ($record->type ?? 'Pending'),
                     );
                 }
 
@@ -93,9 +93,15 @@ class SyncReconciliationService
                 $accepted = ['local_id' => $localId, 'server_id' => (int) $record->id, 'sync_version' => $nextVersion, 'mutation_id' => $mutationId, 'operation' => $operation, 'server_deleted' => $record->deleted_at !== null];
                 SyncMutation::create(['account_id' => $accountId, 'mutation_id' => $mutationId, 'entity' => $entity, 'local_id' => $localId, 'server_id' => (int) $record->id, 'operation' => $operation, 'sync_version' => $nextVersion, 'response' => $accepted]);
                 return ['status' => 'accepted', 'accepted' => $accepted];
-            });
+            }, DatabaseConcurrency::TRANSACTION_ATTEMPTS);
         } catch (DomainException $e) {
             return $this->rejected($entity, $localId, $e->getMessage(), 'VALIDATION', $mutationId);
+        } catch (Throwable $e) {
+            if (DatabaseConcurrency::isRetryable($e)) {
+                report($e);
+                return $this->rejected($entity, $localId, 'Database concurrency temporarily prevented synchronization. Retry this mutation.', 'RETRYABLE_CONCURRENCY', $mutationId);
+            }
+            throw $e;
         }
     }
 
