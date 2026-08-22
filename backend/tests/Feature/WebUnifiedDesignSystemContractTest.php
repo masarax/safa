@@ -13,7 +13,7 @@ class WebUnifiedDesignSystemContractTest extends TestCase
 
         foreach ([
             '--brand-green:#064e3b',
-            '--brand-orange:#f97316',
+            '--brand-orange:#c2410c',
             '--chrome-gold:#d7a84b',
             '--chrome-ink:#3e2700',
             '--nav-active:#a82222',
