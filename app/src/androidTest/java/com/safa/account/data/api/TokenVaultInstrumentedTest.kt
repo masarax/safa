@@ -19,18 +19,41 @@ class TokenVaultInstrumentedTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences(TokenVault.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences(TokenManager.METADATA_PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
-        LegacySecurePreferences.delete(context)
-        runCatching { AndroidKeystoreTokenVaultCipher().reset() }
+        clearFixturePreferences()
+        AndroidKeystoreTokenVaultCipher().reset()
     }
 
     @After
     fun tearDown() {
-        context.getSharedPreferences(TokenVault.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences(TokenManager.METADATA_PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
-        LegacySecurePreferences.delete(context)
-        runCatching { AndroidKeystoreTokenVaultCipher().reset() }
+        clearFixturePreferences()
+        AndroidKeystoreTokenVaultCipher().reset()
+    }
+
+    private fun clearFixturePreferences() {
+        check(
+            context.getSharedPreferences(TokenVault.PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit()
+        ) { "Unable to clear token-vault fixture preferences" }
+        check(
+            context.getSharedPreferences(TokenManager.METADATA_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit()
+        ) { "Unable to clear token metadata fixture preferences" }
+
+        // Do not delete/recreate EncryptedSharedPreferences during fixture setup.
+        // AndroidX Security keeps live keyset/preferences state in-process, and
+        // deleting the backing file immediately before recreating it makes the
+        // migration fixture nondeterministic on hosted emulators. Production
+        // deletion is still exercised below by TokenManager migration itself.
+        check(LegacySecurePreferences.encrypted(context).edit().clear().commit()) {
+            "Unable to clear encrypted legacy fixture preferences"
+        }
+        check(LegacySecurePreferences.plain(context).edit().clear().commit()) {
+            "Unable to clear plain legacy fixture preferences"
+        }
     }
 
     @Test
@@ -56,14 +79,22 @@ class TokenVaultInstrumentedTest {
     @Test
     fun realLegacyEncryptedPreferencesMigrateIntoKeystoreVault() {
         val legacy = LegacySecurePreferences.encrypted(context)
-        legacy.edit()
-            .putString("auth_token", "legacy-access")
-            .putString("refresh_token", "legacy-refresh")
-            .putString("device_token", "legacy-device")
-            .putString("session_token", "legacy-session")
-            .putString("fingerprint_token", "legacy-fingerprint")
-            .putString("last_mobile", "0500000000")
-            .commit()
+        assertTrue(
+            legacy.edit()
+                .putString("auth_token", "legacy-access")
+                .putString("refresh_token", "legacy-refresh")
+                .putString("device_token", "legacy-device")
+                .putString("session_token", "legacy-session")
+                .putString("fingerprint_token", "legacy-fingerprint")
+                .putString("last_mobile", "0500000000")
+                .commit()
+        )
+
+        // Prove fixture creation independently from migration. A failure here is
+        // an encrypted-preferences setup failure, not a TokenManager migration bug.
+        assertEquals("legacy-access", legacy.getString("auth_token", null))
+        assertEquals("legacy-refresh", legacy.getString("refresh_token", null))
+        assertEquals("0500000000", legacy.getString("last_mobile", null))
 
         val manager = TokenManager(context)
 
@@ -73,6 +104,15 @@ class TokenVaultInstrumentedTest {
         assertEquals("legacy-session", manager.getSessionToken())
         assertEquals("legacy-fingerprint", manager.getFingerprintToken())
         assertEquals("0500000000", manager.getLastMobile())
-        assertTrue(context.getSharedPreferences(LegacySecurePreferences.ENCRYPTED_PREFS_NAME, Context.MODE_PRIVATE).all.isEmpty())
+
+        // Migration must synchronously clear already-open encrypted handles and
+        // remove the backing legacy preference store after the v3 vault verifies.
+        assertTrue(legacy.all.isEmpty())
+        assertTrue(
+            context.getSharedPreferences(
+                LegacySecurePreferences.ENCRYPTED_PREFS_NAME,
+                Context.MODE_PRIVATE,
+            ).all.isEmpty()
+        )
     }
 }
