@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Benchmark-only IPC surface. This source set is absent from debug and
+             production release APKs; it lets the separate Macrobenchmark process
+             ask the target app process to seed its own encrypted LocalFirstStore. -->
+        <provider
+            android:name="com.safa.account.benchmark.BenchmarkFixtureProvider"
+            android:authorities="com.safa.account.benchmark-fixture"
+            android:exported="true" />
+    </application>
+</manifest>
