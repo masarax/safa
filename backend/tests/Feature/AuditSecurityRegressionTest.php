@@ -21,7 +21,7 @@ class AuditSecurityRegressionTest extends TestCase
     use RefreshDatabase;
     use AuthorizeAccountContext;
 
-    public function test_audit_payload_redacts_current_new_and_nested_credentials(): void
+    public function test_audit_payload_omits_current_new_and_nested_credential_values(): void
     {
         $user = User::factory()->create(['is_activated' => true]);
         $account = Account::create(['name' => 'Audit Account', 'balance' => 0, 'owner_user_id' => $user->id]);
@@ -43,13 +43,22 @@ class AuditSecurityRegressionTest extends TestCase
         app(AuditLogMiddleware::class)->handle($request, fn () => response()->json(['ok' => true]));
 
         $payload = AuditLog::query()->latest('id')->firstOrFail()->payload;
-        $this->assertSame('[REDACTED]', $payload['current_pin']);
-        $this->assertSame('[REDACTED]', $payload['new_pin']);
-        $this->assertSame('[REDACTED]', $payload['password_confirmation']);
-        $this->assertSame('[REDACTED]', $payload['nested']['access_token']);
-        $this->assertSame('[REDACTED]', $payload['nested']['api_secret']);
-        $this->assertSame('keep-me', $payload['note']);
-        $this->assertSame('visible', $payload['nested']['safe']);
+        $json = json_encode($payload, JSON_THROW_ON_ERROR);
+
+        $this->assertArrayNotHasKey('current_pin', $payload);
+        $this->assertArrayNotHasKey('new_pin', $payload);
+        $this->assertArrayNotHasKey('password_confirmation', $payload);
+        $this->assertArrayNotHasKey('nested', $payload);
+        $this->assertArrayNotHasKey('note', $payload);
+        $this->assertNotContains('current_pin', $payload['changed_fields']);
+        $this->assertNotContains('new_pin', $payload['changed_fields']);
+        $this->assertNotContains('password_confirmation', $payload['changed_fields']);
+        $this->assertContains('note', $payload['changed_fields']);
+        $this->assertContains('nested', $payload['changed_fields']);
+
+        foreach (['123456', '654321', 'secret-password', 'keep-me', 'access-secret', 'api-secret', 'visible'] as $rawValue) {
+            $this->assertStringNotContainsString($rawValue, $json);
+        }
     }
 
     public function test_revoked_device_binding_cannot_be_reactivated_by_model_update(): void
