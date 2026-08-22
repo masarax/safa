@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\RuntimeSchemaContract;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -54,25 +55,27 @@ class ServiceHealthController extends Controller
 
     private function schemaReady(): bool
     {
-        $required = [
-            'migrations' => ['id', 'migration', 'batch'],
-            'users' => ['id', 'mobile', 'pin_hash', 'role', 'is_activated'],
-            'auth_sessions' => ['id', 'user_id', 'is_revoked', 'expires_at'],
-            'accounts' => ['id', 'balance'],
-            'rates' => ['id', 'rate'],
-            'transactions' => [
-                'id', 'amount_sar', 'customer_rate', 'supplier_rate', 'amount_bdt',
-                'sar_collected', 'bdt_disbursed',
-            ],
-            'supplier_deposits' => ['id', 'amount_sar', 'rate', 'amount_bdt', 'paid_bdt'],
-            'wallet_batches' => ['id', 'rate', 'initial_bdt', 'remaining_bdt'],
-            'expenses_incomes' => ['id', 'amount'],
-        ];
-
         try {
-            foreach ($required as $table => $columns) {
+            foreach (RuntimeSchemaContract::requiredColumns() as $table => $columns) {
                 if (!Schema::hasTable($table) || !Schema::hasColumns($table, $columns)) return false;
             }
+
+            foreach (RuntimeSchemaContract::requiredUniqueIndexes() as $table => $requiredIndexes) {
+                $actualIndexes = Schema::getIndexes($table);
+                foreach ($requiredIndexes as $requiredColumns) {
+                    $found = false;
+                    foreach ($actualIndexes as $index) {
+                        $columns = array_values(array_map('strval', $index['columns'] ?? []));
+                        $unique = (bool) ($index['unique'] ?? false) || (bool) ($index['primary'] ?? false);
+                        if ($unique && $columns === $requiredColumns) {
+                            $found = true;
+                            break;
+                        }
+                    }
+                    if (!$found) return false;
+                }
+            }
+
             return true;
         } catch (\Throwable) {
             return false;
