@@ -128,7 +128,9 @@ class ApiSecurityInterceptor(
         if (includeAuthTokens) {
             tokenManager?.let { tm ->
                 tm.getAccessToken()?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
-                tm.getRefreshToken()?.takeIf { it.isNotBlank() }?.let { builder.header("X-SAFA-REFRESH-TOKEN", it) }
+                // Refresh credentials are intentionally never attached to normal
+                // business/sync traffic. They are read only when a 401 requires
+                // the dedicated /auth/refresh rotation request below.
                 tm.getSessionToken()?.takeIf { it.isNotBlank() }?.let { builder.header("X-SAFA-SESSION-TOKEN", it) }
                 tm.getActiveAccountId()?.let { builder.header("X-SAFA-ACCOUNT-ID", it.toString()) }
             }

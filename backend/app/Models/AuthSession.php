@@ -111,6 +111,38 @@ class AuthSession extends Model
         );
     }
 
+    /**
+     * Normal API authorization deliberately excludes the long-lived refresh
+     * credential. Access + active server session + device/session proof is
+     * sufficient; refresh remains reserved for the rotation endpoint.
+     */
+    public static function findActiveByAccessSessionStack(
+        int $userId,
+        string $deviceUuid,
+        string $accessToken,
+        string $sessionToken
+    ): ?self {
+        $query = self::activeQuery($userId, $deviceUuid);
+
+        if (self::supportsTokenHashes()) {
+            $session = (clone $query)
+                ->where('access_token_hash', self::tokenHash($accessToken))
+                ->where('session_token_hash', self::tokenHash($sessionToken))
+                ->first();
+            if ($session) return $session;
+        }
+
+        return $query->get()->first(function (self $candidate) use ($accessToken, $sessionToken): bool {
+            return self::tokenMatches($candidate, 'access_token', $accessToken)
+                && self::tokenMatches($candidate, 'session_token', $sessionToken);
+        });
+    }
+
+    /**
+     * Legacy compatibility lookup retained for older tests/callers during the
+     * staged protocol transition. New business authorization must use
+     * findActiveByAccessSessionStack().
+     */
     public static function findActiveByTokenStack(
         int $userId,
         string $deviceUuid,
