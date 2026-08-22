@@ -64,14 +64,6 @@ class TokenManager internal constructor(
         )
     }
 
-    /**
-     * Move one complete legacy credential generation into the v3 vault.
-     *
-     * The new generation is encrypted and read back before the metadata marker is
-     * committed. Legacy stores are deleted only after that durable checkpoint.
-     * If the process stops between those steps, the next construction reuses the
-     * already verified v3 generation and safely completes the migration.
-     */
     private fun migrateLegacyPreferences() {
         if (prefs.getBoolean(KEY_VAULT_MIGRATION_COMPLETE, false)) {
             LegacySecurePreferences.delete(context)
@@ -92,10 +84,6 @@ class TokenManager internal constructor(
             if (currentGeneration.isEmpty()) {
                 completeUnrecoverableLegacyReset(plainSnapshot)
             } else {
-                // A prior migration run may have durably verified v3 and then
-                // stopped before the metadata marker/legacy cleanup. Never
-                // discard that recoverable authoritative generation just
-                // because the older compatibility vault later became unreadable.
                 commitMigratedMetadata(plainSnapshot, clearSessionBinding = false)
                 LegacySecurePreferences.delete(context)
             }
@@ -140,12 +128,6 @@ class TokenManager internal constructor(
         if (clearSessionBinding) biometricUnlockApproved = false
     }
 
-    /**
-     * A legacy encrypted store whose key can no longer authenticate is not
-     * recoverable. Fail closed: preserve only non-secret plain metadata, reset
-     * the v3 key/ciphertext, clear session binding, and retire the unreadable
-     * legacy store so the user must authenticate again.
-     */
     private fun completeUnrecoverableLegacyReset(plainSnapshot: Map<String, Any?>) {
         runCatching { vault.reset() }
         commitMigratedMetadata(plainSnapshot, clearSessionBinding = true)
@@ -264,8 +246,9 @@ class TokenManager internal constructor(
         )
         writeGeneration(next)
 
-        accountIdFromAccessToken(accessToken)?.let { accountId ->
-            prefs.edit { putInt(KEY_ACTIVE_ACCOUNT_ID, accountId) }
+        val automaticAccountId = accountIdFromAccessToken(accessToken)
+        if (automaticAccountId != null) {
+            prefs.edit { putInt(KEY_ACTIVE_ACCOUNT_ID, automaticAccountId) }
         }
     }
 
