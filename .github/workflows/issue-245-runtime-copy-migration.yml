@@ -1,0 +1,127 @@
+name: Issue 245 runtime copy migration
+
+on:
+  push:
+    branches:
+      - i18n/245-web-accessibility
+    paths:
+      - '.github/workflows/issue-245-runtime-copy-migration.yml'
+      - 'backend/public/safa-web.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: i18n/245-web-accessibility
+          fetch-depth: 0
+
+      - name: Extract bilingual runtime copy
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import re
+
+          source_path = Path('backend/public/safa-web.js')
+          source = source_path.read_text(encoding='utf-8')
+
+          pair = re.compile(r"text\(\s*'((?:\\.|[^'\\])*)'\s*,\s*'((?:\\.|[^'\\])*)'\s*\)")
+
+          def unescape_js(value: str) -> str:
+              return (value
+                  .replace('\\\\', '\x00')
+                  .replace("\\'", "'")
+                  .replace('\\n', '\n')
+                  .replace('\\r', '\r')
+                  .replace('\\t', '\t')
+                  .replace('\x00', '\\'))
+
+          def slug(value: str) -> str:
+              base = re.sub(r'[^a-z0-9]+', '_', value.lower()).strip('_')
+              if not base:
+                  base = 'copy'
+              return base[:56].rstrip('_')
+
+          catalog = {}
+          reverse = {}
+
+          def replacement(match: re.Match) -> str:
+              en = unescape_js(match.group(1))
+              bn = unescape_js(match.group(2))
+              pair_key = (en, bn)
+              if pair_key in reverse:
+                  key = reverse[pair_key]
+              else:
+                  key = 'runtime_' + slug(en)
+                  if key in catalog and catalog[key] != pair_key:
+                      key += '_' + hashlib.sha1((en + '\0' + bn).encode('utf-8')).hexdigest()[:8]
+                  catalog[key] = pair_key
+                  reverse[pair_key] = key
+              return f"t('{key}')"
+
+          migrated, count = pair.subn(replacement, source)
+          if count == 0:
+              if 'text(' in source:
+                  raise SystemExit('No supported literal pairs were migrated but text(...) calls remain.')
+              print('Runtime copy is already migrated.')
+              raise SystemExit(0)
+
+          old = "  const bn = app.dataset.language === 'bn';\n  const text = (en, bengali) => bn ? bengali : en;"
+          new = "  let copy = {};\n  try { copy = JSON.parse(app.dataset.webCopy || '{}'); } catch (_) { copy = {}; }\n  const t = key => String(copy[key] ?? key);"
+          if old not in migrated:
+              raise SystemExit('Expected bilingual helper declaration not found.')
+          migrated = migrated.replace(old, new, 1)
+
+          if 'text(' in migrated:
+              leftovers = [line.strip() for line in migrated.splitlines() if 'text(' in line][:20]
+              raise SystemExit('Unmigrated text(...) calls remain:\n' + '\n'.join(leftovers))
+          if re.search(r'[\u0980-\u09FF]', migrated):
+              leftovers = [line.strip() for line in migrated.splitlines() if re.search(r'[\u0980-\u09FF]', line)][:20]
+              raise SystemExit('Bangla literals remain in safa-web.js:\n' + '\n'.join(leftovers))
+
+          def php_quote(value: str) -> str:
+              return value.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n').replace('\r', '\\r')
+
+          def write_catalog(path: str, language_index: int):
+              lines = ['<?php', '', 'return [']
+              for key in sorted(catalog):
+                  value = catalog[key][language_index]
+                  lines.append(f"    '{key}' => '{php_quote(value)}',")
+              lines += ['];', '']
+              Path(path).write_text('\n'.join(lines), encoding='utf-8')
+
+          source_path.write_text(migrated, encoding='utf-8')
+          write_catalog('backend/lang/en/web_runtime.php', 0)
+          write_catalog('backend/lang/bn/web_runtime.php', 1)
+          print(f'Migrated {count} literal calls into {len(catalog)} runtime translation keys.')
+          PY
+
+      - name: Validate migration output
+        shell: bash
+        run: |
+          node --check backend/public/safa-web.js
+          php -l backend/lang/en/web_runtime.php
+          php -l backend/lang/bn/web_runtime.php
+          ! grep -n 'text(' backend/public/safa-web.js
+          ! grep -nP '[\x{0980}-\x{09FF}]' backend/public/safa-web.js
+
+      - name: Commit migrated runtime copy
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'safa-ci-migration'
+          git config user.email 'safa-ci-migration@users.noreply.github.com'
+          git add backend/public/safa-web.js backend/lang/en/web_runtime.php backend/lang/bn/web_runtime.php
+          git commit -m 'refactor(i18n): centralize primary web runtime copy'
+          git push origin HEAD:i18n/245-web-accessibility
