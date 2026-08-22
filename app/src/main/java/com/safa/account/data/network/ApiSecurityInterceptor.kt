@@ -170,20 +170,68 @@ class ApiSecurityInterceptor(
                 .use { response ->
                     if (!response.isSuccessful) return null
                     val json = JSONObject(response.body?.string().orEmpty())
-                    val access = json.optString("access_token").ifBlank {
-                        json.optJSONObject("tokens")?.optString("access_token").orEmpty()
-                    }
-                    if (access.isBlank()) return null
-                    val tokens = json.optJSONObject("tokens")
-                    tm.saveAccessToken(access)
-                    tokens?.optString("refresh_token")?.takeIf { it.isNotBlank() }?.let(tm::saveRefreshToken)
-                    tokens?.optString("session_token")?.takeIf { it.isNotBlank() }?.let(tm::saveSessionToken)
-                    tokens?.optString("device_token")?.takeIf { it.isNotBlank() }?.let(tm::saveDeviceToken)
-                    tokens?.optString("fingerprint_token")?.takeIf { it.isNotBlank() }?.let(tm::saveFingerprintToken)
-                    access
+                    val generation = parseRefreshGeneration(json) ?: return null
+                    persistRefreshGeneration(tm, token, generation)
                 }
         } catch (_: Exception) {
             null
         }
     }
+}
+
+internal data class RefreshTokenGeneration(
+    val accessToken: String,
+    val refreshToken: String? = null,
+    val sessionToken: String? = null,
+    val deviceToken: String? = null,
+    val fingerprintToken: String? = null
+)
+
+private fun parseRefreshGeneration(responseJson: JSONObject): RefreshTokenGeneration? {
+    val tokens = responseJson.optJSONObject("tokens") ?: responseJson
+    fun tokenValue(name: String): String? = tokens.optString(name)
+        .ifBlank { responseJson.optString(name) }
+        .takeIf { it.isNotBlank() }
+
+    val accessToken = tokenValue("access_token") ?: return null
+    return RefreshTokenGeneration(
+        accessToken = accessToken,
+        refreshToken = tokenValue("refresh_token"),
+        sessionToken = tokenValue("session_token"),
+        deviceToken = tokenValue("device_token"),
+        fingerprintToken = tokenValue("fingerprint_token")
+    )
+}
+
+/**
+ * Persist one already-validated refresh generation through TokenManager's
+ * single-edit path. This function intentionally contains no Android JSON work so
+ * its race/atomicity contract is deterministic in JVM unit tests too.
+ */
+internal fun persistRefreshGeneration(
+    tokenManager: TokenManager,
+    expectedRefreshToken: String,
+    generation: RefreshTokenGeneration
+): String? {
+    synchronized(tokenManager) {
+        val currentRefreshToken = tokenManager.getRefreshToken()
+        if (currentRefreshToken != expectedRefreshToken) {
+            // Login, logout, or a newer refresh generation won the race while the
+            // network request was in flight. Never overwrite that newer state.
+            return tokenManager.getAccessToken()
+        }
+
+        val effectiveRefreshToken = generation.refreshToken ?: currentRefreshToken
+        if (effectiveRefreshToken.isNullOrBlank()) return null
+
+        tokenManager.saveAllTokens(
+            accessToken = generation.accessToken,
+            refreshToken = effectiveRefreshToken,
+            deviceToken = generation.deviceToken ?: tokenManager.getDeviceToken(),
+            sessionToken = generation.sessionToken ?: tokenManager.getSessionToken(),
+            fingerprintToken = generation.fingerprintToken ?: tokenManager.getFingerprintToken()
+        )
+    }
+
+    return generation.accessToken
 }
