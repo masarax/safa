@@ -54,6 +54,7 @@ class PerformanceProfileContractTest {
         val budgets = rootFile("benchmark/performance-budgets.json").readText()
         val fixtureClient = rootFile("benchmark/src/main/java/com/safa/account/benchmark/BenchmarkFixture.kt").readText()
         val fixtureProvider = rootFile("app/src/benchmark/java/com/safa/account/benchmark/BenchmarkFixtureProvider.kt").readText()
+        val benchmarkHost = rootFile("app/src/benchmark/java/com/safa/account/benchmark/BenchmarkHostActivity.kt").readText()
         val benchmarkManifest = rootFile("app/src/benchmark/AndroidManifest.xml").readText()
         val benchmark = rootFile("benchmark/src/main/java/com/safa/account/benchmark/SafaPerformanceBenchmark.kt").readText()
         val docs = rootFile("docs/ANDROID_PERFORMANCE.md").readText()
@@ -73,10 +74,43 @@ class PerformanceProfileContractTest {
         assertTrue(fixtureProvider.contains("LocalFirstStore(appContext)"))
         assertTrue(fixtureClient.contains("content://\$AUTHORITY"))
         assertTrue(benchmarkManifest.contains("BenchmarkFixtureProvider"))
+        assertTrue(benchmarkManifest.contains("BenchmarkHostActivity"))
+
+        assertTrue(benchmarkHost.contains("SafaViewModelFactory(repository, tokenManager = null)"))
+        assertTrue(benchmarkHost.contains("restoreAuthenticatedSession"))
+        assertTrue(benchmarkHost.contains("setLanguage(\"EN\")"))
+        listOf(
+            "can_view_customers",
+            "can_view_suppliers",
+            "can_view_transactions",
+            "can_manage_wallet",
+        ).forEach { permission ->
+            assertTrue("Benchmark operator missing permission: $permission", benchmarkHost.contains(permission))
+        }
+        listOf(
+            "DashboardScreen",
+            "CustomerScreen",
+            "SupplierScreen",
+            "TransactionScreen",
+            "WalletScreen",
+        ).forEach { screen ->
+            assertTrue("Benchmark host must render production screen: $screen", benchmarkHost.contains(screen))
+        }
+
         assertTrue(benchmark.contains("StartupTimingMetric"))
         assertTrue(benchmark.contains("FrameTimingMetric"))
+        assertTrue(benchmark.contains("startBenchmarkHost"))
+        listOf("Transactions", "Customers", "Suppliers", "Wallet").forEach { destination ->
+            assertTrue("Benchmark journey missing required destination: $destination", benchmark.contains("\"$destination\""))
+        }
+        assertFalse("Required benchmark destinations must fail instead of silently skipping", benchmark.contains("if (target != null)"))
+        assertFalse("Required benchmark destinations must not use optional first-match navigation", benchmark.contains("firstOrNull()"))
+
         assertTrue(docs.contains("shared hosted emulators"))
         assertTrue(docs.contains("check-performance-budget.py"))
+        assertTrue(docs.contains("SafaMacrobenchmark"))
+        assertTrue(docs.contains("normalized-results.json"))
+        assertFalse(docs.contains("check-performance-budget.py benchmark/performance-budgets.json"))
         assertTrue(ci.contains("./gradlew --no-daemon :app:connectedDebugAndroidTest"))
         assertFalse(ci.contains("./gradlew --no-daemon connectedDebugAndroidTest"))
     }
