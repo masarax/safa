@@ -75,6 +75,7 @@ class PerformanceProfileContractTest {
         assertTrue(fixtureClient.contains("content://\$AUTHORITY"))
         assertTrue(benchmarkManifest.contains("BenchmarkFixtureProvider"))
         assertTrue(benchmarkManifest.contains("BenchmarkHostActivity"))
+        assertTrue(benchmarkManifest.contains("<profileable android:shell=\"true\""))
 
         assertTrue(benchmarkHost.contains("SafaViewModelFactory(repository, tokenManager = null)"))
         assertTrue(benchmarkHost.contains("restoreAuthenticatedSession"))
