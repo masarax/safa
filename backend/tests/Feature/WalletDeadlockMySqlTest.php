@@ -7,14 +7,11 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\WalletBatch;
 use App\Services\TransactionWalletAccounting;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class WalletDeadlockMySqlTest extends TestCase
 {
-    use DatabaseMigrations;
-
     public function test_opposing_wallet_moves_complete_without_deadlock_or_balance_drift(): void
     {
         if (DB::connection()->getDriverName() !== 'mysql') {
@@ -31,15 +28,16 @@ class WalletDeadlockMySqlTest extends TestCase
             'is_activated' => true,
         ]);
         $account = Account::create([
-            'name' => 'Concurrent Wallet Accounting',
+            'name' => 'Concurrent Wallet Accounting ' . bin2hex(random_bytes(4)),
             'balance' => 0,
             'owner_user_id' => $user->id,
         ]);
 
-        $batchA = $this->batch($account->id, 900, 9101);
-        $batchB = $this->batch($account->id, 900, 9102);
-        $transactionA = $this->transaction($account->id, $batchA->id, 100, 9201);
-        $transactionB = $this->transaction($account->id, $batchB->id, 100, 9202);
+        $seed = random_int(100_000, 900_000);
+        $batchA = $this->batch($account->id, 900, $seed + 1);
+        $batchB = $this->batch($account->id, 900, $seed + 2);
+        $transactionA = $this->transaction($account->id, $batchA->id, 100, $seed + 3);
+        $transactionB = $this->transaction($account->id, $batchB->id, 100, $seed + 4);
 
         $barrier = storage_path('framework/testing/wallet-deadlock-' . bin2hex(random_bytes(8)) . '.start');
         $errorA = $barrier . '.a.err';
