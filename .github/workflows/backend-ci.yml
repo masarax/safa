@@ -29,9 +29,9 @@ concurrency:
 
 jobs:
   test:
-    name: Syntax and full Laravel tests
+    name: Syntax, Laravel and browser accessibility tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -84,6 +84,30 @@ jobs:
       - name: Run full test suite
         working-directory: backend
         run: php -d memory_limit=1G -d max_execution_time=0 -d opcache.enable=0 -d opcache.jit=0 artisan test --no-coverage --do-not-cache-result
+
+      - name: Install browser accessibility test dependencies
+        working-directory: backend
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0 @axe-core/playwright@4.10.2
+
+      - name: Run WCAG 2.2 AA browser regression gate
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          php artisan migrate:fresh --force --no-interaction
+          php tests/browser/seed-accessibility.php
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$chrome" || { echo 'System Chrome/Chromium is required for accessibility CI'; exit 1; }
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/safa-accessibility-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/login >/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/safa-accessibility-server.log; exit 1; fi
+          CHROME_BIN="$chrome" SAFA_BROWSER_BASE_URL=http://127.0.0.1:8000 node tests/browser/accessibility.mjs
 
   mysql-parity:
     name: MySQL 8 strict migrations and full tests
