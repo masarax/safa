@@ -66,7 +66,7 @@ jobs:
 
       - name: Upload debug APK
         continue-on-error: true
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: safa-debug-apk-${{ github.run_id }}
           retention-days: 30
@@ -109,7 +109,7 @@ jobs:
       - name: Upload release build and reports
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-quality-release-${{ github.run_id }}
           if-no-files-found: warn
@@ -213,7 +213,7 @@ jobs:
       - name: Upload instrumentation and release-smoke results
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-instrumentation-${{ github.run_id }}
           if-no-files-found: warn
