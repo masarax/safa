@@ -81,7 +81,7 @@ async function runLocale(locale) {
       const focusInside = await page.evaluate(() => document.getElementById('modal')?.contains(document.activeElement) === true);
       if (!focusInside) failures.push(`${locale}:customer-modal focus did not enter dialog`);
       await page.keyboard.press('Escape');
-      await page.locator('#modal.hidden').waitFor();
+      await page.locator('#modal').waitFor({ state: 'hidden' });
       const focusReturned = await trigger.evaluate(element => document.activeElement === element);
       if (!focusReturned) failures.push(`${locale}:customer-modal focus did not return to trigger ${triggerIdentity}`);
     }
