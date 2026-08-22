@@ -11,10 +11,11 @@ class SyncChangeObserver
 {
     public function saving(Model $model): void
     {
-        // SyncReconciliationService explicitly advances sync_version. Direct
-        // web/API CRUD does not, so advance it here only when the caller has
-        // not already supplied the next authoritative version.
-        if (!$model->isDirty('sync_version')) {
+        // Existing direct web/API updates do not advance sync_version, so do it
+        // here only for persisted rows. Fresh records intentionally remain at
+        // the established version 0 baseline unless the reconciliation service
+        // explicitly supplies version 1 for a mobile mutation.
+        if ($model->exists && !$model->isDirty('sync_version')) {
             $model->setAttribute('sync_version', (int) $model->getOriginal('sync_version') + 1);
         }
     }
