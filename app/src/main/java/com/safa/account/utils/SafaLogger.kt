@@ -1,6 +1,7 @@
 package com.safa.account.utils
 
 import android.util.Log
+import com.safa.account.telemetry.MobileTelemetryReporter
 
 /** Diagnostics must never alter application control flow or expose Throwable messages. */
 object SafaLogger {
@@ -14,6 +15,7 @@ object SafaLogger {
     fun error(tag: String, message: String, throwable: Throwable? = null) {
         val diagnostic = throwable?.let { " | ${safeThrowableSummary(it)}" }.orEmpty()
         runCatching { Log.e(TAG, "[$tag] $message$diagnostic") }
+        runCatching { MobileTelemetryReporter.recordNonfatal(tag, throwable) }
     }
 
     /**

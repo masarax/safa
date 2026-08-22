@@ -1,0 +1,45 @@
+name: Production Observability Synthetic
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safa-production-synthetic
+  cancel-in-progress: true
+
+jobs:
+  synthetic-business-flow:
+    name: Authenticate and persist synthetic business record
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout monitoring contract
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Run authentication and rollback persistence probe
+        env:
+          SAFA_BASE_URL: ${{ vars.SAFA_PRODUCTION_BASE_URL }}
+          SAFA_SYNTHETIC_MOBILE: ${{ secrets.SAFA_SYNTHETIC_MOBILE }}
+          SAFA_SYNTHETIC_PIN: ${{ secrets.SAFA_SYNTHETIC_PIN }}
+          SAFA_MOBILE_API_KEY: ${{ secrets.SAFA_MOBILE_API_KEY }}
+          SAFA_OPS_METRICS_KEY: ${{ secrets.SAFA_OPS_METRICS_KEY }}
+        run: scripts/synthetic-business-flow.sh
+
+      - name: Enforce database saturation alert threshold
+        env:
+          SAFA_BASE_URL: ${{ vars.SAFA_PRODUCTION_BASE_URL }}
+          SAFA_OPS_METRICS_KEY: ${{ secrets.SAFA_OPS_METRICS_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${SAFA_BASE_URL:-https://safa.masarax.com}"
+          metrics="$(curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "X-SAFA-OPS-KEY: $SAFA_OPS_METRICS_KEY" "${base%/}/api/ops/metrics")"
+          jq -e '.database.healthy == true' <<<"$metrics" >/dev/null
+          saturation="$(jq -r '.database.connection_saturation // 0' <<<"$metrics")"
+          awk -v value="$saturation" 'BEGIN { if (value >= 0.90) exit 1 }'

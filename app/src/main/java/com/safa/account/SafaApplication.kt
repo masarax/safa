@@ -4,11 +4,13 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import com.safa.account.data.sync.SyncWorkScheduler
+import com.safa.account.telemetry.MobileTelemetryReporter
 import com.safa.account.ui.security.SensitiveWindowPolicy
 
 class SafaApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        MobileTelemetryReporter.install(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
                 SensitiveWindowPolicy.apply(activity.window)
