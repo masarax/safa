@@ -9,13 +9,18 @@ use App\Models\WalletBatch;
 use App\Services\TransactionWalletAccounting;
 use App\Support\MoneyDecimal;
 use DomainException;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Throwable;
 
 class TransactionController extends Controller
 {
     use AuthorizeAccountContext;
+
+    private const DB_TRANSACTION_ATTEMPTS = 3;
 
     public function __construct(private readonly TransactionWalletAccounting $walletAccounting) {}
 
@@ -126,8 +131,7 @@ class TransactionController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if ($existing) $this->walletAccounting->restoreExisting($existing, $accountId);
-                $this->walletAccounting->debitNew($accountId, $batchId, $amountBdt, $status);
+                $this->walletAccounting->applyTransition($existing, $accountId, $batchId, $amountBdt, $status);
                 $values = $this->valuesForStore($request, $amountSar, $amountBdt, $batchId, $status);
 
                 if ($existing) {
@@ -140,13 +144,12 @@ class TransactionController extends Controller
                     'account_id' => $accountId,
                     'local_id' => $localId,
                 ], $values));
-            });
+            }, self::DB_TRANSACTION_ATTEMPTS);
             return response()->json(['status' => 'success', 'message' => 'Transaction saved successfully.', 'transaction' => $transaction, 'id' => (int) $transaction->id], 201);
         } catch (DomainException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
-        } catch (\Throwable $e) {
-            report($e);
-            return response()->json(['status' => 'error', 'message' => 'Unable to save transaction.'], 422);
+        } catch (Throwable $e) {
+            return $this->databaseMutationFailure($e, 'save');
         }
     }
 
@@ -177,8 +180,7 @@ class TransactionController extends Controller
                     ->lockForUpdate()
                     ->first();
                 if (!$transaction) throw new DomainException('Transaction not found.');
-
-                $this->walletAccounting->restoreExisting($transaction, $accountId);
+                $oldTransaction = clone $transaction;
 
                 foreach (['type','receiver_name','receiver_phone','receiver_account_type','receiver_account_no','notes','hash'] as $field) {
                     if ($request->has($field)) $transaction->{$field} = $request->input($field);
@@ -196,7 +198,8 @@ class TransactionController extends Controller
                 if ($request->has('timestamp')) $transaction->timestamp = $this->timestamp($request->input('timestamp'));
                 $transaction->deleted_at = null;
 
-                $this->walletAccounting->debitNew(
+                $this->walletAccounting->applyTransition(
+                    $oldTransaction,
                     $accountId,
                     $transaction->wallet_batch_id ? (int) $transaction->wallet_batch_id : null,
                     $transaction->amount_bdt,
@@ -204,13 +207,12 @@ class TransactionController extends Controller
                 );
                 $transaction->save();
                 return $transaction->fresh();
-            });
+            }, self::DB_TRANSACTION_ATTEMPTS);
             return response()->json(['status' => 'success', 'message' => 'Transaction updated successfully.', 'transaction' => $transaction]);
         } catch (DomainException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], $e->getMessage() === 'Transaction not found.' ? 404 : 422);
-        } catch (\Throwable $e) {
-            report($e);
-            return response()->json(['status' => 'error', 'message' => 'Unable to update transaction.'], 422);
+        } catch (Throwable $e) {
+            return $this->databaseMutationFailure($e, 'update');
         }
     }
 
@@ -229,14 +231,49 @@ class TransactionController extends Controller
                     ->lockForUpdate()
                     ->first();
                 if (!$transaction) throw new DomainException('Transaction not found.');
-                $this->walletAccounting->restoreExisting($transaction, $accountId);
+                $this->walletAccounting->applyTransition($transaction, $accountId, null, '0.00', 'Cancelled');
                 $transaction->delete();
                 return (int) $transaction->id;
-            });
+            }, self::DB_TRANSACTION_ATTEMPTS);
         } catch (DomainException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 404);
+        } catch (Throwable $e) {
+            return $this->databaseMutationFailure($e, 'delete');
         }
 
         return response()->json(['status' => 'success', 'message' => 'Transaction deleted successfully.', 'id' => $deletedId]);
+    }
+
+    private function databaseMutationFailure(Throwable $e, string $action): JsonResponse
+    {
+        report($e);
+        if ($this->isRetryableConcurrencyFailure($e)) {
+            return response()->json([
+                'status' => 'retryable_error',
+                'code' => 'DATABASE_CONCURRENCY',
+                'retryable' => true,
+                'message' => 'The transaction is temporarily busy. Retry the request.',
+            ], 503)->header('Retry-After', '1');
+        }
+
+        return response()->json(['status' => 'error', 'message' => "Unable to {$action} transaction."], 500);
+    }
+
+    private function isRetryableConcurrencyFailure(Throwable $e): bool
+    {
+        for ($current = $e; $current !== null; $current = $current->getPrevious()) {
+            if ($current instanceof QueryException) {
+                $sqlState = (string) ($current->errorInfo[0] ?? '');
+                $driverCode = (int) ($current->errorInfo[1] ?? 0);
+                if (in_array($sqlState, ['40001', '40P01'], true) || in_array($driverCode, [1205, 1213], true)) {
+                    return true;
+                }
+            }
+
+            $message = strtolower($current->getMessage());
+            if (str_contains($message, 'deadlock') || str_contains($message, 'lock wait timeout')) return true;
+        }
+
+        return false;
     }
 }
