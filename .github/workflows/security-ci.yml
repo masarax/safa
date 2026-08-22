@@ -1,0 +1,148 @@
+name: Supply Chain Security CI
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'backend/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'scripts/**'
+      - 'security/**'
+      - '.github/dependabot.yml'
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'backend/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'scripts/**'
+      - 'security/**'
+      - '.github/dependabot.yml'
+      - '.github/workflows/**'
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-security:
+    name: Composer advisories, PHP SAST and backend SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Verify immutable workflow action pins
+        run: bash scripts/check-workflow-action-pins.sh
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: '8.3'
+          extensions: tokenizer, json
+          coverage: none
+
+      - name: Validate security scanner sources
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/osv-scan.py scripts/generate-sbom.py
+          php -l scripts/php-security-scan.php
+
+      - name: Block vulnerable production Composer graph
+        working-directory: backend
+        env:
+          COMPOSER_AUDIT_ABANDONED: fail
+        run: composer audit --locked --no-dev --format=summary
+
+      - name: Run PHP security static analysis
+        run: php scripts/php-security-scan.php
+
+      - name: Generate production backend SBOM
+        run: |
+          set -euo pipefail
+          python3 scripts/generate-sbom.py \
+            --target backend \
+            --input backend/composer.lock \
+            --output build/security/safa-backend.cdx.json \
+            --commit "$GITHUB_SHA" \
+            --version "$GITHUB_SHA"
+
+      - name: Upload backend security evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-security-${{ github.run_id }}
+          retention-days: 30
+          if-no-files-found: error
+          path: build/security/safa-backend.cdx.json
+
+  android-security:
+    name: Resolved Android advisories, lint SAST and Android SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Verify immutable workflow action pins
+        run: bash scripts/check-workflow-action-pins.sh
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Resolve exact release graph and run Android security lint
+        run: ./gradlew --no-daemon --no-configuration-cache :app:safaResolvedReleaseDependencies lintRelease
+
+      - name: Scan resolved Maven graph against OSV
+        run: |
+          set -euo pipefail
+          python3 scripts/osv-scan.py \
+            --ecosystem Maven \
+            --dependencies app/build/reports/security/release-dependencies.txt \
+            --allowlist security/osv-allowlist.json
+
+      - name: Generate production Android SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^SAFA_VERSION_NAME=//p' gradle.properties | tail -n 1 | tr -d '[:space:]')"
+          test -n "$version"
+          python3 scripts/generate-sbom.py \
+            --target android \
+            --input app/build/reports/security/release-dependencies.txt \
+            --output build/security/safa-android.cdx.json \
+            --commit "$GITHUB_SHA" \
+            --version "$version"
+
+      - name: Upload Android security evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-security-${{ github.run_id }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            build/security/safa-android.cdx.json
+            app/build/reports/security/release-dependencies.txt
+            app/build/reports/lint-results-release.html
+            app/build/reports/lint-results-release.xml

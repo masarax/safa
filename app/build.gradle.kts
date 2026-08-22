@@ -87,5 +87,33 @@ dependencies {
   ksp(libs.moshi.kotlin.codegen)
 }
 
+// Resolve the exact release runtime graph into a machine-readable coordinate
+// list. Security CI consumes this list for OSV advisory scanning and SBOM
+// generation, so catalog text alone can never hide a transitive dependency.
+tasks.register("safaResolvedReleaseDependencies") {
+  group = "verification"
+  description = "Writes the resolved release runtime Maven dependency graph."
+  val outputFile = layout.buildDirectory.file("reports/security/release-dependencies.txt")
+  outputs.file(outputFile)
+  doLast {
+    val coordinates = configurations.getByName("releaseRuntimeClasspath")
+      .incoming.resolutionResult.allComponents
+      .mapNotNull { component ->
+        component.moduleVersion?.let { module ->
+          "${module.group}:${module.name}:${module.version}"
+        }
+      }
+      .distinct()
+      .sorted()
+    if (coordinates.isEmpty()) {
+      throw GradleException("Resolved release dependency graph is empty")
+    }
+    val destination = outputFile.get().asFile
+    destination.parentFile.mkdirs()
+    destination.writeText(coordinates.joinToString(separator = "\n", postfix = "\n"))
+    println("Wrote ${coordinates.size} resolved release dependencies to ${destination.path}")
+  }
+}
+
 // Release gate: CI validates unit tests, lint, minified release packaging and
 // emulator-backed instrumentation against the same property-driven identity.

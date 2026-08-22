@@ -7,6 +7,8 @@ on:
       - '.github/workflows/**'
       - 'scripts/check-workflow-action-pins.sh'
       - 'scripts/check-deploy-provenance.sh'
+      - 'scripts/php-security-scan.php'
+      - 'security/**'
   push:
     branches: [main]
     paths:
@@ -14,6 +16,8 @@ on:
       - '.github/workflows/**'
       - 'scripts/check-workflow-action-pins.sh'
       - 'scripts/check-deploy-provenance.sh'
+      - 'scripts/php-security-scan.php'
+      - 'security/**'
   workflow_dispatch:
 
 permissions:
@@ -59,6 +63,15 @@ jobs:
       - name: Install Composer dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Block vulnerable production Composer dependencies
+        working-directory: backend
+        env:
+          COMPOSER_AUDIT_ABANDONED: fail
+        run: composer audit --locked --no-dev --format=summary
+
+      - name: PHP security static analysis
+        run: php scripts/php-security-scan.php
 
       - name: PHP syntax check
         working-directory: backend
