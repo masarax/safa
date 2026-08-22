@@ -4,6 +4,8 @@ import android.content.Context
 import com.safa.account.data.api.ApiService
 import com.safa.account.data.api.RetrofitClient
 import com.safa.account.data.api.TokenManager
+import com.safa.account.data.api.dto.SyncChange
+import com.safa.account.data.api.dto.SyncDownResponse
 import com.safa.account.data.api.dto.SyncUpPayload
 import com.safa.account.data.local.LocalAccountBoundary
 import com.safa.account.data.local.LocalFirstStore
@@ -42,6 +44,10 @@ class AppRepository private constructor(
     constructor(a: Context, b: Context, c: Context, d: Context, e: Context, f: Context, g: Context, h: Context, i: Context, j: Context) : this(a)
 
     private companion object {
+        private const val SYNC_CURSOR_META = "sync_cursor"
+        private const val SYNC_PAGE_SIZE = 100
+        private const val MAX_SYNC_PAGES = 100_000
+
         fun remoteApi(context: Context): ApiService {
             val tm = TokenManager(context.applicationContext)
             val base = tm.getBaseUrl().let { if (it.endsWith("/")) it else "$it/" }
@@ -219,18 +225,130 @@ class AppRepository private constructor(
 
     suspend fun refreshAll(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val response = api.syncDown()
-            if (!response.isSuccessful || response.body() == null) error("Sync download failed: HTTP ${response.code()}")
+            val storedCursor = localSyncCursor()
+            val storedAccount = boundAccountId()
+            val (accountId, cursor) = if (storedCursor == null || storedAccount == null) {
+                bootstrapPages(storedAccount).also { (resolvedAccountId, snapshotCursor) ->
+                    saveLocalSyncCursor(snapshotCursor)
+                    if (storedAccount != null && storedAccount != resolvedAccountId) error("Bootstrap account context mismatch")
+                }
+            } else {
+                storedAccount to storedCursor
+            }
+
+            refreshDeltaPages(accountId, cursor)
+            publish()
+        }
+    }
+
+    private fun localSyncCursor(): Long? {
+        val store = localStore ?: return null
+        return store.readableDatabase.rawQuery(
+            "SELECT value FROM meta WHERE key=? LIMIT 1",
+            arrayOf(SYNC_CURSOR_META)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0).toLongOrNull()?.coerceAtLeast(0L) else null
+        }
+    }
+
+    private fun saveLocalSyncCursor(cursor: Long) {
+        localStore?.writableDatabase?.execSQL(
+            "INSERT OR REPLACE INTO meta(key,value) VALUES(?,?)",
+            arrayOf<Any>(SYNC_CURSOR_META, cursor.coerceAtLeast(0L).toString())
+        )
+    }
+
+    private fun clearLocalSyncCursor() {
+        localStore?.writableDatabase?.delete("meta", "key=?", arrayOf(SYNC_CURSOR_META))
+    }
+
+    private suspend fun bootstrapPages(expectedAccountId: Int?): Pair<Int, Long> {
+        var page = 1
+        var accountId = expectedAccountId
+        var snapshotCursor: Long? = null
+
+        while (page <= MAX_SYNC_PAGES) {
+            val response = api.syncDownPage(page, SYNC_PAGE_SIZE, snapshotCursor?.takeIf { it > 0L })
+            if (!response.isSuccessful || response.body() == null) error("Sync bootstrap failed: HTTP ${response.code()}")
+            val body = response.body()!!
+            val serverAccountId = body.accountId?.takeIf { it > 0 } ?: error("Sync bootstrap did not include an account context")
+            if (accountId != null && accountId != serverAccountId) error("Server account context mismatch")
+            accountId = serverAccountId
+            validateAndBindServerAccount(serverAccountId)
+
+            if (snapshotCursor == null) snapshotCursor = body.snapshotCursor.coerceAtLeast(0L)
+            mergeSyncPage(body)
+            publish()
+
+            if (!body.hasMore) return serverAccountId to (snapshotCursor ?: 0L)
+            page++
+        }
+
+        error("Sync bootstrap exceeded the maximum page count")
+    }
+
+    private suspend fun refreshDeltaPages(accountId: Int, startCursor: Long) {
+        var cursor = startCursor.coerceAtLeast(0L)
+        var pages = 0
+        var resetPerformed = false
+
+        while (pages++ < MAX_SYNC_PAGES) {
+            val response = api.syncChanges(cursor, SYNC_PAGE_SIZE)
+            if (!response.isSuccessful || response.body() == null) error("Incremental sync failed: HTTP ${response.code()}")
             val body = response.body()!!
             validateAndBindServerAccount(body.accountId)
-            mergeServerRows("customers", body.customers, ::customer, ::cp)
-            mergeServerRows("suppliers", body.suppliers, ::supplier, ::sp)
-            mergeServerRows("transactions", body.transactions, ::transaction, ::tp)
-            mergeServerRows("supplier_deposits", body.supplierDeposits, ::deposit, ::dp)
-            mergeServerRows("expenses_incomes", body.expensesIncomes, ::expense, ::ep)
-            mergeServerRows("wallet_ledgers", body.walletLedgers, ::ledger, ::lp)
-            mergeServerRows("wallet_batches", body.walletBatches, ::batch, ::bp)
+            if (body.accountId != accountId) error("Incremental sync account context mismatch")
+
+            if (body.resetRequired) {
+                if (resetPerformed) error("Incremental sync repeatedly requested a bootstrap reset")
+                clearLocalSyncCursor()
+                val (resetAccountId, snapshotCursor) = bootstrapPages(accountId)
+                if (resetAccountId != accountId) error("Bootstrap reset account context mismatch")
+                cursor = snapshotCursor
+                saveLocalSyncCursor(cursor)
+                resetPerformed = true
+                continue
+            }
+
+            mergeDeltaChanges(body.changes)
+            val nextCursor = body.nextCursor.coerceAtLeast(0L)
+            if (nextCursor < cursor) error("Incremental sync cursor moved backwards")
+            if (body.hasMore && nextCursor == cursor) error("Incremental sync cursor did not advance")
+
+            // The cursor is advanced only after all rows in the chunk have been
+            // durably merged. A crash before this write replays the chunk safely.
+            cursor = nextCursor
+            saveLocalSyncCursor(cursor)
             publish()
+
+            if (!body.hasMore) return
+        }
+
+        error("Incremental sync exceeded the maximum page count")
+    }
+
+    private fun mergeSyncPage(body: SyncDownResponse) {
+        mergeServerRows("customers", body.customers, ::customer, ::cp)
+        mergeServerRows("suppliers", body.suppliers, ::supplier, ::sp)
+        mergeServerRows("transactions", body.transactions, ::transaction, ::tp)
+        mergeServerRows("supplier_deposits", body.supplierDeposits, ::deposit, ::dp)
+        mergeServerRows("expenses_incomes", body.expensesIncomes, ::expense, ::ep)
+        mergeServerRows("wallet_ledgers", body.walletLedgers, ::ledger, ::lp)
+        mergeServerRows("wallet_batches", body.walletBatches, ::batch, ::bp)
+    }
+
+    private fun mergeDeltaChanges(changes: List<SyncChange>) {
+        changes.groupBy { it.entity }.forEach { (entity, entityChanges) ->
+            val rows = entityChanges.map { it.row }
+            when (entity) {
+                "customers" -> mergeServerRows(entity, rows, ::customer, ::cp)
+                "suppliers" -> mergeServerRows(entity, rows, ::supplier, ::sp)
+                "transactions" -> mergeServerRows(entity, rows, ::transaction, ::tp)
+                "supplier_deposits" -> mergeServerRows(entity, rows, ::deposit, ::dp)
+                "expenses_incomes" -> mergeServerRows(entity, rows, ::expense, ::ep)
+                "wallet_ledgers" -> mergeServerRows(entity, rows, ::ledger, ::lp)
+                "wallet_batches" -> mergeServerRows(entity, rows, ::batch, ::bp)
+            }
         }
     }
 
