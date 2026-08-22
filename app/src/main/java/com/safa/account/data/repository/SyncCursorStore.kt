@@ -10,9 +10,13 @@ internal class SyncCursorStore(context: Context) {
 
     fun read(accountId: Int): State {
         if (accountId <= 0) return State(0L, null)
+        val cursor = prefs.getLong(cursorKey(accountId), 0L).coerceAtLeast(0L)
         return State(
-            cursor = prefs.getLong(cursorKey(accountId), 0L).coerceAtLeast(0L),
-            permissionScope = prefs.getString(scopeKey(accountId), null)?.takeIf { it.isNotBlank() }
+            cursor = cursor,
+            // Cursor zero is a bootstrap position, not a durable permission
+            // checkpoint. Always learn the current server scope from the next
+            // cursor=0 response before advancing the checkpoint.
+            permissionScope = if (cursor == 0L) null else prefs.getString(scopeKey(accountId), null)?.takeIf { it.isNotBlank() }
         )
     }
 
