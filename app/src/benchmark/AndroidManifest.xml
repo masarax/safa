@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <!-- Macrobenchmark traces a release-like non-debuggable target. This
+             permission exists only in the benchmark variant. -->
+        <profileable android:shell="true" />
+
         <!-- Benchmark-only local shell. It renders production screens with
              synthetic local identity and is absent from debug/release APKs. -->
         <activity
