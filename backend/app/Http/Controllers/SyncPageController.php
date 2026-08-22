@@ -11,6 +11,7 @@ use App\Models\WalletBatch;
 use App\Models\WalletLedger;
 use App\Support\BusinessPermissions;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SyncPageController extends Controller
 {
@@ -23,6 +24,10 @@ class SyncPageController extends Controller
         $accountId = (int) $context['account_id'];
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(250, max(1, (int) $request->query('per_page', 100)));
+        $requestedSnapshotCursor = max(0, (int) $request->query('snapshot_cursor', 0));
+        $snapshotCursor = $requestedSnapshotCursor > 0
+            ? $requestedSnapshotCursor
+            : (int) (DB::table('sync_changes')->max('id') ?? 0);
         $user = $context['user'] ?? $request->user();
         $permissions = BusinessPermissions::effective($user, $accountId);
 
@@ -53,6 +58,10 @@ class SyncPageController extends Controller
                 continue;
             }
 
+            // Rows are ordered by immutable primary key and soft deletes remain in
+            // the result. Concurrent updates therefore cannot reorder a bootstrap.
+            // Writes after snapshot_cursor may appear in this baseline, but will be
+            // repeated by the delta journal and are reconciled by sync_version.
             $paginator = $model::withTrashed()
                 ->where('account_id', $accountId)
                 ->orderBy('id')
@@ -75,6 +84,7 @@ class SyncPageController extends Controller
             'page' => $page,
             'per_page' => $perPage,
             'has_more' => $hasMore,
+            'snapshot_cursor' => $snapshotCursor,
             'meta' => $meta,
             'permissions' => $permissions,
             'user_permissions' => $permissions,
