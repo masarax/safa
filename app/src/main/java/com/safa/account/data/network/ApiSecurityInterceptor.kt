@@ -170,20 +170,67 @@ class ApiSecurityInterceptor(
                 .use { response ->
                     if (!response.isSuccessful) return null
                     val json = JSONObject(response.body?.string().orEmpty())
-                    val access = json.optString("access_token").ifBlank {
-                        json.optJSONObject("tokens")?.optString("access_token").orEmpty()
-                    }
-                    if (access.isBlank()) return null
-                    val tokens = json.optJSONObject("tokens")
-                    tm.saveAccessToken(access)
-                    tokens?.optString("refresh_token")?.takeIf { it.isNotBlank() }?.let(tm::saveRefreshToken)
-                    tokens?.optString("session_token")?.takeIf { it.isNotBlank() }?.let(tm::saveSessionToken)
-                    tokens?.optString("device_token")?.takeIf { it.isNotBlank() }?.let(tm::saveDeviceToken)
-                    tokens?.optString("fingerprint_token")?.takeIf { it.isNotBlank() }?.let(tm::saveFingerprintToken)
-                    access
+                    persistRefreshGeneration(tm, token, json)
                 }
         } catch (_: Exception) {
             null
         }
     }
+}
+
+/**
+ * Validate a refresh response completely before mutating local credentials, then
+ * persist the resulting generation through TokenManager's single-edit path.
+ *
+ * A refresh response is allowed to omit unchanged session/device/fingerprint
+ * values. The old refresh token is used only as a fallback when the server does
+ * not rotate it. If another flow has already replaced that refresh token while
+ * the request was in flight, this stale response is discarded and the newer
+ * access token is returned instead.
+ */
+internal fun persistRefreshGeneration(
+    tokenManager: TokenManager,
+    expectedRefreshToken: String,
+    responseJson: JSONObject
+): String? {
+    val tokens = responseJson.optJSONObject("tokens") ?: responseJson
+    val accessToken = tokens.optString("access_token")
+        .ifBlank { responseJson.optString("access_token") }
+        .takeIf { it.isNotBlank() }
+        ?: return null
+
+    val rotatedRefreshToken = tokens.optString("refresh_token")
+        .ifBlank { responseJson.optString("refresh_token") }
+        .takeIf { it.isNotBlank() }
+    val sessionToken = tokens.optString("session_token")
+        .ifBlank { responseJson.optString("session_token") }
+        .takeIf { it.isNotBlank() }
+    val deviceToken = tokens.optString("device_token")
+        .ifBlank { responseJson.optString("device_token") }
+        .takeIf { it.isNotBlank() }
+    val fingerprintToken = tokens.optString("fingerprint_token")
+        .ifBlank { responseJson.optString("fingerprint_token") }
+        .takeIf { it.isNotBlank() }
+
+    synchronized(tokenManager) {
+        val currentRefreshToken = tokenManager.getRefreshToken()
+        if (currentRefreshToken != expectedRefreshToken) {
+            // Login, logout, or a newer refresh generation won the race while the
+            // network request was in flight. Never overwrite that newer state.
+            return tokenManager.getAccessToken()
+        }
+
+        val effectiveRefreshToken = rotatedRefreshToken ?: currentRefreshToken
+        if (effectiveRefreshToken.isNullOrBlank()) return null
+
+        tokenManager.saveAllTokens(
+            accessToken = accessToken,
+            refreshToken = effectiveRefreshToken,
+            deviceToken = deviceToken ?: tokenManager.getDeviceToken(),
+            sessionToken = sessionToken ?: tokenManager.getSessionToken(),
+            fingerprintToken = fingerprintToken ?: tokenManager.getFingerprintToken()
+        )
+    }
+
+    return accessToken
 }
