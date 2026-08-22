@@ -111,7 +111,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Resolve exact release graph and run Android security lint
-        run: ./gradlew --no-daemon :app:safaResolvedReleaseDependencies lintRelease
+        run: ./gradlew --no-daemon --no-configuration-cache :app:safaResolvedReleaseDependencies lintRelease
 
       - name: Scan resolved Maven graph against OSV
         run: |
