@@ -22,3 +22,10 @@ Artisan::command('audit:prune {--days= : Override configured retention days}', f
 Schedule::command('audit:prune')
     ->dailyAt('02:30')
     ->withoutOverlapping();
+
+// Keep enough tombstone/change history for long-offline devices. The command
+// records a per-account floor before deletion, forcing clients older than that
+// floor through a bounded bootstrap instead of allowing deleted rows to return.
+Schedule::command('safa:prune-sync-changes --days=90')
+    ->dailyAt('03:15')
+    ->withoutOverlapping();
