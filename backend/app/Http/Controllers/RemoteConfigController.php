@@ -17,30 +17,27 @@ class RemoteConfigController extends Controller
 
     private function settingForAccount(int $accountId): SystemSetting
     {
-        $existing = SystemSetting::query()
-            ->where('account_id', $accountId)
-            ->orderBy('id')
-            ->first();
-        if ($existing) return $existing;
-
         // Preserve legacy/global branding as the seed for an account's first
-        // scoped settings row, then keep all future writes tenant-isolated.
+        // scoped settings row. firstOrCreate delegates the race to the database
+        // unique constraint and, on a concurrent insert, re-reads the winner.
         $fallback = SystemSetting::query()
             ->whereNull('account_id')
             ->orderBy('id')
             ->first();
 
-        return SystemSetting::create([
-            'account_id' => $accountId,
-            'app_name' => $fallback?->app_name ?: 'SAFA',
-            'app_logo_url' => $fallback?->app_logo_url ?: '/safa-logo.png',
-            'app_version' => $fallback?->app_version ?: '1.0.0',
-            'local_currency' => $fallback?->local_currency ?: 'BDT',
-            'foreign_currency' => $fallback?->foreign_currency ?: 'SAR',
-            'rate_based_mode' => $fallback?->rate_based_mode ?? true,
-            'supplier_rate_enabled' => $fallback?->supplier_rate_enabled ?? true,
-            'wallet_rate_enabled' => $fallback?->wallet_rate_enabled ?? true,
-        ]);
+        return SystemSetting::query()->firstOrCreate(
+            ['account_id' => $accountId],
+            [
+                'app_name' => $fallback?->app_name ?: 'SAFA',
+                'app_logo_url' => $fallback?->app_logo_url ?: '/safa-logo.png',
+                'app_version' => $fallback?->app_version ?: '1.0.0',
+                'local_currency' => $fallback?->local_currency ?: 'BDT',
+                'foreign_currency' => $fallback?->foreign_currency ?: 'SAR',
+                'rate_based_mode' => $fallback?->rate_based_mode ?? true,
+                'supplier_rate_enabled' => $fallback?->supplier_rate_enabled ?? true,
+                'wallet_rate_enabled' => $fallback?->wallet_rate_enabled ?? true,
+            ]
+        );
     }
 
     /** @return array{user?: mixed, account_id?: int, setting?: SystemSetting, error?: mixed} */
