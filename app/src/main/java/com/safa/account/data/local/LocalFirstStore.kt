@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Base64
 import com.safa.account.data.network.DeviceSecurityHelper
+import com.safa.account.utils.SafaLogger
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import java.security.MessageDigest
@@ -28,6 +29,26 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
         const val OUTBOX_PENDING = "PENDING"
         const val OUTBOX_PROCESSING = "PROCESSING"
         const val OUTBOX_FAILED = "FAILED"
+
+        private val REQUIRED_COLUMNS = mapOf(
+            "records" to setOf(
+                "entity", "local_id", "server_id", "payload", "sync_status", "sync_version",
+                "last_mutation_id", "retry_count", "last_error", "updated_at"
+            ),
+            "outbox" to setOf(
+                "id", "entity", "local_id", "server_id", "operation", "payload", "status",
+                "retry_count", "next_attempt_at", "last_error", "created_at", "updated_at",
+                "deferred_operation", "deferred_payload"
+            ),
+            "server_versions" to setOf("entity", "local_id", "server_id", "sync_version", "updated_at"),
+            "meta" to setOf("key", "value")
+        )
+
+        private val REQUIRED_INDEXES = mapOf(
+            "records" to setOf("idx_records_sync", "idx_records_server"),
+            "outbox" to setOf("idx_outbox_ready", "idx_outbox_processing"),
+            "server_versions" to setOf("idx_server_versions_server")
+        )
     }
 
     private val appContext = context.applicationContext
@@ -48,22 +69,85 @@ class LocalFirstStore(context: Context) : SQLiteOpenHelper(context.applicationCo
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 2) {
-            try { db.execSQL("ALTER TABLE outbox ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) { }
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_outbox_ready ON outbox(status, next_attempt_at, id)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_records_server ON records(entity, server_id)")
+        try {
+            if (oldVersion < 2) {
+                addColumnIfMissing(db, "outbox", "next_attempt_at", "next_attempt_at INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_outbox_ready ON outbox(status, next_attempt_at, id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_records_server ON records(entity, server_id)")
+            }
+            if (oldVersion < 3) db.execSQL("CREATE INDEX IF NOT EXISTS idx_outbox_processing ON outbox(status, updated_at)")
+            if (oldVersion < 4) db.execSQL("CREATE INDEX IF NOT EXISTS idx_records_entity_local ON records(entity, local_id)")
+            if (oldVersion < 5) {
+                addColumnIfMissing(db, "outbox", "deferred_operation", "deferred_operation TEXT")
+                addColumnIfMissing(db, "outbox", "deferred_payload", "deferred_payload BLOB")
+            }
+            if (oldVersion < 6) {
+                addColumnIfMissing(db, "records", "sync_version", "sync_version INTEGER NOT NULL DEFAULT 0")
+                addColumnIfMissing(db, "records", "last_mutation_id", "last_mutation_id TEXT")
+                db.execSQL("CREATE TABLE IF NOT EXISTS server_versions (entity TEXT NOT NULL, local_id INTEGER NOT NULL, server_id INTEGER NOT NULL DEFAULT 0, sync_version INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY(entity, local_id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_server_versions_server ON server_versions(entity, server_id)")
+            }
+            verifySchema(db)
+        } catch (t: Throwable) {
+            SafaLogger.error("LOCAL_DB_MIGRATION_FAILED", "Local database schema upgrade failed", t)
+            throw t
         }
-        if (oldVersion < 3) db.execSQL("CREATE INDEX IF NOT EXISTS idx_outbox_processing ON outbox(status, updated_at)")
-        if (oldVersion < 4) db.execSQL("CREATE INDEX IF NOT EXISTS idx_records_entity_local ON records(entity, local_id)")
-        if (oldVersion < 5) {
-            try { db.execSQL("ALTER TABLE outbox ADD COLUMN deferred_operation TEXT") } catch (_: Exception) { }
-            try { db.execSQL("ALTER TABLE outbox ADD COLUMN deferred_payload BLOB") } catch (_: Exception) { }
+    }
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        try {
+            verifySchema(db)
+        } catch (t: Throwable) {
+            SafaLogger.error("LOCAL_DB_SCHEMA_INVALID", "Local database schema verification failed", t)
+            throw t
         }
-        if (oldVersion < 6) {
-            try { db.execSQL("ALTER TABLE records ADD COLUMN sync_version INTEGER NOT NULL DEFAULT 0") } catch (_: Exception) { }
-            try { db.execSQL("ALTER TABLE records ADD COLUMN last_mutation_id TEXT") } catch (_: Exception) { }
-            db.execSQL("CREATE TABLE IF NOT EXISTS server_versions (entity TEXT NOT NULL, local_id INTEGER NOT NULL, server_id INTEGER NOT NULL DEFAULT 0, sync_version INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY(entity, local_id))")
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_server_versions_server ON server_versions(entity, server_id)")
+    }
+
+    private fun addColumnIfMissing(db: SQLiteDatabase, table: String, column: String, definition: String) {
+        if (!hasColumn(db, table, column)) db.execSQL("ALTER TABLE $table ADD COLUMN $definition")
+    }
+
+    private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean =
+        db.rawQuery("PRAGMA table_info($table)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            var found = false
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == column) {
+                    found = true
+                    break
+                }
+            }
+            found
+        }
+
+    private fun hasTable(db: SQLiteDatabase, table: String): Boolean =
+        db.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1", arrayOf(table)).use { it.moveToFirst() }
+
+    private fun hasIndex(db: SQLiteDatabase, table: String, index: String): Boolean =
+        db.rawQuery("PRAGMA index_list($table)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            var found = false
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == index) {
+                    found = true
+                    break
+                }
+            }
+            found
+        }
+
+    private fun verifySchema(db: SQLiteDatabase) {
+        REQUIRED_COLUMNS.forEach { (table, columns) ->
+            check(hasTable(db, table)) { "Required local table is missing: $table" }
+            columns.forEach { column ->
+                check(hasColumn(db, table, column)) { "Required local column is missing: $table.$column" }
+            }
+        }
+        REQUIRED_INDEXES.forEach { (table, indexes) ->
+            indexes.forEach { index ->
+                check(hasIndex(db, table, index)) { "Required local index is missing: $index" }
+            }
         }
     }
 
